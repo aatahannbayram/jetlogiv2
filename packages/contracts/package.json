@@ -1,0 +1,29 @@
+{
+  "name": "@dijigoo/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./openapi.json": "./openapi.json"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "openapi": "tsx scripts/generate-openapi.ts",
+    "dart-client": "bash scripts/generate-dart-client.sh",
+    "test": "node --test --import tsx test/*.test.ts"
+  },
+  "dependencies": {
+    "@asteasolutions/zod-to-openapi": "^7.1.1",
+    "openapi3-ts": "^4.6.1",
+    "yaml": "^2.5.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "tsx": "^4.16.2",
+    "typescript": "^5.5.4"
+  }
+}

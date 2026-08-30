@@ -1,0 +1,415 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schema.dijigoo.example/workflow-definition/v1.json",
+  "title": "WorkflowDefinition",
+  "description": "Panelde tanimlanan, mobil uygulamada calistirilan dinamik islem sihirbazi. Yayinlanmis bir surum degismezdir.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "key", "version", "name", "status", "appliesTo", "steps", "outcomes", "minAppBuild", "createdAt", "updatedAt"],
+  "properties": {
+    "id": { "type": "string", "format": "uuid" },
+    "key": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{2,59}$",
+      "description": "Bu workflow'un tum surumlerinde ayni kalan kalici anahtar.",
+      "examples": ["standart_teslimat", "evrak_toplama"]
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Her yayinda bir artar. Asla sifirlanmaz, asla yeniden kullanilmaz."
+    },
+    "name": { "type": "string", "minLength": 1, "maxLength": 160 },
+    "description": { "type": ["string", "null"], "maxLength": 2000 },
+    "status": { "enum": ["draft", "published", "archived"] },
+    "appliesTo": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "enum": ["DELIVERY", "PICKUP", "RETURN", "SERVICE", "DOCUMENT"] }
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 60,
+      "items": { "$ref": "#/$defs/WorkflowStep" }
+    },
+    "outcomes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 30,
+      "items": { "$ref": "#/$defs/WorkflowOutcome" }
+    },
+    "minAppBuild": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Bu tanimi calistirabilecek en dusuk uygulama build numarasi. Sunucu daha eski istemciye tanimi vermez, guncelleme ister."
+    },
+    "publishedAt": { "type": ["string", "null"], "format": "date-time" },
+    "publishedBy": { "type": ["string", "null"], "format": "uuid" },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "updatedAt": { "type": "string", "format": "date-time" }
+  },
+
+  "$defs": {
+    "Condition": {
+      "title": "Condition",
+      "description": "Ozyinelemeli kosul agaci. Mobil tarafta cevrimdisi ve deterministik degerlendirilebilmesi icin genel amacli bir ifade dili degil, kapali bir karsilastirma kumesidir.",
+      "oneOf": [
+        { "$ref": "#/$defs/ConditionLeaf" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["all"],
+          "properties": {
+            "all": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/Condition" } }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["any"],
+          "properties": {
+            "any": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/Condition" } }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["not"],
+          "properties": { "not": { "$ref": "#/$defs/Condition" } }
+        }
+      ]
+    },
+
+    "ConditionLeaf": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "op"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Gorev cevap torbasina noktali yol.",
+          "examples": ["steps.alici_kontrol.value", "task.attributes.paymentType"]
+        },
+        "op": {
+          "enum": ["eq", "neq", "in", "notIn", "gt", "gte", "lt", "lte", "isTrue", "isFalse", "isEmpty", "isNotEmpty"]
+        },
+        "value": {
+          "description": "isTrue, isFalse, isEmpty ve isNotEmpty disindaki operatorlerde zorunlu.",
+          "type": ["string", "number", "boolean", "array", "null"],
+          "items": { "type": ["string", "number"] }
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "op": { "enum": ["in", "notIn"] } }, "required": ["op"] },
+          "then": { "properties": { "value": { "type": "array", "minItems": 1 } }, "required": ["value"] }
+        },
+        {
+          "if": {
+            "properties": { "op": { "enum": ["eq", "neq", "gt", "gte", "lt", "lte"] } },
+            "required": ["op"]
+          },
+          "then": { "required": ["value"] }
+        }
+      ]
+    },
+
+    "StepBase": {
+      "type": "object",
+      "required": ["key", "type", "title", "config"],
+      "properties": {
+        "key": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,59}$",
+          "description": "Cevaplar bu anahtarla saklanir. Surumler arasinda anlami degistirilemez, silinen bir anahtar yeniden kullanilamaz."
+        },
+        "title": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "hint": { "type": ["string", "null"], "maxLength": 600 },
+        "required": { "type": "boolean", "default": true },
+        "visibleWhen": { "$ref": "#/$defs/Condition" },
+        "skipReasons": {
+          "type": ["array", "null"],
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["code", "label"],
+            "properties": {
+              "code": { "type": "string", "maxLength": 60 },
+              "label": { "type": "string", "maxLength": 160 }
+            }
+          }
+        }
+      }
+    },
+
+    "WorkflowStep": {
+      "title": "WorkflowStep",
+      "allOf": [{ "$ref": "#/$defs/StepBase" }],
+      "unevaluatedProperties": false,
+      "oneOf": [
+        {
+          "properties": {
+            "type": { "const": "INSTRUCTION" },
+            "config": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["body"],
+              "properties": {
+                "body": { "type": "string", "minLength": 1, "maxLength": 4000 },
+                "mediaUrl": { "type": ["string", "null"], "format": "uri" },
+                "requireAcknowledge": { "type": "boolean", "default": false }
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "type": { "const": "GEOFENCE_CHECK" },
+            "config": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "radiusMeters": { "type": "integer", "minimum": 20, "maximum": 2000, "default": 150 },
+                "maxAccuracyMeters": { "type": "integer", "minimum": 10, "maximum": 500, "default": 100 },
+                "allowOverrideWithReason": {
+                  "type": "boolean",
+                  "default": true,
+                  "description": "Yogun sehir dokusunda GPS hatasi rutin olarak 300 metreyi bulur; kapatilmasi kuryeyi sahada kilitler."
+                },
+                "waitForFixSeconds": { "type": "integer", "minimum": 0, "maximum": 120, "default": 20 }
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "type": { "const": "BARCODE_SCAN" },
+            "config": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["formats"],
+              "properties": {
+                "formats": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": { "enum": ["qr", "code128", "code39", "ean13", "pdf417", "datamatrix"] }
+                },
+                "mustMatchPath": { "type": ["string", "null"], "maxLength": 200 },
+                "allowManualEntry": { "type": "boolean", "default": true }
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "type": { "const": "PHOTO_EVIDENCE" },
+            "config": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "minCount": { "type": "integer", "minimum": 1, "maximum": 10, "default": 1 },
+                "maxCount": { "type": "integer", "minimum": 1, "maximum": 10, "default": 3 },
+                "overlay": { "enum": ["none", "document", "parcel", "doorstep", "plate"], "default": "none" },
+                "allowGallery": { "type": "boolean", "default": false },
+                "requireGeoTag": { "type": "boolean", "default": true },
+                "maxLongEdgePx": { "type": "integer", "minimum": 640, "maximum": 4096, "default": 1920 },
+                "jpegQuality": { "type": "integer", "minimum": 40, "maximum": 100, "default": 80 }
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "type": { "const": "DOCUMENT_SCAN" },
+            "config": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["documentType"],
+              "properties": {
+                "documentType": { "type": "string", "maxLength": 60 },
+                "minPages": { "type": "integer", "minimum": 1, "maximum": 30, "default": 1 },
+                "maxPages": { "type": "integer", "minimum": 1, "maximum": 30, "default": 10 },
+                "output": { "enum": ["pdf", "images"], "default": "pdf" },
+                "autoCrop": { "type": "boolean", "default": true }
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "type": { "const": "FORM" },
+            "config": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["fields"],
+              "properties": {
+                "fields": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 40,
+                  "items": { "$ref": "#/$defs/FormField" }
+                }
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "type": { "const": "CHECKLIST" },
+            "config": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["items"],
+              "properties": {
+                "items": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 30,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["key", "label"],
+                    "properties": {
+                      "key": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,49}$" },
+                      "label": { "type": "string", "minLength": 1, "maxLength": 200 },
+                      "required": { "type": "boolean", "default": true }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "type": { "const": "OTP_VERIFY" },
+            "config": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "target": { "enum": ["recipient", "sender", "custom"], "default": "recipient" },
+                "channel": { "enum": ["sms", "ivr", "sms_then_ivr"], "default": "sms" },
+                "codeLength": { "type": "integer", "minimum": 4, "maximum": 8, "default": 6 },
+                "ttlSeconds": { "type": "integer", "minimum": 60, "maximum": 900, "default": 300 },
+                "maxAttempts": { "type": "integer", "minimum": 1, "maximum": 10, "default": 5 },
+                "allowManualOverride": {
+                  "type": "boolean",
+                  "default": false,
+                  "description": "Alicinin ulasilabilir telefonu yoksa kullanilir. Neden kodu zorunludur ve panelde denetim icin isaretlenir."
+                }
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "type": { "const": "SIGNATURE" },
+            "config": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "signerRole": { "enum": ["recipient", "courier", "witness"], "default": "recipient" },
+                "requireSignerName": { "type": "boolean", "default": true },
+                "requireSignerIdLast4": { "type": "boolean", "default": false },
+                "disclaimerText": { "type": ["string", "null"], "maxLength": 2000 }
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "type": { "const": "CASH_COLLECT" },
+            "config": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["methods"],
+              "properties": {
+                "currency": { "const": "TRY", "default": "TRY" },
+                "expectedAmountPath": { "type": ["string", "null"], "maxLength": 200 },
+                "allowPartial": { "type": "boolean", "default": false },
+                "methods": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": { "enum": ["cash", "card_on_delivery", "prepaid"] }
+                }
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "type": { "const": "IDENTITY_CAPTURE" },
+            "config": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "provider": { "const": "sodec", "default": "sodec" },
+                "captureNfc": { "type": "boolean", "default": true },
+                "captureSelfie": { "type": "boolean", "default": true },
+                "allowManualIdCapture": { "type": "boolean", "default": true }
+              }
+            }
+          }
+        }
+      ]
+    },
+
+    "FormField": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "label", "type"],
+      "properties": {
+        "key": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,49}$" },
+        "label": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "type": { "enum": ["text", "number", "select", "multiselect", "boolean", "date", "phone"] },
+        "required": { "type": "boolean", "default": false },
+        "options": {
+          "type": ["array", "null"],
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["value", "label"],
+            "properties": {
+              "value": { "type": "string", "maxLength": 80 },
+              "label": { "type": "string", "maxLength": 160 }
+            }
+          }
+        },
+        "min": { "type": ["number", "null"] },
+        "max": { "type": ["number", "null"] },
+        "pattern": { "type": ["string", "null"], "maxLength": 200 },
+        "placeholder": { "type": ["string", "null"], "maxLength": 160 },
+        "visibleWhen": { "$ref": "#/$defs/Condition" }
+      },
+      "if": { "properties": { "type": { "enum": ["select", "multiselect"] } }, "required": ["type"] },
+      "then": { "required": ["options"], "properties": { "options": { "type": "array", "minItems": 1 } } }
+    },
+
+    "WorkflowOutcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "label", "kind"],
+      "properties": {
+        "code": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{1,49}$", "examples": ["DELIVERED", "RECIPIENT_ABSENT"] },
+        "label": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "kind": {
+          "enum": ["success", "failure", "deferred"],
+          "description": "Teslim edilemedi bir hata degil, kendi kanit gereksinimi olan birinci sinif sonuctur."
+        },
+        "steps": { "type": "array", "default": [], "items": { "$ref": "#/$defs/WorkflowStep" } },
+        "reschedule": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "properties": {
+            "allowed": { "type": "boolean", "default": false },
+            "maxAttempts": { "type": "integer", "minimum": 1, "maximum": 10, "default": 3 }
+          }
+        }
+      }
+    }
+  }
+}

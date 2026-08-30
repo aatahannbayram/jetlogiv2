@@ -1,0 +1,252 @@
+{
+  "id": "1f0a2c44-9b7e-4a1d-8c22-6f5b3d9e7a10",
+  "key": "standart_teslimat",
+  "version": 3,
+  "name": "Standart Teslimat",
+  "description": "Adrese teslim: varış kontrolü, barkod, OTP, imza ve kanıt fotoğrafı.",
+  "status": "published",
+  "appliesTo": ["DELIVERY"],
+  "minAppBuild": 42,
+  "publishedAt": "2026-08-18T07:30:00.000Z",
+  "publishedBy": "b3c1d2e4-5f6a-4b7c-8d9e-0a1b2c3d4e5f",
+  "createdAt": "2026-08-17T12:00:00.000Z",
+  "updatedAt": "2026-08-18T07:30:00.000Z",
+
+  "steps": [
+    {
+      "key": "varis_kontrolu",
+      "type": "GEOFENCE_CHECK",
+      "title": "Adrese vardığınızı doğrulayın",
+      "hint": "Konum alınamıyorsa nedeni seçerek devam edebilirsiniz.",
+      "required": true,
+      "config": {
+        "radiusMeters": 200,
+        "maxAccuracyMeters": 120,
+        "allowOverrideWithReason": true,
+        "waitForFixSeconds": 20
+      },
+      "skipReasons": [
+        { "code": "GPS_UNAVAILABLE", "label": "Konum alınamıyor" },
+        { "code": "INDOOR_DELIVERY", "label": "Kapalı alan / AVM teslimatı" }
+      ]
+    },
+    {
+      "key": "barkod_okut",
+      "type": "BARCODE_SCAN",
+      "title": "Gönderi barkodunu okutun",
+      "required": true,
+      "config": {
+        "formats": ["code128", "qr"],
+        "mustMatchPath": "task.attributes.barcode",
+        "allowManualEntry": true
+      }
+    },
+    {
+      "key": "alici_kim",
+      "type": "FORM",
+      "title": "Teslim alan kişi",
+      "required": true,
+      "config": {
+        "fields": [
+          {
+            "key": "teslim_alan",
+            "label": "Teslim alan",
+            "type": "select",
+            "required": true,
+            "options": [
+              { "value": "recipient", "label": "Alıcının kendisi" },
+              { "value": "relative", "label": "Aile bireyi" },
+              { "value": "neighbor", "label": "Komşu" },
+              { "value": "workplace", "label": "İş yeri / resepsiyon" }
+            ]
+          },
+          {
+            "key": "teslim_alan_ad",
+            "label": "Ad soyad",
+            "type": "text",
+            "required": true
+          },
+          {
+            "key": "yakinlik",
+            "label": "Alıcıya yakınlığı",
+            "type": "text",
+            "required": true,
+            "visibleWhen": {
+              "any": [
+                { "path": "steps.alici_kim.value.teslim_alan", "op": "eq", "value": "relative" },
+                { "path": "steps.alici_kim.value.teslim_alan", "op": "eq", "value": "neighbor" }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "key": "otp_dogrula",
+      "type": "OTP_VERIFY",
+      "title": "Alıcıya gelen kodu girin",
+      "hint": "Kod alıcının telefonuna SMS ile gönderilir.",
+      "required": true,
+      "visibleWhen": {
+        "all": [
+          { "path": "steps.alici_kim.value.teslim_alan", "op": "eq", "value": "recipient" },
+          { "path": "task.attributes.otpRequired", "op": "isTrue" }
+        ]
+      },
+      "config": {
+        "target": "recipient",
+        "channel": "sms_then_ivr",
+        "codeLength": 6,
+        "ttlSeconds": 300,
+        "maxAttempts": 5,
+        "allowManualOverride": true
+      }
+    },
+    {
+      "key": "tahsilat",
+      "type": "CASH_COLLECT",
+      "title": "Kapıda ödeme tahsilatı",
+      "required": true,
+      "visibleWhen": { "path": "task.attributes.codAmount", "op": "gt", "value": 0 },
+      "config": {
+        "currency": "TRY",
+        "expectedAmountPath": "task.attributes.codAmount",
+        "allowPartial": false,
+        "methods": ["cash", "card_on_delivery"]
+      }
+    },
+    {
+      "key": "alici_imza",
+      "type": "SIGNATURE",
+      "title": "Teslim imzası",
+      "required": true,
+      "config": {
+        "signerRole": "recipient",
+        "requireSignerName": true,
+        "requireSignerIdLast4": false,
+        "disclaimerText": "Gönderiyi eksiksiz ve hasarsız teslim aldığımı beyan ederim."
+      }
+    },
+    {
+      "key": "teslim_fotografi",
+      "type": "PHOTO_EVIDENCE",
+      "title": "Teslim kanıtı fotoğrafı",
+      "required": true,
+      "config": {
+        "minCount": 1,
+        "maxCount": 3,
+        "overlay": "doorstep",
+        "allowGallery": false,
+        "requireGeoTag": true,
+        "maxLongEdgePx": 1920,
+        "jpegQuality": 80
+      }
+    }
+  ],
+
+  "outcomes": [
+    {
+      "code": "DELIVERED",
+      "label": "Teslim edildi",
+      "kind": "success",
+      "steps": []
+    },
+    {
+      "code": "RECIPIENT_ABSENT",
+      "label": "Alıcı adreste yok",
+      "kind": "failure",
+      "reschedule": { "allowed": true, "maxAttempts": 3 },
+      "steps": [
+        {
+          "key": "yok_kanit_fotografi",
+          "type": "PHOTO_EVIDENCE",
+          "title": "Kapalı kapı / adres fotoğrafı",
+          "required": true,
+          "config": { "minCount": 1, "maxCount": 2, "overlay": "doorstep", "requireGeoTag": true }
+        },
+        {
+          "key": "yok_notu",
+          "type": "FORM",
+          "title": "Açıklama",
+          "required": true,
+          "config": {
+            "fields": [
+              { "key": "aciklama", "label": "Ne oldu?", "type": "text", "required": true },
+              { "key": "kapi_notu_birakildi", "label": "Kapıya not bırakıldı", "type": "boolean", "required": false }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "code": "ADDRESS_NOT_FOUND",
+      "label": "Adres bulunamadı",
+      "kind": "failure",
+      "reschedule": { "allowed": true, "maxAttempts": 2 },
+      "steps": [
+        {
+          "key": "adres_kanit_fotografi",
+          "type": "PHOTO_EVIDENCE",
+          "title": "Bulunduğunuz noktanın fotoğrafı",
+          "required": true,
+          "config": { "minCount": 1, "maxCount": 2, "requireGeoTag": true }
+        }
+      ]
+    },
+    {
+      "code": "REFUSED",
+      "label": "Alıcı teslim almadı",
+      "kind": "failure",
+      "reschedule": { "allowed": false, "maxAttempts": 1 },
+      "steps": [
+        {
+          "key": "ret_nedeni",
+          "type": "FORM",
+          "title": "Ret nedeni",
+          "required": true,
+          "config": {
+            "fields": [
+              {
+                "key": "neden",
+                "label": "Neden",
+                "type": "select",
+                "required": true,
+                "options": [
+                  { "value": "damaged", "label": "Hasarlı" },
+                  { "value": "wrong_item", "label": "Yanlış ürün" },
+                  { "value": "cancelled", "label": "Sipariş iptal edildi" },
+                  { "value": "price", "label": "Ödemeyi kabul etmedi" },
+                  { "value": "other", "label": "Diğer" }
+                ]
+              },
+              {
+                "key": "aciklama",
+                "label": "Açıklama",
+                "type": "text",
+                "required": true,
+                "visibleWhen": { "path": "steps.ret_nedeni.value.neden", "op": "eq", "value": "other" }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "code": "POSTPONED",
+      "label": "Alıcı erteledi",
+      "kind": "deferred",
+      "reschedule": { "allowed": true, "maxAttempts": 3 },
+      "steps": [
+        {
+          "key": "erteleme",
+          "type": "FORM",
+          "title": "Yeni teslim tarihi",
+          "required": true,
+          "config": {
+            "fields": [{ "key": "yeni_tarih", "label": "Tarih", "type": "date", "required": true }]
+          }
+        }
+      ]
+    }
+  ]
+}

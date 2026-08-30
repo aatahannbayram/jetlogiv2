@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dijigoo Kurye Mobil — Master Plan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+<style>
+:root{
+  --ground:#F4F6F5; --surface:#FFFFFF; --ink:#12191A; --ink-2:#3C4A4B; --ink-3:#6C7B7A;
+  --rule:#D2DAD8; --accent:#0C6E68; --accent-soft:#DCEBE9;
+  --hi:#A8362C; --hi-bg:#F8E5E2; --mid:#8E5F06; --mid-bg:#F8EFD9; --lo:#2A6B48; --lo-bg:#E0EFE6;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#0E1213;color:var(--ink)}
+body{font-family:"Source Serif 4",Georgia,serif;overflow:hidden}
+.deck{height:100%;display:flex;flex-direction:column}
+.stage{
+  flex:1;display:flex;align-items:center;justify-content:center;padding:28px 28px 56px;
+}
+.slide{
+  display:none;width:min(1280px,100%);aspect-ratio:16/9;background:var(--ground);
+  border-radius:10px;padding:48px 56px 40px;position:relative;overflow:hidden;
+}
+.slide.on{display:flex;flex-direction:column}
+.slide h1{font-family:Archivo,sans-serif;font-size:clamp(28px,3.4vw,44px);line-height:1.08;letter-spacing:-.022em;margin:0 0 16px;text-wrap:balance}
+.slide h2{font-family:Archivo,sans-serif;font-size:clamp(22px,2.4vw,32px);line-height:1.12;letter-spacing:-.016em;margin:0 0 18px}
+.slide p,.slide li{font-size:clamp(16px,1.35vw,20px);line-height:1.45;color:var(--ink-2);margin:0 0 10px}
+.slide ul{margin:0;padding:0 0 0 22px}
+.eyebrow{font-family:"IBM Plex Mono",monospace;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);margin-bottom:18px}
+.who{position:absolute;top:22px;right:56px;font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+.grid{display:grid;gap:14px;flex:1;min-height:0}
+.g2{grid-template-columns:1fr 1fr}
+.g3{grid-template-columns:1fr 1fr 1fr}
+.card{background:var(--surface);border:1px solid var(--rule);border-radius:8px;padding:18px 20px}
+.card h3{font-family:Archivo,sans-serif;font-size:15px;margin:0 0 8px}
+.card p,.card li{font-size:15px;margin:0}
+.tag{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);display:block;margin-bottom:8px}
+.pill{font-family:"IBM Plex Mono",monospace;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:3px}
+.p-hi{background:var(--hi-bg);color:var(--hi)}
+.p-mid{background:var(--mid-bg);color:var(--mid)}
+.p-lo{background:var(--lo-bg);color:var(--lo)}
+.big{font-family:Archivo,sans-serif;font-size:clamp(26px,3vw,40px);font-weight:700;letter-spacing:-.02em;color:var(--ink);line-height:1.1}
+code{font-family:"IBM Plex Mono",monospace;font-size:.86em;background:#EBEFEE;padding:.08em .35em;border-radius:3px}
+table{width:100%;border-collapse:collapse;font-family:Archivo,sans-serif;font-size:14.5px;background:var(--surface);border:1px solid var(--rule);border-radius:8px;overflow:hidden}
+th{text-align:left;font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);font-weight:500;padding:10px 14px;background:#EBEFEE;border-bottom:1px solid var(--rule)}
+td{padding:10px 14px;border-bottom:1px solid var(--rule);color:var(--ink-2);vertical-align:top}
+td:first-child{color:var(--ink);font-weight:600}
+tr:last-child td{border-bottom:0}
+.bar{position:absolute;left:0;right:0;bottom:0;height:6px;background:#E1E7E5}
+.bar>i{display:block;height:100%;background:var(--accent);width:0}
+.nav{
+  position:fixed;left:0;right:0;bottom:0;height:44px;display:flex;align-items:center;justify-content:center;gap:16px;
+  background:#0E1213;color:#A8B6B5;font-family:"IBM Plex Mono",monospace;font-size:12px;
+}
+.nav button{background:transparent;border:1px solid #2A3435;color:#E4EAE9;border-radius:4px;padding:6px 12px;cursor:pointer;font-family:inherit}
+.nav button:hover{border-color:#3FB3A8}
+.flow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-family:Archivo,sans-serif;font-size:14px}
+.flow b{background:var(--surface);border:1px solid var(--rule);padding:10px 12px;border-radius:6px;font-weight:600;color:var(--ink)}
+.flow span{color:var(--accent);font-family:"IBM Plex Mono",monospace}
+.title-slide{justify-content:flex-end;padding-bottom:64px}
+.title-slide h1{font-size:clamp(36px,4.6vw,56px);max-width:18ch}
+.kicker{font-size:20px;color:var(--ink-2);max-width:42ch;margin-top:8px}
+#print-root{display:none}
+@media print{
+  @page{size:338.7mm 190.5mm;margin:0}
+  html,body{height:auto;overflow:visible;background:#fff}
+  .deck,.nav{display:none!important}
+  #print-root{display:block}
+  #print-root .slide{
+    display:flex!important;flex-direction:column;
+    width:338.7mm;height:190.5mm;max-width:none;aspect-ratio:auto;
+    border-radius:0;page-break-after:always;break-after:page;
+    overflow:hidden;padding:36px 44px 32px;
+  }
+  #print-root .slide:last-child{page-break-after:auto;break-after:auto}
+}
+</style>
+</head>
+<body>
+<div class="deck">
+<div class="stage" id="stage"></div>
+<div class="nav">
+  <button type="button" id="prev">←</button>
+  <span id="pos">1 / 16</span>
+  <button type="button" id="next">→</button>
+  <span>← → boşluk · P yazdır</span>
+</div>
+</div>
+<div id="print-root" aria-hidden="true"></div>
+
+<template id="slides">
+
+<section class="slide title-slide" data-who="Hande · Developer">
+  <div class="eyebrow">Dijigoo · 25.08.2026 · Master Plan</div>
+  <h1>Kurye mobil çıkıyor.<br>Web’i kopyalamıyoruz.<br>Sahayı yazıyoruz.</h1>
+  <p class="kicker">Hande ve geliştirici brifingi. Kaynak: Kabul V3.0, canlı panel, teknik analiz.</p>
+</section>
+
+<section class="slide" data-who="Herkes">
+  <div class="eyebrow">01 · Karar</div>
+  <h2>Flutter doğru. Risk Flutter’da değil.</h2>
+  <div class="grid g3">
+    <div class="card"><span class="tag">Zorluk 1 · Backend</span><p class="big">Auth</p><p>Panel cookie. Mobil token + cihaz bağlama ister. 1–2 hafta, backend.</p></div>
+    <div class="card"><span class="tag">Zorluk 2 · Kanıt</span><p class="big">Tarama</p><p>Evrak/kimlik hazır paketle UAT geçmez. v1’de fotoğraf; tarama v1.1.</p></div>
+    <div class="card"><span class="tag">Zorluk 3 · OS</span><p class="big">Konum</p><p>Arka plan konum native’de de aynı iOS kısıtı. Ücretli plugin.</p></div>
+  </div>
+</section>
+
+<section class="slide" data-who="Hande">
+  <div class="eyebrow">02 · Bugün ne var</div>
+  <h2>Canlı web kurye işe alıyor. Teslimat etmiyor.</h2>
+  <div class="grid g2">
+    <div class="card">
+      <span class="tag">Çalışan</span>
+      <p>Başvuru havuzu, belge paketi, 12 yasal metin, müsaitlik takvimi, kurye hesabı, admin roller.</p>
+      <p style="margin-top:10px">1 aktif kurye. Durum: <code>AVAILABLE</code>.</p>
+    </div>
+    <div class="card">
+      <span class="tag">Menüde duran, API yok</span>
+      <p>Teslimat, sipariş, depo, finans, SLA, call center, workflow motoru.</p>
+      <p style="margin-top:10px">Kurye panelinde Görevlerim boş. Çalışma konumu “sonraki adım”.</p>
+    </div>
+  </div>
+</section>
+
+<section class="slide" data-who="Herkes">
+  <div class="eyebrow">03 · Mimari kilit</div>
+  <h2>İki ürün, bir kimlik, aynı API ailesi.</h2>
+  <div class="flow" style="margin:12px 0 22px">
+    <b>Başvuru + belge</b><span>→</span><b>CONVERTED_TO_COURIER</b><span>→</span><b>Mobil aktivasyon</b><span>→</span><b>Saha görevi</b>
+  </div>
+  <table>
+    <thead><tr><th>Katman</th><th>Karar</th></tr></thead>
+    <tbody>
+      <tr><td>Kimlik / evrak / müsaitlik</td><td>Mevcut Next.js. Cookie’ye dokunulmaz.</td></tr>
+      <tr><td>Mobil saha API</td><td><code>/api/mobile/v1/*</code> aynı uygulamada. Token.</td></tr>
+      <tr><td>Ayrı Fastify ürünü</td><td>Yok. Sözleşme ve şema oradan taşınır.</td></tr>
+      <tr><td>Protokol</td><td>REST + OpenAPI 3.1. GraphQL yok.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="slide" data-who="Developer">
+  <div class="eyebrow">04 · Auth</div>
+  <h2>Cookie kalır. Mobil ayrı kapıdan girer.</h2>
+  <div class="grid g2">
+    <div class="card">
+      <span class="tag">Panel · değişmez</span>
+      <p><code>dijigoo_courier_session</code></p>
+      <p style="margin-top:8px"><code>jetdiji_admin_session</code></p>
+      <p style="margin-top:8px">httpOnly, 8 saat. Web için doğru.</p>
+    </div>
+    <div class="card">
+      <span class="tag">Mobil · yeni</span>
+      <p>Access JWT 10–15 dk + rotating refresh.</p>
+      <p style="margin-top:8px"><code>deviceId</code> + <code>installationId</code> bağlama, uzaktan iptal.</p>
+      <p style="margin-top:8px">Cookie ile prototip yok — her katmana yayılır.</p>
+    </div>
+  </div>
+  <p style="margin-top:16px">Login OTP ve teslim OTP ayrı havuz. Birinin kilidi diğerini düşürmez.</p>
+</section>
+
+<section class="slide" data-who="Developer">
+  <div class="eyebrow">05 · Workflow</div>
+  <h2>Motor yanlış kurulursa uygulama baştan yazılır.</h2>
+  <div class="flow" style="margin-bottom:20px">
+    <b>Panel yayımlar</b><span>→</span><b>Göreve snapshot</b><span>→</span><b>Mobil render</b><span>→</span><b>Sunucu doğrular</b>
+  </div>
+  <ul>
+    <li>Kapalı enum: photo, document_scan, signature, otp, select, text, checklist, ack…</li>
+    <li>JSON Schema tek doğruluk. Görev başladığı sürümle biter.</li>
+    <li>Bilinmeyen tip = görevi açma + güncelle. Sessiz atlama yok.</li>
+    <li>İlk sprint: yalnız <code>photo</code> ve <code>select</code>.</li>
+  </ul>
+</section>
+
+<section class="slide" data-who="Hande">
+  <div class="eyebrow">06 · Kapsam</div>
+  <h2>30 modül yıl sonunu bulur. 16 modül Kasım’da sahada.</h2>
+  <div class="grid g2">
+    <div class="card">
+      <span class="tag">v1 Pilot · 16</span>
+      <p>Aktivasyon, liste, görev, arama, sihirbaz, OTP, fotoğraf, teslim / teslim edilemedi, offline.</p>
+      <p style="margin-top:10px">Kurye sahada iş bitirir.</p>
+    </div>
+    <div class="card">
+      <span class="tag">Ertele</span>
+      <p>Kimlik yakalama, eğitim, hakediş, duyuru, anket, ETA/IVR motoru, gelişmiş rota, evrak tarama.</p>
+      <p style="margin-top:10px">Bunlar teslimatı hızlandırmaz, takvimi 6–8 hafta kaydırır.</p>
+    </div>
+  </div>
+</section>
+
+<section class="slide" data-who="Hande">
+  <div class="eyebrow">07 · Takvim</div>
+  <h2>Pilot çıkış: ~4 ay.</h2>
+  <table>
+    <thead><tr><th>Hafta</th><th>Çıktı</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>OpenAPI, token auth, outbox, step enum, zorunlu güncelleme</td></tr>
+      <tr><td>2–5</td><td>Aktivasyon, cihaz, müsaitlik devri, görev listesi</td></tr>
+      <tr><td>6–9</td><td>Sihirbaz, OTP, teslim, fotoğraf, presigned medya</td></tr>
+      <tr><td>10–13</td><td>Offline, geofence, maskeli arama, dashboard</td></tr>
+      <tr><td>14–16</td><td>UAT, saha turu, mağaza</td></tr>
+    </tbody>
+  </table>
+  <p style="margin-top:14px">Ekip: 2 mobil + 1 backend + 0,5 QA. Tam V3.0 aynı ekiple 9–12 ay.</p>
+</section>
+
+<section class="slide" data-who="Hande">
+  <div class="eyebrow">08 · Üç kırmızı</div>
+  <h2>Bunlar kapanmadan tarih vermeyin.</h2>
+  <div class="grid g3">
+    <div class="card"><span class="pill p-hi">Bloklar</span><h3 style="margin-top:10px">Token BFF</h3><p>Yazılmadan hiçbir mobil ekran sahaya çıkmaz.</p></div>
+    <div class="card"><span class="pill p-mid">Tedarik</span><h3 style="margin-top:10px">SMS / maskeli arama</h3><p>BTK uyumlu operatör. Sözleşme haftalar sürer. Bu hafta başlasın.</p></div>
+    <div class="card"><span class="pill p-mid">Mağaza</span><h3 style="margin-top:10px">Arka plan konum</h3><p>Play + Apple gerekçe videosu. İnceleme tek başına kaydırır.</p></div>
+  </div>
+</section>
+
+<section class="slide" data-who="Developer">
+  <div class="eyebrow">09 · Doküman hataları</div>
+  <h2>İkisi sahada gerçek bug üretir.</h2>
+  <table>
+    <thead><tr><th>#</th><th>Düzeltme</th></tr></thead>
+    <tbody>
+      <tr><td>01</td><td>Yaklaşım SMS dedupe: <code>taskId + type</code> + cooldown. <code>routeVersion</code> çıkarılsın.</td></tr>
+      <tr><td>02</td><td><code>taskStatus</code> ve <code>custodyStatus</code> ayrı makineler.</td></tr>
+      <tr><td>03</td><td>Geofence 150–250 m. <code>accuracy &gt; 100 m</code> reddedilir.</td></tr>
+      <tr><td>04</td><td>UAT-05 CPaaS webhook. iOS arama kanıtı vermez.</td></tr>
+      <tr><td>05</td><td>v1 vardiya fotoğrafı eşleştirme yok. KVKK m.6.</td></tr>
+      <tr><td>06</td><td>Login OTP ≠ teslim OTP. Ayrı rate-limit.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="slide" data-who="Hande">
+  <div class="eyebrow">10 · Sizden karar</div>
+  <h2>Bu altı madde kapanınca Sprint 1 başlar.</h2>
+  <ul>
+    <li>Bağlayıcı doküman <strong>V3.0</strong>.</li>
+    <li>Pilot = <strong>16 modül / 4 ay</strong>.</li>
+    <li>Mobil BFF aynı Next.js repoda yazılır; panel cookie’si durur.</li>
+    <li>Konum plugin lisansı + Play/Apple hesapları.</li>
+    <li>Vardiya fotoğrafı yalnız kanıt; otomatik yüz yok.</li>
+    <li>SMS ve maskeli arama tedariki bu hafta.</li>
+  </ul>
+</section>
+
+<section class="slide" data-who="Developer">
+  <div class="eyebrow">11 · Bu hafta</div>
+  <h2>Sonradan eklemek yeniden yazımdır.</h2>
+  <ul>
+    <li>OpenAPI 3.1 kilidi. Dart codegen CI’da kırılır.</li>
+    <li>Outbox + <code>Idempotency-Key</code>. Her yazma bu kuyruktan.</li>
+    <li>Step enum. Önce <code>photo</code> ve <code>select</code>.</li>
+    <li>Token auth ilk günden. Cookie prototipi yok.</li>
+    <li><code>GET /config</code>: zorunlu güncelleme + feature flag.</li>
+  </ul>
+  <p style="margin-top:16px">Yığın: Riverpod · Drift+SQLCipher · dio · freezed · feature-first.</p>
+</section>
+
+<section class="slide" data-who="Developer">
+  <div class="eyebrow">12 · Mevcut kod</div>
+  <h2>Fastify ürün olarak yaşamaz. Sözleşme yaşar.</h2>
+  <div class="grid g2">
+    <div class="card">
+      <span class="tag">Taşınır</span>
+      <p><code>@dijigoo/contracts</code>, workflow JSON Schema, core validator, hata modeli, OpenAPI taslağı.</p>
+    </div>
+    <div class="card">
+      <span class="tag">Taşınmaz</span>
+      <p>Ayrı Fastify süreci, ikinci Postgres evreni, panel cookie’sini kopyalayan auth.</p>
+    </div>
+  </div>
+  <p style="margin-top:18px">Müsaitlik API’si canlı. Mobil onu devralır, yeniden tasarlamaz.</p>
+</section>
+
+<section class="slide" data-who="Herkes">
+  <div class="eyebrow">13 · 14 gün</div>
+  <h2>İlk iki haftanın çıktısı.</h2>
+  <div class="grid g3">
+    <div class="card"><span class="tag">Sözleşme</span><p>Mobil OpenAPI yayında. Flutter codegen bağlı.</p></div>
+    <div class="card"><span class="tag">Kapı</span><p>Kurye token ile giriş yapıyor. Cihaz bağlanıyor.</p></div>
+    <div class="card"><span class="tag">Motor</span><p>Bir görev, iki adım: fotoğraf + seçim. Sunucu yeniden doğruluyor.</p></div>
+  </div>
+</section>
+
+<section class="slide title-slide" data-who="Herkes">
+  <div class="eyebrow">Kapanış</div>
+  <h1>Kasım’da sahada olmak<br>kapsamı kesmekle olur.</h1>
+  <p class="kicker">Hande kapsamı kilitler. Developer Sprint 1’e token, outbox ve iki adımlı sihirbazla girer.</p>
+</section>
+
+</template>
+
+<script>
+const slides = [...document.getElementById('slides').content.querySelectorAll('.slide')];
+const stage = document.getElementById('stage');
+const printRoot = document.getElementById('print-root');
+slides.forEach((src, n) => {
+  const s = src.cloneNode(true);
+  s.classList.add('on');
+  const who = document.createElement('div');
+  who.className = 'who';
+  who.textContent = s.dataset.who || '';
+  s.appendChild(who);
+  const bar = document.createElement('div');
+  bar.className = 'bar';
+  bar.innerHTML = `<i style="width:${((n+1)/slides.length)*100}%"></i>`;
+  s.appendChild(bar);
+  printRoot.appendChild(s);
+});
+let i = 0;
+function render(){
+  stage.innerHTML = '';
+  const s = slides[i].cloneNode(true);
+  s.classList.add('on');
+  const who = document.createElement('div');
+  who.className = 'who';
+  who.textContent = s.dataset.who || '';
+  s.appendChild(who);
+  const bar = document.createElement('div');
+  bar.className = 'bar';
+  bar.innerHTML = `<i style="width:${((i+1)/slides.length)*100}%"></i>`;
+  s.appendChild(bar);
+  stage.appendChild(s);
+  document.getElementById('pos').textContent = `${i+1} / ${slides.length}`;
+}
+function go(d){ i = Math.max(0, Math.min(slides.length-1, i+d)); render(); }
+document.getElementById('prev').onclick = () => go(-1);
+document.getElementById('next').onclick = () => go(1);
+window.addEventListener('keydown', e => {
+  if (['ArrowRight','ArrowDown','PageDown',' '].includes(e.key)) { e.preventDefault(); go(1); }
+  if (['ArrowLeft','ArrowUp','PageUp'].includes(e.key)) { e.preventDefault(); go(-1); }
+  if (e.key === 'Home') { i = 0; render(); }
+  if (e.key === 'End') { i = slides.length-1; render(); }
+});
+render();
+</script>
+</body>
+</html>

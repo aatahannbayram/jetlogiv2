@@ -1,0 +1,37 @@
+node_modules/
+dist/
+.next/
+.turbo/
+coverage/
+
+.env
+.env.local
+.env.*.local
+
+*.log
+.DS_Store
+
+# Flutter
+apps/mobile/.dart_tool/
+apps/mobile/build/
+apps/mobile/.flutter-plugins
+apps/mobile/.flutter-plugins-dependencies
+apps/mobile/ios/Pods/
+apps/mobile/ios/.symlinks/
+apps/mobile/android/.gradle/
+apps/mobile/android/local.properties
+apps/mobile/**/*.g.dart
+apps/mobile/**/*.freezed.dart
+apps/mobile/lib/api/generated/
+
+# OSRM build output — regenerated from infra/osrm/data/*.osm by
+# infra/osrm/prepare.sh, not committed. The .osm source itself is kept.
+infra/osrm/data/*.osrm*
+
+# secrets that must never be committed
+**/google-services.json
+**/GoogleService-Info.plist
+**/*.keystore
+**/*.jks
+**/*.p8
+**/*.p12

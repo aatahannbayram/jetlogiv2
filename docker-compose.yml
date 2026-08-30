@@ -1,0 +1,83 @@
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: dijigoo-postgres
+    environment:
+      POSTGRES_USER: dijigoo
+      POSTGRES_PASSWORD: dijigoo
+      POSTGRES_DB: dijigoo
+    ports:
+      - "5434:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dijigoo -d dijigoo"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    container_name: dijigoo-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6380:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # S3-compatible storage for evidence media. Swapped for Cloudflare R2 in
+  # staging and production; the API only speaks the S3 API either way.
+  minio:
+    image: minio/minio:latest
+    container_name: dijigoo-minio
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: dijigoo
+      MINIO_ROOT_PASSWORD: dijigoo123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # Self-hosted rota motoru (Faz 1: trafiksiz gercek sure/mesafe). Once from
+  # infra/osrm/, run ./prepare.sh first — the graph is a build artifact, not
+  # baked into the image. API falls back to a straight-line estimate when
+  # this is down (ROUTING_PROVIDER=mock), so it is not required to boot.
+  osrm:
+    image: ghcr.io/project-osrm/osrm-backend:latest
+    container_name: dijigoo-osrm
+    command: ["osrm-routed", "--algorithm", "mld", "/data/usak-demo.osrm"]
+    ports:
+      - "5001:5000"
+    volumes:
+      - ./infra/osrm/data:/data:ro
+
+  createbuckets:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 dijigoo dijigoo123;
+      mc mb --ignore-existing local/dijigoo-media;
+      mc mb --ignore-existing local/dijigoo-shift-photos;
+      mc anonymous set none local/dijigoo-media;
+      mc anonymous set none local/dijigoo-shift-photos;
+      "
+
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:
