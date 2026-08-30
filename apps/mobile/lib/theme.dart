@@ -47,22 +47,27 @@ class Dg {
   static const red = Color(0xFFD8543C);
   static const redBg = Color(0xFFFDEEEA);
 
-  static const display = 'Inter';
+  static const display = 'Newsreader';
   static const sans = 'Inter';
+  static const statFamily = 'Archivo';
   static const mono = 'IBMPlexMono';
 
   static const radius = 22.0;
   static const radiusHero = 28.0;
   static const radiusPill = 32.0;
 
+  // Contact shadow stays neutral black (grounds the card against the page);
+  // the soft ambient layer is tinted with the brand purple instead of flat
+  // black — a common "premium" cue, and cheap here since it's just a color
+  // swap on an existing two-layer recipe.
   static const shadow = [
     BoxShadow(color: Color(0x14000000), blurRadius: 2, offset: Offset(0, 1)),
-    BoxShadow(color: Color(0x14000000), blurRadius: 24, offset: Offset(0, 12)),
+    BoxShadow(color: Color(0x14614293), blurRadius: 24, offset: Offset(0, 12)),
   ];
 
   static const shadowHero = [
-    BoxShadow(color: Color(0x22000000), blurRadius: 8, offset: Offset(0, 4)),
-    BoxShadow(color: Color(0x28000000), blurRadius: 36, offset: Offset(0, 18)),
+    BoxShadow(color: Color(0x1E000000), blurRadius: 8, offset: Offset(0, 4)),
+    BoxShadow(color: Color(0x30614293), blurRadius: 36, offset: Offset(0, 18)),
   ];
 
   static TextStyle serif({
@@ -109,6 +114,31 @@ class Dg {
     );
   }
 
+  /// Big numerals (earnings, ETA, stat tiles) — Archivo's `wdth` axis pulled
+  /// in slightly narrower than 100 for a denser, more "engineered" numeral
+  /// feel distinct from both [display] and [ui].
+  static TextStyle stat({
+    double size = 28,
+    FontWeight weight = FontWeight.w700,
+    Color color = ink,
+    double width = 92,
+    double height = 1.0,
+    double letterSpacing = -0.2,
+  }) {
+    return TextStyle(
+      fontFamily: statFamily,
+      fontSize: size,
+      fontWeight: weight,
+      color: color,
+      height: height,
+      letterSpacing: letterSpacing,
+      fontVariations: [
+        FontVariation('wght', _wght(weight)),
+        FontVariation('wdth', width),
+      ],
+    );
+  }
+
   static TextStyle kicker({Color color = ink3}) {
     return ui(size: 11, weight: FontWeight.w600, color: color, letterSpacing: 1.4, height: 1.2);
   }
@@ -129,11 +159,15 @@ class Dg {
       useMaterial3: true,
       brightness: Brightness.light,
       fontFamily: sans,
+      // primary/secondary keep this app's actual brand colors (ink = the
+      // real CTA color, purple = accent — see Dg.purple's doc comment); only
+      // the on* pairs were wrong before (onPrimary/onSecondary must be the
+      // text/icon color drawn *on top of* primary/secondary, not each other).
       colorScheme: const ColorScheme.light(
         primary: ink,
-        onPrimary: purple,
+        onPrimary: Colors.white,
         secondary: purple,
-        onSecondary: ink,
+        onSecondary: Colors.white,
         surface: surface,
         onSurface: ink,
         error: hi,

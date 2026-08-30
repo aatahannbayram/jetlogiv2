@@ -97,7 +97,9 @@ void main() {
 
     await tester.tap(find.text('Kazanç & Prim'));
     await tester.pumpAndSettle();
-    expect(find.text('₺842'), findsOneWidget);
+    // Demo courier is fixed-monthly (canSeePricing == false) — sees the
+    // monthly-equivalent card, not a per-delivery figure.
+    expect(find.text('AYLIK SABİT'), findsOneWidget);
   });
 
   testWidgets('profil koduna 5 dokunuş mühendis katmanını açar', (tester) async {

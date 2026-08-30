@@ -45,18 +45,6 @@ class Display extends StatelessWidget {
   }
 }
 
-class Kicker extends StatelessWidget {
-  const Kicker(this.text, {super.key, this.color = Dg.ink3});
-
-  final String text;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(text, style: Dg.kicker(color: color));
-  }
-}
-
 class DemoPill extends StatelessWidget {
   const DemoPill({super.key, this.onLongPress});
 
@@ -91,31 +79,95 @@ class DemoPill extends StatelessWidget {
 }
 
 class StatusChip extends StatelessWidget {
-  const StatusChip({super.key, required this.label, required this.tone});
+  const StatusChip({super.key, required this.label, required this.tone, this.bg, this.fg});
 
   final String label;
   final String tone;
 
+  /// Override the tone-derived background/foreground — lets call sites that
+  /// need a custom tint (sync status, menu badges, edit pills, route
+  /// summary pills) reuse this shape instead of hand-rolling their own pill.
+  final Color? bg;
+  final Color? fg;
+
   @override
   Widget build(BuildContext context) {
     final lime = tone == 'lime';
-    final fg = switch (tone) {
-      'hi' => Dg.hi,
-      'mid' => Dg.mid,
-      'lo' => Dg.lo,
-      'lime' => Colors.white,
-      _ => Dg.ink,
-    };
+    final resolvedFg =
+        fg ??
+        switch (tone) {
+          'hi' => Dg.hi,
+          'mid' => Dg.mid,
+          'lo' => Dg.lo,
+          'lime' => Colors.white,
+          _ => Dg.ink,
+        };
+    final resolvedBg = bg ?? (lime ? Dg.purple : Dg.surface);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: lime ? Dg.purple : Dg.surface,
+        color: resolvedBg,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: lime ? Dg.purpleDeep : fg.withValues(alpha: 0.28)),
+        border: Border.all(color: lime ? Dg.purpleDeep : resolvedFg.withValues(alpha: 0.28)),
       ),
       child: Text(
         label,
-        style: TextStyle(fontFamily: Dg.mono, color: fg, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.2),
+        style: TextStyle(fontFamily: Dg.mono, color: resolvedFg, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.2),
+      ),
+    );
+  }
+}
+
+/// A single horizontal rule — replaces the `Container(height: 1, color:
+/// Dg.rule)` pattern repeated by hand across profile/earnings/task-detail/
+/// wizard screens.
+class DgDivider extends StatelessWidget {
+  const DgDivider({super.key});
+
+  @override
+  Widget build(BuildContext context) => Container(height: 1, color: Dg.rule);
+}
+
+/// One boolean on/off switch shape, replacing the two near-identical
+/// hand-rolled toggles in home_screen.dart (shift open/close) and
+/// profile_screen.dart (`_switchRow`) — colors are parameterized rather than
+/// forked into two widgets since the only real difference between those two
+/// call sites was track/thumb color, not shape or motion.
+class DgSwitch extends StatelessWidget {
+  const DgSwitch({
+    super.key,
+    required this.value,
+    required this.onChanged,
+    this.activeColor = Dg.purple,
+    this.inactiveColor = Dg.rule,
+    this.thumbColor = Dg.ink,
+  });
+
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  final Color activeColor;
+  final Color inactiveColor;
+  final Color thumbColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => onChanged(!value),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        width: 58,
+        height: 34,
+        decoration: BoxDecoration(color: value ? activeColor : inactiveColor, borderRadius: BorderRadius.circular(20)),
+        child: AnimatedAlign(
+          duration: const Duration(milliseconds: 200),
+          alignment: value ? Alignment.centerRight : Alignment.centerLeft,
+          child: Container(
+            margin: const EdgeInsets.all(4),
+            width: 26,
+            height: 26,
+            decoration: BoxDecoration(color: thumbColor, shape: BoxShape.circle),
+          ),
+        ),
       ),
     );
   }
@@ -139,13 +191,19 @@ class Mono extends StatelessWidget {
 }
 
 class DgCard extends StatelessWidget {
-  const DgCard({super.key, required this.child, this.padding, this.onTap, this.hero = false, this.lime = false});
+  const DgCard({super.key, required this.child, this.padding, this.onTap, this.hero = false, this.lime = false, this.dark = false});
 
   final Widget child;
   final EdgeInsetsGeometry? padding;
   final VoidCallback? onTap;
   final bool hero;
   final bool lime;
+
+  /// Dg.night surface with a white@18% hairline border, matching the
+  /// glass-pill language already used on task_detail_screen/home's hero
+  /// cards — lets dark-surface stat pills (e.g. task_detail's former
+  /// private `_StatPill`) reuse this shape instead of a bespoke widget.
+  final bool dark;
 
   @override
   Widget build(BuildContext context) {
@@ -154,10 +212,13 @@ class DgCard extends StatelessWidget {
       width: double.infinity,
       padding: padding ?? const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: lime ? Dg.purple : Dg.surface,
+        color: dark ? Dg.night : (lime ? Dg.purple : Dg.surface),
         borderRadius: BorderRadius.circular(radius),
-        border: lime ? null : Border.all(color: Dg.rule, width: 1),
-        boxShadow: hero || lime ? Dg.shadowHero : Dg.shadow,
+        // No hairline stroke on the plain white card — the shadow plus the
+        // page's off-white ground already separates it, and skipping the
+        // border reads less like a generic bordered-box-with-shadow default.
+        border: dark ? Border.all(color: Colors.white.withValues(alpha: 0.18)) : null,
+        boxShadow: hero || lime || dark ? Dg.shadowHero : Dg.shadow,
       ),
       child: child,
     );
@@ -210,8 +271,6 @@ class MapStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     final center = points.isNotEmpty ? points.first : _dgDefaultMapCenter;
     final line = encodedPolyline != null && encodedPolyline!.isNotEmpty ? decodePolyline(encodedPolyline!) : points;
-    // ignore: avoid_print
-    print('MAP DEBUG: useMapboxTiles=$useMapboxTiles tokenLen=${kMapboxToken.length} url=$mapTileUrlTemplate');
     final body = ClipRRect(
       borderRadius: !rounded
           ? BorderRadius.zero
@@ -236,6 +295,12 @@ class MapStrip extends StatelessWidget {
                     urlTemplate: mapTileUrlTemplate,
                     userAgentPackageName: 'com.dijigoo.dijigooKurye',
                     tileDimension: useMapboxTiles ? 512 : 256,
+                    // Mapbox's 512px tiles are addressed one zoom level lower
+                    // than the 256px XYZ scheme flutter_map assumes by
+                    // default — without this offset every tile request hits
+                    // the wrong z/x/y and the viewport shows nothing, even
+                    // though the (mismatched) requests still succeed.
+                    zoomOffset: useMapboxTiles ? -1 : 0,
                     errorTileCallback: (tile, error, stackTrace) {
                       // ignore: avoid_print
                       print('TILE ERROR: $error  url=${mapTileUrlTemplate.split('?').first}');
@@ -243,7 +308,7 @@ class MapStrip extends StatelessWidget {
                   ),
                   if (line.length > 1)
                     PolylineLayer(
-                      polylines: [Polyline(points: line, color: useMapboxTiles ? Dg.purpleBright : Dg.purpleDeep, strokeWidth: 3.5)],
+                      polylines: [Polyline(points: line, color: Dg.purpleDeep, strokeWidth: 3.5)],
                     ),
                   MarkerLayer(
                     markers: [
@@ -254,9 +319,9 @@ class MapStrip extends StatelessWidget {
                           height: 26,
                           child: Container(
                             decoration: BoxDecoration(
-                              color: i == points.length - 1 ? (useMapboxTiles ? Dg.purpleBright : Dg.ink) : Colors.white,
+                              color: i == points.length - 1 ? Dg.ink : Colors.white,
                               borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: useMapboxTiles ? Colors.white : Dg.ink, width: 1.4),
+                              border: Border.all(color: Dg.ink, width: 1.4),
                             ),
                           ),
                         ),
@@ -267,7 +332,7 @@ class MapStrip extends StatelessWidget {
                           height: 26,
                           child: Container(
                             decoration: BoxDecoration(
-                              color: useMapboxTiles ? Dg.purpleBright : Dg.ink,
+                              color: Dg.ink,
                               borderRadius: BorderRadius.circular(6),
                               border: Border.all(color: Colors.white, width: 1.4),
                             ),
@@ -781,37 +846,6 @@ class InitialsAvatar extends StatelessWidget {
   }
 }
 
-class TrackField extends StatelessWidget {
-  const TrackField({super.key, this.hint = 'Görev no veya alıcı'});
-
-  final String hint;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 52,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: Dg.surface,
-        borderRadius: BorderRadius.circular(Dg.radiusPill),
-        border: Border.all(color: Dg.rule),
-        boxShadow: Dg.shadow,
-      ),
-      child: Row(
-        children: [
-          Expanded(child: Text(hint, style: Dg.ui(size: 15, color: Dg.ink3))),
-          Container(
-            width: 36,
-            height: 36,
-            decoration: const BoxDecoration(color: Dg.purple, shape: BoxShape.circle),
-            child: const Icon(Icons.qr_code_scanner_rounded, size: 18, color: Colors.white),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class SegmentedTabs extends StatelessWidget {
   const SegmentedTabs({super.key, required this.labels, required this.index, required this.onChanged});
 
@@ -853,29 +887,31 @@ class SegmentedTabs extends StatelessWidget {
 }
 
 class StatTile extends StatelessWidget {
-  const StatTile({super.key, required this.label, required this.value, this.sub, this.subColor, this.onTap});
+  const StatTile({super.key, required this.label, required this.value, this.sub, this.subColor, this.onTap, this.dark = false});
 
   final String label;
   final String value;
   final String? sub;
   final Color? subColor;
   final VoidCallback? onTap;
+  final bool dark;
 
   @override
   Widget build(BuildContext context) {
     return Expanded(
       child: DgCard(
         onTap: onTap,
+        dark: dark,
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Mono(label, size: 11, weight: FontWeight.w500, color: Dg.ink3),
+            Mono(label, size: 11, weight: FontWeight.w500, color: dark ? const Color(0xFFDCCFEF) : Dg.ink3),
             const SizedBox(height: 8),
-            Display(value, size: 24),
+            Text(value, style: Dg.stat(size: 24, color: dark ? Colors.white : Dg.ink)),
             if (sub != null) ...[
               const SizedBox(height: 4),
-              Text(sub!, style: Dg.ui(size: 13, color: subColor ?? Dg.ink2)),
+              Text(sub!, style: Dg.ui(size: 13, color: subColor ?? (dark ? const Color(0xFFE3D9F2) : Dg.ink2))),
             ],
           ],
         ),
@@ -921,10 +957,13 @@ String taskStatusTone(TaskStatus s) => switch (s) {
     };
 
 class TaskListTile extends StatelessWidget {
-  const TaskListTile({super.key, required this.task, required this.onTap});
+  const TaskListTile({super.key, required this.task, required this.onTap, required this.canSeePricing});
 
   final DeliveryTask task;
   final VoidCallback onTap;
+
+  /// Acenta/sabit-ücret kuryeler için gizlenir — bkz. [Courier.canSeePricing].
+  final bool canSeePricing;
 
   @override
   Widget build(BuildContext context) {
@@ -942,7 +981,7 @@ class TaskListTile extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          Display(task.recipient, size: 22),
+          Hero(tag: 'recipient-${task.id}', child: Material(color: Colors.transparent, child: Display(task.recipient, size: 22))),
           const SizedBox(height: 4),
           Text(task.address, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Dg.ink2, fontSize: 16, height: 1.3)),
           const SizedBox(height: 8),
@@ -951,7 +990,7 @@ class TaskListTile extends StatelessWidget {
               Expanded(
                 child: Text('${task.kindLabel}  ·  ${task.window}', style: const TextStyle(fontSize: 13, color: Dg.ink2)),
               ),
-              if (task.cod != null) StatusChip(label: 'Kapıda ${task.cod} ₺', tone: 'mid'),
+              if (task.cod != null && canSeePricing) StatusChip(label: 'Kapıda ${task.cod} ₺', tone: 'mid'),
             ],
           ),
         ],

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models.dart';
+import '../motion.dart';
 import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -27,11 +28,11 @@ class EarningsScreen extends ConsumerWidget {
                 children: [
                   Mono('BUGÜN', size: 11, color: Dg.ink3),
                   const SizedBox(height: 8),
-                  Display(SessionController.todayEarn, size: 34),
+                  Text(SessionController.todayEarn, style: Dg.stat(size: 34)),
                   const SizedBox(height: 6),
                   Text(SessionController.earnDelta, style: Dg.ui(size: 13, color: Dg.purpleDeep)),
                   const SizedBox(height: 14),
-                  Container(height: 1, color: Dg.rule),
+                  const DgDivider(),
                   const SizedBox(height: 14),
                   Row(
                     children: [
@@ -43,7 +44,7 @@ class EarningsScreen extends ConsumerWidget {
                 ],
               ),
             )
-          else
+          else ...[
             DgCard(
               hero: true,
               child: Column(
@@ -55,7 +56,7 @@ class EarningsScreen extends ConsumerWidget {
                     color: Dg.ink3,
                   ),
                   const SizedBox(height: 8),
-                  Display(s.courier.monthlyPayLabel, size: 34),
+                  Text(s.courier.monthlyPayLabel, style: Dg.stat(size: 34)),
                   const SizedBox(height: 6),
                   Text(
                     s.courier.affiliation == CourierAffiliation.agency
@@ -66,12 +67,23 @@ class EarningsScreen extends ConsumerWidget {
                 ],
               ),
             ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                StatTile(label: 'TESLİM', value: '${s.deliveredCount}'),
+                const SizedBox(width: 12),
+                StatTile(label: 'AÇIK', value: '${s.openCount}'),
+                const SizedBox(width: 12),
+                StatTile(label: 'İADE', value: '${s.returnCount}'),
+              ],
+            ),
+          ],
           const SizedBox(height: 16),
           const Text('Haftalık', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18)),
           const SizedBox(height: 14),
           DgCard(
             child: SizedBox(
-              height: 110,
+              height: 142,
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -82,6 +94,8 @@ class EarningsScreen extends ConsumerWidget {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
+                            Mono('${(b.value * 100).round()}%', size: 10, color: b.value == 1 ? Dg.purple : Dg.ink3),
+                            const SizedBox(height: 4),
                             AnimatedContainer(
                               duration: const Duration(milliseconds: 400),
                               curve: Curves.easeOutCubic,
@@ -107,17 +121,17 @@ class EarningsScreen extends ConsumerWidget {
             const SizedBox(height: 10),
           ],
           if (canSeePricing)
-            for (final b in s.bonuses)
+            for (final (i, b) in s.bonuses.indexed)
             Padding(
               padding: const EdgeInsets.only(bottom: 10),
-              child: DgCard(
+              child: StaggerIn(index: i, child: DgCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
                         Expanded(child: Text(b.label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15))),
-                        Text(b.amount, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
+                        Text(b.amount, style: Dg.stat(size: 17)),
                       ],
                     ),
                     const SizedBox(height: 10),
@@ -134,7 +148,7 @@ class EarningsScreen extends ConsumerWidget {
                     Text(b.meta, style: Dg.ui(size: 12, color: Dg.ink3)),
                   ],
                 ),
-              ),
+              )),
             ),
         ],
       ),

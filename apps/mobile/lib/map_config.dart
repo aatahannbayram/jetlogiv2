@@ -8,7 +8,7 @@
 /// (apps/api/src/services/routing.ts), regardless of tile source.
 const kMapboxToken = String.fromEnvironment('MAPBOX_TOKEN', defaultValue: '');
 
-const kMapboxStyleId = 'dark-v11';
+const kMapboxStyleId = 'light-v11';
 
 bool get useMapboxTiles => kMapboxToken.isNotEmpty;
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -17,7 +18,8 @@ class TaskDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final t = ref.watch(sessionProvider).taskById(taskId);
+    final session = ref.watch(sessionProvider);
+    final t = session.taskById(taskId);
     final done = t.status == TaskStatus.delivered;
 
     void start() {
@@ -97,7 +99,7 @@ class TaskDetailScreen extends ConsumerWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Display(t.recipient, size: 22),
+                              Hero(tag: 'recipient-${t.id}', child: Material(color: Colors.transparent, child: Display(t.recipient, size: 22))),
                               const SizedBox(height: 4),
                               Text(t.address, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Dg.ink2, fontSize: 13, height: 1.3)),
                             ],
@@ -108,10 +110,10 @@ class TaskDetailScreen extends ConsumerWidget {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    Container(height: 1, color: Dg.rule),
+                    const DgDivider(),
                     _kv('Saat', t.window),
                     _kv('İş', t.kindLabel),
-                    if (t.cod != null) _kv('Kapıda', '${t.cod} ₺'),
+                    if (t.cod != null && session.courier.canSeePricing) _kv('Kapıda', '${t.cod} ₺'),
                     if (t.otpRequired) _kv('Kod', 'Alıcıdan alınacak'),
                     const SizedBox(height: 6),
                     Row(
@@ -131,7 +133,19 @@ class TaskDetailScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 16),
                     if (done)
-                      const FilledButton(onPressed: null, child: Text('Teslim edildi'))
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        decoration: BoxDecoration(color: Dg.loBg, borderRadius: BorderRadius.circular(Dg.radiusPill)),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.check_circle_rounded, size: 20, color: Dg.lo),
+                            const SizedBox(width: 8),
+                            Text('Teslim edildi', style: Dg.ui(size: 16, weight: FontWeight.w700, color: Dg.lo)),
+                          ],
+                        ),
+                      ).animate().scale(begin: const Offset(0.96, 0.96), duration: 220.ms, curve: Curves.easeOutBack).fadeIn(duration: 180.ms)
                     else
                       SlideToAct(label: 'Teslim etmek için kaydır', onConfirm: start),
                     if (!done) ...[
@@ -221,7 +235,7 @@ class _StatPill extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(label, style: const TextStyle(fontFamily: Dg.mono, fontSize: 10, color: Color(0xFF9A9E90))),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: Colors.white)),
+          Text(value, style: Dg.stat(size: 16, color: Colors.white)),
         ],
       ),
     );

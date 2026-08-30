@@ -382,6 +382,7 @@ class SessionController extends ChangeNotifier {
     employment: 'Yarı zamanlı',
     availability: 'Müsait',
     hours: 'Pzt–Cum 09:00–18:00',
+    compensationType: CompensationType.fixedMonthly,
   );
 
   CourierDocumentListDto documents = const CourierDocumentListDto(
@@ -495,6 +496,20 @@ class SessionController extends ChangeNotifier {
 
   void finishSplash() {
     phase = AppPhase.activation;
+    notifyListeners();
+  }
+
+  /// Clears stored auth + resets in-memory shift/session state, dropping
+  /// back to splash (which re-offers "Vardiyaya başla" / activation).
+  Future<void> logout() async {
+    await vault?.clearTokens();
+    shiftOpen = false;
+    shiftPhotoTaken = false;
+    shiftStartedAt = null;
+    demo = true;
+    liveApi = false;
+    routePlan = null;
+    phase = AppPhase.splash;
     notifyListeners();
   }
 

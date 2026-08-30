@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models.dart';
+import '../motion.dart';
 import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -24,6 +25,18 @@ class _ListScreenState extends ConsumerState<ListScreen> {
     super.dispose();
   }
 
+  String _emptyMessage(int tab) => switch (tab) {
+    0 => 'Bekleyen görev yok — hepsi tamam.',
+    1 => 'Henüz teslimat yapılmadı.',
+    _ => 'İade kaydı yok.',
+  };
+
+  IconData _emptyIcon(int tab) => switch (tab) {
+    0 => Icons.check_circle_outline_rounded,
+    1 => Icons.local_shipping_outlined,
+    _ => Icons.assignment_return_outlined,
+  };
+
   @override
   Widget build(BuildContext context) {
     final s = ref.watch(sessionProvider);
@@ -40,30 +53,33 @@ class _ListScreenState extends ConsumerState<ListScreen> {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-              child: Row(
-                children: [
-                  const Expanded(child: Display('Dağıtım', size: 26)),
-                  Container(
-                    height: 40,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(color: Dg.surface, borderRadius: BorderRadius.circular(20), border: Border.all(color: Dg.rule)),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.search_rounded, size: 16, color: Dg.ink3),
-                        const SizedBox(width: 6),
-                        SizedBox(
-                          width: 96,
-                          child: TextField(
-                            controller: query,
-                            onChanged: (_) => setState(() {}),
-                            style: Dg.ui(size: 14),
-                            decoration: const InputDecoration(border: InputBorder.none, isDense: true, hintText: 'İsim ara'),
-                          ),
-                        ),
-                      ],
+              child: Display('Dağıtım', size: 26),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+              child: Container(
+                height: 44,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                decoration: BoxDecoration(color: Dg.surface, borderRadius: BorderRadius.circular(22), border: Border.all(color: Dg.rule)),
+                child: Row(
+                  children: [
+                    const Icon(Icons.search_rounded, size: 17, color: Dg.ink3),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: query,
+                        onChanged: (_) => setState(() {}),
+                        style: Dg.ui(size: 15),
+                        decoration: const InputDecoration(border: InputBorder.none, isDense: true, hintText: 'İsim ara'),
+                      ),
                     ),
-                  ),
-                ],
+                    if (q.isNotEmpty)
+                      GestureDetector(
+                        onTap: () => setState(() => query.clear()),
+                        child: const Icon(Icons.close_rounded, size: 18, color: Dg.ink3),
+                      ),
+                  ],
+                ),
               ),
             ),
             Padding(
@@ -80,9 +96,9 @@ class _ListScreenState extends ConsumerState<ListScreen> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.inbox_outlined, size: 42, color: Dg.ink3),
+                          Icon(q.isNotEmpty ? Icons.search_off_rounded : _emptyIcon(tab), size: 42, color: Dg.ink3),
                           const SizedBox(height: 14),
-                          Text('Bu sekmede kayıt yok', style: Dg.ui(size: 15, color: Dg.ink3)),
+                          Text(q.isNotEmpty ? '"$q" için sonuç yok' : _emptyMessage(tab), style: Dg.ui(size: 15, color: Dg.ink3)),
                         ],
                       ),
                     )
@@ -92,10 +108,14 @@ class _ListScreenState extends ConsumerState<ListScreen> {
                       separatorBuilder: (context, i) => const SizedBox(height: 10),
                       itemBuilder: (context, i) {
                         final t = rows[i];
-                        return TaskListTile(
-                          task: t,
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute<void>(builder: (_) => TaskDetailScreen(taskId: t.id)),
+                        return StaggerIn(
+                          index: i,
+                          child: TaskListTile(
+                            task: t,
+                            canSeePricing: s.courier.canSeePricing,
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(builder: (_) => TaskDetailScreen(taskId: t.id)),
+                            ),
                           ),
                         );
                       },

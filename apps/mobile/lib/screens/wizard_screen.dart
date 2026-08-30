@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../motion.dart';
 import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -23,16 +24,15 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
   bool photo = false;
   final signature = <Offset?>[];
   bool otpSent = false;
-  bool retake = false;
   final otp = TextEditingController();
   String? error;
   bool done = false;
 
   static const options = [
-    ('recipient', 'Alıcının kendisi'),
-    ('relative', 'Aile bireyi'),
-    ('neighbor', 'Komşu'),
-    ('workplace', 'İş yeri / resepsiyon'),
+    ('recipient', 'Alıcının kendisi', Icons.person_rounded, Dg.violetBg, Dg.violet),
+    ('relative', 'Aile bireyi', Icons.family_restroom_rounded, Dg.blueBg, Dg.blue),
+    ('neighbor', 'Komşu', Icons.door_front_door_rounded, Dg.amberBg, Dg.amber),
+    ('workplace', 'İş yeri / resepsiyon', Icons.business_rounded, Dg.greenBg, Dg.green),
   ];
 
   @override
@@ -43,7 +43,7 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
 
   bool get proofDone => proof == 'photo' ? photo : signature.isNotEmpty;
 
-  String get whoLabel => options.firstWhere((o) => o.$1 == recipient, orElse: () => ('', '—')).$2;
+  String get whoLabel => options.firstWhere((o) => o.$1 == recipient, orElse: () => ('', '—', Icons.circle_outlined, Dg.elev, Dg.ink)).$2;
 
   String get cta {
     if (step == 1 && proofDone) return 'Kullan';
@@ -131,31 +131,32 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
               children: [
                 if (step == 0) ...[
-                  for (final o in options)
+                  for (final (i, o) in options.indexed)
                     Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Material(
-                        color: recipient == o.$1 ? Dg.accentSoft : Dg.surface,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(Dg.radius),
-                          side: BorderSide(color: recipient == o.$1 ? Dg.accent : Dg.rule, width: recipient == o.$1 ? 2 : 1),
-                        ),
-                        child: InkWell(
-                          onTap: () => setState(() => recipient = o.$1),
-                          borderRadius: BorderRadius.circular(Dg.radius),
-                          child: SizedBox(
-                            height: 56,
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: StaggerIn(
+                        index: i,
+                        child: Material(
+                          color: recipient == o.$1 ? Dg.accentSoft : Dg.surface,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(Dg.radius),
+                            side: BorderSide(color: recipient == o.$1 ? Dg.accent : Dg.rule, width: recipient == o.$1 ? 2 : 1),
+                          ),
+                          child: InkWell(
+                            onTap: () => setState(() => recipient = o.$1),
+                            borderRadius: BorderRadius.circular(Dg.radius),
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 14),
+                              padding: const EdgeInsets.all(12),
                               child: Row(
                                 children: [
+                                  IconTintBadge(icon: o.$3, tint: o.$4, ink: o.$5, size: 40),
+                                  const SizedBox(width: 12),
+                                  Expanded(child: Text(o.$2, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16))),
                                   Icon(
                                     recipient == o.$1 ? Icons.check_circle_rounded : Icons.circle_outlined,
-                                    color: Dg.accent,
+                                    color: recipient == o.$1 ? Dg.accent : Dg.ink3,
                                     size: 22,
                                   ),
-                                  const SizedBox(width: 10),
-                                  Expanded(child: Text(o.$2, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16))),
                                 ],
                               ),
                             ),
@@ -174,18 +175,12 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
                   if (proof == 'photo') ...[
                     Viewfinder(
                       captured: photo,
-                      onCapture: () => setState(() {
-                        photo = true;
-                        retake = false;
-                      }),
+                      onCapture: () => setState(() => photo = true),
                     ),
                     if (photo)
                       TextButton(
-                        onPressed: () => setState(() {
-                          photo = false;
-                          retake = true;
-                        }),
-                        child: Text(retake ? 'Tekrar çek' : 'Tekrar çek'),
+                        onPressed: () => setState(() => photo = false),
+                        child: const Text('Tekrar çek'),
                       ),
                   ] else ...[
                     Container(
@@ -213,20 +208,33 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
                   ],
                 ],
                 if (step == 2) ...[
-                  const Text(
-                    'Kod alıcının telefonuna gitti. Sizden okumasını isteyin.',
-                    style: TextStyle(fontSize: 16, color: Dg.ink2),
+                  Text(
+                    otpSent ? 'Kod alıcının telefonuna gitti. Sizden okumasını isteyin.' : 'Alıcının telefonuna tek kullanımlık bir kod göndereceğiz.',
+                    style: const TextStyle(fontSize: 16, color: Dg.ink2),
                   ),
                   const SizedBox(height: 16),
                   if (otpSent)
                     OtpPin(controller: otp, error: error != null)
                   else
-                    const DgCard(child: Text('Kod henüz gönderilmedi.')),
+                    DgCard(
+                      child: Column(
+                        children: [
+                          IconTintBadge(icon: Icons.sms_outlined, tint: Dg.violetBg, ink: Dg.violet, size: 44),
+                          const SizedBox(height: 10),
+                          Text('Kod henüz gönderilmedi', style: Dg.ui(size: 14, weight: FontWeight.w600)),
+                          const SizedBox(height: 4),
+                          Text('Devam etmek için "Kodu gönder"e dokun', style: Dg.ui(size: 12, color: Dg.ink3)),
+                        ],
+                      ),
+                    ),
                 ],
                 if (error != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 12),
-                    child: Text(error!, style: const TextStyle(color: Dg.hi, fontSize: 16, fontWeight: FontWeight.w500)),
+                    child: ShakeError(
+                      trigger: error,
+                      child: Text(error!, style: const TextStyle(color: Dg.hi, fontSize: 16, fontWeight: FontWeight.w500)),
+                    ),
                   ),
               ],
             ),
@@ -303,7 +311,7 @@ class _SignaturePadState extends State<_SignaturePad> {
                 left: 20,
                 right: 20,
                 bottom: 34,
-                child: Container(height: 1, color: Dg.rule),
+                child: const DgDivider(),
               ),
             ],
           ),

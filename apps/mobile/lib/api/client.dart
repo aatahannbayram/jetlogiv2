@@ -310,8 +310,12 @@ class DemoFallbackInterceptor extends Interceptor {
     if (_isOffline(err)) return true;
     final code = err.response?.statusCode;
     final path = err.requestOptions.path;
-    final identity = path.contains('/me/availability') || path.contains('/me/documents');
-    return identity && (code == 401 || code == 404 || code == 501);
+    // A reachable-but-unauthenticated backend (real API up, but this demo
+    // courier's token isn't recognized by it — e.g. a freshly migrated
+    // database) should degrade the same way an unreachable one does for
+    // these endpoints, not fail silently with routePlan/documents left null.
+    final mockable = path.contains('/me/availability') || path.contains('/me/documents') || path.contains('/v1/routes/current');
+    return mockable && (code == 401 || code == 404 || code == 501);
   }
 
   bool _isOffline(DioException err) {

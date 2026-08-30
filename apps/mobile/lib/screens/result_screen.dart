@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 
 import '../models.dart';
+import '../motion.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
@@ -39,21 +39,9 @@ class DeliveryResultScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Builder(
-                builder: (context) {
-                  Widget icon = Icon(
-                    success ? Icons.check_circle_rounded : Icons.assignment_return_rounded,
-                    size: 56,
-                    color: success ? Dg.lo : Dg.red,
-                  );
-                  if (!MediaQuery.disableAnimationsOf(context)) {
-                    icon = icon
-                        .animate()
-                        .scale(begin: const Offset(0.7, 0.7), duration: 280.ms, curve: Curves.easeOutBack)
-                        .fadeIn(duration: 200.ms);
-                  }
-                  return icon;
-                },
+              ResultIcon(
+                icon: success ? Icons.check_circle_rounded : Icons.assignment_return_rounded,
+                color: success ? Dg.lo : Dg.red,
               ),
               const SizedBox(height: 16),
               Display(success ? 'Teslim edildi' : 'İade kaydedildi', size: 36),

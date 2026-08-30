@@ -7,6 +7,7 @@ import 'package:latlong2/latlong.dart';
 import '../api/models.dart';
 import '../launchers.dart';
 import '../models.dart';
+import '../motion.dart';
 import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -37,7 +38,24 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
     ];
     return Scaffold(
       extendBody: true,
-      body: pages[index],
+      // IndexedStack keeps all 5 tabs mounted so switching tabs no longer
+      // resets scroll position or in-progress state (e.g. ListScreen's
+      // search field) — previously this was a plain `pages[index]` swap,
+      // rebuilding the destination tab from scratch every time. The
+      // AnimatedOpacity per-page gives a soft cross-fade cue without
+      // wrapping in AnimatedSwitcher, which would dispose+rebuild the whole
+      // stack on every switch and defeat the point of IndexedStack.
+      body: IndexedStack(
+        index: index,
+        children: [
+          for (var i = 0; i < pages.length; i++)
+            AnimatedOpacity(
+              opacity: index == i ? 1 : 0,
+              duration: const Duration(milliseconds: 160),
+              child: pages[i],
+            ),
+        ],
+      ),
       bottomNavigationBar: DgPillNav(
         index: index,
         onChanged: (i) => setState(() => index = i),
@@ -166,15 +184,24 @@ class _RouteScreenState extends ConsumerState<RouteScreen> {
                         const SizedBox(height: 12),
                         SizedBox(
                           height: 168,
-                          child: ListView.separated(
-                            itemCount: tasks.length,
-                            separatorBuilder: (context, index) => const SizedBox(height: 8),
-                            itemBuilder: (context, i) {
-                              final task = tasks[i];
-                              final leg = plan == null ? null : _findStop(plan.stops, task.id);
-                              return _RouteStop(task: task, stop: leg, last: i == tasks.length - 1);
-                            },
-                          ),
+                          child: s.routeLoading && plan == null
+                              ? ListView.separated(
+                                  itemCount: 3,
+                                  separatorBuilder: (context, index) => const SizedBox(height: 8),
+                                  itemBuilder: (context, i) => const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 6),
+                                    child: DgSkeleton(width: double.infinity, height: 20),
+                                  ),
+                                )
+                              : ListView.separated(
+                                  itemCount: tasks.length,
+                                  separatorBuilder: (context, index) => const SizedBox(height: 8),
+                                  itemBuilder: (context, i) {
+                                    final task = tasks[i];
+                                    final leg = plan == null ? null : _findStop(plan.stops, task.id);
+                                    return _RouteStop(task: task, stop: leg, last: i == tasks.length - 1);
+                                  },
+                                ),
                         ),
                       ],
                     ),

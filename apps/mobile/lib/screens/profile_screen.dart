@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../api/client.dart';
 import '../models.dart';
+import '../motion.dart';
 import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -17,7 +18,7 @@ class ProfileScreen extends ConsumerStatefulWidget {
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   int _taps = 0;
   DateTime? _lastTap;
-  bool editing = false;
+  String? editingField;
   late final name = TextEditingController(
     text: ref.read(sessionProvider).courier.fullName,
   );
@@ -51,17 +52,35 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
   }
 
-  void _toggleEdit() {
-    if (editing) {
-      ref
-          .read(sessionProvider)
-          .updateProfile(
-            fullName: name.text.trim(),
-            phone: phone.text.trim(),
-            plateValue: plate.text.trim(),
-          );
-    }
-    setState(() => editing = !editing);
+  void _startEditing(String field) => setState(() => editingField = field);
+
+  void _saveField(String field) {
+    ref
+        .read(sessionProvider)
+        .updateProfile(
+          fullName: name.text.trim(),
+          phone: phone.text.trim(),
+          plateValue: plate.text.trim(),
+        );
+    setState(() => editingField = null);
+  }
+
+  Future<void> _confirmLogout(BuildContext context, SessionController s) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Çıkış yap'),
+        content: const Text('Oturumun kapatılacak, tekrar giriş yapman gerekecek.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Vazgeç')),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text('Çıkış yap', style: TextStyle(color: Dg.hi)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) await s.logout();
   }
 
   void _showEngineer() {
@@ -153,38 +172,51 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Widget _field(
+    String key,
     String label,
     TextEditingController controller, {
     String mono = '',
   }) {
+    final isEditing = editingField == key;
+    final textStyle = TextStyle(
+      fontFamily: mono.isEmpty ? Dg.sans : Dg.mono,
+      fontSize: 16,
+      fontWeight: FontWeight.w600,
+    );
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Mono(label, size: 11, color: Dg.ink3),
-          const SizedBox(height: 6),
-          editing
-              ? TextField(
-                  controller: controller,
-                  style: TextStyle(
-                    fontFamily: mono.isEmpty ? Dg.sans : Dg.mono,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    isDense: true,
-                  ),
-                )
-              : Text(
-                  controller.text,
-                  style: TextStyle(
-                    fontFamily: mono.isEmpty ? Dg.sans : Dg.mono,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Mono(label, size: 11, color: Dg.ink3),
+                const SizedBox(height: 6),
+                isEditing
+                    ? TextField(
+                        controller: controller,
+                        autofocus: true,
+                        style: textStyle,
+                        decoration: const InputDecoration(border: InputBorder.none, isDense: true),
+                        onSubmitted: (_) => _saveField(key),
+                      )
+                    : Text(controller.text, style: textStyle),
+              ],
+            ),
+          ),
+          Pressable(
+            onTap: () => isEditing ? _saveField(key) : _startEditing(key),
+            child: Padding(
+              padding: const EdgeInsets.only(left: 8),
+              child: Icon(
+                isEditing ? Icons.check_circle_rounded : Icons.edit_outlined,
+                size: 20,
+                color: isEditing ? Dg.purple : Dg.ink3,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -271,55 +303,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
             ),
             const SizedBox(height: 18),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Kullanıcı',
-                    style: Dg.ui(
-                      size: 20,
-                      weight: FontWeight.w700,
-                      color: Dg.ink,
-                    ),
-                  ),
-                ),
-                GestureDetector(
-                  onTap: _toggleEdit,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 15,
-                      vertical: 9,
-                    ),
-                    decoration: BoxDecoration(
-                      color: editing ? Dg.purple : Dg.elev,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      editing ? 'Kaydet' : 'Düzenle',
-                      style: Dg.ui(size: 13, weight: FontWeight.w600, color: editing ? Colors.white : Dg.ink),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+            Text('Kullanıcı', style: Dg.ui(size: 20, weight: FontWeight.w700, color: Dg.ink)),
+            const SizedBox(height: 4),
+            Text('Her alanı ayrı ayrı düzenleyebilirsin.', style: Dg.ui(size: 13, color: Dg.ink3)),
             const SizedBox(height: 10),
             DgCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _field('AD SOYAD', name),
-                  Container(
-                    height: 1,
-                    color: Dg.rule,
-                    margin: const EdgeInsets.symmetric(vertical: 10),
-                  ),
-                  _field('TELEFON', phone, mono: 'm'),
-                  Container(
-                    height: 1,
-                    color: Dg.rule,
-                    margin: const EdgeInsets.symmetric(vertical: 10),
-                  ),
-                  _field('PLAKA', plate, mono: 'm'),
+                  _field('name', 'AD SOYAD', name),
+                  const Padding(padding: EdgeInsets.symmetric(vertical: 10), child: DgDivider()),
+                  _field('phone', 'TELEFON', phone, mono: 'm'),
+                  const Padding(padding: EdgeInsets.symmetric(vertical: 10), child: DgDivider()),
+                  _field('plate', 'PLAKA', plate, mono: 'm'),
                 ],
               ),
             ),
@@ -335,6 +331,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   _settingRow(
                     'Görünüm',
                     s.darkModeUi ? 'Koyu tema' : 'Açık tema',
+                    icon: Icons.palette_outlined,
                     trailing: GestureDetector(
                       onTap: s.toggleDarkModeUi,
                       child: Container(
@@ -382,21 +379,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       ),
                     ),
                   ),
-                  Container(height: 1, color: Dg.rule),
+                  const DgDivider(),
                   _switchRow(
                     'Sesli barkod onayı',
                     s.beepEnabled ? 'Açık · bip + titreşim' : 'Kapalı',
                     s.beepEnabled,
                     s.toggleBeep,
+                    icon: Icons.volume_up_outlined,
                   ),
-                  Container(height: 1, color: Dg.rule),
+                  const DgDivider(),
                   _switchRow(
                     'Yeni durak bildirimi',
                     s.notifyEnabled ? 'Açık · titreşim + ses' : 'Kapalı',
                     s.notifyEnabled,
                     s.toggleNotifyPref,
+                    icon: Icons.notifications_active_outlined,
                   ),
-                  Container(height: 1, color: Dg.rule),
+                  const DgDivider(),
                   _switchRow(
                     s.shiftOpen ? 'Vardiya açık' : 'Vardiya kapalı',
                     '${s.courier.district} / ${s.courier.city} · ${s.shiftOpen ? "açık" : "yeni durak atanmaz"}',
@@ -409,24 +408,25 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         if (ok) s.setShiftOpen(true);
                       }
                     },
+                    icon: Icons.work_outline_rounded,
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 14),
             GestureDetector(
-              onTap: () {},
+              onTap: () => _confirmLogout(context, s),
               child: Container(
                 height: 58,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: Dg.surface,
                   borderRadius: BorderRadius.circular(22),
-                  border: Border.all(color: Dg.rule),
+                  border: Border.all(color: Dg.hi),
                 ),
                 child: Text(
                   'Çıkış yap',
-                  style: Dg.ui(size: 16, weight: FontWeight.w600),
+                  style: Dg.ui(size: 16, weight: FontWeight.w600, color: Dg.hi),
                 ),
               ),
             ),
@@ -452,16 +452,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            value,
-            style: TextStyle(
-              fontFamily: Dg.display,
-              fontSize: 28,
-              fontWeight: FontWeight.w800,
-              color: color,
-              letterSpacing: -0.3,
-            ),
-          ),
+          Text(value, style: Dg.stat(size: 28, color: color)),
           const SizedBox(height: 4),
           Text(
             label,
@@ -479,11 +470,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     margin: const EdgeInsets.symmetric(horizontal: 4),
   );
 
-  Widget _settingRow(String title, String sub, {required Widget trailing}) {
+  Widget _settingRow(String title, String sub, {required Widget trailing, IconData? icon}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 14),
       child: Row(
         children: [
+          if (icon != null) ...[
+            IconTintBadge(icon: icon, tint: Dg.elev, ink: Dg.ink2, size: 36),
+            const SizedBox(width: 12),
+          ],
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -506,35 +501,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  Widget _switchRow(String title, String sub, bool on, VoidCallback onTap) {
+  Widget _switchRow(String title, String sub, bool on, VoidCallback onTap, {IconData? icon}) {
     return _settingRow(
       title,
       sub,
-      trailing: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          width: 58,
-          height: 34,
-          decoration: BoxDecoration(
-            color: on ? Dg.purple : Dg.rule,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: AnimatedAlign(
-            duration: const Duration(milliseconds: 200),
-            alignment: on ? Alignment.centerRight : Alignment.centerLeft,
-            child: Container(
-              margin: const EdgeInsets.all(4),
-              width: 26,
-              height: 26,
-              decoration: const BoxDecoration(
-                color: Dg.ink,
-                shape: BoxShape.circle,
-              ),
-            ),
-          ),
-        ),
-      ),
+      icon: icon,
+      trailing: DgSwitch(value: on, onChanged: (_) => onTap()),
     );
   }
 }
