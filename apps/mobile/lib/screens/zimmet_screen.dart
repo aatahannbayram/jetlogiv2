@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../session.dart';
@@ -61,9 +62,14 @@ class _ZimmetScreenState extends ConsumerState<ZimmetScreen> {
                         decoration: InputDecoration(
                           border: InputBorder.none,
                           isDense: true,
-                          hintText: s.zimmetScans.isEmpty ? 'Barkodu çerçeveye getir' : 'Son okunan: ${s.zimmetScans.first.code}',
+                          hintText: s.zimmetScans.isEmpty
+                              ? 'Barkodu çerçeveye getir'
+                              : 'Son okunan: ${s.zimmetScans.first.code}',
                         ),
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
                         onSubmitted: (v) {
                           s.addZimmetScan(v);
                           barcode.clear();
@@ -78,8 +84,15 @@ class _ZimmetScreenState extends ConsumerState<ZimmetScreen> {
                       child: Container(
                         width: 40,
                         height: 40,
-                        decoration: const BoxDecoration(color: Dg.purple, shape: BoxShape.circle),
-                        child: const Icon(Icons.qr_code_scanner_rounded, size: 18, color: Colors.white),
+                        decoration: const BoxDecoration(
+                          color: Dg.purple,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          LucideIcons.qrCode,
+                          size: 18,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ],
@@ -91,12 +104,18 @@ class _ZimmetScreenState extends ConsumerState<ZimmetScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Row(
                 children: [
-                  Text('${s.zimmetScans.length} okundu', style: Dg.ui(size: 14, color: Dg.ink2)),
+                  Text(
+                    '${s.zimmetScans.length} okundu',
+                    style: Dg.ui(size: 14, color: Dg.ink2),
+                  ),
                   const Spacer(),
                   GestureDetector(
                     onTap: s.toggleBeep,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
                         color: s.beepEnabled ? Dg.purple : Dg.elev,
                         borderRadius: BorderRadius.circular(16),
@@ -104,12 +123,21 @@ class _ZimmetScreenState extends ConsumerState<ZimmetScreen> {
                       child: Row(
                         children: [
                           Icon(
-                            s.beepEnabled ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+                            s.beepEnabled
+                                ? LucideIcons.volume2
+                                : LucideIcons.volumeX,
                             size: 15,
                             color: s.beepEnabled ? Colors.white : Dg.ink,
                           ),
                           const SizedBox(width: 6),
-                          Text('Bip', style: Dg.ui(size: 12, weight: FontWeight.w700, color: s.beepEnabled ? Colors.white : Dg.ink)),
+                          Text(
+                            'Bip',
+                            style: Dg.ui(
+                              size: 12,
+                              weight: FontWeight.w700,
+                              color: s.beepEnabled ? Colors.white : Dg.ink,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -119,18 +147,34 @@ class _ZimmetScreenState extends ConsumerState<ZimmetScreen> {
             ),
             Expanded(
               child: s.zimmetScans.isEmpty
-                  ? Center(child: Text('Henüz taranan gönderi yok', style: Dg.ui(size: 15, color: Dg.ink3)))
+                  ? Center(
+                      child: Text(
+                        'Henüz taranan gönderi yok',
+                        style: Dg.ui(size: 15, color: Dg.ink3),
+                      ),
+                    )
                   : ListView.separated(
                       padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
                       itemCount: s.zimmetScans.length,
-                      separatorBuilder: (context, i) => const SizedBox(height: 8),
+                      separatorBuilder: (context, i) =>
+                          const SizedBox(height: 8),
                       itemBuilder: (context, i) {
                         final row = s.zimmetScans[i];
                         return DgCard(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
                           child: Row(
                             children: [
-                              Expanded(child: Mono(row.code, size: 14, weight: FontWeight.w700, color: Dg.ink)),
+                              Expanded(
+                                child: Mono(
+                                  row.code,
+                                  size: 14,
+                                  weight: FontWeight.w700,
+                                  color: Dg.ink,
+                                ),
+                              ),
                               Mono(row.time, size: 12),
                             ],
                           ),
@@ -150,7 +194,11 @@ class _ZimmetScreenState extends ConsumerState<ZimmetScreen> {
                           Navigator.of(context).pop();
                         } else {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Devir gönderilemedi, tekrar deneyin.')),
+                            const SnackBar(
+                              content: Text(
+                                'Devir gönderilemedi, tekrar deneyin.',
+                              ),
+                            ),
                           );
                         }
                       },
@@ -158,7 +206,10 @@ class _ZimmetScreenState extends ConsumerState<ZimmetScreen> {
                     ? const SizedBox(
                         width: 20,
                         height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2.4, color: Colors.white),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.4,
+                          color: Colors.white,
+                        ),
                       )
                     : const Text('Tamamla'),
               ),

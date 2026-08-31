@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'api/client.dart';
@@ -23,8 +24,8 @@ class SessionController extends ChangeNotifier {
     this.vault,
     this.waitForConfig = false,
     AppPhase? initialPhase,
-  })  : outbox = outbox ?? OutboxStore(),
-        phase = initialPhase ?? AppPhase.onboard {
+  }) : outbox = outbox ?? OutboxStore(),
+       phase = initialPhase ?? AppPhase.onboard {
     configReady = !waitForConfig;
     this.outbox.seedQueued(
       OutboxEvent(
@@ -73,6 +74,14 @@ class SessionController extends ChangeNotifier {
     return '$h:$m';
   }
 
+  /// Vardiyanın açıldığı saat — "05:12  08:40'tan beri" gibi gösterimler
+  /// için (home_screen.dart).
+  String get shiftStartLabel {
+    final started = shiftStartedAt;
+    if (started == null) return '--:--';
+    return '${started.hour.toString().padLeft(2, '0')}:${started.minute.toString().padLeft(2, '0')}';
+  }
+
   // Menü / new-screens demo state (local only, no backend — see docs/plan).
   String plate = '20 KR 841';
 
@@ -82,7 +91,7 @@ class SessionController extends ChangeNotifier {
       title: 'Yeni durak atandı',
       body: 'DGO-8844 · Cumhuriyet Mah. 1. Sk. No:3',
       time: '14:41',
-      icon: Icons.local_shipping_outlined,
+      icon: LucideIcons.truck,
       tint: Dg.greenBg,
       ink: Dg.green,
     ),
@@ -90,7 +99,7 @@ class SessionController extends ChangeNotifier {
       title: 'Zimmet onaylandı',
       body: 'Şube zimmetinden 6 gönderi üstüne alındı.',
       time: '13:58',
-      icon: Icons.inventory_2_outlined,
+      icon: LucideIcons.package,
       tint: Dg.violetBg,
       ink: Dg.violet,
     ),
@@ -98,7 +107,7 @@ class SessionController extends ChangeNotifier {
       title: 'Gönderim başarısız',
       body: 'DGO-8839 senkron edilemedi, kuyrukta bekliyor.',
       time: '12:20',
-      icon: Icons.error_outline_rounded,
+      icon: LucideIcons.circleAlert,
       tint: Dg.redBg,
       ink: Dg.red,
     ),
@@ -106,7 +115,7 @@ class SessionController extends ChangeNotifier {
       title: 'Prim güncellendi',
       body: 'Bu hafta 40 teslim primine 6 teslim kaldı.',
       time: '09:05',
-      icon: Icons.account_balance_wallet_outlined,
+      icon: LucideIcons.wallet,
       tint: Dg.amberBg,
       ink: Dg.amber,
     ),
@@ -114,7 +123,7 @@ class SessionController extends ChangeNotifier {
       title: 'Vardiya hatırlatması',
       body: 'Yarın 09:00 vardiyası atanmıştır.',
       time: 'Dün',
-      icon: Icons.schedule_outlined,
+      icon: LucideIcons.clock,
       tint: Dg.blueBg,
       ink: Dg.blue,
     ),
@@ -133,9 +142,17 @@ class SessionController extends ChangeNotifier {
   }
 
   final depots = const [
-    DepotOption(name: 'Merkez Depo', meta: 'Sanayi Mah. 3. Cd. No:22', count: 18),
+    DepotOption(
+      name: 'Merkez Depo',
+      meta: 'Sanayi Mah. 3. Cd. No:22',
+      count: 18,
+    ),
     DepotOption(name: 'Güney Şube', meta: 'Kayalık Mah. No:4', count: 7),
-    DepotOption(name: 'Çamlık Aktarma', meta: 'Çamlık Mah. Depo Blok B', count: 3),
+    DepotOption(
+      name: 'Çamlık Aktarma',
+      meta: 'Çamlık Mah. Depo Blok B',
+      count: 3,
+    ),
   ];
   int? selectedDepot;
   static const _depotParcels = [
@@ -143,7 +160,8 @@ class SessionController extends ChangeNotifier {
     DepotParcel(code: 'DGO-9013', name: 'Kerem Baş', weight: '0,4 kg'),
     DepotParcel(code: 'DGO-9014', name: 'Nazlı Ekin', weight: '3,8 kg'),
   ];
-  List<DepotParcel> get depotPreview => selectedDepot == null ? const [] : _depotParcels;
+  List<DepotParcel> get depotPreview =>
+      selectedDepot == null ? const [] : _depotParcels;
 
   void pickDepot(int i) {
     selectedDepot = i;
@@ -153,16 +171,38 @@ class SessionController extends ChangeNotifier {
   void confirmDepotPickup() {
     inventory.insertAll(
       0,
-      _depotParcels.map((p) => InventoryItem(code: p.code, name: p.name, state: 'Bekleyen', done: false)),
+      _depotParcels.map(
+        (p) => InventoryItem(
+          code: p.code,
+          name: p.name,
+          state: 'Bekleyen',
+          done: false,
+        ),
+      ),
     );
     selectedDepot = null;
     notifyListeners();
   }
 
   final inventory = <InventoryItem>[
-    const InventoryItem(code: 'DGO-8841', name: 'Ahmet Yılmaz', state: 'Bekleyen', done: false),
-    const InventoryItem(code: 'DGO-8842', name: 'Elif Koç', state: 'Bekleyen', done: false),
-    const InventoryItem(code: 'DGO-8838', name: 'Burak Sarı', state: 'Teslim', done: true),
+    const InventoryItem(
+      code: 'DGO-8841',
+      name: 'Ahmet Yılmaz',
+      state: 'Bekleyen',
+      done: false,
+    ),
+    const InventoryItem(
+      code: 'DGO-8842',
+      name: 'Elif Koç',
+      state: 'Bekleyen',
+      done: false,
+    ),
+    const InventoryItem(
+      code: 'DGO-8838',
+      name: 'Burak Sarı',
+      state: 'Teslim',
+      done: true,
+    ),
   ];
 
   int get inventoryPending => inventory.where((p) => !p.done).length;
@@ -171,7 +211,15 @@ class SessionController extends ChangeNotifier {
   void addInventoryByCode(String code) {
     final v = code.trim();
     if (v.isEmpty) return;
-    inventory.insert(0, InventoryItem(code: v, name: 'Yeni kayıt', state: 'Bekleyen', done: false));
+    inventory.insert(
+      0,
+      InventoryItem(
+        code: v,
+        name: 'Yeni kayıt',
+        state: 'Bekleyen',
+        done: false,
+      ),
+    );
     notifyListeners();
   }
 
@@ -192,7 +240,11 @@ class SessionController extends ChangeNotifier {
     final v = (code ?? '').trim();
     final label = v.isEmpty ? 'DGO-${9100 + zimmetScans.length * 7}' : v;
     final now = DateTime.now();
-    zimmetScans.insert(0, (code: label, time: '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}'));
+    zimmetScans.insert(0, (
+      code: label,
+      time:
+          '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}',
+    ));
     notifyListeners();
   }
 
@@ -248,7 +300,10 @@ class SessionController extends ChangeNotifier {
     custodyHandoverPending = true;
     notifyListeners();
     try {
-      final result = await api!.handoverToBranch(itemIds: itemIds, branchName: 'Şube');
+      final result = await api!.handoverToBranch(
+        itemIds: itemIds,
+        branchName: 'Şube',
+      );
       custodyItems = result.remaining;
       liveApi = api!.lastWasLive;
       zimmetScans.clear();
@@ -264,7 +319,9 @@ class SessionController extends ChangeNotifier {
   bool beepEnabled = true;
   bool notifyEnabled = true;
   bool workerEnabled = true;
-  bool darkModeUi = false;
+  // Koyu tema artık markanın birincil görünümü (bkz. theme.dart) —
+  // varsayılan true, "Açık tema" ayarlardan seçilebilen alternatif.
+  bool darkModeUi = true;
 
   void toggleBeep() {
     beepEnabled = !beepEnabled;
@@ -323,11 +380,11 @@ class SessionController extends ChangeNotifier {
   ];
 
   final kycDocs = const [
-    KycDocOption(label: 'Yeni kimlik ön yüz', icon: Icons.badge_outlined),
-    KycDocOption(label: 'Yeni kimlik arka yüz', icon: Icons.badge_outlined),
-    KycDocOption(label: 'Eski kimlik', icon: Icons.description_outlined),
-    KycDocOption(label: 'Pasaport', icon: Icons.description_outlined),
-    KycDocOption(label: 'Yabancı kimlik', icon: Icons.badge_outlined),
+    KycDocOption(label: 'Yeni kimlik ön yüz', icon: LucideIcons.idCard),
+    KycDocOption(label: 'Yeni kimlik arka yüz', icon: LucideIcons.idCard),
+    KycDocOption(label: 'Eski kimlik', icon: LucideIcons.fileText),
+    KycDocOption(label: 'Pasaport', icon: LucideIcons.fileText),
+    KycDocOption(label: 'Yabancı kimlik', icon: LucideIcons.idCard),
   ];
   bool nfcRead = false;
   String mrzDoc = 'T12345678';
@@ -364,7 +421,8 @@ class SessionController extends ChangeNotifier {
 
   DeliveryTask? get nextStop {
     for (final t in tasks) {
-      if (t.status == TaskStatus.inProgress || t.status == TaskStatus.assigned) return t;
+      if (t.status == TaskStatus.inProgress || t.status == TaskStatus.assigned)
+        return t;
     }
     return null;
   }
@@ -408,6 +466,9 @@ class SessionController extends ChangeNotifier {
       etaMinutes: 6,
       lat: 38.1512,
       lng: 29.0614,
+      custodyCount: 2,
+      custodyRef: 'PRD-11207',
+      slaMinutesLeft: 72,
     ),
     DeliveryTask(
       id: 't2',
@@ -435,6 +496,8 @@ class SessionController extends ChangeNotifier {
       etaMinutes: 18,
       lat: 38.1554,
       lng: 29.0692,
+      custodyCount: 1,
+      slaMinutesLeft: 118,
     ),
     DeliveryTask(
       id: 't4',
@@ -451,14 +514,25 @@ class SessionController extends ChangeNotifier {
     ),
   ];
 
-  int get openCount =>
-      tasks.where((t) => t.status == TaskStatus.assigned || t.status == TaskStatus.inProgress).length;
+  int get openCount => tasks
+      .where(
+        (t) =>
+            t.status == TaskStatus.assigned ||
+            t.status == TaskStatus.inProgress,
+      )
+      .length;
 
-  int get doneCount =>
-      tasks.where((t) => t.status == TaskStatus.delivered || t.status == TaskStatus.failed).length;
+  int get doneCount => tasks
+      .where(
+        (t) =>
+            t.status == TaskStatus.delivered || t.status == TaskStatus.failed,
+      )
+      .length;
 
-  int get deliveredCount => tasks.where((t) => t.status == TaskStatus.delivered).length;
-  int get returnCount => tasks.where((t) => t.status == TaskStatus.failed).length;
+  int get deliveredCount =>
+      tasks.where((t) => t.status == TaskStatus.delivered).length;
+  int get returnCount =>
+      tasks.where((t) => t.status == TaskStatus.failed).length;
 
   DeliveryTask taskById(String id) => tasks.firstWhere((t) => t.id == id);
 
@@ -489,7 +563,9 @@ class SessionController extends ChangeNotifier {
     phase = AppPhase.main;
     shiftOpen = true;
     shiftPhotoTaken = true;
-    shiftStartedAt = DateTime.now().subtract(const Duration(hours: 5, minutes: 12));
+    shiftStartedAt = DateTime.now().subtract(
+      const Duration(hours: 5, minutes: 12),
+    );
     notifyListeners();
     unawaited(_seedDemoTokenThenIdentity());
   }
@@ -536,7 +612,11 @@ class SessionController extends ChangeNotifier {
     final id = challengeId;
     if (api == null || id == null) return false;
     try {
-      final tokens = await api!.verifyActivation(challengeId: id, code: code, installationId: install);
+      final tokens = await api!.verifyActivation(
+        challengeId: id,
+        code: code,
+        installationId: install,
+      );
       await vault?.saveTokens(
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken,
@@ -586,7 +666,8 @@ class SessionController extends ChangeNotifier {
     final store = vault;
     if (store == null) return;
     final existing = await store.accessToken;
-    if (existing != null && existing.isNotEmpty && existing != 'demo-access') return;
+    if (existing != null && existing.isNotEmpty && existing != 'demo-access')
+      return;
     final now = DateTime.now().toUtc();
     await store.saveTokens(
       accessToken: 'demo-access',
@@ -641,17 +722,25 @@ class SessionController extends ChangeNotifier {
 
   void cyclePricingVisibility() {
     final c = courier;
-    if (c.affiliation == CourierAffiliation.independent && c.compensationType == CompensationType.pieceRate) {
+    if (c.affiliation == CourierAffiliation.independent &&
+        c.compensationType == CompensationType.pieceRate) {
       courier = c.copyWith(compensationType: CompensationType.fixedMonthly);
     } else if (c.affiliation == CourierAffiliation.independent) {
       courier = c.copyWith(affiliation: CourierAffiliation.agency);
     } else {
-      courier = c.copyWith(affiliation: CourierAffiliation.independent, compensationType: CompensationType.pieceRate);
+      courier = c.copyWith(
+        affiliation: CourierAffiliation.independent,
+        compensationType: CompensationType.pieceRate,
+      );
     }
     notifyListeners();
   }
 
-  void updateProfile({required String fullName, required String phone, required String plateValue}) {
+  void updateProfile({
+    required String fullName,
+    required String phone,
+    required String plateValue,
+  }) {
     courier = courier.copyWith(fullName: fullName, phone: phone);
     plate = plateValue;
     notifyListeners();
@@ -670,10 +759,7 @@ class SessionController extends ChangeNotifier {
     final event = outbox.enqueue(
       operation: SyncOperation.taskFinalize,
       subjectId: id,
-      payload: {
-        'receivedBy': receivedBy,
-        'outcome': 'DELIVERED',
-      },
+      payload: {'receivedBy': receivedBy, 'outcome': 'DELIVERED'},
     );
     if (online) {
       if (api == null) {
@@ -744,7 +830,10 @@ class SessionController extends ChangeNotifier {
     }
     try {
       final install = await store.installationId();
-      final results = await client.syncBatch(installationId: install, events: pending);
+      final results = await client.syncBatch(
+        installationId: install,
+        events: pending,
+      );
       liveApi = client.lastWasLive;
       await outbox.applyResults([
         for (final r in results) (id: r.clientEventId, status: r.status),

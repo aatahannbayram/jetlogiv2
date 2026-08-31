@@ -48,7 +48,8 @@ class Courier {
   /// monthly couriers see [monthlyPayLabel] instead everywhere money would
   /// otherwise show.
   bool get canSeePricing =>
-      affiliation == CourierAffiliation.independent && compensationType == CompensationType.pieceRate;
+      affiliation == CourierAffiliation.independent &&
+      compensationType == CompensationType.pieceRate;
 
   Courier copyWith({
     String? fullName,
@@ -98,6 +99,11 @@ class DeliveryTask {
     this.receivedBy,
     this.lat = 38.1512,
     this.lng = 29.0614,
+    this.custodyCount,
+    this.custodyRef,
+    this.slaMinutesLeft,
+    this.signed = false,
+    this.groupKey,
   });
 
   final String id;
@@ -116,11 +122,37 @@ class DeliveryTask {
   final double lat;
   final double lng;
 
+  /// Bu durakla ilişkili zimmet kalem sayısı (ör. "Zimmet 2 kalem").
+  final int? custodyCount;
+
+  /// Zimmet referans kodu — görev detayında "Zimmet" kartının alt satırı
+  /// (ör. "PRD-11207").
+  final String? custodyRef;
+
+  /// Teslim penceresinin kalan dakikası — "Teslim penceresi · 01:12 kaldı".
+  final int? slaMinutesLeft;
+
+  /// İmza zaten alınmış mı — dağıtım listesinde tamamlanan durağın "İmza"
+  /// pili için.
+  final bool signed;
+
+  /// Aynı değere sahip görevler "aynı adres" olarak gruplanıp "Birlikte
+  /// teslim edilebilir" kartı altında gösterilir.
+  final String? groupKey;
+
+  String get slaLabel {
+    final m = slaMinutesLeft;
+    if (m == null) return '';
+    final h = m ~/ 60;
+    final mm = m % 60;
+    return '${h.toString().padLeft(2, '0')}:${mm.toString().padLeft(2, '0')}';
+  }
+
   String get kindLabel => switch (kind) {
-        TaskKind.delivery => 'Teslimat',
-        TaskKind.pickup => 'Alım',
-        TaskKind.document => 'Evrak',
-      };
+    TaskKind.delivery => 'Teslimat',
+    TaskKind.pickup => 'Alım',
+    TaskKind.document => 'Evrak',
+  };
 }
 
 class WizardStep {
@@ -149,14 +181,14 @@ enum SyncOperation {
 
 extension SyncOperationWire on SyncOperation {
   String get wire => switch (this) {
-        SyncOperation.shiftStart => 'SHIFT_START',
-        SyncOperation.shiftEnd => 'SHIFT_END',
-        SyncOperation.taskTransition => 'TASK_TRANSITION',
-        SyncOperation.stepSubmit => 'STEP_SUBMIT',
-        SyncOperation.taskFinalize => 'TASK_FINALIZE',
-        SyncOperation.custodyHandover => 'CUSTODY_HANDOVER',
-        SyncOperation.supportTicketCreate => 'SUPPORT_TICKET_CREATE',
-      };
+    SyncOperation.shiftStart => 'SHIFT_START',
+    SyncOperation.shiftEnd => 'SHIFT_END',
+    SyncOperation.taskTransition => 'TASK_TRANSITION',
+    SyncOperation.stepSubmit => 'STEP_SUBMIT',
+    SyncOperation.taskFinalize => 'TASK_FINALIZE',
+    SyncOperation.custodyHandover => 'CUSTODY_HANDOVER',
+    SyncOperation.supportTicketCreate => 'SUPPORT_TICKET_CREATE',
+  };
 }
 
 class OutboxEvent {
@@ -200,7 +232,11 @@ class AppNotification {
 }
 
 class DepotOption {
-  const DepotOption({required this.name, required this.meta, required this.count});
+  const DepotOption({
+    required this.name,
+    required this.meta,
+    required this.count,
+  });
 
   final String name;
   final String meta;
@@ -208,7 +244,11 @@ class DepotOption {
 }
 
 class DepotParcel {
-  const DepotParcel({required this.code, required this.name, required this.weight});
+  const DepotParcel({
+    required this.code,
+    required this.name,
+    required this.weight,
+  });
 
   final String code;
   final String name;
@@ -216,7 +256,12 @@ class DepotParcel {
 }
 
 class InventoryItem {
-  const InventoryItem({required this.code, required this.name, required this.state, required this.done});
+  const InventoryItem({
+    required this.code,
+    required this.name,
+    required this.state,
+    required this.done,
+  });
 
   final String code;
   final String name;
@@ -224,7 +269,12 @@ class InventoryItem {
   final bool done;
 
   InventoryItem copyWith({String? state, bool? done}) {
-    return InventoryItem(code: code, name: name, state: state ?? this.state, done: done ?? this.done);
+    return InventoryItem(
+      code: code,
+      name: name,
+      state: state ?? this.state,
+      done: done ?? this.done,
+    );
   }
 }
 

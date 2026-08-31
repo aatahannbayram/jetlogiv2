@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../launchers.dart';
 import '../models.dart';
@@ -21,14 +22,6 @@ class HomeScreen extends ConsumerWidget {
     if (ok) s.setShiftOpen(true);
   }
 
-  String _greeting() {
-    final h = DateTime.now().hour;
-    if (h < 6) return 'İyi geceler';
-    if (h < 12) return 'Günaydın';
-    if (h < 18) return 'İyi günler';
-    return 'İyi akşamlar';
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final s = ref.watch(sessionProvider);
@@ -43,32 +36,74 @@ class HomeScreen extends ConsumerWidget {
           children: [
             Row(
               children: [
-                Image.asset('assets/images/jetlogi_logo_color.png', height: 26),
-                const Spacer(),
-                InitialsAvatar(name: s.courier.fullName, online: s.online, size: 36),
+                InitialsAvatar(
+                  name: s.courier.fullName,
+                  online: s.online,
+                  size: 42,
+                ),
                 const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        s.courier.fullName,
+                        style: Dg.ui(size: 16, weight: FontWeight.w700),
+                      ),
+                      Text(
+                        '${s.courier.district} / ${s.courier.city}',
+                        style: Dg.ui(size: 12, color: Dg.ink3),
+                      ),
+                    ],
+                  ),
+                ),
                 GestureDetector(
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const NotifScreen())),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const NotifScreen(),
+                    ),
+                  ),
                   child: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: const BoxDecoration(color: Dg.surface, shape: BoxShape.circle),
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: Dg.elev,
+                      shape: BoxShape.circle,
+                    ),
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
-                        const Icon(Icons.notifications_outlined, size: 19, color: Dg.ink),
+                        Icon(LucideIcons.bell, size: 17, color: Dg.ink),
                         if (s.unreadNotifCount > 0)
                           Positioned(
                             top: 5,
                             right: 6,
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 4),
-                              constraints: const BoxConstraints(minWidth: 15, minHeight: 15),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                              ),
+                              constraints: const BoxConstraints(
+                                minWidth: 15,
+                                minHeight: 15,
+                              ),
                               alignment: Alignment.center,
-                              decoration: BoxDecoration(color: Dg.red, shape: BoxShape.circle, border: Border.all(color: Dg.surface, width: 1.5)),
+                              decoration: BoxDecoration(
+                                color: Dg.red,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Dg.ground,
+                                  width: 1.5,
+                                ),
+                              ),
                               child: Text(
                                 '${s.unreadNotifCount}',
-                                style: const TextStyle(fontFamily: Dg.mono, fontSize: 9, fontWeight: FontWeight.w700, color: Colors.white, height: 1),
+                                style: const TextStyle(
+                                  fontFamily: Dg.mono,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                  height: 1,
+                                ),
                               ),
                             ),
                           ),
@@ -76,64 +111,105 @@ class HomeScreen extends ConsumerWidget {
                     ),
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 18),
-            Text('${_greeting()}, ${s.courier.fullName.split(' ').first}', style: Dg.serif(size: 27, weight: FontWeight.w600)),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    s.shiftOpen ? 'Vardiya açık  ·  ${s.courier.district} / ${s.courier.city}' : 'Vardiya kapalı',
-                    style: Dg.ui(size: 14, color: Dg.ink2, height: 1.2),
-                  ),
-                ),
+                const SizedBox(width: 8),
                 GestureDetector(
                   onTap: s.toggleOnline,
-                  child: StatusChip(label: s.online ? 'Çevrimiçi' : 'Çevrimdışı', tone: s.online ? 'lime' : 'hi'),
+                  child: Container(
+                    width: 38,
+                    height: 38,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: Dg.elev,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(LucideIcons.search, size: 17, color: Dg.ink),
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 16),
             if (!s.shiftOpen)
               _ShiftClosedCard(onStart: () => _startShift(context, s))
-            else ...[
+            else
               _ShiftOpenCard(session: s),
-              const SizedBox(height: 14),
+            if (s.shiftOpen) ...[
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Sıradaki durak',
+                      style: Dg.serif(size: 19, weight: FontWeight.w600),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const RouteScreen(),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Text(
+                          'Rotayı gör',
+                          style: Dg.ui(
+                            size: 13,
+                            weight: FontWeight.w600,
+                            color: Dg.primaryGradientStart,
+                          ),
+                        ),
+                        Icon(
+                          LucideIcons.chevronRight,
+                          size: 16,
+                          color: Dg.primaryGradientStart,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
               if (hero != null) _HeroStop(task: hero) else const _NoStopCard(),
             ],
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                if (s.courier.canSeePricing) ...[
-                  StatTile(label: 'BUGÜN', value: SessionController.todayEarn, sub: SessionController.earnDelta, subColor: Dg.purpleDeep),
-                  const SizedBox(width: 12),
-                ],
-                StatTile(
-                  label: 'TESLİM',
-                  value: '${s.deliveredCount}/${s.tasks.length}',
-                  sub: '${s.openCount} durak açık',
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 20),
             DgCard(
-              onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const SyncScreen())),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const SyncScreen()),
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.sync_rounded, size: 19, color: syncDone ? Dg.purpleDeep : Dg.amber),
+                      Icon(
+                        LucideIcons.refreshCw,
+                        size: 19,
+                        color: syncDone ? Dg.purpleDeep : Dg.amber,
+                      ),
                       const SizedBox(width: 10),
-                      Expanded(child: Text('Senkronizasyon', style: Dg.ui(size: 16, weight: FontWeight.w600))),
+                      Expanded(
+                        child: Text(
+                          'Senkronizasyon',
+                          style: Dg.ui(size: 16, weight: FontWeight.w600),
+                        ),
+                      ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
-                        decoration: BoxDecoration(color: syncDone ? Dg.greenBg : Dg.amberBg, borderRadius: BorderRadius.circular(20)),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 11,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: syncDone ? Dg.greenBg : Dg.amberBg,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
                         child: Text(
                           syncDone ? 'Temiz' : '$syncTotal bekliyor',
-                          style: TextStyle(fontFamily: Dg.mono, fontSize: 11, fontWeight: FontWeight.w700, color: syncDone ? Dg.green : Dg.amber),
+                          style: TextStyle(
+                            fontFamily: Dg.mono,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: syncDone ? Dg.green : Dg.amber,
+                          ),
                         ),
                       ),
                     ],
@@ -150,7 +226,9 @@ class HomeScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    syncDone ? 'Tüm kayıtlar merkeze iletildi.' : '$syncTotal kayıt çevrimdışı kuyrukta, çevrimiçi olunca gönderilir.',
+                    syncDone
+                        ? 'Tüm kayıtlar merkeze iletildi.'
+                        : '$syncTotal kayıt çevrimdışı kuyrukta, çevrimiçi olunca gönderilir.',
                     style: Dg.ui(size: 13, color: Dg.ink2),
                   ),
                 ],
@@ -159,10 +237,26 @@ class HomeScreen extends ConsumerWidget {
             const SizedBox(height: 26),
             Row(
               children: [
-                Expanded(child: Text('Bildirimler', style: Dg.serif(size: 21, weight: FontWeight.w600))),
+                Expanded(
+                  child: Text(
+                    'Bildirimler',
+                    style: Dg.serif(size: 21, weight: FontWeight.w600),
+                  ),
+                ),
                 GestureDetector(
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const NotifScreen())),
-                  child: Text('Tümü', style: Dg.ui(size: 13, weight: FontWeight.w600, color: Dg.purpleDeep)),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const NotifScreen(),
+                    ),
+                  ),
+                  child: Text(
+                    'Tümü',
+                    style: Dg.ui(
+                      size: 13,
+                      weight: FontWeight.w600,
+                      color: Dg.purpleDeep,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -171,9 +265,12 @@ class HomeScreen extends ConsumerWidget {
               DgCard(
                 child: Row(
                   children: [
-                    const Icon(Icons.notifications_none_rounded, size: 20, color: Dg.ink3),
+                    Icon(LucideIcons.bell, size: 20, color: Dg.ink3),
                     const SizedBox(width: 10),
-                    Text('Yeni bildirim yok', style: Dg.ui(size: 14, color: Dg.ink3)),
+                    Text(
+                      'Yeni bildirim yok',
+                      style: Dg.ui(size: 14, color: Dg.ink3),
+                    ),
                   ],
                 ),
               )
@@ -188,21 +285,49 @@ class HomeScreen extends ConsumerWidget {
                       child: IntrinsicHeight(
                         child: Row(
                           children: [
-                            Container(width: 3, decoration: BoxDecoration(color: n.ink, borderRadius: const BorderRadius.horizontal(left: Radius.circular(Dg.radius)))),
+                            Container(
+                              width: 3,
+                              decoration: BoxDecoration(
+                                color: n.ink,
+                                borderRadius: const BorderRadius.horizontal(
+                                  left: Radius.circular(Dg.radius),
+                                ),
+                              ),
+                            ),
                             Expanded(
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 14,
+                                ),
                                 child: Row(
                                   children: [
-                                    IconTintBadge(icon: n.icon, tint: n.tint, ink: n.ink),
+                                    IconTintBadge(
+                                      icon: n.icon,
+                                      tint: n.tint,
+                                      ink: n.ink,
+                                    ),
                                     const SizedBox(width: 12),
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
-                                          Text(n.title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                                          Text(
+                                            n.title,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 15,
+                                            ),
+                                          ),
                                           const SizedBox(height: 3),
-                                          Text(n.body, style: Dg.ui(size: 13, color: Dg.ink3)),
+                                          Text(
+                                            n.body,
+                                            style: Dg.ui(
+                                              size: 13,
+                                              color: Dg.ink3,
+                                            ),
+                                          ),
                                         ],
                                       ),
                                     ),
@@ -243,20 +368,53 @@ class _ShiftClosedCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('VARDİYA DURUMU', style: TextStyle(fontFamily: Dg.mono, fontSize: 11, letterSpacing: 1.2, color: Color(0xFF8A8F80))),
+                  const Text(
+                    'VARDİYA DURUMU',
+                    style: TextStyle(
+                      fontFamily: Dg.mono,
+                      fontSize: 11,
+                      letterSpacing: 1.2,
+                      color: Color(0xFF8A8F80),
+                    ),
+                  ),
                   const SizedBox(height: 10),
-                  const Text('Kapalı', style: TextStyle(fontFamily: Dg.display, fontSize: 34, fontWeight: FontWeight.w700, color: Colors.white, letterSpacing: -0.5)),
+                  const Text(
+                    'Kapalı',
+                    style: TextStyle(
+                      fontFamily: Dg.display,
+                      fontSize: 34,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
                   const SizedBox(height: 8),
                   const Text(
                     'Vardiyayı başlatmak için selfie doğrulaması gerekir.',
-                    style: TextStyle(color: Color(0xFF9A9E90), fontSize: 15, height: 1.4),
+                    style: TextStyle(
+                      color: Color(0xFF9A9E90),
+                      fontSize: 15,
+                      height: 1.4,
+                    ),
                   ),
                   const SizedBox(height: 20),
-                  FilledButton.icon(
-                    style: FilledButton.styleFrom(backgroundColor: Dg.purple, foregroundColor: Colors.white),
-                    onPressed: onStart,
-                    icon: const Icon(Icons.photo_camera_outlined, size: 19),
-                    label: const Text('Vardiyayı başlat'),
+                  SizedBox(
+                    width: double.infinity,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: Dg.primaryGradient,
+                        borderRadius: BorderRadius.circular(Dg.radiusPill),
+                      ),
+                      child: FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          shadowColor: Colors.transparent,
+                        ),
+                        onPressed: onStart,
+                        icon: const Icon(LucideIcons.camera, size: 19),
+                        label: const Text('Vardiyayı başlat'),
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -274,41 +432,115 @@ class _ShiftOpenCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final plan = session.routePlan;
+    final km = plan == null
+        ? '—'
+        : (plan.totalDistanceMeters / 1000).toStringAsFixed(1);
     return ClipRRect(
       borderRadius: BorderRadius.circular(Dg.radiusHero),
       child: Container(
-        decoration: BoxDecoration(color: Dg.purple, boxShadow: Dg.shadowHero),
+        decoration: BoxDecoration(
+          gradient: Dg.primaryGradient,
+          boxShadow: Dg.shadowHero,
+        ),
         child: Stack(
           children: [
             const Positioned.fill(child: RouteGlowBackground()),
             Padding(
-              padding: const EdgeInsets.fromLTRB(22, 20, 22, 20),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('VARDİYA AÇIK', style: TextStyle(fontFamily: Dg.mono, fontSize: 11, letterSpacing: 1.2, color: Color(0xFFDCCFEF))),
-                        const SizedBox(height: 8),
-                        Text(session.shiftElapsedLabel, style: Dg.stat(size: 30, color: Colors.white)),
-                        const SizedBox(height: 6),
-                        Text('${session.openCount} durak açık', style: const TextStyle(color: Color(0xFFE3D9F2), fontSize: 13)),
-                      ],
-                    ),
+                  Row(
+                    children: [
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      const Text(
+                        'Vardiya açık',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const Spacer(),
+                      DgSwitch(
+                        value: true,
+                        onChanged: (_) => session.setShiftOpen(false),
+                        activeColor: Colors.white,
+                        thumbColor: Dg.primaryGradientStart,
+                      ),
+                    ],
                   ),
-                  DgSwitch(
-                    value: true,
-                    onChanged: (_) => session.setShiftOpen(false),
-                    activeColor: Dg.ink,
-                    thumbColor: Colors.white,
+                  const SizedBox(height: 10),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: [
+                      Text(
+                        session.shiftElapsedLabel,
+                        style: Dg.stat(size: 30, color: Colors.white),
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          "${session.shiftStartLabel}'tan beri",
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Color(0xFFDCCFEF),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _pill(
+                          'Teslim',
+                          '${session.deliveredCount} / ${session.tasks.length}',
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(child: _pill('Mesafe', km)),
+                    ],
                   ),
                 ],
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _pill(String label, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(color: Color(0xFFDCCFEF), fontSize: 11),
+          ),
+          const SizedBox(height: 2),
+          Text(value, style: Dg.stat(size: 16, color: Colors.white)),
+        ],
       ),
     );
   }
@@ -321,17 +553,53 @@ class _HeroStop extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return DgCard(
-      lime: false,
-      hero: true,
       padding: EdgeInsets.zero,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          MapStrip(
-            eta: task.etaMinutes,
-            height: 108,
-            points: [LatLng(task.lat, task.lng)],
-            onTap: () => openDirections(context, task),
+          Stack(
+            children: [
+              MapStrip(
+                eta: task.etaMinutes,
+                height: 108,
+                points: [LatLng(task.lat, task.lng)],
+                onTap: () => openDirections(context, task),
+              ),
+              if (task.etaMinutes != null)
+                Positioned(
+                  top: 10,
+                  right: 10,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      gradient: Dg.primaryGradient,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          LucideIcons.navigation,
+                          size: 12,
+                          color: Colors.white,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '-${task.etaMinutes} dk',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
@@ -340,47 +608,117 @@ class _HeroStop extends ConsumerWidget {
               children: [
                 Row(
                   children: [
-                    Mono('#${task.sequence}  ${task.ref}', color: Dg.ink),
+                    Mono('#${task.sequence}  ·  ${task.ref}', color: Dg.ink3),
                     const Spacer(),
-                    StatusChip(label: taskStatusLabel(task.status), tone: 'lime'),
+                    StatusChip(
+                      label: taskStatusLabel(task.status),
+                      tone: taskStatusTone(task.status),
+                    ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                Display(task.recipient, size: 30),
                 const SizedBox(height: 6),
-                Text(task.address, style: Dg.ui(size: 15, color: Dg.ink2, height: 1.35)),
-                const SizedBox(height: 8),
-                Text('${task.kindLabel}  ·  ${task.window}', style: Dg.ui(size: 13, color: Dg.ink2)),
+                Display(task.recipient, size: 22),
+                const SizedBox(height: 4),
+                Text(
+                  task.address,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Dg.ui(size: 13, color: Dg.ink2),
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _pill('Aralık', task.window.split('–').first),
+                    if (task.custodyCount != null)
+                      _pill('Zimmet', '${task.custodyCount} kalem'),
+                    if (task.otpRequired) _pill('Teslim kodu', 'Gerekli'),
+                  ],
+                ),
                 const SizedBox(height: 14),
                 Row(
                   children: [
                     Expanded(
-                      child: FilledButton(
-                        onPressed: () {
-                          ref.read(sessionProvider).startTask(task.id);
-                          Navigator.of(context).push(
-                            MaterialPageRoute<void>(builder: (_) => WizardScreen(taskId: task.id)),
-                          );
-                        },
-                        child: const Text('Teslime başla'),
+                      child: SizedBox(
+                        height: 52,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: Dg.primaryGradient,
+                            borderRadius: BorderRadius.circular(Dg.radiusPill),
+                          ),
+                          child: FilledButton.icon(
+                            style: FilledButton.styleFrom(
+                              backgroundColor: Colors.transparent,
+                              shadowColor: Colors.transparent,
+                            ),
+                            onPressed: () {
+                              ref.read(sessionProvider).startTask(task.id);
+                              Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => WizardScreen(taskId: task.id),
+                                ),
+                              );
+                            },
+                            icon: const Icon(LucideIcons.navigation, size: 16),
+                            label: const Text('Yol tarifi'),
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 10),
-                    GestureDetector(
-                      onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const RouteScreen())),
-                      child: Container(
-                        width: 56,
-                        height: 56,
-                        decoration: BoxDecoration(color: Dg.elev, borderRadius: BorderRadius.circular(20)),
-                        child: const Icon(Icons.near_me_outlined, size: 20, color: Dg.ink),
-                      ),
+                    _squareIcon(
+                      LucideIcons.phone,
+                      () => callRecipient(context),
                     ),
+                    const SizedBox(width: 8),
+                    _squareIcon(LucideIcons.messageSquare, () {}),
                   ],
                 ),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _pill(String label, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Dg.elev,
+        borderRadius: BorderRadius.circular(Dg.radius),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label, style: TextStyle(fontSize: 10, color: Dg.ink3)),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: Dg.ink,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _squareIcon(IconData icon, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 52,
+        height: 52,
+        decoration: BoxDecoration(
+          color: Dg.elev,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Icon(icon, size: 18, color: Dg.ink),
       ),
     );
   }
@@ -396,9 +734,17 @@ class _NoStopCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          IconTintBadge(icon: Icons.task_alt_rounded, tint: Dg.greenBg, ink: Dg.green, size: 44),
+          IconTintBadge(
+            icon: LucideIcons.listChecks,
+            tint: Dg.greenBg,
+            ink: Dg.green,
+            size: 44,
+          ),
           const SizedBox(height: 14),
-          Text('Sıradaki durak yok', style: Dg.serif(size: 20, weight: FontWeight.w600)),
+          Text(
+            'Sıradaki durak yok',
+            style: Dg.serif(size: 20, weight: FontWeight.w600),
+          ),
           const SizedBox(height: 6),
           Text(
             'Açık göreviniz kalmadı — yeni bir durak atandığında burada görünecek.',

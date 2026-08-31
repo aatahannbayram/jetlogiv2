@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' hide Path;
@@ -22,7 +23,7 @@ class Display extends StatelessWidget {
     super.key,
     this.size = 34,
     this.italic = false,
-    this.color = Dg.ink,
+    this.color,
     this.weight = FontWeight.w600,
     this.maxLines,
   });
@@ -30,7 +31,7 @@ class Display extends StatelessWidget {
   final String text;
   final double size;
   final bool italic;
-  final Color color;
+  final Color? color;
   final FontWeight weight;
   final int? maxLines;
 
@@ -40,7 +41,12 @@ class Display extends StatelessWidget {
       text,
       maxLines: maxLines,
       overflow: maxLines == null ? null : TextOverflow.ellipsis,
-      style: Dg.serif(size: size, italic: italic, color: color, weight: weight),
+      style: Dg.serif(
+        size: size,
+        italic: italic,
+        color: color ?? Dg.ink,
+        weight: weight,
+      ),
     );
   }
 }
@@ -63,7 +69,7 @@ class DemoPill extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: Dg.ink.withValues(alpha: 0.12)),
         ),
-        child: const Text(
+        child: Text(
           'DEMO',
           style: TextStyle(
             fontFamily: Dg.mono,
@@ -78,42 +84,57 @@ class DemoPill extends StatelessWidget {
   }
 }
 
+/// Durum göstergesi: 6px renkli nokta + nötr metin — dolgulu rozet değil.
+/// [dot] rengi tona göre otomatik seçilir (sage/sand/clay), [fg] ile
+/// override edilebilir (metin her zaman [Dg.ink2], nötr kalır — vurgu
+/// sadece noktada).
 class StatusChip extends StatelessWidget {
-  const StatusChip({super.key, required this.label, required this.tone, this.bg, this.fg});
+  const StatusChip({
+    super.key,
+    required this.label,
+    required this.tone,
+    this.bg,
+    this.fg,
+  });
 
   final String label;
   final String tone;
 
-  /// Override the tone-derived background/foreground — lets call sites that
-  /// need a custom tint (sync status, menu badges, edit pills, route
-  /// summary pills) reuse this shape instead of hand-rolling their own pill.
+  /// Eski API'den kalan override'lar — artık dolgu/kenarlık değil, nokta
+  /// rengini belirlemek için kullanılıyor. [bg] artık okunmuyor (dolgu yok).
   final Color? bg;
   final Color? fg;
 
   @override
   Widget build(BuildContext context) {
-    final lime = tone == 'lime';
-    final resolvedFg =
+    final dot =
         fg ??
         switch (tone) {
-          'hi' => Dg.hi,
-          'mid' => Dg.mid,
-          'lo' => Dg.lo,
-          'lime' => Colors.white,
-          _ => Dg.ink,
+          'hi' => Dg.clay,
+          'mid' => Dg.sand,
+          'lo' => Dg.sage,
+          'lime' => Dg.primaryGradientStart,
+          _ => Dg.ink3,
         };
-    final resolvedBg = bg ?? (lime ? Dg.purple : Dg.surface);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: resolvedBg,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: lime ? Dg.purpleDeep : resolvedFg.withValues(alpha: 0.28)),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(fontFamily: Dg.mono, color: resolvedFg, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.2),
-      ),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 6,
+          height: 6,
+          decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: TextStyle(
+            fontFamily: Dg.mono,
+            color: Dg.ink2,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -138,16 +159,16 @@ class DgSwitch extends StatelessWidget {
     super.key,
     required this.value,
     required this.onChanged,
-    this.activeColor = Dg.purple,
-    this.inactiveColor = Dg.rule,
-    this.thumbColor = Dg.ink,
+    this.activeColor,
+    this.inactiveColor,
+    this.thumbColor,
   });
 
   final bool value;
   final ValueChanged<bool> onChanged;
-  final Color activeColor;
-  final Color inactiveColor;
-  final Color thumbColor;
+  final Color? activeColor;
+  final Color? inactiveColor;
+  final Color? thumbColor;
 
   @override
   Widget build(BuildContext context) {
@@ -157,7 +178,12 @@ class DgSwitch extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         width: 58,
         height: 34,
-        decoration: BoxDecoration(color: value ? activeColor : inactiveColor, borderRadius: BorderRadius.circular(20)),
+        decoration: BoxDecoration(
+          color: value
+              ? (activeColor ?? Dg.primaryGradientStart)
+              : (inactiveColor ?? Dg.rule),
+          borderRadius: BorderRadius.circular(20),
+        ),
         child: AnimatedAlign(
           duration: const Duration(milliseconds: 200),
           alignment: value ? Alignment.centerRight : Alignment.centerLeft,
@@ -165,7 +191,10 @@ class DgSwitch extends StatelessWidget {
             margin: const EdgeInsets.all(4),
             width: 26,
             height: 26,
-            decoration: BoxDecoration(color: thumbColor, shape: BoxShape.circle),
+            decoration: BoxDecoration(
+              color: thumbColor ?? Dg.ink,
+              shape: BoxShape.circle,
+            ),
           ),
         ),
       ),
@@ -174,24 +203,43 @@ class DgSwitch extends StatelessWidget {
 }
 
 class Mono extends StatelessWidget {
-  const Mono(this.text, {super.key, this.size = 13, this.weight = FontWeight.w500, this.color = Dg.ink3});
+  const Mono(
+    this.text, {
+    super.key,
+    this.size = 13,
+    this.weight = FontWeight.w500,
+    this.color,
+  });
 
   final String text;
   final double size;
   final FontWeight weight;
-  final Color color;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: TextStyle(fontFamily: Dg.mono, fontSize: size, fontWeight: weight, color: color),
+      style: TextStyle(
+        fontFamily: Dg.mono,
+        fontSize: size,
+        fontWeight: weight,
+        color: color ?? Dg.ink3,
+      ),
     );
   }
 }
 
 class DgCard extends StatelessWidget {
-  const DgCard({super.key, required this.child, this.padding, this.onTap, this.hero = false, this.lime = false, this.dark = false});
+  const DgCard({
+    super.key,
+    required this.child,
+    this.padding,
+    this.onTap,
+    this.hero = false,
+    this.lime = false,
+    this.dark = false,
+  });
 
   final Widget child;
   final EdgeInsetsGeometry? padding;
@@ -207,17 +255,17 @@ class DgCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final radius = hero ? Dg.radiusHero : Dg.radius;
+    // Card radius is unified at Dg.radiusHero across the whole app now —
+    // [hero] only still switches shadow weight/fill below, not shape.
+    const radius = Dg.radiusHero;
     final body = Container(
       width: double.infinity,
       padding: padding ?? const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: dark ? Dg.night : (lime ? Dg.purple : Dg.surface),
         borderRadius: BorderRadius.circular(radius),
-        // No hairline stroke on the plain white card — the shadow plus the
-        // page's off-white ground already separates it, and skipping the
-        // border reads less like a generic bordered-box-with-shadow default.
-        border: dark ? Border.all(color: Colors.white.withValues(alpha: 0.18)) : null,
+        // Çerçeve yok — yüzey tonu + gölge + üst kenardaki 1px ışık ayırıyor.
+        border: Border(top: BorderSide(color: Dg.insetHighlight)),
         boxShadow: hero || lime || dark ? Dg.shadowHero : Dg.shadow,
       ),
       child: child,
@@ -225,7 +273,11 @@ class DgCard extends StatelessWidget {
     if (onTap == null) return body;
     return Material(
       color: Colors.transparent,
-      child: InkWell(onTap: onTap, borderRadius: BorderRadius.circular(radius), child: body),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(radius),
+        child: body,
+      ),
     );
   }
 }
@@ -254,11 +306,13 @@ class MapStrip extends StatelessWidget {
   final int? eta;
   final double height;
   final bool clipTopOnly;
+
   /// Set false for a full-bleed map flush against the screen edge (e.g. a
   /// tracking screen with a bottom sheet floating over it) — no corners are
   /// rounded regardless of [clipTopOnly].
   final bool rounded;
   final List<LatLng> points;
+
   /// Real road-following geometry from `GET /v1/routes/current` (Google
   /// encoded polyline, see lib/geo.dart). When present, this draws the line
   /// instead of the straight segments between [points] — [points] still
@@ -270,7 +324,9 @@ class MapStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final center = points.isNotEmpty ? points.first : _dgDefaultMapCenter;
-    final line = encodedPolyline != null && encodedPolyline!.isNotEmpty ? decodePolyline(encodedPolyline!) : points;
+    final line = encodedPolyline != null && encodedPolyline!.isNotEmpty
+        ? decodePolyline(encodedPolyline!)
+        : points;
     final body = ClipRRect(
       borderRadius: !rounded
           ? BorderRadius.zero
@@ -288,7 +344,9 @@ class MapStrip extends StatelessWidget {
                 options: MapOptions(
                   initialCenter: center,
                   initialZoom: points.length > 1 ? 13 : 14.5,
-                  interactionOptions: const InteractionOptions(flags: InteractiveFlag.none),
+                  interactionOptions: const InteractionOptions(
+                    flags: InteractiveFlag.none,
+                  ),
                 ),
                 children: [
                   TileLayer(
@@ -303,12 +361,20 @@ class MapStrip extends StatelessWidget {
                     zoomOffset: useMapboxTiles ? -1 : 0,
                     errorTileCallback: (tile, error, stackTrace) {
                       // ignore: avoid_print
-                      print('TILE ERROR: $error  url=${mapTileUrlTemplate.split('?').first}');
+                      print(
+                        'TILE ERROR: $error  url=${mapTileUrlTemplate.split('?').first}',
+                      );
                     },
                   ),
                   if (line.length > 1)
                     PolylineLayer(
-                      polylines: [Polyline(points: line, color: Dg.purpleDeep, strokeWidth: 3.5)],
+                      polylines: [
+                        Polyline(
+                          points: line,
+                          color: Dg.purpleDeep,
+                          strokeWidth: 3.5,
+                        ),
+                      ],
                     ),
                   MarkerLayer(
                     markers: [
@@ -319,7 +385,9 @@ class MapStrip extends StatelessWidget {
                           height: 26,
                           child: Container(
                             decoration: BoxDecoration(
-                              color: i == points.length - 1 ? Dg.ink : Colors.white,
+                              color: i == points.length - 1
+                                  ? Dg.ink
+                                  : Colors.white,
                               borderRadius: BorderRadius.circular(6),
                               border: Border.all(color: Dg.ink, width: 1.4),
                             ),
@@ -334,7 +402,10 @@ class MapStrip extends StatelessWidget {
                             decoration: BoxDecoration(
                               color: Dg.ink,
                               borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: Colors.white, width: 1.4),
+                              border: Border.all(
+                                color: Colors.white,
+                                width: 1.4,
+                              ),
                             ),
                           ),
                         ),
@@ -355,7 +426,12 @@ class MapStrip extends StatelessWidget {
                 ),
                 child: Text(
                   label ?? (eta == null ? 'Sıradaki durak' : '~$eta dk'),
-                  style: const TextStyle(fontFamily: Dg.mono, color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700),
+                  style: const TextStyle(
+                    fontFamily: Dg.mono,
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ),
@@ -464,7 +540,11 @@ class _ViewfinderState extends State<Viewfinder> {
                 CustomPaint(painter: _CornerBrackets()),
                 if (widget.captured)
                   const Center(
-                    child: Icon(Icons.door_front_door_rounded, color: Color(0xFF3FB3A8), size: 48),
+                    child: Icon(
+                      LucideIcons.doorOpen,
+                      color: Color(0xFF3FB3A8),
+                      size: 48,
+                    ),
                   ),
                 Positioned(
                   left: 16,
@@ -473,11 +553,17 @@ class _ViewfinderState extends State<Viewfinder> {
                   child: Text(
                     widget.captured ? widget.capturedLabel : widget.hint,
                     textAlign: TextAlign.center,
-                    style: Dg.ui(size: 13, color: const Color(0xCCF3F0E7), weight: FontWeight.w500),
+                    style: Dg.ui(
+                      size: 13,
+                      color: const Color(0xCCF3F0E7),
+                      weight: FontWeight.w500,
+                    ),
                   ),
                 ),
                 IgnorePointer(
-                  child: ColoredBox(color: Colors.white.withValues(alpha: _flash)),
+                  child: ColoredBox(
+                    color: Colors.white.withValues(alpha: _flash),
+                  ),
                 ),
               ],
             ),
@@ -494,15 +580,28 @@ class _ViewfinderState extends State<Viewfinder> {
               shape: BoxShape.circle,
               border: Border.all(color: Colors.white, width: 6),
               color: widget.captured ? Dg.accent : Dg.accent,
-              boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 12, offset: Offset(0, 4))],
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x33000000),
+                  blurRadius: 12,
+                  offset: Offset(0, 4),
+                ),
+              ],
             ),
-            child: Icon(widget.captured ? Icons.check_rounded : Icons.circle, color: Colors.white, size: widget.captured ? 28 : 22),
+            child: Icon(
+              widget.captured ? LucideIcons.check : LucideIcons.circle,
+              color: Colors.white,
+              size: widget.captured ? 28 : 22,
+            ),
           ),
         ),
         if (widget.captured)
-          const Padding(
-            padding: EdgeInsets.only(top: 10),
-            child: Text('Konum eklenecek. Galeri kapalı.', style: TextStyle(color: Dg.ink2, fontSize: 13)),
+          Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: Text(
+              'Konum eklenecek. Galeri kapalı.',
+              style: TextStyle(color: Dg.ink2, fontSize: 13),
+            ),
           ),
       ],
     );
@@ -535,7 +634,12 @@ class _CornerBrackets extends CustomPainter {
 }
 
 class OtpPin extends StatelessWidget {
-  const OtpPin({super.key, required this.controller, this.onCompleted, this.error = false});
+  const OtpPin({
+    super.key,
+    required this.controller,
+    this.onCompleted,
+    this.error = false,
+  });
 
   final TextEditingController controller;
   final ValueChanged<String>? onCompleted;
@@ -546,7 +650,12 @@ class OtpPin extends StatelessWidget {
     final base = PinTheme(
       width: 48,
       height: 56,
-      textStyle: const TextStyle(fontFamily: Dg.mono, fontSize: 22, fontWeight: FontWeight.w700, color: Dg.ink),
+      textStyle: TextStyle(
+        fontFamily: Dg.mono,
+        fontSize: 22,
+        fontWeight: FontWeight.w700,
+        color: Dg.ink,
+      ),
       decoration: BoxDecoration(
         color: Dg.surface,
         borderRadius: BorderRadius.circular(8),
@@ -557,7 +666,9 @@ class OtpPin extends StatelessWidget {
       controller: controller,
       length: 6,
       defaultPinTheme: base,
-      focusedPinTheme: base.copyDecorationWith(border: Border.all(color: Dg.accent, width: 2)),
+      focusedPinTheme: base.copyDecorationWith(
+        border: Border.all(color: Dg.accent, width: 2),
+      ),
       submittedPinTheme: base,
       keyboardType: TextInputType.number,
       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
@@ -568,7 +679,12 @@ class OtpPin extends StatelessWidget {
 }
 
 class SquareAction extends StatelessWidget {
-  const SquareAction({super.key, required this.icon, required this.label, required this.onTap});
+  const SquareAction({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
 
   final IconData icon;
   final String label;
@@ -581,7 +697,7 @@ class SquareAction extends StatelessWidget {
         color: Dg.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(Dg.radius),
-          side: const BorderSide(color: Dg.rule),
+          side: BorderSide(color: Dg.rule),
         ),
         elevation: 2,
         shadowColor: const Color(0x33111716),
@@ -595,7 +711,13 @@ class SquareAction extends StatelessWidget {
               children: [
                 Icon(icon, color: Dg.accent, size: 24),
                 const SizedBox(height: 6),
-                Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                ),
               ],
             ),
           ),
@@ -615,7 +737,10 @@ class NightGrain extends StatelessWidget {
       children: [
         const Positioned.fill(
           child: IgnorePointer(
-            child: CustomPaint(painter: _GrainPainter(), child: SizedBox.expand()),
+            child: CustomPaint(
+              painter: _GrainPainter(),
+              child: SizedBox.expand(),
+            ),
           ),
         ),
         child,
@@ -654,7 +779,8 @@ class SlideToAct extends StatefulWidget {
   State<SlideToAct> createState() => _SlideToActState();
 }
 
-class _SlideToActState extends State<SlideToAct> with SingleTickerProviderStateMixin {
+class _SlideToActState extends State<SlideToAct>
+    with SingleTickerProviderStateMixin {
   double _x = 0;
   bool _dragging = false;
   late final AnimationController _hint = AnimationController(
@@ -677,9 +803,15 @@ class _SlideToActState extends State<SlideToAct> with SingleTickerProviderStateM
         return Container(
           height: 64,
           decoration: BoxDecoration(
-            color: Dg.purple,
+            gradient: Dg.primaryGradient,
             borderRadius: BorderRadius.circular(Dg.radiusPill),
-            boxShadow: [BoxShadow(color: Dg.purpleDeep.withValues(alpha: 0.35), blurRadius: 20, offset: const Offset(0, 8))],
+            boxShadow: [
+              BoxShadow(
+                color: Dg.purpleDeep.withValues(alpha: 0.35),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
           ),
           child: Stack(
             alignment: Alignment.centerLeft,
@@ -687,7 +819,11 @@ class _SlideToActState extends State<SlideToAct> with SingleTickerProviderStateM
               Center(
                 child: Text(
                   widget.label,
-                  style: Dg.ui(size: 15, weight: FontWeight.w700, color: Colors.white),
+                  style: Dg.ui(
+                    size: 15,
+                    weight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
                 ),
               ),
               AnimatedBuilder(
@@ -697,7 +833,8 @@ class _SlideToActState extends State<SlideToAct> with SingleTickerProviderStateM
                   return Positioned(left: 6 + _x + nudge, child: child!);
                 },
                 child: GestureDetector(
-                  onHorizontalDragStart: (_) => setState(() => _dragging = true),
+                  onHorizontalDragStart: (_) =>
+                      setState(() => _dragging = true),
                   onHorizontalDragUpdate: (d) {
                     setState(() => _x = (_x + d.delta.dx).clamp(0, max));
                   },
@@ -717,9 +854,18 @@ class _SlideToActState extends State<SlideToAct> with SingleTickerProviderStateM
                     decoration: BoxDecoration(
                       color: Dg.ink,
                       shape: BoxShape.circle,
-                      boxShadow: const [BoxShadow(color: Color(0x40000000), blurRadius: 8, offset: Offset(0, 3))],
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x40000000),
+                          blurRadius: 8,
+                          offset: Offset(0, 3),
+                        ),
+                      ],
                     ),
-                    child: const Icon(Icons.keyboard_double_arrow_right_rounded, color: Dg.purpleBright),
+                    child: const Icon(
+                      LucideIcons.chevronsRight,
+                      color: Dg.purpleBright,
+                    ),
                   ),
                 ),
               ),
@@ -753,7 +899,11 @@ class DgPillNav extends StatelessWidget {
           color: Dg.night,
           borderRadius: BorderRadius.circular(Dg.radiusPill),
           boxShadow: const [
-            BoxShadow(color: Color(0x40000000), blurRadius: 24, offset: Offset(0, 10)),
+            BoxShadow(
+              color: Color(0x40000000),
+              blurRadius: 24,
+              offset: Offset(0, 10),
+            ),
           ],
         ),
         child: Row(
@@ -768,7 +918,9 @@ class DgPillNav extends StatelessWidget {
                     children: [
                       Icon(
                         index == i ? items[i].$2 : items[i].$1,
-                        color: index == i ? Dg.purpleBright : const Color(0x99FFFFFF),
+                        color: index == i
+                            ? Dg.purpleBright
+                            : const Color(0x99FFFFFF),
                         size: 22,
                       ),
                       const SizedBox(height: 4),
@@ -778,7 +930,9 @@ class DgPillNav extends StatelessWidget {
                           fontFamily: Dg.sans,
                           fontSize: 10,
                           fontWeight: FontWeight.w600,
-                          color: index == i ? Dg.purpleBright : const Color(0x88FFFFFF),
+                          color: index == i
+                              ? Dg.purpleBright
+                              : const Color(0x88FFFFFF),
                         ),
                       ),
                     ],
@@ -793,7 +947,12 @@ class DgPillNav extends StatelessWidget {
 }
 
 class InitialsAvatar extends StatelessWidget {
-  const InitialsAvatar({super.key, required this.name, this.size = 44, this.online = false});
+  const InitialsAvatar({
+    super.key,
+    required this.name,
+    this.size = 44,
+    this.online = false,
+  });
 
   final String name;
   final double size;
@@ -805,7 +964,11 @@ class InitialsAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final parts = name.trim().split(RegExp(r'\s+'));
-    final initials = parts.take(2).map((p) => p.isEmpty ? '' : p[0]).join().toUpperCase();
+    final initials = parts
+        .take(2)
+        .map((p) => p.isEmpty ? '' : p[0])
+        .join()
+        .toUpperCase();
     return SizedBox(
       width: size,
       height: size,
@@ -823,11 +986,22 @@ class InitialsAvatar extends StatelessWidget {
                 end: Alignment.bottomRight,
                 colors: [Color(0xFF8A6BD1), Dg.purpleDeep],
               ),
-              boxShadow: [BoxShadow(color: Dg.purpleDeep.withValues(alpha: 0.3), blurRadius: size * 0.22, offset: Offset(0, size * 0.09))],
+              boxShadow: [
+                BoxShadow(
+                  color: Dg.purpleDeep.withValues(alpha: 0.3),
+                  blurRadius: size * 0.22,
+                  offset: Offset(0, size * 0.09),
+                ),
+              ],
             ),
             child: Text(
               initials,
-              style: TextStyle(fontFamily: Dg.sans, fontWeight: FontWeight.w700, fontSize: size * 0.32, color: Colors.white),
+              style: TextStyle(
+                fontFamily: Dg.sans,
+                fontWeight: FontWeight.w700,
+                fontSize: size * 0.32,
+                color: Colors.white,
+              ),
             ),
           ),
           if (online)
@@ -837,7 +1011,11 @@ class InitialsAvatar extends StatelessWidget {
               child: Container(
                 width: size * 0.3,
                 height: size * 0.3,
-                decoration: BoxDecoration(color: Dg.green, shape: BoxShape.circle, border: Border.all(color: Dg.surface, width: 2)),
+                decoration: BoxDecoration(
+                  color: Dg.green,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Dg.surface, width: 2),
+                ),
               ),
             ),
         ],
@@ -847,7 +1025,12 @@ class InitialsAvatar extends StatelessWidget {
 }
 
 class SegmentedTabs extends StatelessWidget {
-  const SegmentedTabs({super.key, required this.labels, required this.index, required this.onChanged});
+  const SegmentedTabs({
+    super.key,
+    required this.labels,
+    required this.index,
+    required this.onChanged,
+  });
 
   final List<String> labels;
   final int index;
@@ -857,7 +1040,10 @@ class SegmentedTabs extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(5),
-      decoration: BoxDecoration(color: Dg.elev, borderRadius: BorderRadius.circular(18)),
+      decoration: BoxDecoration(
+        color: Dg.elev,
+        borderRadius: BorderRadius.circular(18),
+      ),
       child: Row(
         children: [
           for (var i = 0; i < labels.length; i++)
@@ -875,7 +1061,11 @@ class SegmentedTabs extends StatelessWidget {
                   ),
                   child: Text(
                     labels[i],
-                    style: Dg.ui(size: 13, weight: FontWeight.w600, color: index == i ? Dg.ink : Dg.ink3),
+                    style: Dg.ui(
+                      size: 13,
+                      weight: FontWeight.w600,
+                      color: index == i ? Dg.ink : Dg.ink3,
+                    ),
                   ),
                 ),
               ),
@@ -887,7 +1077,15 @@ class SegmentedTabs extends StatelessWidget {
 }
 
 class StatTile extends StatelessWidget {
-  const StatTile({super.key, required this.label, required this.value, this.sub, this.subColor, this.onTap, this.dark = false});
+  const StatTile({
+    super.key,
+    required this.label,
+    required this.value,
+    this.sub,
+    this.subColor,
+    this.onTap,
+    this.dark = false,
+  });
 
   final String label;
   final String value;
@@ -906,12 +1104,26 @@ class StatTile extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Mono(label, size: 11, weight: FontWeight.w500, color: dark ? const Color(0xFFDCCFEF) : Dg.ink3),
+            Mono(
+              label,
+              size: 11,
+              weight: FontWeight.w500,
+              color: dark ? const Color(0xFFDCCFEF) : Dg.ink3,
+            ),
             const SizedBox(height: 8),
-            Text(value, style: Dg.stat(size: 24, color: dark ? Colors.white : Dg.ink)),
+            Text(
+              value,
+              style: Dg.stat(size: 24, color: dark ? Colors.white : Dg.ink),
+            ),
             if (sub != null) ...[
               const SizedBox(height: 4),
-              Text(sub!, style: Dg.ui(size: 13, color: subColor ?? (dark ? const Color(0xFFE3D9F2) : Dg.ink2))),
+              Text(
+                sub!,
+                style: Dg.ui(
+                  size: 13,
+                  color: subColor ?? (dark ? const Color(0xFFE3D9F2) : Dg.ink2),
+                ),
+              ),
             ],
           ],
         ),
@@ -921,7 +1133,13 @@ class StatTile extends StatelessWidget {
 }
 
 class IconTintBadge extends StatelessWidget {
-  const IconTintBadge({super.key, required this.icon, required this.tint, required this.ink, this.size = 36});
+  const IconTintBadge({
+    super.key,
+    required this.icon,
+    required this.tint,
+    required this.ink,
+    this.size = 36,
+  });
 
   final IconData icon;
   final Color tint;
@@ -934,36 +1152,36 @@ class IconTintBadge extends StatelessWidget {
       width: size,
       height: size,
       alignment: Alignment.center,
-      decoration: BoxDecoration(color: tint, borderRadius: BorderRadius.circular(size * 0.33)),
+      decoration: BoxDecoration(
+        color: tint,
+        borderRadius: BorderRadius.circular(size * 0.33),
+      ),
       child: Icon(icon, color: ink, size: size * 0.48),
     );
   }
 }
 
 String taskStatusLabel(TaskStatus s) => switch (s) {
-      TaskStatus.delivered => 'Teslim',
-      TaskStatus.failed => 'İade',
-      TaskStatus.queued => 'Kuyrukta',
-      TaskStatus.inProgress => 'İşlemde',
-      TaskStatus.assigned => 'Bekliyor',
-    };
+  TaskStatus.delivered => 'Teslim',
+  TaskStatus.failed => 'İade',
+  TaskStatus.queued => 'Kuyrukta',
+  TaskStatus.inProgress => 'İşlemde',
+  TaskStatus.assigned => 'Bekliyor',
+};
 
 String taskStatusTone(TaskStatus s) => switch (s) {
-      TaskStatus.delivered => 'lo',
-      TaskStatus.failed => 'hi',
-      TaskStatus.queued => 'mid',
-      TaskStatus.inProgress => 'lime',
-      _ => 'accent',
-    };
+  TaskStatus.delivered => 'lo',
+  TaskStatus.failed => 'hi',
+  TaskStatus.queued => 'mid',
+  TaskStatus.inProgress => 'lime',
+  _ => 'accent',
+};
 
 class TaskListTile extends StatelessWidget {
-  const TaskListTile({super.key, required this.task, required this.onTap, required this.canSeePricing});
+  const TaskListTile({super.key, required this.task, required this.onTap});
 
   final DeliveryTask task;
   final VoidCallback onTap;
-
-  /// Acenta/sabit-ücret kuryeler için gizlenir — bkz. [Courier.canSeePricing].
-  final bool canSeePricing;
 
   @override
   Widget build(BuildContext context) {
@@ -977,20 +1195,40 @@ class TaskListTile extends StatelessWidget {
             children: [
               Mono('#${task.sequence}  ${task.ref}'),
               const Spacer(),
-              StatusChip(label: taskStatusLabel(task.status), tone: taskStatusTone(task.status)),
+              StatusChip(
+                label: taskStatusLabel(task.status),
+                tone: taskStatusTone(task.status),
+              ),
             ],
           ),
           const SizedBox(height: 8),
-          Hero(tag: 'recipient-${task.id}', child: Material(color: Colors.transparent, child: Display(task.recipient, size: 22))),
+          Hero(
+            tag: 'recipient-${task.id}',
+            child: Material(
+              color: Colors.transparent,
+              child: Display(task.recipient, size: 22),
+            ),
+          ),
           const SizedBox(height: 4),
-          Text(task.address, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Dg.ink2, fontSize: 16, height: 1.3)),
+          Text(
+            task.address,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: Dg.ink2, fontSize: 16, height: 1.3),
+          ),
           const SizedBox(height: 8),
           Row(
             children: [
               Expanded(
-                child: Text('${task.kindLabel}  ·  ${task.window}', style: const TextStyle(fontSize: 13, color: Dg.ink2)),
+                child: Text(
+                  '${task.kindLabel}  ·  ${task.window}',
+                  style: TextStyle(fontSize: 13, color: Dg.ink2),
+                ),
               ),
-              if (task.cod != null && canSeePricing) StatusChip(label: 'Kapıda ${task.cod} ₺', tone: 'mid'),
+              // Kurye kapıda ödeme almıyor — tutar yerine teslim kodu
+              // gerekip gerekmediğini gösteriyoruz.
+              if (task.otpRequired)
+                const StatusChip(label: 'Kod gerekli', tone: 'mid'),
             ],
           ),
         ],
@@ -1004,12 +1242,14 @@ class TaskListTile extends StatelessWidget {
 /// onboarding [ShiftScreen]).
 Future<bool> showShiftSelfieSheet(BuildContext context) {
   return showModalBottomSheet<bool>(
-        context: context,
-        isScrollControlled: true,
-        backgroundColor: Dg.surface,
-        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
-        builder: (ctx) => const _ShiftSelfieSheet(),
-      ).then((v) => v ?? false);
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Dg.surface,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+    ),
+    builder: (ctx) => const _ShiftSelfieSheet(),
+  ).then((v) => v ?? false);
 }
 
 class _ShiftSelfieSheet extends StatefulWidget {
@@ -1041,7 +1281,12 @@ class _ShiftSelfieSheetState extends State<_ShiftSelfieSheet> {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(24, 20, 24, 24 + MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.fromLTRB(
+        24,
+        20,
+        24,
+        24 + MediaQuery.of(context).viewInsets.bottom,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1054,14 +1299,17 @@ class _ShiftSelfieSheetState extends State<_ShiftSelfieSheet> {
                 child: Container(
                   width: 38,
                   height: 38,
-                  decoration: const BoxDecoration(color: Dg.elev, shape: BoxShape.circle),
-                  child: const Icon(Icons.close_rounded, size: 18, color: Dg.ink),
+                  decoration: BoxDecoration(
+                    color: Dg.elev,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(LucideIcons.x, size: 18, color: Dg.ink),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Kimlik kontrolü için tek selfie. Fotoğraf sadece vardiya kaydına eklenir.',
             style: TextStyle(color: Dg.ink2, fontSize: 14, height: 1.45),
           ),
@@ -1076,18 +1324,25 @@ class _ShiftSelfieSheetState extends State<_ShiftSelfieSheet> {
                   decoration: BoxDecoration(
                     color: Dg.elev,
                     shape: BoxShape.circle,
-                    border: Border.all(color: _shot ? Dg.purpleDeep : Dg.rule, width: 2),
+                    border: Border.all(
+                      color: _shot ? Dg.purpleDeep : Dg.rule,
+                      width: 2,
+                    ),
                   ),
                   clipBehavior: Clip.antiAlias,
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
                       Icon(
-                        _shot ? Icons.check_circle_rounded : Icons.face_retouching_natural_outlined,
+                        _shot ? LucideIcons.circleCheck : LucideIcons.scanFace,
                         size: _shot ? 52 : 46,
                         color: _shot ? Dg.purpleDeep : Dg.ink3,
                       ),
-                      IgnorePointer(child: ColoredBox(color: Dg.purple.withValues(alpha: _flash))),
+                      IgnorePointer(
+                        child: ColoredBox(
+                          color: Dg.purple.withValues(alpha: _flash),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -1097,15 +1352,22 @@ class _ShiftSelfieSheetState extends State<_ShiftSelfieSheet> {
           const SizedBox(height: 20),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: BoxDecoration(color: Dg.elev, borderRadius: BorderRadius.circular(18)),
+            decoration: BoxDecoration(
+              color: Dg.elev,
+              borderRadius: BorderRadius.circular(18),
+            ),
             child: Row(
               children: [
-                const Icon(Icons.verified_outlined, size: 17, color: Dg.purpleDeep),
+                const Icon(
+                  LucideIcons.badgeCheck,
+                  size: 17,
+                  color: Dg.purpleDeep,
+                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     _shot ? 'Yüz doğrulandı. Vardiyayı başlatabilirsin.' : 'Yüzünü çerçeveye ortala, gözlük ve kask çıkarılmalı.',
-                    style: const TextStyle(color: Dg.ink2, fontSize: 13, height: 1.4),
+                    style: TextStyle(color: Dg.ink2, fontSize: 13, height: 1.4),
                   ),
                 ),
               ],
@@ -1113,7 +1375,12 @@ class _ShiftSelfieSheetState extends State<_ShiftSelfieSheet> {
           ),
           const SizedBox(height: 16),
           FilledButton(
-            style: _shot ? FilledButton.styleFrom(backgroundColor: Dg.purple, foregroundColor: Colors.white) : null,
+            style: _shot
+                ? FilledButton.styleFrom(
+                    backgroundColor: Dg.purple,
+                    foregroundColor: Colors.white,
+                  )
+                : null,
             onPressed: _action,
             child: Text(_shot ? 'Vardiyayı başlat' : 'Fotoğraf çek'),
           ),
@@ -1141,7 +1408,11 @@ class PhoneShell extends StatelessWidget {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(40),
                 boxShadow: const [
-                  BoxShadow(color: Color(0x66000000), blurRadius: 28, offset: Offset(0, 12)),
+                  BoxShadow(
+                    color: Color(0x66000000),
+                    blurRadius: 28,
+                    offset: Offset(0, 12),
+                  ),
                 ],
               ),
               clipBehavior: Clip.antiAlias,
@@ -1154,11 +1425,93 @@ class PhoneShell extends StatelessWidget {
   }
 }
 
+/// Full-screen backdrop for entry/tören ekranları (Giriş, vardiya kapanışı):
+/// [Dg.heroGradient] zemin, üst-sol köşede yumuşak mor hale, ince bir
+/// perspektif ağ ve birkaç turuncu vurgu noktası. Statik (animasyonsuz) —
+/// [RouteGlowBackground]'daki tek pulse'lu rota çizgisi buraya anlamca
+/// uymuyor, bu yalnızca ambiyans.
+class HeroBackground extends StatelessWidget {
+  const HeroBackground({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(gradient: Dg.heroGradient),
+      child: Stack(
+        children: [
+          Positioned(
+            top: -120,
+            left: -100,
+            child: Container(
+              width: 340,
+              height: 340,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    Colors.white.withValues(alpha: 0.16),
+                    Colors.white.withValues(alpha: 0),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const Positioned.fill(
+            child: IgnorePointer(
+              child: CustomPaint(painter: _HeroGridPainter()),
+            ),
+          ),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroGridPainter extends CustomPainter {
+  const _HeroGridPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final grid = Paint()
+      ..color = Colors.white.withValues(alpha: 0.08)
+      ..strokeWidth = 1;
+    for (final dx in [-0.3, 0.0, 0.3, 0.6, 0.9]) {
+      canvas.drawLine(
+        Offset(size.width * dx, size.height * 1.15),
+        Offset(size.width * (dx + 0.45), size.height * -0.15),
+        grid,
+      );
+    }
+    final dot = Paint()..color = Dg.heroAccentOrange;
+    for (final p in const [
+      Offset(0.78, 0.14),
+      Offset(0.16, 0.42),
+      Offset(0.62, 0.68),
+      Offset(0.88, 0.58),
+    ]) {
+      canvas.drawCircle(
+        Offset(size.width * p.dx, size.height * p.dy),
+        2.5,
+        dot..color = Dg.heroAccentOrange.withValues(alpha: 0.8),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
 /// Decorative backdrop for dark hero surfaces (shift cards, tracking maps):
 /// a faint diagonal grid, a soft curved "route" line, and a pulsing glow dot
 /// at one end. Purely visual — sits behind real content via a [Stack].
 class RouteGlowBackground extends StatefulWidget {
-  const RouteGlowBackground({super.key, this.dotAlignment = Alignment.topRight});
+  const RouteGlowBackground({
+    super.key,
+    this.dotAlignment = Alignment.topRight,
+  });
 
   /// Where the pulsing glow dot sits, in the painted area's local space.
   final Alignment dotAlignment;
@@ -1167,14 +1520,18 @@ class RouteGlowBackground extends StatefulWidget {
   State<RouteGlowBackground> createState() => _RouteGlowBackgroundState();
 }
 
-class _RouteGlowBackgroundState extends State<RouteGlowBackground> with SingleTickerProviderStateMixin {
+class _RouteGlowBackgroundState extends State<RouteGlowBackground>
+    with SingleTickerProviderStateMixin {
   // Bounded, not infinite: pumpAndSettle() gives up after ~10s of pumped
   // time regardless of how the count is chosen, so this can't just be a
   // huge number — it has to actually finish quickly. It replays from
   // scratch whenever this widget is freshly built (e.g. toggling the shift
   // switch swaps in a new card instance), so it's not strictly a one-time
   // thing, just not a perpetual background loop.
-  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 2200))..repeat(count: 4);
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 2200),
+  )..repeat(count: 4);
 
   @override
   void dispose() {
@@ -1188,7 +1545,10 @@ class _RouteGlowBackgroundState extends State<RouteGlowBackground> with SingleTi
       child: AnimatedBuilder(
         animation: _c,
         builder: (context, _) => CustomPaint(
-          painter: _RouteGlowPainter(pulse: _c.value, dotAlignment: widget.dotAlignment),
+          painter: _RouteGlowPainter(
+            pulse: _c.value,
+            dotAlignment: widget.dotAlignment,
+          ),
           size: Size.infinite,
         ),
       ),
@@ -1220,9 +1580,12 @@ class _RouteGlowPainter extends CustomPainter {
     final path = Path()
       ..moveTo(start.dx, start.dy)
       ..cubicTo(
-        size.width * 0.35, size.height * 0.55,
-        size.width * 0.4, size.height * 0.95,
-        dot.dx, dot.dy,
+        size.width * 0.35,
+        size.height * 0.55,
+        size.width * 0.4,
+        size.height * 0.95,
+        dot.dx,
+        dot.dy,
       );
     canvas.drawPath(
       path,
@@ -1234,10 +1597,15 @@ class _RouteGlowPainter extends CustomPainter {
     );
 
     final ringRadius = 5 + pulse * 16;
-    canvas.drawCircle(dot, ringRadius, Paint()..color = Dg.purpleBright.withValues(alpha: (1 - pulse) * 0.5));
+    canvas.drawCircle(
+      dot,
+      ringRadius,
+      Paint()..color = Dg.purpleBright.withValues(alpha: (1 - pulse) * 0.5),
+    );
     canvas.drawCircle(dot, 5, Paint()..color = Dg.purpleBright);
   }
 
   @override
-  bool shouldRepaint(covariant _RouteGlowPainter oldDelegate) => oldDelegate.pulse != pulse;
+  bool shouldRepaint(covariant _RouteGlowPainter oldDelegate) =>
+      oldDelegate.pulse != pulse;
 }

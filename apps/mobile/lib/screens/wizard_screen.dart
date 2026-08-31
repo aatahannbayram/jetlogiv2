@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../motion.dart';
@@ -6,6 +7,7 @@ import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'fail_screen.dart';
+import 'kyc_screen.dart';
 import 'result_screen.dart';
 
 class WizardScreen extends ConsumerStatefulWidget {
@@ -28,11 +30,21 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
   String? error;
   bool done = false;
 
-  static const options = [
-    ('recipient', 'Alıcının kendisi', Icons.person_rounded, Dg.violetBg, Dg.violet),
-    ('relative', 'Aile bireyi', Icons.family_restroom_rounded, Dg.blueBg, Dg.blue),
-    ('neighbor', 'Komşu', Icons.door_front_door_rounded, Dg.amberBg, Dg.amber),
-    ('workplace', 'İş yeri / resepsiyon', Icons.business_rounded, Dg.greenBg, Dg.green),
+  // Getter, not `static const` — the tint/ink pair (Dg.violetBg, ...) reads
+  // Dg.dark at call time, so this must re-evaluate on every access instead
+  // of being frozen at first use (otherwise it'd go stale after a
+  // koyu/açık tema toggle).
+  static List<(String, String, IconData, Color, Color)> get options => [
+    ('recipient', 'Alıcının kendisi', LucideIcons.user, Dg.violetBg, Dg.violet),
+    ('relative', 'Aile bireyi', LucideIcons.users, Dg.blueBg, Dg.blue),
+    ('neighbor', 'Komşu', LucideIcons.doorOpen, Dg.amberBg, Dg.amber),
+    (
+      'workplace',
+      'İş yeri / resepsiyon',
+      LucideIcons.building2,
+      Dg.greenBg,
+      Dg.green,
+    ),
   ];
 
   @override
@@ -43,7 +55,12 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
 
   bool get proofDone => proof == 'photo' ? photo : signature.isNotEmpty;
 
-  String get whoLabel => options.firstWhere((o) => o.$1 == recipient, orElse: () => ('', '—', Icons.circle_outlined, Dg.elev, Dg.ink)).$2;
+  String get whoLabel => options
+      .firstWhere(
+        (o) => o.$1 == recipient,
+        orElse: () => ('', '—', LucideIcons.circle, Dg.elev, Dg.ink),
+      )
+      .$2;
 
   String get cta {
     if (step == 1 && proofDone) return 'Kullan';
@@ -70,7 +87,9 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
         setState(() => error = 'Kod eşleşmedi. Alıcıya yeniden sorun.');
         return;
       }
-      ref.read(sessionProvider).deliverTask(widget.taskId, receivedBy: whoLabel);
+      ref
+          .read(sessionProvider)
+          .deliverTask(widget.taskId, receivedBy: whoLabel);
       setState(() => done = true);
       return;
     }
@@ -79,9 +98,12 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
 
   Future<void> _goFail() async {
     final failed = await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(builder: (_) => FailScreen(taskId: widget.taskId)),
+      MaterialPageRoute<bool>(
+        builder: (_) => FailScreen(taskId: widget.taskId),
+      ),
     );
-    if (failed == true && mounted) Navigator.popUntil(context, (r) => r.isFirst);
+    if (failed == true && mounted)
+      Navigator.popUntil(context, (r) => r.isFirst);
   }
 
   @override
@@ -109,22 +131,45 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
       );
     }
 
-    final titles = ['Teslim alan', 'Kanıt fotoğrafı', 'Alıcı kodu'];
+    final titles = ['Teslim alan', 'Kanıt', 'Teslim kodu'];
     return Scaffold(
       appBar: AppBar(
-        title: Text(titles[step]),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: Center(child: Mono('${step + 1}/3', size: 13, weight: FontWeight.w700, color: Dg.ink2)),
-          ),
-        ],
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(titles[step]),
+            Text(
+              'Adım ${step + 1}/3  ·  ${task.ref}',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: Dg.ink3,
+              ),
+            ),
+          ],
+        ),
       ),
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
-            child: StepDots(step: step),
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+            child: Row(
+              children: [
+                for (var i = 0; i < 3; i++) ...[
+                  if (i > 0) const SizedBox(width: 6),
+                  Expanded(
+                    child: Container(
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: i <= step ? Dg.primaryGradientStart : Dg.elev,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
           Expanded(
             child: ListView(
@@ -140,7 +185,10 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
                           color: recipient == o.$1 ? Dg.accentSoft : Dg.surface,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(Dg.radius),
-                            side: BorderSide(color: recipient == o.$1 ? Dg.accent : Dg.rule, width: recipient == o.$1 ? 2 : 1),
+                            side: BorderSide(
+                              color: recipient == o.$1 ? Dg.accent : Dg.rule,
+                              width: recipient == o.$1 ? 2 : 1,
+                            ),
                           ),
                           child: InkWell(
                             onTap: () => setState(() => recipient = o.$1),
@@ -149,12 +197,29 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
                               padding: const EdgeInsets.all(12),
                               child: Row(
                                 children: [
-                                  IconTintBadge(icon: o.$3, tint: o.$4, ink: o.$5, size: 40),
+                                  IconTintBadge(
+                                    icon: o.$3,
+                                    tint: o.$4,
+                                    ink: o.$5,
+                                    size: 40,
+                                  ),
                                   const SizedBox(width: 12),
-                                  Expanded(child: Text(o.$2, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16))),
+                                  Expanded(
+                                    child: Text(
+                                      o.$2,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                  ),
                                   Icon(
-                                    recipient == o.$1 ? Icons.check_circle_rounded : Icons.circle_outlined,
-                                    color: recipient == o.$1 ? Dg.accent : Dg.ink3,
+                                    recipient == o.$1
+                                        ? LucideIcons.circleCheck
+                                        : LucideIcons.circle,
+                                    color: recipient == o.$1
+                                        ? Dg.accent
+                                        : Dg.ink3,
                                     size: 22,
                                   ),
                                 ],
@@ -169,7 +234,8 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
                   SegmentedTabs(
                     labels: const ['Fotoğraf', 'İmza'],
                     index: proof == 'photo' ? 0 : 1,
-                    onChanged: (i) => setState(() => proof = i == 0 ? 'photo' : 'sign'),
+                    onChanged: (i) =>
+                        setState(() => proof = i == 0 ? 'photo' : 'sign'),
                   ),
                   const SizedBox(height: 16),
                   if (proof == 'photo') ...[
@@ -186,10 +252,28 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
                     Container(
                       padding: const EdgeInsets.all(14),
                       margin: const EdgeInsets.only(bottom: 12),
-                      decoration: BoxDecoration(color: Dg.elev, borderRadius: BorderRadius.circular(Dg.radius)),
-                      child: Text(
-                        'Bu imza ile ${task.ref} numaralı gönderiyi teslim aldığımı, gönderinin hasarsız ve eksiksiz olduğunu beyan ederim.',
-                        style: const TextStyle(fontSize: 13, color: Dg.ink2, height: 1.4),
+                      decoration: BoxDecoration(
+                        color: Dg.elev,
+                        borderRadius: BorderRadius.circular(Dg.radius),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Yukarıda belirtilen gönderiyi eksiksiz ve hasarsız teslim aldığımı beyan ederim.',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Dg.ink2,
+                              height: 1.4,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          const DgDivider(),
+                          const SizedBox(height: 10),
+                          _declarationRow('Gönderi no', task.ref),
+                          _declarationRow('Alıcı', task.recipient),
+                          _declarationRow('Tarih', _now()),
+                        ],
                       ),
                     ),
                     _SignaturePad(
@@ -200,40 +284,139 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
                           ..addAll(pts);
                       }),
                     ),
-                    if (signature.isNotEmpty)
-                      TextButton(
-                        onPressed: () => setState(signature.clear),
-                        child: const Text('Temizle'),
+                    if (signature.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Container(
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: Dg.sage,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              'İmza kaydı · Sahada imzalandı',
+                              style: Dg.ui(size: 13, color: Dg.ink2),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () => setState(signature.clear),
+                            child: const Text('Temizle'),
+                          ),
+                        ],
                       ),
+                    ],
                   ],
                 ],
                 if (step == 2) ...[
-                  Text(
-                    otpSent ? 'Kod alıcının telefonuna gitti. Sizden okumasını isteyin.' : 'Alıcının telefonuna tek kullanımlık bir kod göndereceğiz.',
-                    style: const TextStyle(fontSize: 16, color: Dg.ink2),
+                  DgCard(
+                    dark: true,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 44,
+                          height: 44,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: const Icon(
+                            LucideIcons.key,
+                            size: 20,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        const Text(
+                          'Alıcıdan 4 haneli kodu isteyin',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 17,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          otpSent
+                              ? 'Kod, alıcının telefonuna SMS ile gönderildi. Kodu görmeden teslim etme.'
+                              : 'Alıcının telefonuna tek kullanımlık bir kod göndereceğiz.',
+                          style: const TextStyle(
+                            color: Color(0xFF9A9E90),
+                            fontSize: 13,
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 16),
-                  if (otpSent)
-                    OtpPin(controller: otp, error: error != null)
-                  else
-                    DgCard(
-                      child: Column(
+                  if (otpSent) ...[
+                    const SizedBox(height: 16),
+                    OtpPin(controller: otp, error: error != null),
+                    const SizedBox(height: 16),
+                    GestureDetector(
+                      onTap: () => setState(() {}),
+                      child: Row(
                         children: [
-                          IconTintBadge(icon: Icons.sms_outlined, tint: Dg.violetBg, ink: Dg.violet, size: 44),
-                          const SizedBox(height: 10),
-                          Text('Kod henüz gönderilmedi', style: Dg.ui(size: 14, weight: FontWeight.w600)),
-                          const SizedBox(height: 4),
-                          Text('Devam etmek için "Kodu gönder"e dokun', style: Dg.ui(size: 12, color: Dg.ink3)),
+                          Expanded(
+                            child: Text(
+                              'Kod gelmedi mi? Yeniden gönder',
+                              style: Dg.ui(
+                                size: 14,
+                                weight: FontWeight.w600,
+                                color: Dg.primaryGradientStart,
+                              ),
+                            ),
+                          ),
+                          Mono('00:24', size: 13, color: Dg.ink3),
                         ],
                       ),
                     ),
+                    const SizedBox(height: 10),
+                    const DgDivider(),
+                    const SizedBox(height: 10),
+                    GestureDetector(
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const KycScreen(),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Kod alınamıyor · kimlik ile doğrula',
+                              style: Dg.ui(size: 14, color: Dg.ink2),
+                            ),
+                          ),
+                          Icon(
+                            LucideIcons.chevronRight,
+                            size: 16,
+                            color: Dg.ink3,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ],
                 if (error != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 12),
                     child: ShakeError(
                       trigger: error,
-                      child: Text(error!, style: const TextStyle(color: Dg.hi, fontSize: 16, fontWeight: FontWeight.w500)),
+                      child: Text(
+                        error!,
+                        style: TextStyle(
+                          color: Dg.hi,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                     ),
                   ),
               ],
@@ -252,7 +435,14 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
                     FilledButton(onPressed: _next, child: Text(cta)),
                     TextButton(
                       onPressed: _goFail,
-                      child: const Text('Teslim edemedim', style: TextStyle(color: Dg.hi, fontWeight: FontWeight.w600, fontSize: 16)),
+                      child: Text(
+                        'Teslim edemedim',
+                        style: TextStyle(
+                          color: Dg.hi,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -262,6 +452,29 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
         ],
       ),
     );
+  }
+
+  Widget _declarationRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(label, style: TextStyle(fontSize: 12, color: Dg.ink3)),
+          ),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _now() {
+    final n = DateTime.now();
+    String two(int v) => v.toString().padLeft(2, '0');
+    return '${two(n.day)}.${two(n.month)}.${n.year} ${two(n.hour)}:${two(n.minute)}';
   }
 }
 
@@ -304,7 +517,10 @@ class _SignaturePadState extends State<_SignaturePad> {
             children: [
               if (_pts.isEmpty)
                 Center(
-                  child: Text('Parmağınla imzala', style: Dg.ui(size: 14, color: Dg.ink3)),
+                  child: Text(
+                    'Parmağınla imzala',
+                    style: Dg.ui(size: 14, color: Dg.ink3),
+                  ),
                 ),
               CustomPaint(painter: _SignaturePainter(_pts)),
               Positioned(
@@ -340,5 +556,6 @@ class _SignaturePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _SignaturePainter oldDelegate) => oldDelegate.points != points;
+  bool shouldRepaint(covariant _SignaturePainter oldDelegate) =>
+      oldDelegate.points != points;
 }

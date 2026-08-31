@@ -33,9 +33,7 @@ void main() async {
 
   runApp(
     ProviderScope(
-      overrides: [
-        sessionProvider.overrideWith((ref) => session),
-      ],
+      overrides: [sessionProvider.overrideWith((ref) => session)],
       child: const DijigooApp(),
     ),
   );

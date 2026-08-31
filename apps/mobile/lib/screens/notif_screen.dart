@@ -17,7 +17,9 @@ class NotifScreen extends ConsumerWidget {
         title: const Text('Bildirimler'),
         actions: [
           TextButton(
-            onPressed: s.unreadNotifCount == 0 ? null : s.markAllNotificationsRead,
+            onPressed: s.unreadNotifCount == 0
+                ? null
+                : s.markAllNotificationsRead,
             child: const Text('Tümü okundu'),
           ),
         ],
@@ -43,7 +45,13 @@ class NotifScreen extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(n.title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                        Text(
+                          n.title,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                          ),
+                        ),
                         const SizedBox(height: 4),
                         Text(n.body, style: Dg.ui(size: 13, color: Dg.ink3)),
                       ],
@@ -55,7 +63,14 @@ class NotifScreen extends ConsumerWidget {
                       Mono(n.time, size: 11),
                       const SizedBox(height: 8),
                       if (unread)
-                        Container(width: 8, height: 8, decoration: const BoxDecoration(color: Dg.red, shape: BoxShape.circle)),
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            color: Dg.red,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
                     ],
                   ),
                 ],

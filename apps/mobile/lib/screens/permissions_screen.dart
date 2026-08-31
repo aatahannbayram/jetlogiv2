@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../session.dart';
@@ -29,7 +30,10 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
         children: [
-          const Text('Vardiya ancak bunlar tamamsa açılır.', style: TextStyle(fontSize: 16, color: Dg.ink2, height: 1.4)),
+          Text(
+            'Vardiya ancak bunlar tamamsa açılır.',
+            style: TextStyle(fontSize: 16, color: Dg.ink2, height: 1.4),
+          ),
           const SizedBox(height: 16),
           for (final item in items)
             Padding(
@@ -39,7 +43,9 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen> {
                 child: Row(
                   children: [
                     Icon(
-                      granted.contains(item.$3) ? Icons.check_circle_rounded : Icons.circle_outlined,
+                      granted.contains(item.$3)
+                          ? LucideIcons.circleCheck
+                          : LucideIcons.circle,
                       color: granted.contains(item.$3) ? Dg.accent : Dg.ink3,
                     ),
                     const SizedBox(width: 12),
@@ -47,9 +53,18 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(item.$1, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                          Text(
+                            item.$1,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 16,
+                            ),
+                          ),
                           const SizedBox(height: 4),
-                          Text(item.$2, style: const TextStyle(color: Dg.ink2, fontSize: 15)),
+                          Text(
+                            item.$2,
+                            style: TextStyle(color: Dg.ink2, fontSize: 15),
+                          ),
                         ],
                       ),
                     ),
@@ -59,7 +74,9 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen> {
             ),
           const SizedBox(height: 8),
           FilledButton(
-            onPressed: ready ? () => ref.read(sessionProvider).completePermissions() : null,
+            onPressed: ready
+                ? () => ref.read(sessionProvider).completePermissions()
+                : null,
             child: Text(ready ? 'Vardiyaya geç' : 'Üç izni de ver'),
           ),
         ],

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../api/client.dart';
@@ -70,9 +71,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Çıkış yap'),
-        content: const Text('Oturumun kapatılacak, tekrar giriş yapman gerekecek.'),
+        content: const Text(
+          'Oturumun kapatılacak, tekrar giriş yapman gerekecek.',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Vazgeç')),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Vazgeç'),
+          ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
             child: Text('Çıkış yap', style: TextStyle(color: Dg.hi)),
@@ -199,7 +205,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         controller: controller,
                         autofocus: true,
                         style: textStyle,
-                        decoration: const InputDecoration(border: InputBorder.none, isDense: true),
+                        decoration: const InputDecoration(
+                          border: InputBorder.none,
+                          isDense: true,
+                        ),
                         onSubmitted: (_) => _saveField(key),
                       )
                     : Text(controller.text, style: textStyle),
@@ -211,7 +220,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             child: Padding(
               padding: const EdgeInsets.only(left: 8),
               child: Icon(
-                isEditing ? Icons.check_circle_rounded : Icons.edit_outlined,
+                isEditing ? LucideIcons.circleCheck : LucideIcons.pencil,
                 size: 20,
                 color: isEditing ? Dg.purple : Dg.ink3,
               ),
@@ -226,6 +235,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Widget build(BuildContext context) {
     final s = ref.watch(sessionProvider);
     final c = s.courier;
+    // ProfileScreen doubles as the "Profil" bottom tab (no back needed —
+    // it's a shell root) and as a screen menu_screen.dart pushes on top of
+    // the shell ("Profilim" tile) — canPop tells them apart, since only the
+    // pushed case has anything to pop back to.
+    final canPop = Navigator.canPop(context);
     return Scaffold(
       body: SafeArea(
         child: ListView(
@@ -240,6 +254,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (canPop) ...[
+                    _BackButton(onTap: () => Navigator.of(context).pop()),
+                    const SizedBox(height: 14),
+                  ],
                   Row(
                     children: [
                       InitialsAvatar(name: c.fullName, size: 62),
@@ -303,18 +321,30 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
             ),
             const SizedBox(height: 18),
-            Text('Kullanıcı', style: Dg.ui(size: 20, weight: FontWeight.w700, color: Dg.ink)),
+            Text(
+              'Kullanıcı',
+              style: Dg.ui(size: 20, weight: FontWeight.w700, color: Dg.ink),
+            ),
             const SizedBox(height: 4),
-            Text('Her alanı ayrı ayrı düzenleyebilirsin.', style: Dg.ui(size: 13, color: Dg.ink3)),
+            Text(
+              'Her alanı ayrı ayrı düzenleyebilirsin.',
+              style: Dg.ui(size: 13, color: Dg.ink3),
+            ),
             const SizedBox(height: 10),
             DgCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   _field('name', 'AD SOYAD', name),
-                  const Padding(padding: EdgeInsets.symmetric(vertical: 10), child: DgDivider()),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 10),
+                    child: DgDivider(),
+                  ),
                   _field('phone', 'TELEFON', phone, mono: 'm'),
-                  const Padding(padding: EdgeInsets.symmetric(vertical: 10), child: DgDivider()),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 10),
+                    child: DgDivider(),
+                  ),
                   _field('plate', 'PLAKA', plate, mono: 'm'),
                 ],
               ),
@@ -331,7 +361,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   _settingRow(
                     'Görünüm',
                     s.darkModeUi ? 'Koyu tema' : 'Açık tema',
-                    icon: Icons.palette_outlined,
+                    icon: LucideIcons.palette,
                     trailing: GestureDetector(
                       onTap: s.toggleDarkModeUi,
                       child: Container(
@@ -353,7 +383,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 borderRadius: BorderRadius.circular(20),
                               ),
                               child: Icon(
-                                Icons.light_mode_outlined,
+                                LucideIcons.sun,
                                 size: 17,
                                 color: s.darkModeUi ? Dg.ink : Colors.white,
                               ),
@@ -369,7 +399,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 borderRadius: BorderRadius.circular(20),
                               ),
                               child: Icon(
-                                Icons.dark_mode_outlined,
+                                LucideIcons.moon,
                                 size: 17,
                                 color: s.darkModeUi ? Colors.white : Dg.ink,
                               ),
@@ -385,7 +415,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     s.beepEnabled ? 'Açık · bip + titreşim' : 'Kapalı',
                     s.beepEnabled,
                     s.toggleBeep,
-                    icon: Icons.volume_up_outlined,
+                    icon: LucideIcons.volume2,
                   ),
                   const DgDivider(),
                   _switchRow(
@@ -393,7 +423,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     s.notifyEnabled ? 'Açık · titreşim + ses' : 'Kapalı',
                     s.notifyEnabled,
                     s.toggleNotifyPref,
-                    icon: Icons.notifications_active_outlined,
+                    icon: LucideIcons.bellRing,
                   ),
                   const DgDivider(),
                   _switchRow(
@@ -408,7 +438,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         if (ok) s.setShiftOpen(true);
                       }
                     },
-                    icon: Icons.work_outline_rounded,
+                    icon: LucideIcons.briefcase,
                   ),
                 ],
               ),
@@ -470,7 +500,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     margin: const EdgeInsets.symmetric(horizontal: 4),
   );
 
-  Widget _settingRow(String title, String sub, {required Widget trailing, IconData? icon}) {
+  Widget _settingRow(
+    String title,
+    String sub, {
+    required Widget trailing,
+    IconData? icon,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 14),
       child: Row(
@@ -501,12 +536,45 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  Widget _switchRow(String title, String sub, bool on, VoidCallback onTap, {IconData? icon}) {
+  Widget _switchRow(
+    String title,
+    String sub,
+    bool on,
+    VoidCallback onTap, {
+    IconData? icon,
+  }) {
     return _settingRow(
       title,
       sub,
       icon: icon,
       trailing: DgSwitch(value: on, onChanged: (_) => onTap()),
+    );
+  }
+}
+
+/// Translucent on the dark hero header specifically (unlike
+/// task_detail_screen's solid version, needed there for legible contrast
+/// over unpredictable light map tiles) — here the backdrop is always
+/// [Dg.night], so a glass pill reads cleanly against it.
+class _BackButton extends StatelessWidget {
+  const _BackButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white.withValues(alpha: 0.14),
+      shape: const CircleBorder(side: BorderSide(color: Colors.white24)),
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: const SizedBox(
+          width: 36,
+          height: 36,
+          child: Icon(LucideIcons.arrowLeft, size: 16, color: Colors.white),
+        ),
+      ),
     );
   }
 }

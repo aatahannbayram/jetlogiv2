@@ -29,7 +29,7 @@ void main() {
     expect(find.text('Üstteki durak senin.'), findsOneWidget);
     await tester.tap(find.text('Atla'));
     await tester.pumpAndSettle();
-    expect(find.text('Kurye'), findsOneWidget);
+    expect(find.text('Bugünün durakları Güney’de.'), findsOneWidget);
     expect(find.text('Vardiyaya başla'), findsOneWidget);
     await tester.pump(const Duration(milliseconds: 600));
   });
@@ -38,9 +38,9 @@ void main() {
     await bindPhone(tester);
     await openDemo(tester);
     expect(find.text('Ahmet Yılmaz'), findsWidgets);
-    expect(find.text('Vardiya açık  ·  Güney / Denizli'), findsOneWidget);
+    expect(find.text('Güney / Denizli'), findsOneWidget);
 
-    await tester.tap(find.text('Teslime başla'));
+    await tester.tap(find.text('Yol tarifi'));
     await tester.pumpAndSettle();
     expect(find.text('Teslim alan'), findsWidgets);
 
@@ -70,7 +70,7 @@ void main() {
     await bindPhone(tester);
     await openDemo(tester);
 
-    await tester.tap(find.byIcon(Icons.near_me_outlined));
+    await tester.tap(find.text('Rotayı gör'));
     await tester.pumpAndSettle();
     expect(find.text('4 durak kaldı. Durağa basınca yol tarifi açılır.'), findsOneWidget);
     expect(find.text('Ahmet Yılmaz'), findsWidgets);
@@ -81,10 +81,10 @@ void main() {
     await bindPhone(tester);
     await openDemo(tester);
 
-    await tester.tap(find.text('Dağıtım'));
+    await tester.tap(find.text('Rota'));
     await tester.pumpAndSettle();
     expect(find.text('Ahmet Yılmaz'), findsWidgets);
-    expect(find.textContaining('Bekleyen ('), findsOneWidget);
+    expect(find.textContaining('Açık '), findsWidgets);
   });
 
   testWidgets('menü ekranı yeni bölümlere gider', (tester) async {
@@ -93,9 +93,9 @@ void main() {
 
     await tester.tap(find.text('Menü'));
     await tester.pumpAndSettle();
-    expect(find.text('Kazanç & Prim'), findsOneWidget);
+    expect(find.text('Performansım'), findsOneWidget);
 
-    await tester.tap(find.text('Kazanç & Prim'));
+    await tester.tap(find.text('Performansım'));
     await tester.pumpAndSettle();
     // Demo courier is fixed-monthly (canSeePricing == false) — sees the
     // monthly-equivalent card, not a per-delivery figure.
@@ -106,7 +106,10 @@ void main() {
     await bindPhone(tester);
     await openDemo(tester);
 
-    await tester.tap(find.text('Profil'));
+    // Profil artık ayrı bir sekme değil — Menü'nün üst kartından açılıyor.
+    await tester.tap(find.text('Menü'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ruken Turhan'));
     await tester.pumpAndSettle();
     expect(find.text('Ruken Turhan'), findsWidgets);
 

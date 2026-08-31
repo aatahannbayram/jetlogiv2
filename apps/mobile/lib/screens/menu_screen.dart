@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../motion.dart';
 import '../session.dart';
@@ -10,80 +11,72 @@ import 'earnings_screen.dart';
 import 'envanter_screen.dart';
 import 'kyc_screen.dart';
 import 'profile_screen.dart';
+import 'sync_screen.dart';
+import 'tara_screen.dart';
 import 'zimmet_screen.dart';
 
-typedef _MenuItem = ({String label, IconData icon, Color tint, Color ink, String? badge, Widget Function() open});
+typedef _MenuRow = ({
+  String label,
+  IconData icon,
+  String? badge,
+  Widget Function() open,
+});
 
+/// Canvas'ın "1k Menü" tasarımı — renkli 2 sütunlu kart grid'i yerine üstte
+/// profil özet kartı + düz liste satırları.
 class MenuScreen extends ConsumerWidget {
   const MenuScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final s = ref.watch(sessionProvider);
+    final pending = s.outbox.events.where((e) => e.pending).length;
 
-    // Grouped by what the courier is actually doing, not alphabetically or
-    // by when the feature shipped — "Dağıtım Listem" was dropped from here
-    // entirely since it's the exact same screen as the bottom "Dağıtım" tab
-    // (having it reachable two ways with no visual link was confusing).
-    final saha = <_MenuItem>[
+    final saha = <_MenuRow>[
       (
-        label: 'Kurye Zimmet',
-        icon: Icons.qr_code_scanner_rounded,
-        tint: Dg.redBg,
-        ink: Dg.red,
+        label: 'Zimmetim',
+        icon: LucideIcons.qrCode,
         badge: null,
-        open: () => const ZimmetScreen(mode: 'kurye'),
+        open: () => const TaraScreen(),
       ),
       (
-        label: 'Şube Zimmet',
-        icon: Icons.qr_code_scanner_rounded,
-        tint: Dg.greenBg,
-        ink: Dg.green,
+        label: 'Şubeye teslim',
+        icon: LucideIcons.building2,
         badge: null,
         open: () => const ZimmetScreen(mode: 'sube'),
       ),
       (
-        label: 'Depodan Alım',
-        icon: Icons.warehouse_outlined,
-        tint: Dg.blueBg,
-        ink: Dg.blue,
+        label: 'Depodan alım',
+        icon: LucideIcons.warehouse,
         badge: null,
         open: () => const DepoScreen(),
       ),
       (
-        label: 'Ürün Envanterim',
-        icon: Icons.inventory_2_outlined,
-        tint: Dg.amberBg,
-        ink: Dg.amber,
+        label: 'Verileri gönder',
+        icon: LucideIcons.uploadCloud,
+        badge: pending > 0 ? '$pending' : null,
+        open: () => const SyncScreen(),
+      ),
+      (
+        label: 'Ürün envanterim',
+        icon: LucideIcons.package,
         badge: s.inventoryPending > 0 ? '${s.inventoryPending}' : null,
         open: () => const EnvanterScreen(),
       ),
     ];
 
-    final hesap = <_MenuItem>[
+    final hesap = <_MenuRow>[
       (
-        label: 'Kazanç & Prim',
-        icon: Icons.account_balance_wallet_outlined,
-        tint: Dg.greenBg,
-        ink: Dg.green,
+        label: 'Performansım',
+        icon: LucideIcons.trendingUp,
         badge: null,
         open: () => const EarningsScreen(),
       ),
       (
-        label: 'Digital Test (KYC)',
-        icon: Icons.badge_outlined,
-        tint: Dg.blueBg,
-        ink: Dg.blue,
+        label: 'Kimlik doğrulama',
+        icon: LucideIcons.badgeCheck,
         badge: null,
         open: () => const KycScreen(),
-      ),
-      (
-        label: 'Profilim',
-        icon: Icons.person_outline_rounded,
-        tint: Dg.violetBg,
-        ink: Dg.violet,
-        badge: null,
-        open: () => const ProfileScreen(),
       ),
     ];
 
@@ -93,12 +86,90 @@ class MenuScreen extends ConsumerWidget {
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 108),
           children: [
             const Display('Menü', size: 26),
+            const SizedBox(height: 18),
+            _ProfileCard(session: s),
             const SizedBox(height: 22),
             _Section(title: 'SAHA İŞLERİ', items: saha),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
             _Section(title: 'HESAP', items: hesap),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ProfileCard extends StatelessWidget {
+  const _ProfileCard({required this.session});
+
+  final SessionController session;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = session.courier;
+    return DgCard(
+      dark: true,
+      onTap: () => Navigator.of(context)
+          .push(MaterialPageRoute<void>(builder: (_) => const ProfileScreen())),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              InitialsAvatar(name: c.fullName, size: 46),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      c.fullName,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 17,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Mono(
+                      '${session.plate} · ${c.vehicle}',
+                      size: 12,
+                      color: const Color(0xFF9A9E90),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                LucideIcons.chevronRight,
+                color: Colors.white.withValues(alpha: 0.5),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              _stat('${session.deliveredCount}', 'teslim'),
+              _stat('${session.openCount}', 'açık'),
+              _stat('${session.returnCount}', 'iade'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _stat(String value, String label) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(value, style: Dg.stat(size: 22, color: Colors.white)),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: const TextStyle(color: Color(0xFF9A9E90), fontSize: 12),
+          ),
+        ],
       ),
     );
   }
@@ -108,7 +179,7 @@ class _Section extends StatelessWidget {
   const _Section({required this.title, required this.items});
 
   final String title;
-  final List<_MenuItem> items;
+  final List<_MenuRow> items;
 
   @override
   Widget build(BuildContext context) {
@@ -117,43 +188,38 @@ class _Section extends StatelessWidget {
       children: [
         Mono(title, size: 11, weight: FontWeight.w600, color: Dg.ink3),
         const SizedBox(height: 10),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: items.length,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            mainAxisSpacing: 12,
-            crossAxisSpacing: 12,
-            childAspectRatio: 1.35,
-          ),
-          itemBuilder: (context, i) {
-            final m = items[i];
-            return StaggerIn(
+        for (final (i, m) in items.indexed)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: StaggerIn(
               index: i,
-              child: Pressable(
-                onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => m.open())),
-                child: DgCard(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          IconTintBadge(icon: m.icon, tint: m.tint, ink: m.ink),
-                          const Spacer(),
-                          if (m.badge != null) StatusChip(label: m.badge!, tone: 'custom', bg: m.tint, fg: m.ink),
-                        ],
+              child: DgCard(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 4,
+                ),
+                onTap: () => Navigator.of(context)
+                    .push(MaterialPageRoute<void>(builder: (_) => m.open())),
+                child: Row(
+                  children: [
+                    Icon(m.icon, size: 19, color: Dg.ink2),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Text(
+                        m.label,
+                        style: Dg.ui(size: 15, weight: FontWeight.w600),
                       ),
-                      const Spacer(),
-                      Text(m.label, style: Dg.ui(size: 15, weight: FontWeight.w600, height: 1.2)),
+                    ),
+                    if (m.badge != null) ...[
+                      StatusChip(label: m.badge!, tone: 'mid'),
+                      const SizedBox(width: 8),
                     ],
-                  ),
+                    Icon(LucideIcons.chevronRight, size: 18, color: Dg.ink3),
+                  ],
                 ),
               ),
-            );
-          },
-        ),
+            ),
+          ),
       ],
     );
   }

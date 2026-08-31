@@ -21,7 +21,8 @@ String clientInfoHeader() {
 String e164(String raw) {
   final digits = raw.replaceAll(RegExp(r'\D'), '');
   if (digits.startsWith('90') && digits.length >= 12) return '+$digits';
-  if (digits.startsWith('0') && digits.length >= 11) return '+90${digits.substring(1)}';
+  if (digits.startsWith('0') && digits.length >= 11)
+    return '+90${digits.substring(1)}';
   if (digits.length == 10) return '+90$digits';
   return '+90$digits';
 }
@@ -57,7 +58,9 @@ class MobileApi {
       ),
     );
     dio.interceptors.add(_AuthInterceptor(vault));
-    dio.interceptors.add(_RefreshInterceptor(vault: vault, refreshDio: refreshDio, dio: dio));
+    dio.interceptors.add(
+      _RefreshInterceptor(vault: vault, refreshDio: refreshDio, dio: dio),
+    );
     dio.interceptors.add(DemoFallbackInterceptor());
     return MobileApi(dio: dio, vault: vault);
   }
@@ -80,13 +83,13 @@ class MobileApi {
     return AppConfig.fromJson(res.data ?? const {});
   }
 
-  Future<Map<String, dynamic>> startActivation(String phone, String installationId) async {
+  Future<Map<String, dynamic>> startActivation(
+    String phone,
+    String installationId,
+  ) async {
     final res = await dio.post<Map<String, dynamic>>(
       '/v1/auth/activation/start',
-      data: {
-        'phone': e164(phone),
-        'device': _device(installationId),
-      },
+      data: {'phone': e164(phone), 'device': _device(installationId)},
     );
     lastWasLive = res.extra['demo'] != true;
     return res.data ?? const {};
@@ -106,13 +109,17 @@ class MobileApi {
       },
     );
     lastWasLive = res.extra['demo'] != true;
-    final tokens = Map<String, dynamic>.from(res.data?['tokens'] as Map? ?? const {});
+    final tokens = Map<String, dynamic>.from(
+      res.data?['tokens'] as Map? ?? const {},
+    );
     return TokenPair(
       accessToken: tokens['accessToken'] as String? ?? 'demo-access',
       refreshToken: tokens['refreshToken'] as String? ?? 'demo-refresh',
-      accessExpiresAt: DateTime.tryParse(tokens['accessTokenExpiresAt'] as String? ?? '') ??
+      accessExpiresAt:
+          DateTime.tryParse(tokens['accessTokenExpiresAt'] as String? ?? '') ??
           DateTime.now().toUtc().add(const Duration(minutes: 15)),
-      refreshExpiresAt: DateTime.tryParse(tokens['refreshTokenExpiresAt'] as String? ?? '') ??
+      refreshExpiresAt:
+          DateTime.tryParse(tokens['refreshTokenExpiresAt'] as String? ?? '') ??
           DateTime.now().toUtc().add(const Duration(days: 30)),
     );
   }
@@ -124,7 +131,8 @@ class MobileApi {
   Future<RoutePlanDto?> fetchRoute() async {
     final res = await dio.get<Map<String, dynamic>>('/v1/routes/current');
     lastWasLive = res.extra['demo'] != true;
-    if (res.statusCode == 204 || res.data == null || res.data!.isEmpty) return null;
+    if (res.statusCode == 204 || res.data == null || res.data!.isEmpty)
+      return null;
     return RoutePlanDto.fromJson(res.data!);
   }
 
@@ -204,7 +212,9 @@ class MobileApi {
   }
 
   Map<String, Object?> _device(String installationId) {
-    final ios = defaultTargetPlatform == TargetPlatform.iOS || defaultTargetPlatform == TargetPlatform.macOS;
+    final ios =
+        defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.macOS;
     return {
       'installationId': installationId,
       'platform': ios ? 'ios' : 'android',
@@ -222,7 +232,10 @@ class _AuthInterceptor extends QueuedInterceptor {
   final Vault? vault;
 
   @override
-  void onRequest(RequestOptions options, RequestInterceptorHandler handler) async {
+  void onRequest(
+    RequestOptions options,
+    RequestInterceptorHandler handler,
+  ) async {
     try {
       final token = await vault?.accessToken;
       if (token != null && token.isNotEmpty) {
@@ -230,14 +243,20 @@ class _AuthInterceptor extends QueuedInterceptor {
       }
       handler.next(options);
     } catch (e, st) {
-      handler.reject(DioException(requestOptions: options, error: e, stackTrace: st));
+      handler.reject(
+        DioException(requestOptions: options, error: e, stackTrace: st),
+      );
     }
   }
 }
 
 /// 401 → `/v1/auth/token/refresh` on a bare dio so this interceptor cannot loop.
 class _RefreshInterceptor extends QueuedInterceptor {
-  _RefreshInterceptor({required this.vault, required this.refreshDio, required this.dio});
+  _RefreshInterceptor({
+    required this.vault,
+    required this.refreshDio,
+    required this.dio,
+  });
 
   final Vault? vault;
   final Dio refreshDio;
@@ -253,7 +272,10 @@ class _RefreshInterceptor extends QueuedInterceptor {
     }
     final store = vault;
     final refresh = await store?.refreshToken;
-    if (store == null || refresh == null || refresh.isEmpty || refresh == 'demo-refresh') {
+    if (store == null ||
+        refresh == null ||
+        refresh.isEmpty ||
+        refresh == 'demo-refresh') {
       handler.next(err);
       return;
     }
@@ -263,7 +285,9 @@ class _RefreshInterceptor extends QueuedInterceptor {
         '/v1/auth/token/refresh',
         data: {'refreshToken': refresh, 'installationId': install},
       );
-      final tokens = Map<String, dynamic>.from(res.data?['tokens'] as Map? ?? const {});
+      final tokens = Map<String, dynamic>.from(
+        res.data?['tokens'] as Map? ?? const {},
+      );
       final access = tokens['accessToken'] as String?;
       final nextRefresh = tokens['refreshToken'] as String?;
       if (access == null || nextRefresh == null) {
@@ -273,14 +297,22 @@ class _RefreshInterceptor extends QueuedInterceptor {
       await store.saveTokens(
         accessToken: access,
         refreshToken: nextRefresh,
-        accessExpiresAt: DateTime.tryParse(tokens['accessTokenExpiresAt'] as String? ?? '') ??
+        accessExpiresAt:
+            DateTime.tryParse(
+              tokens['accessTokenExpiresAt'] as String? ?? '',
+            ) ??
             DateTime.now().toUtc().add(const Duration(minutes: 15)),
-        refreshExpiresAt: DateTime.tryParse(tokens['refreshTokenExpiresAt'] as String? ?? '') ??
+        refreshExpiresAt:
+            DateTime.tryParse(
+              tokens['refreshTokenExpiresAt'] as String? ?? '',
+            ) ??
             DateTime.now().toUtc().add(const Duration(days: 30)),
       );
       err.requestOptions.headers['authorization'] = 'Bearer $access';
       err.requestOptions.extra['authRetry'] = true;
-      handler.resolve(await dio.fetch<Map<String, dynamic>>(err.requestOptions));
+      handler.resolve(
+        await dio.fetch<Map<String, dynamic>>(err.requestOptions),
+      );
     } catch (_) {
       handler.next(err);
     }
@@ -314,7 +346,10 @@ class DemoFallbackInterceptor extends Interceptor {
     // courier's token isn't recognized by it — e.g. a freshly migrated
     // database) should degrade the same way an unreachable one does for
     // these endpoints, not fail silently with routePlan/documents left null.
-    final mockable = path.contains('/me/availability') || path.contains('/me/documents') || path.contains('/v1/routes/current');
+    final mockable =
+        path.contains('/me/availability') ||
+        path.contains('/me/documents') ||
+        path.contains('/v1/routes/current');
     return mockable && (code == 401 || code == 404 || code == 501);
   }
 
@@ -392,7 +427,9 @@ Map<String, dynamic> mockPayload(String path, RequestOptions options) {
       'challengeId': Vault.newUuid(),
       'codeLength': 6,
       'expiresAt': now.add(const Duration(minutes: 5)).toIso8601String(),
-      'resendAvailableAt': now.add(const Duration(seconds: 60)).toIso8601String(),
+      'resendAvailableAt': now
+          .add(const Duration(seconds: 60))
+          .toIso8601String(),
       'attemptsRemaining': 5,
       'integrityNonce': 'demo-nonce',
     };
@@ -402,9 +439,13 @@ Map<String, dynamic> mockPayload(String path, RequestOptions options) {
     return {
       'tokens': {
         'accessToken': 'demo-access',
-        'accessTokenExpiresAt': now.add(const Duration(minutes: 15)).toIso8601String(),
+        'accessTokenExpiresAt': now
+            .add(const Duration(minutes: 15))
+            .toIso8601String(),
         'refreshToken': 'demo-refresh',
-        'refreshTokenExpiresAt': now.add(const Duration(days: 30)).toIso8601String(),
+        'refreshTokenExpiresAt': now
+            .add(const Duration(days: 30))
+            .toIso8601String(),
       },
       'familyRevoked': false,
     };
@@ -414,9 +455,13 @@ Map<String, dynamic> mockPayload(String path, RequestOptions options) {
     return {
       'tokens': {
         'accessToken': 'demo-access',
-        'accessTokenExpiresAt': now.add(const Duration(minutes: 15)).toIso8601String(),
+        'accessTokenExpiresAt': now
+            .add(const Duration(minutes: 15))
+            .toIso8601String(),
         'refreshToken': 'demo-refresh',
-        'refreshTokenExpiresAt': now.add(const Duration(days: 30)).toIso8601String(),
+        'refreshTokenExpiresAt': now
+            .add(const Duration(days: 30))
+            .toIso8601String(),
       },
       'courier': {
         'id': '00000000-0000-4000-a000-000000000026',
@@ -426,12 +471,18 @@ Map<String, dynamic> mockPayload(String path, RequestOptions options) {
         'status': 'active',
         'capabilities': ['DELIVER', 'CASH_COLLECT'],
       },
-      'requiredPermissions': ['LOCATION_WHEN_IN_USE', 'CAMERA', 'NOTIFICATIONS'],
+      'requiredPermissions': [
+        'LOCATION_WHEN_IN_USE',
+        'CAMERA',
+        'NOTIFICATIONS',
+      ],
     };
   }
   if (path.contains('/sync/batch')) {
     final body = options.data;
-    final events = body is Map ? (body['events'] as List? ?? const []) : const [];
+    final events = body is Map
+        ? (body['events'] as List? ?? const [])
+        : const [];
     return {
       'results': [
         for (final e in events)
@@ -452,8 +503,14 @@ Map<String, dynamic> mockPayload(String path, RequestOptions options) {
     // vs. 1127s/9872m on the real road network.
     final now = DateTime.now().toUtc();
     var eta = now;
-    Map<String, Object?> stop(String taskId, int sequence, int? distanceMeters, int? durationSeconds) {
-      if (durationSeconds != null) eta = eta.add(Duration(seconds: durationSeconds));
+    Map<String, Object?> stop(
+      String taskId,
+      int sequence,
+      int? distanceMeters,
+      int? durationSeconds,
+    ) {
+      if (durationSeconds != null)
+        eta = eta.add(Duration(seconds: durationSeconds));
       return {
         'taskId': taskId,
         'sequence': sequence,
@@ -468,8 +525,7 @@ Map<String, dynamic> mockPayload(String path, RequestOptions options) {
       'shiftId': Vault.newUuid(),
       'mode': 'distance_optimized',
       'computedAt': now.toIso8601String(),
-      'geometry':
-          '_kzgFybkpD\\VVVPPNJNLJGFKFSB[?_@@UGWESM[SUOOIIMMQUH@TFl@DjD?@eADm@Eq@?Uv@BXHxAb@nBh@v@T^RrEnHbAfDRtD?n@i@jDFlBR|@BDTb@xAbBVd@xAhG^|Bv@zCj@nAV`Al@hECnAa@nDBnBv@hCf@~BTh@b@d@bCdArAlAvBbAdDlCfAh@rC~@x@|@|@`BJ@RJb@BzAIp@Pb@Pd@VPTLXJf@B`@L\\XTRJFN@RGVK`@CZ@RDLEMASB[Ja@FWASGOSKYUM]Ca@Kg@MYQUe@Wc@Qq@Q{AHc@CSKKA}@aBy@}@sC_AgAi@eDmCwBcAsAmAcCeAc@e@Ui@g@_CWy@_@oACoB`@oDBoAm@iEWaAk@oAw@{C_@}ByAiGWe@yAcBYi@S}@GmBh@kD?o@SuDcAgDsEoH_@Sw@UoBi@yAc@YIw@CS?cEx@eCFo@RqAx@k@^g@LWCUYIIGm@V}AV_Br@}EDWGa@CS@y@EGEKa@GEEGIMOoAcBU[mAyAq@m@KKYIMJB[@GFWTu@BM^w@@YIS?QLc@@k@BYHm@JeA[PIFIDO?C?E@EBQJWHKHi@BUDWZ_@\\[@c@Iw@S',
+      'geometry': '_kzgFybkpD\\VVVPPNJNLJGFKFSB[?_@@UGWESM[SUOOIIMMQUH@TFl@DjD?@eADm@Eq@?Uv@BXHxAb@nBh@v@T^RrEnHbAfDRtD?n@i@jDFlBR|@BDTb@xAbBVd@xAhG^|Bv@zCj@nAV`Al@hECnAa@nDBnBv@hCf@~BTh@b@d@bCdArAlAvBbAdDlCfAh@rC~@x@|@|@`BJ@RJb@BzAIp@Pb@Pd@VPTLXJf@B`@L\\XTRJFN@RGVK`@CZ@RDLEMASB[Ja@FWASGOSKYUM]Ca@Kg@MYQUe@Wc@Qq@Q{AHc@CSKKA}@aBy@}@sC_AgAi@eDmCwBcAsAmAcCeAc@e@Ui@g@_CWy@_@oACoB`@oDBoAm@iEWaAk@oAw@{C_@}ByAiGWe@yAcBYi@S}@GmBh@kD?o@SuDcAgDsEoH_@Sw@UoBi@yAc@YIw@CS?cEx@eCFo@RqAx@k@^g@LWCUYIIGm@V}AV_Br@}EDWGa@CS@y@EGEKa@GEEGIMOoAcBU[mAyAq@m@KKYIMJB[@GFWTu@BM^w@@YIS?QLc@@k@BYHm@JeA[PIFIDO?C?E@EBQJWHKHi@BUDWZ_@\\[@c@Iw@S',
       'stops': [
         stop('t1', 0, null, null),
         stop('t2', 1, 1185, 145),
@@ -480,8 +536,12 @@ Map<String, dynamic> mockPayload(String path, RequestOptions options) {
   }
   if (path.contains('/v1/custody/handover')) {
     final body = options.data;
-    final itemIds = body is Map ? ((body['itemIds'] as List?)?.cast<String>() ?? const []) : const <String>[];
-    final remaining = _demoCustodyItems.where((item) => !itemIds.contains(item['id'])).toList();
+    final itemIds = body is Map
+        ? ((body['itemIds'] as List?)?.cast<String>() ?? const [])
+        : const <String>[];
+    final remaining = _demoCustodyItems
+        .where((item) => !itemIds.contains(item['id']))
+        .toList();
     return {
       'handoverId': Vault.newUuid(),
       'remaining': remaining,
@@ -504,7 +564,8 @@ Map<String, dynamic> mockPayload(String path, RequestOptions options) {
       'city': 'Denizli',
       'district': 'Güney',
       'weekly': [
-        for (var d = 1; d <= 5; d++) {'weekday': d, 'start': '09:00', 'end': '18:00'},
+        for (var d = 1; d <= 5; d++)
+          {'weekday': d, 'start': '09:00', 'end': '18:00'},
       ],
       'updatedAt': '2026-08-25T17:00:00.000Z',
     };
@@ -512,8 +573,18 @@ Map<String, dynamic> mockPayload(String path, RequestOptions options) {
   if (path.contains('/me/documents')) {
     return {
       'items': [
-        {'id': Vault.newUuid(), 'type': 'IDENTITY', 'label': 'Kimlik', 'status': 'COMPLETED'},
-        {'id': Vault.newUuid(), 'type': 'DRIVING_LICENSE', 'label': 'Ehliyet', 'status': 'COMPLETED'},
+        {
+          'id': Vault.newUuid(),
+          'type': 'IDENTITY',
+          'label': 'Kimlik',
+          'status': 'COMPLETED',
+        },
+        {
+          'id': Vault.newUuid(),
+          'type': 'DRIVING_LICENSE',
+          'label': 'Ehliyet',
+          'status': 'COMPLETED',
+        },
       ],
       'completedCount': 2,
       'requiredCount': 2,

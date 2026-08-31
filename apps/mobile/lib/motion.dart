@@ -23,13 +23,20 @@ import 'theme.dart';
 class DgPageRoute<T> extends PageRouteBuilder<T> {
   DgPageRoute({required WidgetBuilder builder})
     : super(
-        pageBuilder: (context, animation, secondaryAnimation) => builder(context),
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            builder(context),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          final curved = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
+          final curved = CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutCubic,
+          );
           return FadeTransition(
             opacity: curved,
             child: SlideTransition(
-              position: Tween(begin: const Offset(0, 0.04), end: Offset.zero).animate(curved),
+              position: Tween(
+                begin: const Offset(0, 0.04),
+                end: Offset.zero,
+              ).animate(curved),
               child: child,
             ),
           );
@@ -52,7 +59,12 @@ class StaggerIn extends StatelessWidget {
     return child
         .animate(delay: (30 * index.clamp(0, 10)).ms)
         .fadeIn(duration: 220.ms, curve: Curves.easeOutCubic)
-        .slideY(begin: 0.08, end: 0, duration: 220.ms, curve: Curves.easeOutCubic);
+        .slideY(
+          begin: 0.08,
+          end: 0,
+          duration: 220.ms,
+          curve: Curves.easeOutCubic,
+        );
   }
 }
 
@@ -72,7 +84,10 @@ class DgSkeleton extends StatelessWidget {
     return Container(
           width: width,
           height: height,
-          decoration: BoxDecoration(color: Dg.elev, borderRadius: BorderRadius.circular(radius)),
+          decoration: BoxDecoration(
+            color: Dg.elev,
+            borderRadius: BorderRadius.circular(radius),
+          ),
         )
         .animate(onPlay: (c) => c.repeat(reverse: true))
         .fadeIn(begin: 0.4, duration: 700.ms, curve: Curves.easeInOut);
@@ -117,7 +132,12 @@ class _PressableState extends State<Pressable> {
 /// was an inline effect in result_screen.dart so other screens don't
 /// hand-roll the same animation again.
 class ResultIcon extends StatelessWidget {
-  const ResultIcon({super.key, required this.icon, required this.color, this.size = 56});
+  const ResultIcon({
+    super.key,
+    required this.icon,
+    required this.color,
+    this.size = 56,
+  });
 
   final IconData icon;
   final Color color;
@@ -127,7 +147,14 @@ class ResultIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     final child = Icon(icon, size: size, color: color);
     if (MediaQuery.disableAnimationsOf(context)) return child;
-    return child.animate().scale(begin: const Offset(0.7, 0.7), duration: 280.ms, curve: Curves.easeOutBack).fadeIn(duration: 200.ms);
+    return child
+        .animate()
+        .scale(
+          begin: const Offset(0.7, 0.7),
+          duration: 280.ms,
+          curve: Curves.easeOutBack,
+        )
+        .fadeIn(duration: 200.ms);
   }
 }
 
@@ -141,6 +168,8 @@ class ShakeError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return child.animate(key: ValueKey(trigger)).shake(hz: 4, duration: 320.ms, curve: Curves.easeOut);
+    return child
+        .animate(key: ValueKey(trigger))
+        .shake(hz: 4, duration: 320.ms, curve: Curves.easeOut);
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../models.dart';
 import '../motion.dart';
@@ -30,7 +31,8 @@ class DeliveryResultScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
-    final clock = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+    final clock =
+        '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
     return Scaffold(
       backgroundColor: success ? Dg.loBg : Dg.redBg,
       body: SafeArea(
@@ -40,7 +42,7 @@ class DeliveryResultScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               ResultIcon(
-                icon: success ? Icons.check_circle_rounded : Icons.assignment_return_rounded,
+                icon: success ? LucideIcons.circleCheck : LucideIcons.packageX,
                 color: success ? Dg.lo : Dg.red,
               ),
               const SizedBox(height: 16),
@@ -54,10 +56,23 @@ class DeliveryResultScreen extends StatelessWidget {
                   children: [
                     Display(task.recipient, size: 22),
                     const SizedBox(height: 6),
-                    Text(task.address, style: const TextStyle(fontSize: 16, color: Dg.ink2, height: 1.35)),
+                    Text(
+                      task.address,
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Dg.ink2,
+                        height: 1.35,
+                      ),
+                    ),
                     if (success && who != null) ...[
                       const SizedBox(height: 10),
-                      Text('Kim aldı: $who', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+                      Text(
+                        'Kim aldı: $who',
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                     ],
                     const SizedBox(height: 12),
                     Row(
@@ -65,10 +80,15 @@ class DeliveryResultScreen extends StatelessWidget {
                         Container(
                           width: 64,
                           height: 64,
-                          decoration: BoxDecoration(color: Dg.night, borderRadius: BorderRadius.circular(12)),
+                          decoration: BoxDecoration(
+                            color: Dg.night,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                           child: Icon(
-                            success ? Icons.door_front_door_rounded : Icons.undo_rounded,
-                            color: success ? const Color(0xFF3FB3A8) : Dg.purpleBright,
+                            success ? LucideIcons.doorOpen : LucideIcons.undo2,
+                            color: success
+                                ? const Color(0xFF3FB3A8)
+                                : Dg.purpleBright,
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -81,20 +101,31 @@ class DeliveryResultScreen extends StatelessWidget {
                     const SizedBox(height: 10),
                     Text(
                       online
-                          ? (success ? 'Teslim kaydı gönderildi.' : 'İade kaydı merkeze gönderildi.')
+                          ? (success
+                                ? 'Teslim kaydı gönderildi.'
+                                : 'İade kaydı merkeze gönderildi.')
                           : 'Kayıt cihazda. İnternet gelince gönderilecek.',
-                      style: const TextStyle(fontSize: 15, color: Dg.ink2),
+                      style: TextStyle(fontSize: 15, color: Dg.ink2),
                     ),
                   ],
                 ),
               ),
               const Spacer(),
               FilledButton(
-                style: !success ? FilledButton.styleFrom(backgroundColor: Dg.ink, foregroundColor: Colors.white) : null,
+                style: !success
+                    ? FilledButton.styleFrom(
+                        backgroundColor: Dg.ink,
+                        foregroundColor: Colors.white,
+                      )
+                    : null,
                 onPressed: next != null ? onNext : onClose,
                 child: Text(next != null ? 'Sıradaki durak' : 'Listeye dön'),
               ),
-              if (next != null) TextButton(onPressed: onClose, child: const Text('Listeye dön')),
+              if (next != null)
+                TextButton(
+                  onPressed: onClose,
+                  child: const Text('Listeye dön'),
+                ),
             ],
           ),
         ),

@@ -33,7 +33,9 @@ class OutboxStore {
     final conn = db;
     if (conn != null) {
       unawaited(
-        conn.into(conn.outboxRows).insert(
+        conn
+            .into(conn.outboxRows)
+            .insert(
               OutboxRowsCompanion.insert(
                 clientEventId: event.clientEventId,
                 operation: event.operation.wire,
@@ -60,7 +62,11 @@ class OutboxStore {
     for (final r in results) {
       for (final e in events) {
         if (e.clientEventId != r.id) continue;
-        e.status = (r.status == 'applied' || r.status == 'replayed') ? 'applied' : r.status == 'rejected' ? 'rejected' : 'pending';
+        e.status = (r.status == 'applied' || r.status == 'replayed')
+            ? 'applied'
+            : r.status == 'rejected'
+            ? 'rejected'
+            : 'pending';
       }
     }
     await _persistAll();
@@ -75,7 +81,8 @@ class OutboxStore {
     final conn = db;
     if (conn == null) return;
     for (final e in events) {
-      await (conn.update(conn.outboxRows)..where((t) => t.clientEventId.equals(e.clientEventId)))
+      await (conn.update(conn.outboxRows)
+            ..where((t) => t.clientEventId.equals(e.clientEventId)))
           .write(OutboxRowsCompanion(status: Value(e.status)));
     }
   }

@@ -30,7 +30,10 @@ class EarningsScreen extends ConsumerWidget {
                   const SizedBox(height: 8),
                   Text(SessionController.todayEarn, style: Dg.stat(size: 34)),
                   const SizedBox(height: 6),
-                  Text(SessionController.earnDelta, style: Dg.ui(size: 13, color: Dg.purpleDeep)),
+                  Text(
+                    SessionController.earnDelta,
+                    style: Dg.ui(size: 13, color: Dg.purpleDeep),
+                  ),
                   const SizedBox(height: 14),
                   const DgDivider(),
                   const SizedBox(height: 14),
@@ -38,7 +41,10 @@ class EarningsScreen extends ConsumerWidget {
                     children: [
                       Text('Bu hafta', style: Dg.ui(size: 14, color: Dg.ink2)),
                       const Spacer(),
-                      Text(SessionController.weekEarn, style: Dg.ui(size: 16, weight: FontWeight.w700)),
+                      Text(
+                        SessionController.weekEarn,
+                        style: Dg.ui(size: 16, weight: FontWeight.w700),
+                      ),
                     ],
                   ),
                 ],
@@ -51,7 +57,9 @@ class EarningsScreen extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Mono(
-                    s.courier.affiliation == CourierAffiliation.agency ? 'ACENTA · AYLIK KARŞILIK' : 'AYLIK SABİT',
+                    s.courier.affiliation == CourierAffiliation.agency
+                        ? 'ACENTA · AYLIK KARŞILIK'
+                        : 'AYLIK SABİT',
                     size: 11,
                     color: Dg.ink3,
                   ),
@@ -79,7 +87,10 @@ class EarningsScreen extends ConsumerWidget {
             ),
           ],
           const SizedBox(height: 16),
-          const Text('Haftalık', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18)),
+          const Text(
+            'Haftalık',
+            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+          ),
           const SizedBox(height: 14),
           DgCard(
             child: SizedBox(
@@ -94,7 +105,11 @@ class EarningsScreen extends ConsumerWidget {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
-                            Mono('${(b.value * 100).round()}%', size: 10, color: b.value == 1 ? Dg.purple : Dg.ink3),
+                            Mono(
+                              '${(b.value * 100).round()}%',
+                              size: 10,
+                              color: b.value == 1 ? Dg.purple : Dg.ink3,
+                            ),
                             const SizedBox(height: 4),
                             AnimatedContainer(
                               duration: const Duration(milliseconds: 400),
@@ -106,7 +121,10 @@ class EarningsScreen extends ConsumerWidget {
                               ),
                             ),
                             const SizedBox(height: 6),
-                            Text(b.label, style: Dg.ui(size: 11, color: Dg.ink3)),
+                            Text(
+                              b.label,
+                              style: Dg.ui(size: 11, color: Dg.ink3),
+                            ),
                           ],
                         ),
                       ),
@@ -117,39 +135,53 @@ class EarningsScreen extends ConsumerWidget {
           ),
           if (canSeePricing) ...[
             const SizedBox(height: 20),
-            const Text('Primler', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18)),
+            const Text(
+              'Primler',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+            ),
             const SizedBox(height: 10),
           ],
           if (canSeePricing)
             for (final (i, b) in s.bonuses.indexed)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: StaggerIn(index: i, child: DgCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: StaggerIn(
+                  index: i,
+                  child: DgCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(child: Text(b.label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15))),
-                        Text(b.amount, style: Dg.stat(size: 17)),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                b.label,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 15,
+                                ),
+                              ),
+                            ),
+                            Text(b.amount, style: Dg.stat(size: 17)),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: b.pct,
+                            minHeight: 6,
+                            backgroundColor: Dg.elev,
+                            valueColor: AlwaysStoppedAnimation(b.color),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(b.meta, style: Dg.ui(size: 12, color: Dg.ink3)),
                       ],
                     ),
-                    const SizedBox(height: 10),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: b.pct,
-                        minHeight: 6,
-                        backgroundColor: Dg.elev,
-                        valueColor: AlwaysStoppedAnimation(b.color),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(b.meta, style: Dg.ui(size: 12, color: Dg.ink3)),
-                  ],
+                  ),
                 ),
-              )),
-            ),
+              ),
         ],
       ),
     );

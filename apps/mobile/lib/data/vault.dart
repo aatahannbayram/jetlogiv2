@@ -4,7 +4,8 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 /// Keychain / Keystore. Access JWT, refresh, DB passphrase, installationId.
 class Vault {
-  Vault({FlutterSecureStorage? storage}) : _storage = storage ?? const FlutterSecureStorage();
+  Vault({FlutterSecureStorage? storage})
+    : _storage = storage ?? const FlutterSecureStorage();
 
   final FlutterSecureStorage _storage;
 
@@ -39,8 +40,14 @@ class Vault {
   }) async {
     await _storage.write(key: _access, value: accessToken);
     await _storage.write(key: _refresh, value: refreshToken);
-    await _storage.write(key: _accessExp, value: accessExpiresAt.toUtc().toIso8601String());
-    await _storage.write(key: _refreshExp, value: refreshExpiresAt.toUtc().toIso8601String());
+    await _storage.write(
+      key: _accessExp,
+      value: accessExpiresAt.toUtc().toIso8601String(),
+    );
+    await _storage.write(
+      key: _refreshExp,
+      value: refreshExpiresAt.toUtc().toIso8601String(),
+    );
   }
 
   Future<String?> get accessToken async => _storage.read(key: _access);
@@ -56,7 +63,8 @@ class Vault {
 
   static const _onboard = 'dg.onboard.v2';
 
-  Future<bool> get onboardSeen async => (await _storage.read(key: _onboard)) == '1';
+  Future<bool> get onboardSeen async =>
+      (await _storage.read(key: _onboard)) == '1';
 
   Future<void> markOnboardSeen() => _storage.write(key: _onboard, value: '1');
 
@@ -71,6 +79,9 @@ class Vault {
 
   static String _randomHex(int bytes) {
     final r = Random.secure();
-    return List<int>.generate(bytes, (_) => r.nextInt(256)).map((e) => e.toRadixString(16).padLeft(2, '0')).join();
+    return List<int>.generate(
+      bytes,
+      (_) => r.nextInt(256),
+    ).map((e) => e.toRadixString(16).padLeft(2, '0')).join();
   }
 }

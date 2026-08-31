@@ -16,7 +16,12 @@ class DijigooApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final phase = ref.watch(sessionProvider).phase;
+    final session = ref.watch(sessionProvider);
+    // Dg's color getters read this flag directly (see theme.dart) — set it
+    // before building anything so the whole tree picks up the right theme
+    // in one pass, no per-widget Theme.of(context) plumbing needed.
+    Dg.dark = session.darkModeUi;
+    final phase = session.phase;
     final page = switch (phase) {
       AppPhase.onboard => const OnboardScreen(),
       AppPhase.splash => const SplashScreen(),
@@ -30,7 +35,8 @@ class DijigooApp extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       locale: const Locale('tr'),
       theme: Dg.theme(),
-      builder: (context, child) => PhoneShell(child: child ?? const SizedBox.shrink()),
+      builder: (context, child) =>
+          PhoneShell(child: child ?? const SizedBox.shrink()),
       home: page,
     );
   }

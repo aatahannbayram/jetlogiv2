@@ -48,6 +48,7 @@ dependencies:
   flutter_secure_storage: ^11.0.0
   flutter_map: ^8.3.1
   latlong2: ^0.9.1
+  lucide_icons_flutter: ^3.1.17
 
 dev_dependencies:
   flutter_test:
@@ -75,6 +76,7 @@ flutter:
   assets:
     - assets/images/dijigoo_logo.png
     - assets/images/jetlogi_logo_color.png
+    - assets/images/jetlogi_splash_bg.png
   fonts:
     - family: Inter
       fonts:
@@ -93,6 +95,12 @@ flutter:
           weight: 500
         - asset: assets/fonts/IBMPlexMono-Bold.ttf
           weight: 700
+    - family: Geist
+      fonts:
+        - asset: assets/fonts/Geist.ttf
+    - family: Geist Mono
+      fonts:
+        - asset: assets/fonts/GeistMono.ttf
 
   # To add assets to your application, add an assets section, like this:
   # assets:

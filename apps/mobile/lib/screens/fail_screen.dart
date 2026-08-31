@@ -54,13 +54,20 @@ class _FailScreenState extends ConsumerState<FailScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: Mono(task.ref, size: 13, weight: FontWeight.w700, color: Dg.ink2)),
+      appBar: AppBar(
+        title: Mono(
+          task.ref,
+          size: 13,
+          weight: FontWeight.w700,
+          color: Dg.ink2,
+        ),
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
         children: [
           const Display('Neden teslim edilemedi?', size: 28),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Seçtiğin neden merkeze anında iletilir, gönderi iadeye düşer.',
             style: TextStyle(color: Dg.ink2, fontSize: 15, height: 1.4),
           ),
@@ -72,19 +79,29 @@ class _FailScreenState extends ConsumerState<FailScreen> {
                 color: picked == r ? Dg.redBg : Dg.surface,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(Dg.radius),
-                  side: BorderSide(color: picked == r ? Dg.red : Dg.rule, width: picked == r ? 2 : 1),
+                  side: BorderSide(
+                    color: picked == r ? Dg.red : Dg.rule,
+                    width: picked == r ? 2 : 1,
+                  ),
                 ),
                 child: InkWell(
                   onTap: () => setState(() => picked = r),
                   borderRadius: BorderRadius.circular(Dg.radius),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 16,
+                    ),
                     child: Row(
                       children: [
                         Expanded(
                           child: Text(
                             r,
-                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16, color: picked == r ? Dg.red : Dg.ink),
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 16,
+                              color: picked == r ? Dg.red : Dg.ink,
+                            ),
                           ),
                         ),
                         Container(
@@ -92,7 +109,10 @@ class _FailScreenState extends ConsumerState<FailScreen> {
                           height: 20,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            border: Border.all(color: picked == r ? Dg.red : Dg.rule, width: 2),
+                            border: Border.all(
+                              color: picked == r ? Dg.red : Dg.rule,
+                              width: 2,
+                            ),
                             color: picked == r ? Dg.red : Colors.transparent,
                           ),
                         ),
@@ -116,7 +136,10 @@ class _FailScreenState extends ConsumerState<FailScreen> {
                     isDense: true,
                     hintText: 'İsteğe bağlı açıklama',
                   ),
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ],
             ),
@@ -126,7 +149,13 @@ class _FailScreenState extends ConsumerState<FailScreen> {
             FilledButton(
               style: FilledButton.styleFrom(backgroundColor: Dg.red),
               onPressed: () {
-                ref.read(sessionProvider).returnTask(widget.taskId, reason: picked!, note: note.text.trim());
+                ref
+                    .read(sessionProvider)
+                    .returnTask(
+                      widget.taskId,
+                      reason: picked!,
+                      note: note.text.trim(),
+                    );
                 setState(() => closed = true);
               },
               child: const Text('İade olarak kapat'),

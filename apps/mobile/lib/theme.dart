@@ -1,176 +1,264 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-/// Saha uygulaması: açık zemin, mor vurgu (JetLogi marka rengi #614293), siyah hap.
+/// Saha uygulaması design tokens.
+///
+/// [Dg]'nin renk alanları artık `static const` değil, `static Color get` —
+/// çünkü aynı isim (`Dg.ink`, `Dg.surface`, ...) hem koyu hem açık temada
+/// geçerli kalsın istedik: her çağrı yerini `Theme.of(context)` kullanacak
+/// şekilde yeniden yazmak (100+ yer) yerine, [Dg.dark] bayrağını
+/// [DijigooApp.build] içinde `s.darkModeUi`'ye göre bir kez set ediyoruz;
+/// mevcut her `Dg.xxx` referansı otomatik doğru temayı okur. Bedeli:
+/// `const BoxDecoration(color: Dg.ink)` gibi compile-time-const kullanımlar
+/// artık derlenmez — `const` anahtar kelimesi kaldırılmalı (flutter analyze
+/// bunları tek tek gösterir).
 class Dg {
-  static const ground = Color(0xFFF4F5F0);
-  static const surface = Color(0xFFFFFFFF);
-  static const ink = Color(0xFF121212);
-  static const ink2 = Color(0xFF5F6357);
-  static const ink3 = Color(0xFF8B8F82);
-  static const rule = Color(0xFFE3E6DC);
-  static const elev = Color(0xFFF0F1EA);
+  Dg._();
 
-  /// Primary brand purple — matches jetlogi.com's dominant button/heading
-  /// color. Medium-dark: pairs with white text/icons, not black.
+  /// [DijigooApp.build] her rebuild'de `s.darkModeUi`'den set eder.
+  static bool dark = true;
+
+  // ---- Zemin / yüzey ----
+  static Color get ground =>
+      dark ? const Color(0xFF0C0C0F) : const Color(0xFFF4F3F0);
+  static Color get surface =>
+      dark ? const Color(0xFF16161A) : const Color(0xFFFFFFFF);
+
+  /// İkinci kademe yüzey (surface üstünde surface — skeleton, track, vb.)
+  static Color get elev =>
+      dark ? const Color(0xFF1D1D22) : const Color(0xFFF0F1EA);
+
+  // ---- Metin ----
+  static Color get ink =>
+      dark ? const Color(0xFFF4F2EE) : const Color(0xFF121212);
+  static Color get ink2 =>
+      dark ? const Color(0xFFACACB4) : const Color(0xFF5F6357);
+  static Color get ink3 =>
+      dark ? const Color(0xFF6F6F78) : const Color(0xFF8B8F82);
+  static Color get rule =>
+      dark ? const Color(0xFF2A2A30) : const Color(0xFFE3E6DC);
+
+  /// Koşulsuz koyu — temadan bağımsız gerçek siyah/gece yüzeyler için
+  /// (giriş/tören ekranı gradyanının tabanı, PhoneShell çerçevesi).
+  static const night = Color(0xFF0C0C0F);
+
+  // ---- Marka moru ----
+  /// Birincil eylem gradyanı — buton/CTA arka planı. Düz renk değil,
+  /// [primaryGradientStart]→[primaryGradientEnd].
+  static const primaryGradientStart = Color(0xFF8B6BF0);
+  static const primaryGradientEnd = Color(0xFF5B3FBF);
+  static const primaryGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [primaryGradientStart, primaryGradientEnd],
+  );
+
+  /// Aktif/seçili durum vurgusu (sekme, adım noktası, seçili kart kenarı).
+  static const purpleActive = Color(0xFFA78BFA);
+
+  /// Giriş/tören ekranı zemin gradyanı (üstten alta).
+  static const heroGradient = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [Color(0xFF4B268F), Color(0xFF2A1360), Color(0xFF150A2E)],
+  );
+  static const heroAccentOrange = Color(0xFFF08A24);
+
+  /// Giriş/tören ekranındaki cam-efekti kart yüzeyi — `BackdropFilter`
+  /// blur(14) ile birlikte kullanılır.
+  static const heroGlass = Color(0x80140A2A); // rgba(20,10,42,.5)
+
+  // Legacy brand-purple isimleri — hâlâ referans veren yerler (menü ikon
+  // rozetleri, harita polyline'ı, hero kart zemini gibi "marka moru" ama
+  // "birincil eylem gradyanı" olmayan kullanımlar) için korunuyor.
   static const purple = Color(0xFF614293);
-
-  /// Darker purple for borders/pressed states and as text/icon color on
-  /// light surfaces (small badges, links, checkmarks).
   static const purpleDeep = Color(0xFF4A3373);
-
-  /// Lighter, more luminant purple — used instead of [purple]/[purpleDeep]
-  /// wherever the accent sits directly on a near-black background (the
-  /// bottom nav pill, dark hero cards), since the brand purple's contrast
-  /// against black is too low there.
   static const purpleBright = Color(0xFFAF93DC);
-  static const accent = Color(0xFF121212);
+  static const accent = primaryGradientStart;
   static const accentSoft = Color(0xFFEAF6B8);
-  static const hi = Color(0xFFC23B32);
-  static const hiBg = Color(0xFFF8E4E1);
-  static const mid = Color(0xFF9A6B12);
-  static const midBg = Color(0xFFF6EBD2);
-  static const lo = Color(0xFF2F6A3A);
-  static const loBg = Color(0xFFDCEFD8);
-  static const night = Color(0xFF121212);
-  static const glow = Color(0xFF614293);
 
-  // Design-token tints for menu/notification icon badges.
+  // ---- Durum vurguları: 6px nokta + nötr metin, dolgulu rozet yok ----
+  /// Olumlu / tamamlandı (ör. teslim edildi, doğrulandı).
+  static const sage = Color(0xFF7FB097);
+
+  /// Bekleyen / nötr-uyarı (ör. sırada, SLA yaklaşıyor).
+  static const sand = Color(0xFFD2AE78);
+
+  /// Olumsuz / başarısız (ör. teslim edilemedi, kod doğrulanamadı).
+  static const clay = Color(0xFFC57C71);
+
+  // Eski hi/mid/lo isimleri — status olmayan (hata metni, ikon tint'i gibi)
+  // kullanım yerleri için korunuyor; yeni status göstergeleri sage/sand/clay
+  // kullanmalı.
+  static Color get hi => clay;
+  static Color get hiBg =>
+      dark ? const Color(0x1AC57C71) : const Color(0xFFF8E4E1);
+  static Color get mid => sand;
+  static Color get midBg =>
+      dark ? const Color(0x1AD2AE78) : const Color(0xFFF6EBD2);
+  static Color get lo => sage;
+  static Color get loBg =>
+      dark ? const Color(0x1A7FB097) : const Color(0xFFDCEFD8);
+  static const glow = primaryGradientStart;
+
+  // Design-token tints for menu/notification icon badges — koyu temada
+  // tint arka planı %10 alpha'ya düşer, ink rengi olduğu gibi kalır.
   static const violet = Color(0xFF7B5AC2);
-  static const violetBg = Color(0xFFF3F0FB);
+  static Color get violetBg =>
+      dark ? const Color(0x1A7B5AC2) : const Color(0xFFF3F0FB);
   static const blue = Color(0xFF4A7FD8);
-  static const blueBg = Color(0xFFEEF4FF);
+  static Color get blueBg =>
+      dark ? const Color(0x1A4A7FD8) : const Color(0xFFEEF4FF);
   static const amber = Color(0xFFE8A33D);
-  static const amberBg = Color(0xFFFFF6E6);
+  static Color get amberBg =>
+      dark ? const Color(0x1AE8A33D) : const Color(0xFFFFF6E6);
   static const green = Color(0xFF4E9B4E);
-  static const greenBg = Color(0xFFEDF6EC);
+  static Color get greenBg =>
+      dark ? const Color(0x1A4E9B4E) : const Color(0xFFEDF6EC);
   static const red = Color(0xFFD8543C);
-  static const redBg = Color(0xFFFDEEEA);
+  static Color get redBg =>
+      dark ? const Color(0x1AD8543C) : const Color(0xFFFDEEEA);
 
-  static const display = 'Newsreader';
-  static const sans = 'Inter';
-  static const statFamily = 'Archivo';
-  static const mono = 'IBMPlexMono';
+  // ---- Tipografi ----
+  static const display = 'Geist';
+  static const sans = 'Geist';
+  static const statFamily = 'Geist';
+  static const mono = 'Geist Mono';
 
-  static const radius = 22.0;
+  // ---- Radius skalası: telefon 46 / kart 28 / buton 18 / çip 13 ----
+  static const radiusPhone = 46.0;
   static const radiusHero = 28.0;
-  static const radiusPill = 32.0;
+  static const radius = 13.0;
+  static const radiusPill = 18.0;
 
-  // Contact shadow stays neutral black (grounds the card against the page);
-  // the soft ambient layer is tinted with the brand purple instead of flat
-  // black — a common "premium" cue, and cheap here since it's just a color
-  // swap on an existing two-layer recipe.
+  /// İçerik, alt tab bar'ın bu kadar üstünde bitmeli (ör. son elemana
+  /// `SizedBox(height: Dg.bottomNavClearance)` veya liste `padding.bottom`).
+  static const bottomNavClearance = 98.0;
+
+  // Kontak gölgesi nötr siyah kalır (kartı sayfaya "basar"); yumuşak
+  // ambiyans katmanı marka moruyla tintlenir.
   static const shadow = [
-    BoxShadow(color: Color(0x14000000), blurRadius: 2, offset: Offset(0, 1)),
-    BoxShadow(color: Color(0x14614293), blurRadius: 24, offset: Offset(0, 12)),
+    BoxShadow(color: Color(0x33000000), blurRadius: 2, offset: Offset(0, 1)),
+    BoxShadow(color: Color(0x8C000000), blurRadius: 40, offset: Offset(0, 20)),
   ];
 
   static const shadowHero = [
-    BoxShadow(color: Color(0x1E000000), blurRadius: 8, offset: Offset(0, 4)),
-    BoxShadow(color: Color(0x30614293), blurRadius: 36, offset: Offset(0, 18)),
+    BoxShadow(color: Color(0x40000000), blurRadius: 8, offset: Offset(0, 4)),
+    BoxShadow(color: Color(0x8C000000), blurRadius: 40, offset: Offset(0, 20)),
   ];
+
+  /// Kartın üst kenarına eklenen 1px inset beyaz ışık — [DgCard] bunu
+  /// `Container`'ın `foregroundDecoration`'ında bir üst-kenar `Border` ile
+  /// simüle eder (Flutter'ın `BoxShadow`'u gerçek inset desteklemiyor).
+  static const insetHighlight = Color(0x1FFFFFFF);
 
   static TextStyle serif({
     double size = 34,
-    FontWeight weight = FontWeight.w600,
-    Color color = ink,
+    FontWeight weight = FontWeight.w700,
+    Color? color,
     bool italic = false,
     double height = 1.04,
-    double letterSpacing = 0,
+    double letterSpacing = -0.03,
   }) {
     return TextStyle(
       fontFamily: display,
       fontSize: size,
       fontWeight: weight,
       fontStyle: italic ? FontStyle.italic : FontStyle.normal,
-      color: color,
+      color: color ?? ink,
       height: height,
-      letterSpacing: letterSpacing,
-      fontVariations: [
-        FontVariation('opsz', size.clamp(14, 32)),
-        FontVariation('wght', _wght(weight)),
-      ],
+      // letterSpacing brief'te "em" cinsinden (-.03em) verildi; Flutter
+      // mutlak px bekliyor, punto başına ölçekliyoruz.
+      letterSpacing: size * letterSpacing,
+      fontVariations: [FontVariation('wght', _wght(weight))],
     );
   }
 
   static TextStyle ui({
     double size = 16,
     FontWeight weight = FontWeight.w500,
-    Color color = ink,
+    Color? color,
     double height = 1.35,
-    double letterSpacing = 0.05,
+    double letterSpacing = 0,
   }) {
     return TextStyle(
       fontFamily: sans,
       fontSize: size,
       fontWeight: weight,
-      color: color,
+      color: color ?? ink,
       height: height,
       letterSpacing: letterSpacing,
-      fontVariations: [
-        FontVariation('opsz', size.clamp(14, 32)),
-        FontVariation('wght', _wght(weight)),
-      ],
+      fontVariations: [FontVariation('wght', _wght(weight))],
     );
   }
 
-  /// Big numerals (earnings, ETA, stat tiles) — Archivo's `wdth` axis pulled
-  /// in slightly narrower than 100 for a denser, more "engineered" numeral
-  /// feel distinct from both [display] and [ui].
+  /// Büyük rakamlar (kazanç, ETA, stat kutuları) — `tabular-nums` ile
+  /// hizalı, sabit genişlikli rakamlar.
   static TextStyle stat({
     double size = 28,
     FontWeight weight = FontWeight.w700,
-    Color color = ink,
-    double width = 92,
+    Color? color,
     double height = 1.0,
-    double letterSpacing = -0.2,
+    double letterSpacing = -0.02,
   }) {
     return TextStyle(
       fontFamily: statFamily,
       fontSize: size,
       fontWeight: weight,
-      color: color,
+      color: color ?? ink,
       height: height,
-      letterSpacing: letterSpacing,
-      fontVariations: [
-        FontVariation('wght', _wght(weight)),
-        FontVariation('wdth', width),
-      ],
+      letterSpacing: size * letterSpacing,
+      fontFeatures: const [FontFeature.tabularFigures()],
+      fontVariations: [FontVariation('wght', _wght(weight))],
     );
   }
 
-  static TextStyle kicker({Color color = ink3}) {
-    return ui(size: 11, weight: FontWeight.w600, color: color, letterSpacing: 1.4, height: 1.2);
+  static TextStyle kicker({Color? color}) {
+    return ui(
+      size: 11,
+      weight: FontWeight.w600,
+      color: color ?? ink3,
+      letterSpacing: 1.4,
+      height: 1.2,
+    );
   }
 
   static double _wght(FontWeight w) => w.value.toDouble();
 
   static ThemeData theme() {
     final text = TextTheme(
-      displaySmall: serif(size: 36, weight: FontWeight.w600),
-      headlineMedium: serif(size: 26, weight: FontWeight.w600, letterSpacing: -0.2),
-      titleLarge: ui(size: 17, weight: FontWeight.w600, color: ink, height: 1.25),
+      displaySmall: serif(size: 36),
+      headlineMedium: serif(size: 26, letterSpacing: -0.03),
+      titleLarge: ui(
+        size: 17,
+        weight: FontWeight.w600,
+        color: ink,
+        height: 1.25,
+      ),
       bodyLarge: ui(size: 16, color: ink2),
       bodyMedium: ui(size: 15, color: ink2),
-      labelLarge: ui(size: 16, weight: FontWeight.w700, color: Colors.white, height: 1.1),
+      labelLarge: ui(
+        size: 16,
+        weight: FontWeight.w700,
+        color: dark ? night : Colors.white,
+        height: 1.1,
+      ),
       labelMedium: ui(size: 12, weight: FontWeight.w600, color: ink2),
     );
     return ThemeData(
       useMaterial3: true,
-      brightness: Brightness.light,
+      brightness: dark ? Brightness.dark : Brightness.light,
       fontFamily: sans,
-      // primary/secondary keep this app's actual brand colors (ink = the
-      // real CTA color, purple = accent — see Dg.purple's doc comment); only
-      // the on* pairs were wrong before (onPrimary/onSecondary must be the
-      // text/icon color drawn *on top of* primary/secondary, not each other).
-      colorScheme: const ColorScheme.light(
-        primary: ink,
+      colorScheme: ColorScheme(
+        brightness: dark ? Brightness.dark : Brightness.light,
+        primary: primaryGradientStart,
         onPrimary: Colors.white,
-        secondary: purple,
-        onSecondary: Colors.white,
+        secondary: purpleActive,
+        onSecondary: dark ? night : Colors.white,
         surface: surface,
         onSurface: ink,
-        error: hi,
+        error: clay,
+        onError: Colors.white,
       ),
       scaffoldBackgroundColor: ground,
       textTheme: text,
@@ -183,23 +271,36 @@ class Dg {
         titleTextStyle: serif(size: 20, weight: FontWeight.w600),
       ),
       dividerColor: rule,
+      // Düz renk (gradyan başlangıcı) — asıl mor gradyan, en öne çıkan
+      // birkaç "hero" CTA'da (SlideToAct, splash) doğrudan [Dg.primaryGradient]
+      // ile ayrıca uygulanıyor; her yerdeki FilledButton için gradyan
+      // render etmek pratik değil (ripple/disabled state karmaşıklaşır).
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          backgroundColor: ink,
+          backgroundColor: primaryGradientStart,
           foregroundColor: Colors.white,
-          disabledBackgroundColor: const Color(0x55121212),
+          disabledBackgroundColor: primaryGradientStart.withValues(alpha: 0.35),
           disabledForegroundColor: Colors.white,
           minimumSize: const Size.fromHeight(56),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusPill)),
-          textStyle: ui(size: 16, weight: FontWeight.w700, color: Colors.white, height: 1.1),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(radiusPill),
+          ),
+          textStyle: ui(
+            size: 16,
+            weight: FontWeight.w700,
+            color: Colors.white,
+            height: 1.1,
+          ),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: ink,
           minimumSize: const Size.fromHeight(56),
-          side: const BorderSide(color: Color(0xFFC9CCC3)),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusPill)),
+          side: BorderSide(color: rule),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(radiusPill),
+          ),
           textStyle: ui(size: 16, weight: FontWeight.w600, height: 1.1),
         ),
       ),
@@ -214,16 +315,16 @@ class Dg {
         fillColor: surface,
         labelStyle: ui(size: 14, color: ink3),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(radius),
-          borderSide: const BorderSide(color: rule),
+          borderRadius: BorderRadius.circular(radiusHero),
+          borderSide: BorderSide(color: rule),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(radius),
-          borderSide: const BorderSide(color: rule),
+          borderRadius: BorderRadius.circular(radiusHero),
+          borderSide: BorderSide(color: rule),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(radius),
-          borderSide: const BorderSide(color: ink, width: 1.5),
+          borderRadius: BorderRadius.circular(radiusHero),
+          borderSide: BorderSide(color: primaryGradientStart, width: 1.5),
         ),
       ),
       pageTransitionsTheme: const PageTransitionsTheme(

@@ -16,7 +16,7 @@ class ShiftScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
         children: [
-          const Text(
+          Text(
             'Bu fotoğraf yalnız vardiya kanıtı. Yüz aranmaz.',
             style: TextStyle(color: Dg.ink2, fontSize: 16, height: 1.4),
           ),

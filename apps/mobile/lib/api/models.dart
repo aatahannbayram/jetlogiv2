@@ -16,13 +16,13 @@ class FieldFlags {
   final bool offlineSync;
 
   factory FieldFlags.fromJson(Map<String, dynamic> json) => FieldFlags(
-        maskedCall: json['maskedCall'] == true,
-        cashCollect: json['cashCollect'] == true,
-        documentScan: json['documentScan'] == true,
-        custody: json['custody'] == true,
-        shiftFaceMatch: json['shiftFaceMatch'] == true,
-        offlineSync: json['offlineSync'] == true,
-      );
+    maskedCall: json['maskedCall'] == true,
+    cashCollect: json['cashCollect'] == true,
+    documentScan: json['documentScan'] == true,
+    custody: json['custody'] == true,
+    shiftFaceMatch: json['shiftFaceMatch'] == true,
+    offlineSync: json['offlineSync'] == true,
+  );
 }
 
 class AppConfig {
@@ -84,10 +84,16 @@ class AppConfig {
       storeUrlIos: json['storeUrlIos'] as String?,
       supportPhone: json['supportPhone'] as String?,
       opsPhone: json['opsPhone'] as String?,
-      geofenceDefaultRadiusMeters: (json['geofenceDefaultRadiusMeters'] as num?)?.toInt() ?? 200,
-      geofenceMaxAccuracyMeters: (json['geofenceMaxAccuracyMeters'] as num?)?.toInt() ?? 100,
-      featureFlags: FieldFlags.fromJson(Map<String, dynamic>.from(json['featureFlags'] as Map? ?? const {})),
-      publishedAt: json['publishedAt'] as String? ?? DateTime.now().toUtc().toIso8601String(),
+      geofenceDefaultRadiusMeters:
+          (json['geofenceDefaultRadiusMeters'] as num?)?.toInt() ?? 200,
+      geofenceMaxAccuracyMeters:
+          (json['geofenceMaxAccuracyMeters'] as num?)?.toInt() ?? 100,
+      featureFlags: FieldFlags.fromJson(
+        Map<String, dynamic>.from(json['featureFlags'] as Map? ?? const {}),
+      ),
+      publishedAt:
+          json['publishedAt'] as String? ??
+          DateTime.now().toUtc().toIso8601String(),
     );
   }
 }
@@ -113,17 +119,21 @@ class TokenPair {
 }
 
 class WeekWindow {
-  const WeekWindow({required this.weekday, required this.start, required this.end});
+  const WeekWindow({
+    required this.weekday,
+    required this.start,
+    required this.end,
+  });
 
   final int weekday;
   final String start;
   final String end;
 
   factory WeekWindow.fromJson(Map<String, dynamic> json) => WeekWindow(
-        weekday: (json['weekday'] as num?)?.toInt() ?? 1,
-        start: json['start'] as String? ?? '09:00',
-        end: json['end'] as String? ?? '18:00',
-      );
+    weekday: (json['weekday'] as num?)?.toInt() ?? 1,
+    start: json['start'] as String? ?? '09:00',
+    end: json['end'] as String? ?? '18:00',
+  );
 }
 
 const _weekdays = ['', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
@@ -131,7 +141,9 @@ const _weekdays = ['', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
 String hoursFromWeekly(List<WeekWindow> weekly) {
   if (weekly.isEmpty) return '—';
   final first = weekly.first;
-  final sameHours = weekly.every((w) => w.start == first.start && w.end == first.end);
+  final sameHours = weekly.every(
+    (w) => w.start == first.start && w.end == first.end,
+  );
   String label(int weekday) {
     final i = weekday < 1 ? 1 : (weekday > 7 ? 7 : weekday);
     return _weekdays[i];
@@ -140,7 +152,8 @@ String hoursFromWeekly(List<WeekWindow> weekly) {
   if (sameHours && weekly.length >= 5) {
     return '${label(weekly.first.weekday)}–${label(weekly.last.weekday)} ${first.start}–${first.end}';
   }
-  return [for (final w in weekly) '${label(w.weekday)} ${w.start}–${w.end}'].join(' · ');
+  return [for (final w in weekly) '${label(w.weekday)} ${w.start}–${w.end}']
+      .join(' · ');
 }
 
 class CourierAvailabilityDto {
@@ -163,28 +176,28 @@ class CourierAvailabilityDto {
   final String? updatedAt;
 
   String get vehicleLabel => switch (vehicle) {
-        'CAR' => 'Otomobil',
-        'MOTORCYCLE' => 'Motosiklet',
-        'BICYCLE' => 'Bisiklet',
-        'ON_FOOT' => 'Yaya',
-        'VAN' => 'Van',
-        _ => vehicle,
-      };
+    'CAR' => 'Otomobil',
+    'MOTORCYCLE' => 'Motosiklet',
+    'BICYCLE' => 'Bisiklet',
+    'ON_FOOT' => 'Yaya',
+    'VAN' => 'Van',
+    _ => vehicle,
+  };
 
   String get employmentLabel => switch (employmentType) {
-        'FULL_TIME' => 'Tam zamanlı',
-        'PART_TIME' => 'Yarı zamanlı',
-        'SEASONAL' => 'Sezonluk',
-        _ => employmentType,
-      };
+    'FULL_TIME' => 'Tam zamanlı',
+    'PART_TIME' => 'Yarı zamanlı',
+    'SEASONAL' => 'Sezonluk',
+    _ => employmentType,
+  };
 
   String get statusLabel => switch (status) {
-        'AVAILABLE' => 'Müsait',
-        'UNAVAILABLE' => 'Müsait değil',
-        'ON_SHIFT' => 'Vardiyada',
-        'ON_BREAK' => 'Molada',
-        _ => status,
-      };
+    'AVAILABLE' => 'Müsait',
+    'UNAVAILABLE' => 'Müsait değil',
+    'ON_SHIFT' => 'Vardiyada',
+    'ON_BREAK' => 'Molada',
+    _ => status,
+  };
 
   String get hoursLabel => hoursFromWeekly(weekly);
 
@@ -218,7 +231,8 @@ class CourierDocumentDto {
   final String label;
   final String status;
 
-  factory CourierDocumentDto.fromJson(Map<String, dynamic> json) => CourierDocumentDto(
+  factory CourierDocumentDto.fromJson(Map<String, dynamic> json) =>
+      CourierDocumentDto(
         id: json['id'] as String? ?? '',
         type: json['type'] as String? ?? 'OTHER',
         label: json['label'] as String? ?? json['type'] as String? ?? 'Belge',
@@ -242,12 +256,12 @@ class RouteStopDto {
   final int? durationSeconds;
 
   factory RouteStopDto.fromJson(Map<String, dynamic> json) => RouteStopDto(
-        taskId: json['taskId'] as String? ?? '',
-        sequence: (json['sequence'] as num?)?.toInt() ?? 0,
-        etaAt: json['etaAt'] as String?,
-        distanceMeters: (json['distanceMeters'] as num?)?.toInt(),
-        durationSeconds: (json['durationSeconds'] as num?)?.toInt(),
-      );
+    taskId: json['taskId'] as String? ?? '',
+    sequence: (json['sequence'] as num?)?.toInt() ?? 0,
+    etaAt: json['etaAt'] as String?,
+    distanceMeters: (json['distanceMeters'] as num?)?.toInt(),
+    durationSeconds: (json['durationSeconds'] as num?)?.toInt(),
+  );
 }
 
 /// Mirrors `Route` in packages/contracts/src/shift.ts — the response shape
@@ -262,16 +276,20 @@ class RoutePlanDto {
   });
 
   final String id;
+
   /// `sequence_only` (no real engine), `distance_optimized` (real OSRM
   /// distances, Faz 2 reordered) or `traffic_aware` (Faz 1.5, not built).
   final String mode;
+
   /// Encoded polyline (see lib/geo.dart#decodePolyline); null in sequence_only mode.
   final String? geometry;
   final String? computedAt;
   final List<RouteStopDto> stops;
 
-  int get totalDistanceMeters => stops.fold(0, (sum, s) => sum + (s.distanceMeters ?? 0));
-  int get totalDurationSeconds => stops.fold(0, (sum, s) => sum + (s.durationSeconds ?? 0));
+  int get totalDistanceMeters =>
+      stops.fold(0, (sum, s) => sum + (s.distanceMeters ?? 0));
+  int get totalDurationSeconds =>
+      stops.fold(0, (sum, s) => sum + (s.durationSeconds ?? 0));
 
   bool get hasRealGeometry => geometry != null && geometry!.isNotEmpty;
 
@@ -313,20 +331,24 @@ class CustodyItemDto {
   final String acquiredAt;
 
   factory CustodyItemDto.fromJson(Map<String, dynamic> json) => CustodyItemDto(
-        id: json['id'] as String? ?? '',
-        type: json['type'] as String? ?? 'parcel',
-        barcode: json['barcode'] as String?,
-        description: json['description'] as String? ?? '',
-        quantity: (json['quantity'] as num?)?.toInt() ?? 1,
-        amount: (json['amount'] as num?)?.toDouble(),
-        taskId: json['taskId'] as String?,
-        acquiredAt: json['acquiredAt'] as String? ?? '',
-      );
+    id: json['id'] as String? ?? '',
+    type: json['type'] as String? ?? 'parcel',
+    barcode: json['barcode'] as String?,
+    description: json['description'] as String? ?? '',
+    quantity: (json['quantity'] as num?)?.toInt() ?? 1,
+    amount: (json['amount'] as num?)?.toDouble(),
+    taskId: json['taskId'] as String?,
+    acquiredAt: json['acquiredAt'] as String? ?? '',
+  );
 }
 
 /// Mirrors `CustodyHandoverResponse` — result of `POST /v1/custody/handover`.
 class CustodyHandoverResultDto {
-  const CustodyHandoverResultDto({required this.handoverId, required this.remaining, required this.appliedAt});
+  const CustodyHandoverResultDto({
+    required this.handoverId,
+    required this.remaining,
+    required this.appliedAt,
+  });
 
   final String handoverId;
   final List<CustodyItemDto> remaining;
@@ -338,7 +360,8 @@ class CustodyHandoverResultDto {
       handoverId: json['handoverId'] as String? ?? '',
       remaining: [
         for (final row in raw)
-          if (row is Map) CustodyItemDto.fromJson(Map<String, dynamic>.from(row)),
+          if (row is Map)
+            CustodyItemDto.fromJson(Map<String, dynamic>.from(row)),
       ],
       appliedAt: json['appliedAt'] as String? ?? '',
     );
@@ -357,7 +380,10 @@ class CourierDocumentListDto {
   final int requiredCount;
 
   String get summary {
-    final done = items.where((d) => d.status == 'COMPLETED').map((d) => d.label).toList();
+    final done = items
+        .where((d) => d.status == 'COMPLETED')
+        .map((d) => d.label)
+        .toList();
     if (done.isEmpty) {
       if (requiredCount <= 0) return '—';
       return '$completedCount / $requiredCount belge';
@@ -373,7 +399,8 @@ class CourierDocumentListDto {
     return CourierDocumentListDto(
       items: [
         for (final row in raw)
-          if (row is Map) CourierDocumentDto.fromJson(Map<String, dynamic>.from(row)),
+          if (row is Map)
+            CourierDocumentDto.fromJson(Map<String, dynamic>.from(row)),
       ],
       completedCount: (json['completedCount'] as num?)?.toInt() ?? 0,
       requiredCount: (json['requiredCount'] as num?)?.toInt() ?? 0,

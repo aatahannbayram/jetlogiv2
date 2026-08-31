@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
@@ -277,9 +278,9 @@ class _Art extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            _line(Icons.photo_camera_outlined, 'Kapı fotoğrafı'),
-            _line(Icons.pin_outlined, 'Alıcı kodu'),
-            _line(Icons.badge_outlined, 'Sözleşme panelde'),
+            _line(LucideIcons.camera, 'Kapı fotoğrafı'),
+            _line(LucideIcons.pin, 'Alıcı kodu'),
+            _line(LucideIcons.idCard, 'Sözleşme panelde'),
           ],
         ),
       ),
