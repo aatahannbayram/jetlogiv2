@@ -359,6 +359,10 @@ class MapStrip extends StatelessWidget {
                     // the wrong z/x/y and the viewport shows nothing, even
                     // though the (mismatched) requests still succeed.
                     zoomOffset: useMapboxTiles ? -1 : 0,
+                    subdomains: useMapboxTiles
+                        ? const []
+                        : const ['a', 'b', 'c', 'd'],
+                    retinaMode: !useMapboxTiles,
                     errorTileCallback: (tile, error, stackTrace) {
                       // ignore: avoid_print
                       print(
@@ -411,6 +415,17 @@ class MapStrip extends StatelessWidget {
                         ),
                     ],
                   ),
+                  RichAttributionWidget(
+                    alignment: AttributionAlignment.bottomLeft,
+                    popupInitialDisplayDuration: Duration.zero,
+                    attributions: [
+                      TextSourceAttribution(
+                        useMapboxTiles
+                            ? '© Mapbox © OpenStreetMap'
+                            : '© OpenStreetMap contributors © CARTO',
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -441,46 +456,6 @@ class MapStrip extends StatelessWidget {
     );
     if (onTap == null) return body;
     return GestureDetector(onTap: onTap, child: body);
-  }
-}
-
-class StepDots extends StatelessWidget {
-  const StepDots({super.key, required this.step});
-
-  final int step;
-  static const labels = ['Alan', 'Foto', 'Kod'];
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        for (var i = 0; i < 3; i++) ...[
-          if (i > 0) const SizedBox(width: 16),
-          Column(
-            children: [
-              Container(
-                width: i == step ? 8 : 7,
-                height: i == step ? 8 : 7,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: i < step || i == step ? Dg.accent : Dg.rule,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                labels[i],
-                style: TextStyle(
-                  fontFamily: Dg.sans,
-                  fontSize: 12,
-                  fontWeight: i == step ? FontWeight.w600 : FontWeight.w500,
-                  color: i == step ? Dg.ink : Dg.ink3,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ],
-    );
   }
 }
 
