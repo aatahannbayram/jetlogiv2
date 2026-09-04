@@ -1,5 +1,3 @@
-import type { Env } from '../env.js';
-
 export interface SmsMessage {
   to: string;
   body: string;
@@ -23,6 +21,8 @@ export interface IvrCall {
  * Provider boundary. Concrete Turkish operators (Netgsm, Verimor,
  * Iletimerkezi) are evaluated in docs/02-saglayici-degerlendirme.md; the
  * point of this interface is that swapping one for another touches one file.
+ * Shared between apps/api (OTP) and apps/worker (customer notifications) so
+ * both send through the same provider configuration.
  */
 export interface SmsProvider {
   readonly name: string;
@@ -33,7 +33,7 @@ export interface SmsProvider {
 
 /**
  * Development provider. Logs instead of sending and always reports success,
- * so the activation flow is testable without a signed operator contract.
+ * so callers are testable without a signed operator contract.
  */
 export class MockSmsProvider implements SmsProvider {
   readonly name = 'mock';
@@ -53,7 +53,11 @@ export class MockSmsProvider implements SmsProvider {
   }
 }
 
-export function createSmsProvider(env: Env, log: (msg: string) => void): SmsProvider {
+export interface SmsProviderEnv {
+  SMS_PROVIDER: 'mock' | 'netgsm' | 'verimor' | 'iletimerkezi';
+}
+
+export function createSmsProvider(env: SmsProviderEnv, log: (msg: string) => void): SmsProvider {
   switch (env.SMS_PROVIDER) {
     case 'mock':
       return new MockSmsProvider(log);

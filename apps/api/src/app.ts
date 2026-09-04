@@ -8,9 +8,11 @@ import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod
 import type { AppContext } from './context.js';
 import { authenticate } from './plugins/authenticate.js';
 import { errorHandler } from './plugins/error-handler.js';
+import { serviceAuth } from './plugins/service-auth.js';
 import { authRoutes } from './routes/auth.js';
 import { configRoutes } from './routes/config.js';
 import { custodyRoutes } from './routes/custody.js';
+import { delayDecisionRoutes } from './routes/delay-decision.js';
 import { healthRoutes } from './routes/health.js';
 import { identityRoutes } from './routes/identity.js';
 import { mediaRoutes } from './routes/media.js';
@@ -33,6 +35,7 @@ export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
         // one forgotten log line cannot leak them.
         paths: [
           'req.headers.authorization',
+          'req.headers["x-service-token"]',
           'req.headers["idempotency-key"]',
           'req.body.code',
           'req.body.refreshToken',
@@ -73,6 +76,7 @@ export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
 
   await app.register(errorHandler);
   await app.register(authenticate, { ctx });
+  await app.register(serviceAuth, { ctx });
 
   await app.register(healthRoutes, { ctx });
   await app.register(configRoutes, { ctx });
@@ -80,6 +84,7 @@ export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
   await app.register(identityRoutes, { ctx });
   await app.register(workflowRoutes, { ctx });
   await app.register(taskRoutes, { ctx });
+  await app.register(delayDecisionRoutes, { ctx });
   await app.register(shiftRoutes, { ctx });
   await app.register(routingRoutes, { ctx });
   await app.register(custodyRoutes, { ctx });

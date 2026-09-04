@@ -41,8 +41,10 @@ class TaskDetailScreen extends ConsumerWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
+                // eta bilinçli olarak geçilmiyor: aşağıdaki _EtaPill zaten
+                // gösteriyor, MapStrip'in kendi pill'i aynı bilgiyi ikinci
+                // kez basıp üst üste iki rozet oluşturuyordu.
                 MapStrip(
-                  eta: t.etaMinutes,
                   height: double.infinity,
                   rounded: false,
                   points: [LatLng(t.lat, t.lng)],

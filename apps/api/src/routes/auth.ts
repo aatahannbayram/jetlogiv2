@@ -11,7 +11,7 @@ import {
   RefreshRequest,
   RefreshResponse,
 } from '@dijigoo/contracts';
-import { AppError } from '@dijigoo/core';
+import { AppError, emitEvent } from '@dijigoo/core';
 import { couriers, devices } from '@dijigoo/db';
 import { and, eq, isNull } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
@@ -19,7 +19,6 @@ import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 
 import type { AppContext } from '../context.js';
-import { emitEvent } from '../services/outbox.js';
 
 const problem = { 400: ErrorResponse, 401: ErrorResponse, 429: ErrorResponse };
 

@@ -559,8 +559,11 @@ class _HeroStop extends ConsumerWidget {
         children: [
           Stack(
             children: [
+              // eta bilinçli olarak geçilmiyor: aşağıdaki gradyanlı rozet
+              // zaten ETA'yı gösteriyor, MapStrip'in kendi alt-sağ pill'ine
+              // aynı bilgiyi ikinci kez bastırmak sadece iki üst üste binen
+              // rozet üretiyordu.
               MapStrip(
-                eta: task.etaMinutes,
                 height: 108,
                 points: [LatLng(task.lat, task.lng)],
                 onTap: () => openDirections(context, task),
@@ -670,6 +673,8 @@ class _HeroStop extends ConsumerWidget {
                     _squareIcon(
                       LucideIcons.phone,
                       () => callRecipient(context),
+                      tint: Dg.violetBg,
+                      ink: Dg.violet,
                     ),
                     const SizedBox(width: 8),
                     _squareIcon(LucideIcons.messageSquare, () {}),
@@ -708,17 +713,24 @@ class _HeroStop extends ConsumerWidget {
     );
   }
 
-  Widget _squareIcon(IconData icon, VoidCallback onTap) {
+  Widget _squareIcon(
+    IconData icon,
+    VoidCallback onTap, {
+    Color? tint,
+    Color? ink,
+  }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: 52,
         height: 52,
         decoration: BoxDecoration(
-          color: Dg.elev,
+          color: tint ?? Dg.elev,
           borderRadius: BorderRadius.circular(16),
+          border: Border(top: BorderSide(color: Dg.insetHighlight)),
+          boxShadow: Dg.shadow,
         ),
-        child: Icon(icon, size: 18, color: Dg.ink),
+        child: Icon(icon, size: 18, color: ink ?? Dg.ink),
       ),
     );
   }

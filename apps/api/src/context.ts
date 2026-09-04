@@ -1,3 +1,5 @@
+import { createSmsProvider } from '@dijigoo/core';
+import type { SmsProvider } from '@dijigoo/core';
 import { createDatabase } from '@dijigoo/db';
 import type { Database } from '@dijigoo/db';
 import Redis from 'ioredis';
@@ -7,8 +9,6 @@ import { IntegrityService } from './services/integrity.js';
 import { OtpService } from './services/otp.js';
 import { createRoutingProvider } from './services/routing.js';
 import type { RoutingProvider } from './services/routing.js';
-import { createSmsProvider } from './services/sms.js';
-import type { SmsProvider } from './services/sms.js';
 import { StorageService } from './services/storage.js';
 import { TokenService } from './services/tokens.js';
 

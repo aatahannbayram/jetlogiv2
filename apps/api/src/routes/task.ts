@@ -15,6 +15,7 @@ import {
   assertTransition,
   checkGeofence,
   clampOccurredAt,
+  emitEvent,
   missingRequiredSteps,
   runIdempotent,
   visibleSteps,
@@ -35,7 +36,6 @@ import {
   transitionDocument,
 } from '../services/document-status.js';
 import { PostgresIdempotencyStore } from '../services/idempotency-store.js';
-import { emitEvent } from '../services/outbox.js';
 import { openReturnsForFailedTask } from '../services/return-status.js';
 import { resolveSlaInstance, startSlaInstance } from '../services/sla.js';
 import { ensureWorkOrder, recordDeliveryResult, transitionWorkOrder } from '../services/work-order.js';

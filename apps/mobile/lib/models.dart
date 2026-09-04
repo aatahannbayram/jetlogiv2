@@ -189,6 +189,17 @@ extension SyncOperationWire on SyncOperation {
     SyncOperation.custodyHandover => 'CUSTODY_HANDOVER',
     SyncOperation.supportTicketCreate => 'SUPPORT_TICKET_CREATE',
   };
+
+  static SyncOperation fromWire(String wire) => switch (wire) {
+    'SHIFT_START' => SyncOperation.shiftStart,
+    'SHIFT_END' => SyncOperation.shiftEnd,
+    'TASK_TRANSITION' => SyncOperation.taskTransition,
+    'STEP_SUBMIT' => SyncOperation.stepSubmit,
+    'TASK_FINALIZE' => SyncOperation.taskFinalize,
+    'CUSTODY_HANDOVER' => SyncOperation.custodyHandover,
+    'SUPPORT_TICKET_CREATE' => SyncOperation.supportTicketCreate,
+    _ => throw ArgumentError('Bilinmeyen sync operation: $wire'),
+  };
 }
 
 class OutboxEvent {

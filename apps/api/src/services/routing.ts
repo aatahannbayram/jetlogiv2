@@ -25,7 +25,7 @@ export interface ComputedRoute {
 }
 
 /**
- * Provider boundary, same shape as {@link import('./sms.js').SmsProvider}:
+ * Provider boundary, same shape as {@link import('@dijigoo/core').SmsProvider}:
  * swapping OSRM for a paid traffic-aware provider later touches this file
  * and `createRoutingProvider` only.
  */

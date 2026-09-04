@@ -23,8 +23,10 @@ void main() async {
   }
   final api = MobileApi.create(vault: vault);
   final seen = await vault.onboardSeen;
+  final outbox = OutboxStore(db: db);
+  await outbox.hydrateFromDb();
   final session = SessionController(
-    outbox: OutboxStore(db: db),
+    outbox: outbox,
     api: api,
     vault: vault,
     waitForConfig: true,

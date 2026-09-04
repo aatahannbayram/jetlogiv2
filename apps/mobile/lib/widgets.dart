@@ -385,39 +385,28 @@ class MapStrip extends StatelessWidget {
                       for (var i = 0; i < points.length; i++)
                         Marker(
                           point: points[i],
-                          width: 26,
-                          height: 26,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: i == points.length - 1
-                                  ? Dg.ink
-                                  : Colors.white,
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: Dg.ink, width: 1.4),
-                            ),
-                          ),
+                          width: i == points.length - 1 ? 30 : 14,
+                          height: i == points.length - 1 ? 30 : 14,
+                          child: i == points.length - 1
+                              ? const _DestinationPin()
+                              : const _WaypointDot(),
                         ),
                       if (points.isEmpty)
                         Marker(
                           point: center,
-                          width: 26,
-                          height: 26,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Dg.ink,
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(
-                                color: Colors.white,
-                                width: 1.4,
-                              ),
-                            ),
-                          ),
+                          width: 30,
+                          height: 30,
+                          child: const _DestinationPin(),
                         ),
                     ],
                   ),
                   RichAttributionWidget(
                     alignment: AttributionAlignment.bottomLeft,
                     popupInitialDisplayDuration: Duration.zero,
+                    // flutter_map paketinin kendi logosunu göstermesin — bir
+                    // teslimat uygulamasında üçüncü parti kütüphane rozeti
+                    // işi yok, o küçük "manzara" ikonu buydu.
+                    showFlutterMapAttribution: false,
                     attributions: [
                       TextSourceAttribution(
                         useMapboxTiles
@@ -435,7 +424,12 @@ class MapStrip extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Dg.ink,
+                  // Sabit koyu zemin: bu rozet her zaman açık renkli harita
+                  // karosunun üstünde duruyor (map_config.dart, haritayı
+                  // temadan bağımsız hep açık tutuyor) — Dg.ink kullanılırsa
+                  // koyu temada neredeyse beyaza döner ve altındaki sabit
+                  // beyaz yazıyla kontrastı kaybolur.
+                  color: Dg.night,
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: Dg.purple.withValues(alpha: 0.7)),
                 ),
@@ -456,6 +450,48 @@ class MapStrip extends StatelessWidget {
     );
     if (onTap == null) return body;
     return GestureDetector(onTap: onTap, child: body);
+  }
+}
+
+/// [MapStrip]'in durak/hedef karalaması — marka gradyanı + beyaz halka +
+/// yumuşak gölge, önceki düz "beyaz köşeli kutu" yer tutucunun yerine.
+class _DestinationPin extends StatelessWidget {
+  const _DestinationPin();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: Dg.primaryGradient,
+        border: Border.all(color: Colors.white, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: Dg.primaryGradientEnd.withValues(alpha: 0.55),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      alignment: Alignment.center,
+      child: const Icon(LucideIcons.mapPin, color: Colors.white, size: 15),
+    );
+  }
+}
+
+/// Rotadaki ara duraklar için nötr, küçük nokta — hedef pin'iyle karışmaz.
+class _WaypointDot extends StatelessWidget {
+  const _WaypointDot();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Dg.surface,
+        border: Border.all(color: Dg.ink3, width: 1.6),
+      ),
+    );
   }
 }
 

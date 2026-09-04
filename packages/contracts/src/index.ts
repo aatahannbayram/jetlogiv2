@@ -5,6 +5,7 @@ export * from './identity.js';
 export * from './workflow.js';
 export * from './media.js';
 export * from './task.js';
+export * from './delay-decision.js';
 export * from './work-order.js';
 export * from './shift.js';
 export * from './custody.js';

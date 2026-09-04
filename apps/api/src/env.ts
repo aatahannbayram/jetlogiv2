@@ -75,6 +75,14 @@ const EnvSchema = z.object({
    * production. Never `block`: a false positive would strand a courier.
    */
   DEVICE_INTEGRITY_MODE: z.enum(['off', 'log', 'restrict']).default('log'),
+
+  /**
+   * Faz 5: shared secret for the operations panel's *backend* (a different
+   * team's codebase) to call the delay-decision endpoint. Not a courier
+   * bearer token — there is no operator identity in this codebase, see
+   * project-nihai-mimari-plan. Rotate by issuing a new value to that team.
+   */
+  DELAY_DECISION_SERVICE_TOKEN: z.string().min(16),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

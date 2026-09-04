@@ -6,7 +6,7 @@ import {
   ShiftEndRequest,
   ShiftStartRequest,
 } from '@dijigoo/contracts';
-import { AppError, clampOccurredAt } from '@dijigoo/core';
+import { AppError, clampOccurredAt, emitEvent } from '@dijigoo/core';
 import { locationPings, media, shifts } from '@dijigoo/db';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
@@ -15,7 +15,6 @@ import { z } from 'zod';
 
 import type { AppContext } from '../context.js';
 import type { AuthenticatedCourier } from '../plugins/authenticate.js';
-import { emitEvent } from '../services/outbox.js';
 import { PostgresIdempotencyStore } from '../services/idempotency-store.js';
 import { runIdempotent } from '@dijigoo/core';
 

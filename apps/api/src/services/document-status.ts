@@ -1,9 +1,8 @@
 import type { DocumentStatusCode, QualityReviewStatusCode } from '@dijigoo/contracts';
+import { emitEvent } from '@dijigoo/core';
 import { documentTransitions, documents, qualityReviews } from '@dijigoo/db';
 import type { Database } from '@dijigoo/db';
 import { and, eq } from 'drizzle-orm';
-
-import { emitEvent } from './outbox.js';
 
 /**
  * Faz 3 of the Nihai mimari plan (~/.claude/plans/toasty-mixing-adleman.md):

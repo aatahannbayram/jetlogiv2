@@ -13,7 +13,7 @@ import {
   Uuid,
 } from '@dijigoo/contracts';
 import type { ProductStatusCode } from '@dijigoo/contracts';
-import { AppError, clampOccurredAt, runIdempotent } from '@dijigoo/core';
+import { AppError, clampOccurredAt, emitEvent, runIdempotent } from '@dijigoo/core';
 import { custodyHandoverItems, custodyHandovers, custodyItems, supportTickets } from '@dijigoo/db';
 import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
@@ -24,7 +24,6 @@ import type { AppContext } from '../context.js';
 import type { AuthenticatedCourier } from '../plugins/authenticate.js';
 import { productStatusForHandover, transitionCustodyItem } from '../services/custody-status.js';
 import { PostgresIdempotencyStore } from '../services/idempotency-store.js';
-import { emitEvent } from '../services/outbox.js';
 import { closeReturnOnBranchHandover } from '../services/return-status.js';
 
 export async function custodyRoutes(app: FastifyInstance, { ctx }: { ctx: AppContext }) {

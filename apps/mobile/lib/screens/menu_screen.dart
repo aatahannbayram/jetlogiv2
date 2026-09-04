@@ -146,11 +146,13 @@ class _ProfileCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
+          Container(height: 1, color: Colors.white.withValues(alpha: 0.08)),
+          const SizedBox(height: 16),
           Row(
             children: [
-              _stat('${session.deliveredCount}', 'teslim'),
-              _stat('${session.openCount}', 'açık'),
-              _stat('${session.returnCount}', 'iade'),
+              _stat('${session.deliveredCount}', 'teslim', Dg.sage),
+              _stat('${session.openCount}', 'açık', Dg.sand),
+              _stat('${session.returnCount}', 'iade', Dg.clay),
             ],
           ),
         ],
@@ -158,16 +160,30 @@ class _ProfileCard extends StatelessWidget {
     );
   }
 
-  Widget _stat(String value, String label) {
+  Widget _stat(String value, String label, Color tone) {
     return Expanded(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(value, style: Dg.stat(size: 22, color: Colors.white)),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                width: 6,
+                height: 6,
+                margin: const EdgeInsets.only(right: 6),
+                decoration: BoxDecoration(color: tone, shape: BoxShape.circle),
+              ),
+              Text(value, style: Dg.stat(size: 22, color: Colors.white)),
+            ],
+          ),
           const SizedBox(height: 2),
-          Text(
-            label,
-            style: const TextStyle(color: Color(0xFF9A9E90), fontSize: 12),
+          Padding(
+            padding: const EdgeInsets.only(left: 12),
+            child: Text(
+              label,
+              style: const TextStyle(color: Color(0xFF9A9E90), fontSize: 12),
+            ),
           ),
         ],
       ),
@@ -202,7 +218,16 @@ class _Section extends StatelessWidget {
                     .push(MaterialPageRoute<void>(builder: (_) => m.open())),
                 child: Row(
                   children: [
-                    Icon(m.icon, size: 19, color: Dg.ink2),
+                    Container(
+                      width: 36,
+                      height: 36,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: Dg.elev,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(m.icon, size: 17, color: Dg.ink2),
+                    ),
                     const SizedBox(width: 14),
                     Expanded(
                       child: Text(

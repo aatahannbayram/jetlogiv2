@@ -27,9 +27,12 @@ class SessionController extends ChangeNotifier {
   }) : outbox = outbox ?? OutboxStore(),
        phase = initialPhase ?? AppPhase.onboard {
     configReady = !waitForConfig;
+    // Sabit demo-tohumu: gerçek enqueue() id'lerinin izlediği
+    // 00000000-0000-4000-a000-{sequence} kalıbından bilinçli olarak farklı,
+    // yoksa uygulamanın ilk gerçek enqueue()'u (sequence=1) bu id ile çakışır.
     this.outbox.seedQueued(
       OutboxEvent(
-        clientEventId: '00000000-0000-4000-a000-000000000001',
+        clientEventId: 'demo-seed-t4-0001',
         operation: SyncOperation.taskTransition,
         subjectId: 't4',
         occurredAt: DateTime.utc(2026, 8, 25, 10, 12),
@@ -839,7 +842,11 @@ class SessionController extends ChangeNotifier {
         for (final r in results) (id: r.clientEventId, status: r.status),
       ]);
     } catch (_) {
-      outbox.drain();
+      // Ağ/istek hatası: "kapalı ortamda" (sinyal yokken) beklenen durum tam
+      // olarak bu. Öğeleri applied say(drain) diye işaretlersek gönderilmemiş
+      // teslimatları sessizce kaybederiz — pending bırak, bir sonraki
+      // pushSyncQueue()/online geçişinde tekrar denensin.
+      liveApi = false;
     }
     notifyListeners();
   }

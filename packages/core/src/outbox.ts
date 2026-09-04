@@ -28,7 +28,10 @@ export interface EmitInput {
 }
 
 /**
- * Transactional outbox writer.
+ * Transactional outbox writer. Shared between apps/api (every state change
+ * that needs an audit/webhook trail) and apps/worker (the sla.at_risk
+ * watcher) — moved here rather than kept app-local once a second process
+ * needed to write the same table the same way.
  *
  * Always called with the same transaction handle as the state change it
  * describes. That is the whole point: a task cannot be marked delivered

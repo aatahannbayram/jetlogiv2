@@ -1,9 +1,8 @@
 import type { DeliveryResultCode, WorkOrderStatusCode } from '@dijigoo/contracts';
+import { emitEvent } from '@dijigoo/core';
 import { deliveryResults, workOrderTransitions, workOrders } from '@dijigoo/db';
 import type { Database } from '@dijigoo/db';
 import { and, eq } from 'drizzle-orm';
-
-import { emitEvent } from './outbox.js';
 
 /**
  * Faz 1 of the Nihai mimari plan (~/.claude/plans/toasty-mixing-adleman.md):

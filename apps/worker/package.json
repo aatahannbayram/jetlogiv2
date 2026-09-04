@@ -1,22 +1,24 @@
 {
-  "name": "@dijigoo/core",
+  "name": "@dijigoo/worker",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
-  "exports": { ".": "./src/index.ts" },
   "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --test --import tsx test/*.test.ts"
   },
   "dependencies": {
     "@dijigoo/contracts": "workspace:*",
+    "@dijigoo/core": "workspace:*",
     "@dijigoo/db": "workspace:*",
+    "drizzle-orm": "^0.36.4",
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@types/node": "^20.14.10",
     "tsx": "^4.16.2",
     "typescript": "^5.5.4"
   }

@@ -2,11 +2,10 @@ import { randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
 import { createHash } from 'node:crypto';
 
 import { AppError } from '@dijigoo/core';
+import type { SmsProvider } from '@dijigoo/core';
 import { otpChallenges } from '@dijigoo/db';
 import type { Database } from '@dijigoo/db';
 import { eq, sql } from 'drizzle-orm';
-
-import type { SmsProvider } from './sms.js';
 
 export type OtpPurpose = 'activation' | 'task_delivery' | 'phone_change';
 

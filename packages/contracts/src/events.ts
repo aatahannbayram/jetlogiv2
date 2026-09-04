@@ -61,6 +61,10 @@ export const EventKey = z.enum([
   'return.transitioned',
   'sla.started',
   'sla.resolved',
+  // Faz 5: a background watcher (apps/worker) notices a deadline is close
+  // and flags it, or the delay-decision endpoint pushes the deadline back.
+  'sla.at_risk',
+  'sla.extended',
 ]);
 export type EventKey = z.infer<typeof EventKey>;
 
