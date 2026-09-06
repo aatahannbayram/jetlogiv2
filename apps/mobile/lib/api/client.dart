@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 
 import '../data/vault.dart';
 import '../models.dart';
+import '../notif.dart';
 import 'courier_tasks.dart';
 import 'models.dart';
 
@@ -121,6 +122,7 @@ class MobileApi {
   Future<SyncChangesDto> fetchChanges({String? since}) async {
     final items = <DeliveryTask>[];
     final removed = <String>{};
+    final inbox = <InboxItemDto>[];
     List<CustodyItemDto>? custody;
     String? cursor;
     var pages = 0;
@@ -154,6 +156,7 @@ class MobileApi {
               CustodyItemDto.fromJson(Map<String, dynamic>.from(row)),
         ];
       }
+      inbox.addAll(_inboxFrom(res.data?['notifications']));
       final synced = res.data?['syncedAt'];
       if (synced is String && synced.isNotEmpty) {
         syncedAt = synced;
@@ -168,7 +171,41 @@ class MobileApi {
       removedTaskIds: removed.toList(),
       syncedAt: syncedAt,
       custody: custody,
+      notifications: inbox,
       resyncRequired: resyncRequired,
+    );
+  }
+
+  Future<List<InboxItemDto>> fetchNotifications() async {
+    final res = await dio.get<Map<String, dynamic>>('/v1/notifications');
+    lastWasLive = res.extra['demo'] != true;
+    return _inboxFrom(res.data?['items']);
+  }
+
+  Future<void> markNotificationsRead({
+    List<String>? ids,
+    bool all = false,
+  }) async {
+    await dio.post<void>(
+      '/v1/notifications/read',
+      data: {
+        if (all) 'all': true,
+        if (ids != null && ids.isNotEmpty) 'ids': ids,
+      },
+    );
+  }
+
+  Future<void> registerPushToken({
+    required String installationId,
+    required String token,
+  }) async {
+    await dio.post<void>(
+      '/v1/devices/push-token',
+      data: {
+        'installationId': installationId,
+        'provider': 'fcm',
+        'token': token,
+      },
     );
   }
 
@@ -608,6 +645,7 @@ class DemoFallbackInterceptor extends Interceptor {
         path.contains('/v1/tasks') ||
         path.contains('/v1/support/tickets') ||
         path.contains('/v1/sync/changes') ||
+        path.contains('/v1/notifications') ||
         path.contains('/v1/shifts');
     return mockable && (code == 401 || code == 404 || code == 501);
   }
@@ -880,12 +918,20 @@ Map<String, dynamic> mockPayload(String path, RequestOptions options) {
       'removedTaskIds': const <String>[],
       'custody': _demoCustodyItems,
       'removedCustodyIds': const <String>[],
+      'notifications': const [],
       'shift': null,
       'workflows': const [],
       'nextCursor': null,
       'syncedAt': DateTime.now().toUtc().toIso8601String(),
       'resyncRequired': false,
     };
+  }
+  if (path.contains('/v1/notifications/read') ||
+      path.contains('/v1/devices/push-token')) {
+    return <String, dynamic>{};
+  }
+  if (path.contains('/v1/notifications')) {
+    return {'items': const [], 'nextCursor': null};
   }
   if (path.contains('/v1/support/tickets')) {
     if (options.method == 'POST' ||
@@ -1066,4 +1112,16 @@ Map<String, dynamic> mockPayload(String path, RequestOptions options) {
     };
   }
   return <String, dynamic>{};
+}
+
+List<InboxItemDto> _inboxFrom(Object? raw) {
+  if (raw is! List) return const [];
+  return [
+    for (final row in raw)
+      if (row is Map && row['kind'] != 'SYNC_HINT')
+        InboxItemDto(
+          item: appNotificationFromInbox(Map<String, dynamic>.from(row)),
+          read: row['readAt'] != null,
+        ),
+  ];
 }

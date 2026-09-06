@@ -191,7 +191,8 @@ class SessionController extends ChangeNotifier {
   Future<void> ensureDayRoute() async {
     final origin = LatLng(selfLat, selfLng);
     final stops = _openRouteStops;
-    final pin = nextStop?.id;
+    final started = tasks.where((t) => t.status == TaskStatus.inProgress);
+    final pin = started.isEmpty ? null : started.first.id;
     final key = dayRouteCacheKey(origin, stops, pinFirstId: pin);
     if (_dayRouteKey == key && dayRoute != null && dayRoute!.fromLiveEngine) {
       return;
@@ -391,6 +392,9 @@ class SessionController extends ChangeNotifier {
     _persistNotifState();
     unawaited(FieldAlerts.dismissInbox(id));
     _syncNotifBadge();
+    if (liveApi) {
+      unawaited(api?.markNotificationsRead(ids: [id]));
+    }
     notifyListeners();
   }
 
@@ -414,6 +418,7 @@ class SessionController extends ChangeNotifier {
       unawaited(FieldAlerts.dismissInbox(id));
     }
     _syncNotifBadge();
+    if (liveApi) unawaited(api?.markNotificationsRead(all: true));
     notifyListeners();
   }
 
@@ -873,6 +878,10 @@ class SessionController extends ChangeNotifier {
   DeliveryTask? get nextStop {
     for (final t in tasks) {
       if (t.status == TaskStatus.inProgress) return t;
+    }
+    if (dayRoute != null && dayRoute!.stopTaskIds.isNotEmpty) {
+      final ordered = orderedOpenTasks;
+      if (ordered.isNotEmpty) return ordered.first;
     }
     for (final t in tasks) {
       if (t.isOpen) return t;
@@ -1468,7 +1477,13 @@ class SessionController extends ChangeNotifier {
       tasks
         ..clear()
         ..addAll(remote);
-      if (liveApi) unawaited(_rememberWatermark(client.lastSyncedAt));
+      if (liveApi) {
+        _dropDemoInbox();
+        unawaited(_rememberWatermark(client.lastSyncedAt));
+        final inbox = await client.fetchNotifications();
+        ingestServerNotifications(inbox);
+        unawaited(registerPushToken());
+      }
     } catch (_) {
       liveApi = false;
     }
@@ -1495,6 +1510,7 @@ class SessionController extends ChangeNotifier {
       }
       applyTaskDelta(changed: delta.tasks, removedIds: delta.removedTaskIds);
       if (delta.custody != null) custodyItems = delta.custody!;
+      ingestServerNotifications(delta.notifications);
       unawaited(_rememberWatermark(delta.syncedAt));
     } catch (_) {
       await loadTasks();
@@ -1562,6 +1578,57 @@ class SessionController extends ChangeNotifier {
         );
       }
     }
+  }
+
+  void _dropDemoInbox() {
+    notifications.removeWhere((n) => n.id.startsWith('demo-'));
+  }
+
+  void ingestServerNotifications(List<InboxItemDto> rows) {
+    if (rows.isEmpty) return;
+    _dropDemoInbox();
+    for (final row in rows) {
+      final n = row.item;
+      if (n.id.isEmpty) continue;
+      final existing = notifications.indexWhere((e) => e.id == n.id);
+      if (existing >= 0) {
+        notifications[existing] = n;
+      } else {
+        final dup = n.taskId == null
+            ? -1
+            : notifications.indexWhere(
+                (e) => e.kind == n.kind && e.taskId == n.taskId,
+              );
+        if (dup >= 0) {
+          notifications[dup] = n;
+        } else {
+          notifications.insert(0, n);
+        }
+      }
+      if (row.read) {
+        _readNotificationIds.add(n.id);
+      }
+    }
+    while (notifications.length > _inboxCap) {
+      notifications.removeLast();
+    }
+    _persistNotifState();
+    _syncNotifBadge();
+  }
+
+  Future<void> registerPushToken([String? token]) async {
+    if (!notifyEnabled || notifyOsBlocked || !liveApi) return;
+    final client = api;
+    final store = vault;
+    if (client == null || store == null) return;
+    final value = token ?? FieldPush.token;
+    if (value == null || value.isEmpty) return;
+    try {
+      await client.registerPushToken(
+        installationId: await store.installationId(),
+        token: value,
+      );
+    } catch (_) {}
   }
 
   Future<void> _rememberWatermark(String? value) async {
