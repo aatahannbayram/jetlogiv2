@@ -49,13 +49,16 @@ class ShiftScreen extends ConsumerWidget {
             hint: l.faceInFrame,
             capturedLabel: l.proofTaken,
             frontCamera: true,
-            onCapture: s.takeShiftPhoto,
+            onCapture: (path) => s.takeShiftPhoto(path),
           ),
           const SizedBox(height: 18),
           DgButton(
             label: l.openShift,
             icon: LucideIcons.sun,
-            onPressed: s.shiftPhotoTaken ? s.openShift : null,
+            tone: DgButtonTone.brand,
+            onPressed: (s.shiftPhotoTaken || s.bypassShiftGate)
+                ? s.openShift
+                : null,
           ),
         ],
       ),

@@ -1,11 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../geo.dart';
 import '../l10n.dart';
 import '../launchers.dart';
+import '../motion.dart';
 import '../models.dart';
 import '../session.dart';
 import '../theme.dart';
@@ -16,18 +20,43 @@ import 'wizard_screen.dart';
 /// Canvas'ın "1d Görev detayı" tasarımı — tam ekran harita + kaydırmalı
 /// alt sheet. Kapıda ödeme yerine Zimmet/Teslim penceresi/Teslim kodu
 /// ikonlu bilgi kartları (bkz. plan Faz E).
-class TaskDetailScreen extends ConsumerWidget {
+class TaskDetailScreen extends ConsumerStatefulWidget {
   const TaskDetailScreen({super.key, required this.taskId});
 
   final String taskId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TaskDetailScreen> createState() => _TaskDetailScreenState();
+}
+
+class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final s = ref.read(sessionProvider);
+      unawaited(s.ensureDayRoute());
+      if (!s.routeLoading) unawaited(s.loadRoute());
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final l = context.l10n;
     final session = ref.watch(sessionProvider);
-    final t = session.taskById(taskId);
+    final t = session.taskById(widget.taskId);
     final done = t.status == TaskStatus.delivered;
     final canAct = !t.isClosed;
+    final self = LatLng(session.selfLat, session.selfLng);
+    final dest = LatLng(t.lat, t.lng);
+    final slice = session.roadToTask(t.id);
+    final meters = slice?.meters ?? haversineMeters(self, dest).round();
+    final minutes = slice != null
+        ? slice.minutes
+        : (t.etaMinutes ?? (meters / 450).clamp(1, 40).round());
+    final km = meters >= 10000
+        ? (meters / 1000).toStringAsFixed(0)
+        : (meters / 1000).toStringAsFixed(1);
 
     void start() {
       ref.read(sessionProvider).startTask(t.id);
@@ -44,28 +73,45 @@ class TaskDetailScreen extends ConsumerWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                // eta bilinçli olarak geçilmiyor: aşağıdaki _EtaPill zaten
-                // gösteriyor, MapStrip'in kendi pill'i aynı bilgiyi ikinci
-                // kez basıp üst üste iki rozet oluşturuyordu.
                 MapStrip(
                   height: double.infinity,
                   rounded: false,
-                  points: [LatLng(t.lat, t.lng)],
-                  onTap: () => openDirections(context, t),
+                  interactive: true,
+                  points: [dest],
+                  roadPoints: slice != null && slice.points.length > 1
+                      ? slice.points
+                      : null,
+                  polylinePrecision: slice?.precision ?? 6,
+                  estimated: slice?.estimated ?? true,
+                  couriers: session.visibleFleet
+                      .where((c) => c.self)
+                      .toList(),
+                  fitTo: [self, dest],
+                  showBadge: false,
                 ),
                 SafeArea(
                   bottom: false,
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
                     child: Row(
                       children: [
-                        // Solid (not glass) so it stays legible over light OSM
-                        // tiles — a translucent white pill nearly disappeared
-                        // against pale map backgrounds.
-                        _BackButton(onTap: () => Navigator.of(context).pop()),
-                        const Spacer(),
-                        if (t.etaMinutes != null)
-                          _EtaPill(minutes: t.etaMinutes!),
+                        _SheetBack(
+                          onTap: () => Navigator.of(context).pop(),
+                        ),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: _RouteChip(
+                            text: slice != null && !slice.estimated
+                                ? l.routeKmMin(km, minutes)
+                                : '${l.routeKmMin(km, minutes)}  ·  ${l.approxRoute}',
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        _FleetToggle(
+                          on: session.showFleet,
+                          label: l.fleetOnMap,
+                          onTap: session.toggleFleet,
+                        ),
                       ],
                     ),
                   ),
@@ -79,19 +125,14 @@ class TaskDetailScreen extends ConsumerWidget {
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(Dg.radiusHero),
               ),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x66000000),
-                  blurRadius: 40,
-                  offset: Offset(0, -16),
-                ),
-              ],
+              border: Border(top: BorderSide(color: Dg.rule, width: 0.5)),
             ),
             child: SafeArea(
               top: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
-                child: Column(
+              child: Appear(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(Dg.pagePad, 16, Dg.pagePad, 22),
+                  child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Center(
@@ -107,8 +148,12 @@ class TaskDetailScreen extends ConsumerWidget {
                     ),
                     Row(
                       children: [
-                        Mono('#${t.sequence}  ·  ${t.ref}', color: Dg.ink3),
-                        const Spacer(),
+                        Expanded(
+                          child: Mono(
+                            '#${t.sequence}  ·  ${t.ref}',
+                            color: Dg.ink3,
+                          ),
+                        ),
                         StatusChip(
                           label: taskStatusLabel(t.status, l),
                           tone: taskStatusTone(t.status),
@@ -144,7 +189,8 @@ class TaskDetailScreen extends ConsumerWidget {
                         height: 1.3,
                       ),
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 8),
+                    const DgDivider(),
                     _InfoCard(
                       icon: LucideIcons.layers,
                       label: l.custody,
@@ -152,7 +198,7 @@ class TaskDetailScreen extends ConsumerWidget {
                           ? '—'
                           : l.itemsWithRef(t.custodyCount!, t.custodyRef),
                     ),
-                    const SizedBox(height: 8),
+                    const DgDivider(),
                     _InfoCard(
                       icon: LucideIcons.clock,
                       label: l.deliveryWindowLeft,
@@ -161,7 +207,7 @@ class TaskDetailScreen extends ConsumerWidget {
                           : l.slaLeft(t.slaLabel),
                     ),
                     if (t.otpRequired) ...[
-                      const SizedBox(height: 8),
+                      const DgDivider(),
                       _InfoCard(
                         icon: LucideIcons.key,
                         label: l.deliveryCode,
@@ -175,7 +221,7 @@ class TaskDetailScreen extends ConsumerWidget {
                         SquareAction(
                           icon: LucideIcons.phone,
                           label: l.callShort,
-                          onTap: () => callRecipient(context),
+                          onTap: () => session.callTask(context, t),
                         ),
                         const SizedBox(width: 10),
                         SquareAction(
@@ -260,6 +306,7 @@ class TaskDetailScreen extends ConsumerWidget {
                     ],
                   ],
                 ),
+                ),
               ),
             ),
           ),
@@ -287,18 +334,14 @@ class _InfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: Dg.elev,
-        borderRadius: BorderRadius.circular(Dg.radius),
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(
         children: [
-          Icon(icon, size: 17, color: Dg.ink2),
+          Icon(icon, size: 16, color: Dg.ink3),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(label, style: Dg.ui(size: 14, color: Dg.ink2)),
+            child: Text(label, style: Dg.ui(size: 14, color: Dg.ink3)),
           ),
           if (dot) ...[
             Container(
@@ -308,77 +351,122 @@ class _InfoCard extends StatelessWidget {
             ),
             const SizedBox(width: 6),
           ],
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: Dg.ink,
-            ),
-          ),
+          Text(value, style: Dg.ui(size: 14, weight: FontWeight.w600)),
         ],
       ),
     );
   }
 }
 
-class _BackButton extends StatelessWidget {
-  const _BackButton({required this.onTap});
+class _RouteChip extends StatelessWidget {
+  const _RouteChip({required this.text});
 
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    // Dg.night, not Dg.ink: this sits on the map photo, not the app's own
-    // background, so it must stay a fixed dark chip regardless of the
-    // active koyu/açık tema — Dg.ink flips to near-white in dark mode and
-    // would disappear here (that's what made this invisible before).
-    return Material(
-      color: Dg.night,
-      shape: const CircleBorder(),
-      child: InkWell(
-        onTap: onTap,
-        customBorder: const CircleBorder(),
-        child: const SizedBox(
-          width: 38,
-          height: 38,
-          child: Icon(LucideIcons.arrowLeft, size: 16, color: Colors.white),
-        ),
-      ),
-    );
-  }
-}
-
-/// Birleşik ETA rozeti — canvas'ta "↗ ~6 dk" — opak mor gradyan dolgu
-/// kullanır, böylece haritanın gerçek renginden bağımsız her zaman
-/// okunaklı kalır (glass/translucent pillerin aksine).
-class _EtaPill extends StatelessWidget {
-  const _EtaPill({required this.minutes});
-
-  final int minutes;
+  final String text;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
       decoration: BoxDecoration(
-        gradient: Dg.primaryGradient,
-        borderRadius: BorderRadius.circular(20),
+        color: Dg.night,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Dg.purple.withValues(alpha: 0.7)),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(LucideIcons.navigation, size: 13, color: Colors.white),
-          const SizedBox(width: 6),
-          Text(
-            '~$minutes dk',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
+      child: Text(
+        text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          fontFamily: Dg.mono,
+          color: Colors.white,
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class _FleetToggle extends StatelessWidget {
+  const _FleetToggle({
+    required this.on,
+    required this.label,
+    required this.onTap,
+  });
+
+  final bool on;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: on ? Dg.night : Dg.surface,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: on ? Dg.sage.withValues(alpha: 0.7) : Dg.rule,
             ),
           ),
-        ],
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                LucideIcons.users,
+                size: 14,
+                color: on ? Colors.white : Dg.ink,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: on ? Colors.white : Dg.ink,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SheetBack extends StatelessWidget {
+  const _SheetBack({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tooltip = MaterialLocalizations.of(context).backButtonTooltip;
+    return Semantics(
+      button: true,
+      label: tooltip,
+      child: Tooltip(
+        message: tooltip,
+        child: Material(
+          color: Dg.surface,
+          elevation: 3,
+          shadowColor: const Color(0x33000000),
+          shape: const CircleBorder(),
+          child: InkWell(
+            onTap: onTap,
+            customBorder: const CircleBorder(),
+            child: SizedBox(
+              width: 36,
+              height: 36,
+              child: Icon(LucideIcons.arrowLeft, size: 17, color: Dg.ink),
+            ),
+          ),
+        ),
       ),
     );
   }

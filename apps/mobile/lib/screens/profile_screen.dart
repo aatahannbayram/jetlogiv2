@@ -1,9 +1,12 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../api/client.dart';
 import '../l10n.dart';
+import '../locate.dart';
+import '../log.dart';
 import '../models.dart';
 import '../motion.dart';
 import '../session.dart';
@@ -146,9 +149,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       Text(
                         'cipher   ${s.cipherOn ? 'on' : 'off'}  ·  outbox Drift',
                       ),
-                      const Text('OTP      giriş 123456  ·  teslim 482913'),
+                      if (!kReleaseMode)
+                        const Text('OTP      giriş 123456  ·  teslim 482913'),
                       const SizedBox(height: 10),
                       const Text('Panel cookie dokunulmaz. JWT Keychain.'),
+                      const SizedBox(height: 12),
+                      Text(
+                        'log      ${DgLog.counts.values.fold<int>(0, (a, b) => a + b)}  ·  '
+                        '${LogLayer.values.map((l) => '${l.name[0]}${DgLog.counts[l]}').join(' ')}',
+                      ),
+                      const SizedBox(height: 8),
+                      for (final rec in DgLog.snapshot(last: 16))
+                        Text(rec.line, maxLines: 2, overflow: TextOverflow.ellipsis),
                       const SizedBox(height: 14),
                       GestureDetector(
                         onTap: () {
@@ -193,15 +205,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       fontWeight: FontWeight.w600,
     );
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: Dg.rowMin),
+        child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Mono(label, size: 11, color: Dg.ink3),
+                Mono(label, size: 12, color: Dg.ink2),
                 const SizedBox(height: 6),
                 isEditing
                     ? TextField(
@@ -230,6 +244,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ),
           ),
         ],
+        ),
       ),
     );
   }
@@ -246,96 +261,62 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     return Scaffold(
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 108),
+          padding: const EdgeInsets.fromLTRB(Dg.pagePad, 12, Dg.pagePad, 108),
           children: [
-            Container(
-              padding: const EdgeInsets.all(22),
-              decoration: BoxDecoration(
-                color: Dg.night,
-                borderRadius: BorderRadius.circular(Dg.radiusHero),
+            if (canPop) ...[
+              Align(
+                alignment: Alignment.centerLeft,
+                child: _BackButton(onTap: () => Navigator.of(context).pop()),
               ),
+              const SizedBox(height: 16),
+            ],
+            Center(
+              child: InitialsAvatar(
+                name: c.fullName,
+                photoUrl: c.photoUrl,
+                size: 86,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Center(
+              child: Text(
+                c.fullName,
+                style: Dg.ui(size: 22, weight: FontWeight.w600),
+              ),
+            ),
+            const SizedBox(height: 4),
+            GestureDetector(
+              onTap: _onSecretTap,
+              behavior: HitTestBehavior.opaque,
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (canPop) ...[
-                    _BackButton(onTap: () => Navigator.of(context).pop()),
-                    const SizedBox(height: 14),
-                  ],
-                  Row(
-                    children: [
-                      InitialsAvatar(
-                        name: c.fullName,
-                        photoUrl: c.photoUrl,
-                        size: 62,
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              c.fullName,
-                              style: const TextStyle(
-                                fontFamily: Dg.display,
-                                fontSize: 25,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
-                                letterSpacing: -0.3,
-                              ),
-                            ),
-                            const SizedBox(height: 5),
-                            GestureDetector(
-                              onTap: _onSecretTap,
-                              behavior: HitTestBehavior.opaque,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    c.vehicle,
-                                    style: const TextStyle(
-                                      fontFamily: Dg.mono,
-                                      fontSize: 12,
-                                      color: Color(0xFF8A8F80),
-                                    ),
-                                  ),
-                                  Text(
-                                    c.code,
-                                    style: const TextStyle(
-                                      fontFamily: Dg.mono,
-                                      fontSize: 12,
-                                      color: Color(0xFF8A8F80),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      _stat('${s.deliveredCount}', context.l10n.deliveredShort, Dg.purpleBright),
-                      _divider(),
-                      _stat('${s.openCount}', context.l10n.openShort, Colors.white),
-                      _divider(),
-                      _stat('${s.returnCount}', context.l10n.returnShort, Colors.white),
-                    ],
-                  ),
+                  Text(c.vehicle, style: Dg.ui(size: 13, color: Dg.ink3)),
+                  Text(c.code, style: Dg.ui(size: 13, color: Dg.ink3)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            DgCard(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              child: Row(
+                children: [
+                  _stat('${s.deliveredCount}', context.l10n.deliveredShort, Dg.ink),
+                  Container(width: 1, height: 36, color: Dg.rule),
+                  _stat('${s.openCount}', context.l10n.openShort, Dg.ink),
+                  Container(width: 1, height: 36, color: Dg.rule),
+                  _stat('${s.returnCount}', context.l10n.returnShort, Dg.ink),
                 ],
               ),
             ),
             const SizedBox(height: 18),
             Text(
               context.l10n.userSection,
-              style: Dg.ui(size: 20, weight: FontWeight.w700, color: Dg.ink),
+              style: Dg.kicker(color: Dg.ink2),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 6),
             Text(
               context.l10n.editFieldsHint,
-              style: Dg.ui(size: 13, color: Dg.ink3),
+              style: Dg.ui(size: 14, color: Dg.ink2),
             ),
             const SizedBox(height: 10),
             DgCard(
@@ -359,7 +340,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             const SizedBox(height: 18),
             Text(
               context.l10n.appSection,
-              style: Dg.ui(size: 20, weight: FontWeight.w700, color: Dg.ink),
+              style: Dg.kicker(color: Dg.ink2),
             ),
             const SizedBox(height: 10),
             DgCard(
@@ -386,7 +367,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               decoration: BoxDecoration(
                                 color: s.darkModeUi
                                     ? Colors.transparent
-                                    : Dg.purple,
+                                    : Dg.ink,
                                 borderRadius: BorderRadius.circular(20),
                               ),
                               child: Icon(
@@ -401,7 +382,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               alignment: Alignment.center,
                               decoration: BoxDecoration(
                                 color: s.darkModeUi
-                                    ? Dg.purple
+                                    ? Dg.ink
                                     : Colors.transparent,
                                 borderRadius: BorderRadius.circular(20),
                               ),
@@ -439,7 +420,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               alignment: Alignment.center,
                               decoration: BoxDecoration(
                                 color: s.localeCode == 'tr'
-                                    ? Dg.purple
+                                    ? Dg.ink
                                     : Colors.transparent,
                                 borderRadius: BorderRadius.circular(20),
                               ),
@@ -460,7 +441,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               alignment: Alignment.center,
                               decoration: BoxDecoration(
                                 color: s.localeCode == 'en'
-                                    ? Dg.purple
+                                    ? Dg.ink
                                     : Colors.transparent,
                                 borderRadius: BorderRadius.circular(20),
                               ),
@@ -491,9 +472,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   const DgDivider(),
                   _switchRow(
                     context.l10n.newStopAlerts,
-                    s.notifyEnabled ? context.l10n.onNotify : context.l10n.off,
+                    !s.notifyEnabled
+                        ? context.l10n.off
+                        : s.notifyOsBlocked
+                        ? context.l10n.notifyNeedOs
+                        : context.l10n.onNotify,
                     s.notifyEnabled,
-                    s.toggleNotifyPref,
+                    () async {
+                      final permit = await s.toggleNotifyPref();
+                      if (!context.mounted) return;
+                      if (permit == null || permit == PushPermit.granted) {
+                        return;
+                      }
+                      explainPushPermit(context, permit);
+                    },
                     icon: LucideIcons.bellRing,
                   ),
                   const DgDivider(),
@@ -509,9 +501,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     s.shiftOpen,
                     () async {
                       if (s.shiftOpen) {
-                        s.setShiftOpen(false);
+                        final end = await confirmEndShift(context);
+                        if (end) s.setShiftOpen(false);
+                      } else if (s.bypassShiftGate) {
+                        s.setShiftOpen(true);
                       } else {
-                        final ok = await showShiftSelfieSheet(context);
+                        final ok = await showShiftSelfieSheet(
+                          context,
+                          onPhoto: s.takeShiftPhoto,
+                        );
                         if (ok) s.setShiftOpen(true);
                       }
                     },
@@ -557,25 +555,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Widget _stat(String value, String label, Color color) {
     return Expanded(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(value, style: Dg.stat(size: 28, color: color)),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: const TextStyle(color: Color(0xFF8A8F80), fontSize: 12),
-          ),
+          Text(value, style: Dg.stat(size: 22, color: color)),
+          const SizedBox(height: 2),
+          Text(label, style: Dg.ui(size: 12, color: Dg.ink3)),
         ],
       ),
     );
   }
-
-  Widget _divider() => Container(
-    width: 1,
-    height: 34,
-    color: const Color(0xFF2A2A2A),
-    margin: const EdgeInsets.symmetric(horizontal: 4),
-  );
 
   Widget _settingRow(
     String title,
@@ -584,8 +571,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     IconData? icon,
   }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 14),
-      child: Row(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: Dg.rowMin),
+        child: Row(
         children: [
           if (icon != null) ...[
             IconTintBadge(icon: icon, tint: Dg.elev, ink: Dg.ink2, size: 36),
@@ -609,6 +598,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ),
           trailing,
         ],
+        ),
       ),
     );
   }
@@ -641,15 +631,14 @@ class _BackButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white.withValues(alpha: 0.14),
-      shape: const CircleBorder(side: BorderSide(color: Colors.white24)),
+      color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
         customBorder: const CircleBorder(),
-        child: const SizedBox(
+        child: SizedBox(
           width: 36,
           height: 36,
-          child: Icon(LucideIcons.arrowLeft, size: 16, color: Colors.white),
+          child: Icon(LucideIcons.arrowLeft, size: 20, color: Dg.ink),
         ),
       ),
     );

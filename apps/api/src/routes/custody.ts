@@ -7,6 +7,7 @@ import {
   CustodyListQuery,
   CustodyListResponse,
   ErrorResponse,
+  CursorPageQuery,
   SupportTicket,
   SupportTicketCreateRequest,
   SupportTicketListResponse,
@@ -15,12 +16,13 @@ import {
 import type { ProductStatusCode } from '@dijigoo/contracts';
 import { AppError, clampOccurredAt, emitEvent, runIdempotent } from '@dijigoo/core';
 import { custodyHandoverItems, custodyHandovers, custodyItems, supportTickets } from '@dijigoo/db';
-import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 
 import type { AppContext } from '../context.js';
+import { decodeCursor, encodeCursor } from './task.js';
 import type { AuthenticatedCourier } from '../plugins/authenticate.js';
 import { productStatusForHandover, transitionCustodyItem } from '../services/custody-status.js';
 import { PostgresIdempotencyStore } from '../services/idempotency-store.js';
@@ -40,15 +42,18 @@ export async function custodyRoutes(app: FastifyInstance, { ctx }: { ctx: AppCon
     },
     async (request) => {
       const courier = await app.authenticate(request);
-      const { type, limit } = request.query;
+      const { type, limit, barcode } = request.query;
 
       const rows = await ctx.db
         .select()
         .from(custodyItems)
         .where(
           and(
-            eq(custodyItems.holderCourierId, courier.courierId),
+            eq(custodyItems.tenantId, courier.tenantId),
             isNull(custodyItems.releasedAt),
+            barcode
+              ? eq(custodyItems.barcode, barcode)
+              : eq(custodyItems.holderCourierId, courier.courierId),
             type?.length ? inArray(custodyItems.type, type) : undefined,
           ),
         )
@@ -87,7 +92,13 @@ export async function custodyRoutes(app: FastifyInstance, { ctx }: { ctx: AppCon
           const held = await tx
             .select()
             .from(custodyItems)
-            .where(and(inArray(custodyItems.id, body.itemIds), isNull(custodyItems.releasedAt)))
+            .where(
+              and(
+                eq(custodyItems.tenantId, courier.tenantId),
+                inArray(custodyItems.id, body.itemIds),
+                isNull(custodyItems.releasedAt),
+              ),
+            )
             .for('update');
 
           const heldIds = new Set(held.map((item) => item.id));
@@ -389,20 +400,39 @@ export async function custodyRoutes(app: FastifyInstance, { ctx }: { ctx: AppCon
     {
       schema: {
         tags: ['Support'],
-        querystring: z.object({ limit: z.coerce.number().int().min(1).max(50).default(20) }),
+        querystring: CursorPageQuery,
         response: { 200: SupportTicketListResponse, 401: ErrorResponse },
       },
     },
     async (request) => {
       const courier = await app.authenticate(request);
+      const { cursor, limit } = request.query;
+      const conditions = [eq(supportTickets.courierId, courier.courierId)];
+      const decoded = decodeCursor(cursor);
+      if (decoded) {
+        conditions.push(
+          or(
+            lt(supportTickets.createdAt, decoded.updatedAt),
+            and(eq(supportTickets.createdAt, decoded.updatedAt), lt(supportTickets.id, decoded.id)),
+          )!,
+        );
+      }
+
       const rows = await ctx.db
         .select()
         .from(supportTickets)
-        .where(eq(supportTickets.courierId, courier.courierId))
-        .orderBy(desc(supportTickets.createdAt))
-        .limit(request.query.limit);
+        .where(and(...conditions))
+        .orderBy(sql`${supportTickets.createdAt} desc`, sql`${supportTickets.id} desc`)
+        .limit(limit + 1);
 
-      return { items: rows.map(toTicket), nextCursor: null, syncedAt: new Date().toISOString() };
+      const page = rows.slice(0, limit);
+      const last = page.at(-1);
+
+      return {
+        items: page.map(toTicket),
+        nextCursor: rows.length > limit && last ? encodeCursor(last.createdAt, last.id) : null,
+        syncedAt: new Date().toISOString(),
+      };
     },
   );
 }

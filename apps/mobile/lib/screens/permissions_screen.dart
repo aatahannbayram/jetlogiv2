@@ -3,6 +3,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n.dart';
+import '../locate.dart';
 import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -16,12 +17,62 @@ class PermissionsScreen extends ConsumerStatefulWidget {
 
 class _PermissionsScreenState extends ConsumerState<PermissionsScreen> {
   final granted = <String>{};
+  bool _busy = false;
 
   List<(IconData, String, String, String)> _items(L10n l) => [
     (LucideIcons.mapPin, l.permLocation, l.permLocationHint, 'loc'),
     (LucideIcons.camera, l.permCamera, l.permCameraHint, 'cam'),
     (LucideIcons.bell, l.permPush, l.permPushHint, 'push'),
   ];
+
+  Future<bool> _ask(String key) async {
+    return switch (key) {
+      'loc' => requestLocationAccess(),
+      'cam' => requestCameraAccess(),
+      'push' => requestPushAccess(),
+      _ => false,
+    };
+  }
+
+  Future<void> _grantOne(String key) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    if (key == 'push') {
+      final permit = await requestPushPermit();
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        if (permit == PushPermit.granted) granted.add(key);
+      });
+      explainPushPermit(context, permit);
+      return;
+    }
+    final ok = await _ask(key);
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      if (ok) granted.add(key);
+    });
+  }
+
+  Future<void> _grantAll() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    PushPermit? push;
+    for (final key in ['loc', 'cam', 'push']) {
+      if (granted.contains(key)) continue;
+      if (key == 'push') {
+        push = await requestPushPermit();
+        if (push == PushPermit.granted) granted.add(key);
+        continue;
+      }
+      final ok = await _ask(key);
+      if (ok) granted.add(key);
+    }
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (push != null) explainPushPermit(context, push);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -57,7 +108,7 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen> {
             Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: DgCard(
-                onTap: () => setState(() => granted.add(item.$4)),
+                onTap: _busy ? null : () => _grantOne(item.$4),
                 child: Row(
                   children: [
                     Container(
@@ -112,9 +163,11 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen> {
           DgButton(
             label: ready ? l.goToShift : l.grantAllThree,
             icon: ready ? LucideIcons.arrowRight : LucideIcons.shield,
-            onPressed: ready
+            onPressed: _busy
+                ? null
+                : ready
                 ? () => ref.read(sessionProvider).completePermissions()
-                : null,
+                : _grantAll,
           ),
         ],
       ),

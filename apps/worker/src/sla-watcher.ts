@@ -1,5 +1,5 @@
-import { emitEvent } from '@dijigoo/core';
-import { slaInstances } from '@dijigoo/db';
+import { emitEvent, insertCourierNotification } from '@dijigoo/core';
+import { slaInstances, tasks } from '@dijigoo/db';
 import type { Database } from '@dijigoo/db';
 import { and, eq, isNull, lte } from 'drizzle-orm';
 
@@ -47,6 +47,25 @@ export async function flagAtRiskSlaInstances(
           targetAt: instance.targetAt.toISOString(),
         },
       });
+
+      if (instance.subjectType === 'task') {
+        const [task] = await tx
+          .select({ id: tasks.id, courierId: tasks.courierId, reference: tasks.reference })
+          .from(tasks)
+          .where(eq(tasks.id, instance.subjectId))
+          .limit(1);
+        if (task?.courierId) {
+          await insertCourierNotification(tx, {
+            courierId: task.courierId,
+            kind: 'SLA_AT_RISK',
+            title: 'SLA riskte',
+            body: `${task.reference} · teslim penceresi yaklaşıyor.`,
+            subjectId: task.id,
+            collapseKey: `sla:${task.id}`,
+            route: `task:${task.id}`,
+          });
+        }
+      }
 
       flagged.push({ subjectType: instance.subjectType, subjectId: instance.subjectId });
     }

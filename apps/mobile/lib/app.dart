@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'l10n.dart';
+import 'motion.dart';
 import 'screens/activation_screen.dart';
 import 'screens/onboard_screen.dart';
 import 'screens/permissions_screen.dart';
@@ -33,7 +34,7 @@ class DijigooApp extends ConsumerWidget {
     return L10nScope(
       l10n: l10n,
       child: MaterialApp(
-        title: 'JetLogi Kurye',
+        title: 'Dijigoo',
         debugShowCheckedModeBanner: false,
         locale: Locale(session.localeCode),
         supportedLocales: const [Locale('tr'), Locale('en')],
@@ -45,7 +46,13 @@ class DijigooApp extends ConsumerWidget {
         theme: Dg.theme(),
         builder: (context, child) =>
             PhoneShell(child: child ?? const SizedBox.shrink()),
-        home: page,
+        home: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 320),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          transitionBuilder: dgSwitchTransition,
+          child: KeyedSubtree(key: ValueKey(phase), child: page),
+        ),
       ),
     );
   }

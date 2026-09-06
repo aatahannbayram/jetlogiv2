@@ -50,6 +50,8 @@ const EnvSchema = z.object({
   ROUTING_PROVIDER: z.enum(['mock', 'osrm', 'openrouteservice']).default('mock'),
   ROUTING_API_KEY: z.string().optional(),
   OSRM_URL: z.string().url().default('http://localhost:5001'),
+  /** Self-host yokken Türkiye dahil planet OSRM (project-osrm demo). */
+  PUBLIC_OSRM_URL: z.string().url().default('https://router.project-osrm.org'),
 
   /**
    * Minimum app build the API will serve. Raised when a release ships a
@@ -77,12 +79,27 @@ const EnvSchema = z.object({
   DEVICE_INTEGRITY_MODE: z.enum(['off', 'log', 'restrict']).default('log'),
 
   /**
-   * Faz 5: shared secret for the operations panel's *backend* (a different
-   * team's codebase) to call the delay-decision endpoint. Not a courier
-   * bearer token — there is no operator identity in this codebase, see
+   * Shared secret for the operations panel's *backend* (jetlogi-panel, a
+   * different team's codebase) to call our service-to-service endpoints —
+   * originally just delay-decision (Faz 5), now also `/v1/routing/optimize`
+   * (docs/05-panel-entegrasyonu.md Faz 4). Not a courier bearer token —
+   * there is no operator identity in this codebase, see
    * project-nihai-mimari-plan. Rotate by issuing a new value to that team.
    */
   DELAY_DECISION_SERVICE_TOKEN: z.string().min(16),
+
+  /**
+   * FCM HTTP v1. Bos ise kutu yine yazilir, uzak push gitmez.
+   * `FCM_SERVICE_ACCOUNT_JSON` servis hesabinin ham JSON'u.
+   */
+  FCM_PROJECT_ID: z.preprocess(
+    (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
+    z.string().min(1).optional(),
+  ),
+  FCM_SERVICE_ACCOUNT_JSON: z.preprocess(
+    (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
+    z.string().min(8).optional(),
+  ),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

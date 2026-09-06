@@ -1,13 +1,17 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../brand.dart';
 import '../l10n.dart';
+import '../motion.dart';
 import '../launchers.dart';
 import '../models.dart';
-import '../motion.dart';
 import '../session.dart';
+import '../shell_nav.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'notif_screen.dart';
@@ -15,19 +19,26 @@ import 'shell_screen.dart' show RouteScreen;
 import 'sync_screen.dart';
 import 'wizard_screen.dart';
 
-String _homeGreeting(L10n l) => l.greeting(DateTime.now().hour);
-
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   Future<void> _startShift(BuildContext context, SessionController s) async {
-    final ok = await showShiftSelfieSheet(context);
+    if (s.bypassShiftGate) {
+      s.setShiftOpen(true);
+      return;
+    }
+    final ok = await showShiftSelfieSheet(context, onPhoto: s.takeShiftPhoto);
     if (ok) s.setShiftOpen(true);
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final s = ref.watch(sessionProvider);
+    if (!s.shiftOpen && s.bypassShiftGate) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        s.ensureOpenForTest();
+      });
+    }
     final l = context.l10n;
     final hero = s.nextStop;
     final syncTotal = s.outbox.events.where((e) => e.pending).length;
@@ -39,275 +50,284 @@ class HomeScreen extends ConsumerWidget {
           onRefresh: () => s.refreshField(),
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 108),
+            padding: const EdgeInsets.fromLTRB(
+              0,
+              8,
+              0,
+              Dg.bottomNavClearance,
+            ),
             children: [
-              Row(
-                children: [
-                  InitialsAvatar(
-                    name: s.courier.fullName,
-                    photoUrl: s.courier.photoUrl,
-                    online: s.online,
-                    size: 46,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(_homeGreeting(l), style: Dg.kicker()),
-                        const SizedBox(height: 2),
-                        Text(
-                          s.courier.fullName,
-                          style: Dg.ui(size: 17, weight: FontWeight.w700),
-                        ),
-                        Text(
-                          '${s.courier.district} / ${s.courier.city}',
-                          style: Dg.ui(size: 12, color: Dg.ink3),
-                        ),
-                      ],
-                    ),
-                  ),
-                  DgOnlineChip(online: s.online, onTap: s.toggleOnline),
-                  const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const NotifScreen(),
-                      ),
-                    ),
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: Dg.elev,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Stack(
-                        alignment: Alignment.center,
+              Appear(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: Dg.pagePad),
+                  child: Column(
+                    children: [
+                      Row(
                         children: [
-                          Icon(LucideIcons.bell, size: 17, color: Dg.ink),
-                          if (s.unreadNotifCount > 0)
-                            Positioned(
-                              top: 5,
-                              right: 6,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 4,
-                                ),
-                                constraints: const BoxConstraints(
-                                  minWidth: 15,
-                                  minHeight: 15,
-                                ),
-                                alignment: Alignment.center,
-                                decoration: BoxDecoration(
-                                  color: Dg.red,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: Dg.ground,
-                                    width: 1.5,
-                                  ),
-                                ),
-                                child: Text(
-                                  '${s.unreadNotifCount}',
-                                  style: const TextStyle(
-                                    fontFamily: Dg.mono,
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.white,
-                                    height: 1,
-                                  ),
-                                ),
-                              ),
+                          Container(
+                            width: 34,
+                            height: 34,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              gradient: Dg.primaryGradient,
+                              borderRadius: BorderRadius.circular(10),
                             ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              if (!s.shiftOpen)
-                _ShiftClosedCard(onStart: () => _startShift(context, s))
-              else
-                _ShiftOpenCard(session: s),
-              if (s.shiftOpen) ...[
-                const SizedBox(height: 20),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        l.nextStop,
-                        style: Dg.serif(size: 19, weight: FontWeight.w600),
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const RouteScreen(),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
+                            child: const DijigooMark(size: 18, onDark: true),
+                          ),
+                          const SizedBox(width: 10),
                           Text(
-                            l.seeRoute,
+                            'Dijigoo',
                             style: Dg.ui(
-                              size: 13,
-                              weight: FontWeight.w600,
-                              color: Dg.primaryGradientStart,
-                            ),
+                              size: 18,
+                              weight: FontWeight.w700,
+                            ).copyWith(letterSpacing: -0.5),
                           ),
-                          Icon(
-                            LucideIcons.chevronRight,
-                            size: 16,
-                            color: Dg.primaryGradientStart,
+                          const Spacer(),
+                          DgOnlineChip(
+                            online: s.online && s.shiftOpen,
+                            onTap: s.shiftOpen ? s.toggleOnline : () {},
+                          ),
+                          const SizedBox(width: 10),
+                          GestureDetector(
+                            onTap: () =>
+                                ref.read(shellNavProvider).go(ShellNav.notif),
+                            child: Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                Icon(LucideIcons.bell, size: 22, color: Dg.ink),
+                                if (s.unreadNotifCount > 0)
+                                  Positioned(
+                                    top: -2,
+                                    right: -3,
+                                    child: Container(
+                                      width: 8,
+                                      height: 8,
+                                      decoration: const BoxDecoration(
+                                        color: Dg.red,
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          InitialsAvatar(
+                            name: s.courier.fullName,
+                            photoUrl: s.courier.photoUrl,
+                            online: s.online,
+                            size: 44,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  l.greeting(DateTime.now().hour),
+                                  style: Dg.ui(size: 12, color: Dg.ink3),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  s.courier.fullName,
+                                  style: Dg.ui(
+                                    size: 17,
+                                    weight: FontWeight.w700,
+                                  ),
+                                ),
+                                Text(
+                                  '${s.courier.district} / ${s.courier.city}',
+                                  style: Dg.ui(size: 12, color: Dg.ink2),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Appear(
+                delay: const Duration(milliseconds: 40),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: Dg.pagePad),
+                  child: !s.shiftOpen
+                      ? _ShiftClosedCard(onStart: () => _startShift(context, s))
+                      : _ShiftOpenCard(session: s),
+                ),
+              ),
+              if (s.shiftOpen) ...[
+                const SizedBox(height: 22),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: Dg.pagePad),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          l.nextStop,
+                          style: Dg.ui(size: 16, weight: FontWeight.w700),
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const RouteScreen(),
+                          ),
+                        ),
+                        child: Text(
+                          l.seeRoute,
+                          style: Dg.ui(
+                            size: 14,
+                            weight: FontWeight.w700,
+                            color: Dg.purpleActive,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 10),
                 if (hero != null)
-                  _HeroStop(task: hero)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: Dg.pagePad,
+                    ),
+                    child: _HeroStop(task: hero),
+                  )
                 else
-                  const _NoStopCard(),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: Dg.pagePad),
+                    child: _NoStopCard(),
+                  ),
               ],
-              const SizedBox(height: 20),
-              DgCard(
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(builder: (_) => const SyncScreen()),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+              const SizedBox(height: 16),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: Dg.pagePad),
+                child: Pressable(
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(builder: (_) => const SyncScreen()),
+                  ),
+                  child: DgCard(
+                    padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+                    child: Row(
                       children: [
                         Container(
-                          width: 40,
-                          height: 40,
+                          width: 36,
+                          height: 36,
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
-                            color: syncDone ? Dg.greenBg : Dg.amberBg,
-                            borderRadius: BorderRadius.circular(12),
+                            color: syncDone ? Dg.greenBg : Dg.violetBg,
+                            borderRadius: BorderRadius.circular(10),
                           ),
                           child: Icon(
                             LucideIcons.refreshCw,
-                            size: 18,
-                            color: syncDone ? Dg.green : Dg.amber,
+                            size: 16,
+                            color: syncDone ? Dg.green : Dg.purpleActive,
                           ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                l.syncTitle,
-                                style: Dg.ui(size: 16, weight: FontWeight.w700),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                syncDone
-                                    ? l.syncCleanBody
-                                    : l.syncPendingBody(syncTotal),
-                                style: Dg.ui(size: 13, color: Dg.ink2),
-                              ),
-                            ],
+                          child: Text(
+                            l.syncTitle,
+                            style: Dg.ui(size: 15, weight: FontWeight.w600),
                           ),
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 11,
-                            vertical: 5,
-                          ),
-                          decoration: BoxDecoration(
-                            color: syncDone ? Dg.greenBg : Dg.amberBg,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            syncDone ? l.clean : l.pendingChip(syncTotal),
-                            style: TextStyle(
-                              fontFamily: Dg.mono,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: syncDone ? Dg.green : Dg.amber,
-                            ),
+                        Text(
+                          syncDone ? l.clean : l.pendingChip(syncTotal),
+                          style: Dg.ui(
+                            size: 13,
+                            weight: FontWeight.w600,
+                            color: syncDone ? Dg.ink2 : Dg.purpleActive,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 14),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(6),
-                      child: LinearProgressIndicator(
-                        value: syncDone ? 1 : 0.62,
-                        minHeight: 7,
-                        backgroundColor: Dg.elev,
-                        valueColor: AlwaysStoppedAnimation(
-                          syncDone ? Dg.sage : Dg.primaryGradientStart,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: Dg.pagePad),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Text(
+                            l.notifications,
+                            style: Dg.ui(size: 16, weight: FontWeight.w700),
+                          ),
+                          if (s.unreadNotifCount > 0) ...[
+                            const SizedBox(width: 8),
+                            Text(
+                              l.unreadLeft(s.unreadNotifCount),
+                              style: Dg.ui(size: 13, color: Dg.ink3),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () =>
+                          ref.read(shellNavProvider).go(ShellNav.notif),
+                      child: Text(
+                        l.all,
+                        style: Dg.ui(
+                          size: 14,
+                          weight: FontWeight.w700,
+                          color: Dg.purpleActive,
                         ),
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 26),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      l.notifications,
-                      style: Dg.serif(size: 21, weight: FontWeight.w600),
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const NotifScreen(),
-                      ),
-                    ),
-                    child: Text(
-                      l.all,
-                      style: Dg.ui(
-                        size: 13,
-                        weight: FontWeight.w600,
-                        color: Dg.primaryGradientStart,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              if (s.notifications.isEmpty)
-                DgCard(
-                  child: Row(
-                    children: [
-                      Icon(LucideIcons.bell, size: 20, color: Dg.ink3),
-                      const SizedBox(width: 10),
-                      Text(
-                        l.noNotifications,
-                        style: Dg.ui(size: 14, color: Dg.ink3),
-                      ),
-                    ],
-                  ),
-                )
-              else
-                for (final (i, n) in s.notifications.take(2).indexed)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: StaggerIn(
-                      index: i,
-                      child: NotifCard(
-                        notification: n,
-                        unread: !s.isNotifRead(i),
-                        onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => const NotifScreen(),
-                          ),
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: Dg.pagePad),
+                child: s.visibleNotifications.isEmpty
+                    ? Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        child: Text(
+                          l.noNotifications,
+                          style: Dg.ui(size: 14, color: Dg.ink3),
+                        ),
+                      )
+                    : DgCard(
+                        padding: const EdgeInsets.fromLTRB(14, 4, 14, 4),
+                        child: Column(
+                          children: [
+                            for (final (i, n)
+                                in s.visibleNotifications.take(2).indexed) ...[
+                              if (i > 0) const DgDivider(),
+                              StaggerIn(
+                                index: i,
+                                child: NotifCard(
+                                  notification: n,
+                                  unread: !s.isNotifRead(n.id),
+                                  compact: true,
+                                  onTap: () =>
+                                      openAppNotification(context, s, n),
+                                  onLongPress: () {
+                                    if (s.isNotifRead(n.id)) {
+                                      s.markNotificationUnread(n.id);
+                                    } else {
+                                      s.markNotificationRead(n.id);
+                                    }
+                                  },
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
-                    ),
-                  ),
+              ),
             ],
           ),
         ),
@@ -322,54 +342,47 @@ class _ShiftClosedCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(Dg.radiusHero),
-      child: Container(
-        width: double.infinity,
-        decoration: const BoxDecoration(color: Dg.night),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return DgCard(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
+              Container(
+                width: 36,
+                height: 36,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: Dg.amberBg,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(LucideIcons.sun, size: 18, color: Dg.amber),
+              ),
+              const SizedBox(width: 10),
               Text(
                 context.l10n.shiftStatus,
-                style: TextStyle(
-                  fontFamily: Dg.mono,
-                  fontSize: 11,
-                  letterSpacing: 1.2,
-                  color: Color(0xFF8A8F80),
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                context.l10n.closed,
-                style: TextStyle(
-                  fontFamily: Dg.display,
-                  fontSize: 34,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                  letterSpacing: -0.5,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                context.l10n.shiftSelfieNeeded,
-                style: TextStyle(
-                  color: Color(0xFF9A9E90),
-                  fontSize: 15,
-                  height: 1.4,
-                ),
-              ),
-              const SizedBox(height: 20),
-              DgButton(
-                label: context.l10n.startShiftCta,
-                icon: LucideIcons.camera,
-                onPressed: onStart,
+                style: Dg.ui(size: 12, weight: FontWeight.w600, color: Dg.ink3),
               ),
             ],
           ),
-        ),
+          const SizedBox(height: 12),
+          Text(
+            context.l10n.closed,
+            style: Dg.serif(size: 32, weight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            context.l10n.shiftSelfieNeeded,
+            style: Dg.ui(size: 15, color: Dg.ink2, height: 1.4),
+          ),
+          const SizedBox(height: 16),
+          DgButton(
+            label: context.l10n.startShiftCta,
+            tone: DgButtonTone.brand,
+            onPressed: onStart,
+          ),
+        ],
       ),
     );
   }
@@ -381,112 +394,86 @@ class _ShiftOpenCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final plan = session.routePlan;
     final km = plan == null
-        ? '—'
+        ? null
         : (plan.totalDistanceMeters / 1000).toStringAsFixed(1);
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(Dg.radiusHero),
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: Dg.primaryGradient,
-          boxShadow: Dg.shadowHero,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(color: Dg.sage, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              l.shiftOpen,
+              style: Dg.ui(size: 13, weight: FontWeight.w600),
+            ),
+            const Spacer(),
+            DgSwitch(
+              value: true,
+              onChanged: (_) async {
+                final ok = await confirmEndShift(context);
+                if (ok) session.setShiftOpen(false);
+              },
+              activeColor: Dg.ink,
+              thumbColor: Dg.surface,
+            ),
+          ],
         ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+        const SizedBox(height: 12),
+        DgCard(
+          padding: const EdgeInsets.fromLTRB(8, 14, 8, 12),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  Container(
-                    width: 6,
-                    height: 6,
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    context.l10n.shiftOpen,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const Spacer(),
-                  DgSwitch(
-                    value: true,
-                    onChanged: (_) => session.setShiftOpen(false),
-                    activeColor: Colors.white,
-                    thumbColor: Dg.primaryGradientStart,
-                  ),
+                  _stat('${session.openCount}', l.openShort, brand: true),
+                  _statDivider(),
+                  _stat('${session.deliveredCount}', l.deliveredShort),
+                  _statDivider(),
+                  _stat('${session.returnCount}', l.returnShort),
                 ],
               ),
               const SizedBox(height: 10),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.baseline,
-                textBaseline: TextBaseline.alphabetic,
-                children: [
-                  Text(
-                    session.shiftElapsedLabel,
-                    style: Dg.stat(size: 30, color: Colors.white),
-                  ),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: Text(
-                      "${session.shiftStartLabel}'tan beri",
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Color(0xFFDCCFEF),
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: _pill(
-                      context.l10n.delivered,
-                      '${session.deliveredCount} / ${session.tasks.length}',
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(child: _pill(context.l10n.distance, km)),
-                ],
+              Text(
+                km == null
+                    ? l.sinceFrom(session.shiftStartLabel)
+                    : l.shiftDayLine(session.shiftStartLabel, km),
+                style: Dg.ui(size: 12, color: Dg.ink2),
               ),
             ],
           ),
         ),
+      ],
+    );
+  }
+
+  Widget _stat(String value, String label, {bool brand = false}) {
+    return Expanded(
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: Dg.stat(
+              size: 24,
+              color: brand ? Dg.purpleActive : Dg.ink,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(label, style: Dg.ui(size: 13, color: Dg.ink2)),
+        ],
       ),
     );
   }
 
-  Widget _pill(String label, String value) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(color: Color(0xFFDCCFEF), fontSize: 11),
-          ),
-          const SizedBox(height: 2),
-          Text(value, style: Dg.stat(size: 16, color: Colors.white)),
-        ],
-      ),
-    );
+  Widget _statDivider() {
+    return Container(width: 1, height: 36, color: Dg.rule);
   }
 }
 
@@ -502,9 +489,20 @@ class _HeroStopState extends ConsumerState<_HeroStop> {
   bool _open = false;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final s = ref.read(sessionProvider);
+      unawaited(s.ensureDayRoute());
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final task = widget.task;
     final s = ref.watch(sessionProvider);
+    final slice = s.roadToTask(task.id);
+    final day = s.dayRoute;
     final pending = s.pendingSync;
     final later = s.remainingStops;
     final nextLabel = later.isEmpty
@@ -514,79 +512,115 @@ class _HeroStopState extends ConsumerState<_HeroStop> {
         : '${later.first.recipient} +${later.length - 1}';
     final note = task.note?.trim();
 
+    final meta = [
+      task.ref,
+      if (task.custodyCount != null)
+        context.l10n.itemsCount(task.custodyCount!),
+    ].join('  ·  ');
+
     return DgCard(
       padding: EdgeInsets.zero,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          ClipRRect(
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(Dg.radiusHero),
+            ),
+            child: MapStrip(
+              height: 152,
+              rounded: false,
+              clipTopOnly: false,
+              points: [LatLng(task.lat, task.lng)],
+              roadPoints: slice != null && slice.points.length > 1
+                  ? slice.points
+                  : day != null && day.highlight.length > 1
+                  ? day.highlight
+                  : null,
+              polylinePrecision: slice?.precision ?? day?.precision ?? 5,
+              estimated: slice?.estimated ?? day == null || day.estimated,
+              couriers: [s.fleet.first],
+              fitTo: [
+                LatLng(s.selfLat, s.selfLng),
+                LatLng(task.lat, task.lng),
+              ],
+              label: slice != null
+                  ? context.l10n.etaMinutesLabel(slice.minutes)
+                  : (task.etaMinutes == null
+                      ? null
+                      : context.l10n.etaMinutesLabel(task.etaMinutes!)),
+            ),
+          ),
           GestureDetector(
             onTap: () => setState(() => _open = !_open),
             behavior: HitTestBehavior.opaque,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                MapStrip(
-                  height: 80,
-                  points: [LatLng(task.lat, task.lng)],
-                  label: task.etaMinutes == null
-                      ? task.window
-                      : '${task.etaMinutes} dk',
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-                  child: Row(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     children: [
                       InitialsAvatar(
                         name: task.recipient,
                         photoUrl: task.personPhoto,
-                        size: 42,
+                        size: 44,
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Display(task.recipient, size: 20),
+                            Text(
+                              task.recipient,
+                              style: Dg.ui(size: 18, weight: FontWeight.w700),
+                            ),
                             const SizedBox(height: 3),
                             Text(
                               task.address,
-                              maxLines: 1,
+                              maxLines: 2,
                               overflow: TextOverflow.ellipsis,
-                              style: Dg.ui(size: 13, color: Dg.ink2),
+                              style: Dg.ui(
+                                size: 13,
+                                color: Dg.ink2,
+                                height: 1.3,
+                              ),
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              '${task.ref}  ·  ${task.window}',
-                              style: Dg.ui(size: 12, color: Dg.ink3),
+                              meta,
+                              style: Dg.ui(
+                                size: 12,
+                                weight: FontWeight.w600,
+                                color: Dg.purpleActive,
+                              ),
                             ),
                           ],
                         ),
                       ),
                     ],
                   ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                  child: Row(
+                  const SizedBox(height: 12),
+                  Row(
                     children: [
                       Text(
                         context.l10n.shipmentAndQueue,
                         style: Dg.ui(
                           size: 13,
                           weight: FontWeight.w600,
-                          color: Dg.primaryGradientStart,
+                          color: Dg.ink2,
                         ),
                       ),
                       const SizedBox(width: 4),
                       Icon(
                         _open ? LucideIcons.chevronUp : LucideIcons.chevronDown,
                         size: 16,
-                        color: Dg.primaryGradientStart,
+                        color: Dg.purpleActive,
                       ),
                     ],
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
           AnimatedSize(
@@ -595,7 +629,7 @@ class _HeroStopState extends ConsumerState<_HeroStop> {
             alignment: Alignment.topCenter,
             child: _open
                 ? Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                    padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
                     child: Column(
                       children: [
                         _detailBlock(
@@ -603,7 +637,6 @@ class _HeroStopState extends ConsumerState<_HeroStop> {
                           rows: [
                             (context.l10n.shipmentNo, task.ref),
                             (context.l10n.type, context.l10n.kindOf(task.kind)),
-                            (context.l10n.deliveryWindow, task.window),
                             if (task.custodyCount != null)
                               (
                                 context.l10n.custody,
@@ -613,14 +646,17 @@ class _HeroStopState extends ConsumerState<_HeroStop> {
                                 ),
                               ),
                             if (task.otpRequired)
-                              (context.l10n.deliveryCode, context.l10n.required),
+                              (
+                                context.l10n.deliveryCode,
+                                context.l10n.required,
+                              ),
                             if (task.cod != null)
                               (context.l10n.cashOnDelivery, '₺${task.cod}'),
                             if (note != null && note.isNotEmpty)
                               (context.l10n.note, note),
                           ],
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 12),
                         _detailBlock(
                           title: context.l10n.queue,
                           rows: [
@@ -644,12 +680,12 @@ class _HeroStopState extends ConsumerState<_HeroStop> {
                 : const SizedBox(width: double.infinity),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
             child: Column(
               children: [
                 DgButton(
                   label: context.l10n.startDelivery,
-                  icon: LucideIcons.package,
+                  tone: DgButtonTone.brand,
                   onPressed: () {
                     ref.read(sessionProvider).startTask(task.id);
                     Navigator.of(context).push(
@@ -665,7 +701,6 @@ class _HeroStopState extends ConsumerState<_HeroStop> {
                     Expanded(
                       child: DgButton(
                         label: context.l10n.directions,
-                        icon: LucideIcons.navigation,
                         tone: DgButtonTone.secondary,
                         onPressed: () => openDirections(context, task),
                       ),
@@ -673,9 +708,9 @@ class _HeroStopState extends ConsumerState<_HeroStop> {
                     const SizedBox(width: 8),
                     DgButton.icon(
                       icon: LucideIcons.phone,
-                      iconColor: Dg.green,
-                      fillColor: Dg.greenBg,
-                      onPressed: () => callRecipient(context),
+                      iconColor: Dg.purpleActive,
+                      onPressed: () =>
+                          ref.read(sessionProvider).callTask(context, task),
                     ),
                   ],
                 ),
@@ -693,7 +728,7 @@ class _HeroStopState extends ConsumerState<_HeroStop> {
   }) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
         color: Dg.elev,
         borderRadius: BorderRadius.circular(16),
@@ -703,29 +738,54 @@ class _HeroStopState extends ConsumerState<_HeroStop> {
         children: [
           Text(
             title,
-            style: Dg.ui(size: 11, weight: FontWeight.w700, color: Dg.ink3),
+            style: Dg.ui(
+              size: 11,
+              weight: FontWeight.w700,
+              color: Dg.ink3,
+            ).copyWith(letterSpacing: 0.3),
           ),
           const SizedBox(height: 8),
-          for (final row in rows)
+          for (var i = 0; i < rows.length; i += 2)
             Padding(
-              padding: const EdgeInsets.only(bottom: 7),
+              padding: EdgeInsets.only(bottom: i + 2 < rows.length ? 8 : 0),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Expanded(child: _detailTile(rows[i].$1, rows[i].$2)),
+                  const SizedBox(width: 8),
                   Expanded(
-                    child: Text(row.$1, style: Dg.ui(size: 13, color: Dg.ink3)),
-                  ),
-                  const SizedBox(width: 12),
-                  Flexible(
-                    child: Text(
-                      row.$2,
-                      textAlign: TextAlign.right,
-                      style: Dg.ui(size: 13, weight: FontWeight.w600),
-                    ),
+                    child: i + 1 < rows.length
+                        ? _detailTile(rows[i + 1].$1, rows[i + 1].$2)
+                        : const SizedBox.shrink(),
                   ),
                 ],
               ),
             ),
+        ],
+      ),
+    );
+  }
+
+  Widget _detailTile(String label, String value) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Dg.surface,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label, style: Dg.ui(size: 11, color: Dg.ink3)),
+          const SizedBox(height: 3),
+          Text(
+            value,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: Dg.ui(size: 14, weight: FontWeight.w700),
+          ),
         ],
       ),
     );
@@ -738,25 +798,35 @@ class _NoStopCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DgCard(
-      hero: true,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.fromLTRB(16, 18, 16, 18),
+      child: Row(
         children: [
-          IconTintBadge(
-            icon: LucideIcons.listChecks,
-            tint: Dg.greenBg,
-            ink: Dg.green,
-            size: 44,
+          Container(
+            width: 40,
+            height: 40,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: Dg.greenBg,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(LucideIcons.circleCheck, size: 20, color: Dg.green),
           ),
-          const SizedBox(height: 14),
-          Text(
-            context.l10n.noNextStop,
-            style: Dg.serif(size: 20, weight: FontWeight.w600),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            context.l10n.noOpenTasksLeft,
-            style: Dg.ui(size: 14, color: Dg.ink2, height: 1.4),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  context.l10n.noNextStop,
+                  style: Dg.ui(size: 16, weight: FontWeight.w600),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  context.l10n.noOpenTasksLeft,
+                  style: Dg.ui(size: 14, color: Dg.ink2, height: 1.4),
+                ),
+              ],
+            ),
           ),
         ],
       ),

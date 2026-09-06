@@ -65,6 +65,9 @@ class Vault {
   static const _taskWatermark = 'dg.task.watermark';
   static const _locale = 'dg.ui.locale';
   static const _dark = 'dg.ui.dark';
+  static const _notify = 'dg.ui.notify';
+  static const _shiftOpen = 'dg.shift.open';
+  static const _shiftStarted = 'dg.shift.started';
 
   Future<String?> get locale async => _storage.read(key: _locale);
 
@@ -80,6 +83,15 @@ class Vault {
   Future<void> saveDarkMode(bool value) =>
       _storage.write(key: _dark, value: value ? '1' : '0');
 
+  Future<bool?> get notifyEnabled async {
+    final v = await _storage.read(key: _notify);
+    if (v == null) return null;
+    return v == '1';
+  }
+
+  Future<void> saveNotifyEnabled(bool value) =>
+      _storage.write(key: _notify, value: value ? '1' : '0');
+
   Future<String?> get taskWatermark async => _storage.read(key: _taskWatermark);
 
   Future<void> saveTaskWatermark(String? value) async {
@@ -94,6 +106,51 @@ class Vault {
       (await _storage.read(key: _onboard)) == '1';
 
   Future<void> markOnboardSeen() => _storage.write(key: _onboard, value: '1');
+
+  Future<bool> get shiftIsOpen async =>
+      (await _storage.read(key: _shiftOpen)) == '1';
+
+  Future<DateTime?> get shiftStartedAt async {
+    final raw = await _storage.read(key: _shiftStarted);
+    return raw == null ? null : DateTime.tryParse(raw);
+  }
+
+  Future<void> saveShift({required bool open, DateTime? startedAt}) async {
+    await _storage.write(key: _shiftOpen, value: open ? '1' : '0');
+    if (open && startedAt != null) {
+      await _storage.write(key: _shiftStarted, value: startedAt.toIso8601String());
+    } else {
+      await _storage.delete(key: _shiftStarted);
+    }
+  }
+
+  static const _notifRead = 'dg.notif.read';
+  static const _notifGone = 'dg.notif.gone';
+  static const _notifCap = 200;
+
+  Future<Set<String>> get readNotificationIds async =>
+      _idSet(await _storage.read(key: _notifRead));
+
+  Future<Set<String>> get dismissedNotificationIds async =>
+      _idSet(await _storage.read(key: _notifGone));
+
+  Future<void> saveNotificationState({
+    required Set<String> readIds,
+    required Set<String> dismissedIds,
+  }) async {
+    await _storage.write(key: _notifRead, value: _joinIds(readIds));
+    await _storage.write(key: _notifGone, value: _joinIds(dismissedIds));
+  }
+
+  static Set<String> _idSet(String? raw) {
+    if (raw == null || raw.isEmpty) return {};
+    return {for (final p in raw.split(',')) if (p.isNotEmpty) p};
+  }
+
+  static String _joinIds(Set<String> ids) {
+    if (ids.length <= _notifCap) return ids.join(',');
+    return ids.skip(ids.length - _notifCap).join(',');
+  }
 
   static String newUuid() {
     final r = Random.secure();

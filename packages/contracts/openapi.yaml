@@ -45,6 +45,8 @@ tags:
     description: Web onboarding kayitlarinin mobil devri
   - name: Shift
     description: Vardiya, konum, rota
+  - name: Routing
+    description: "Servisler-arasi: jetlogi-panel icin rota/gecikme karari"
   - name: Workflow
     description: Dinamik islem sihirbazi tanimlari
   - name: Task
@@ -67,6 +69,12 @@ components:
       bearerFormat: JWT
       description: Aktivasyon sonrasi verilen kisa omurlu access token. 15 dakika gecerli, refresh ile
         doner. Token cihaz kimligine (installationId) baglidir.
+    serviceAuth:
+      type: apiKey
+      in: header
+      name: x-service-token
+      description: Operasyon panelinin backend’i icin paylasilan servis anahtari. Kurye bearer tokeni
+        degildir, bu API’de operator kimligi yoktur.
   schemas:
     Coordinates:
       type: object
@@ -4602,6 +4610,138 @@ components:
         - stops
         - mode
         - computedAt
+    RoutingOptimizeStop:
+      allOf:
+        - $ref: "#/components/schemas/Coordinates"
+        - type: object
+          properties:
+            id:
+              type: string
+              minLength: 1
+              maxLength: 191
+          required:
+            - id
+    RoutingOptimizeRequest:
+      type: object
+      properties:
+        stops:
+          type: array
+          items:
+            $ref: "#/components/schemas/RoutingOptimizeStop"
+          minItems: 1
+          maxItems: 200
+        startAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+          example: 2026-08-25T09:15:00.000Z
+      required:
+        - stops
+    RoutingOptimizeStopResult:
+      type: object
+      properties:
+        id:
+          type: string
+        sequence:
+          type: integer
+          minimum: 0
+        etaAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+          example: 2026-08-25T09:15:00.000Z
+        distanceMeters:
+          type:
+            - integer
+            - "null"
+          minimum: 0
+        durationSeconds:
+          type:
+            - integer
+            - "null"
+          minimum: 0
+      required:
+        - id
+        - sequence
+    RoutingOptimizeResponse:
+      type: object
+      properties:
+        mode:
+          type: string
+          enum:
+            - sequence_only
+            - distance_optimized
+            - traffic_aware
+        geometry:
+          type:
+            - string
+            - "null"
+        totalDistanceMeters:
+          type:
+            - integer
+            - "null"
+          minimum: 0
+        totalDurationSeconds:
+          type:
+            - integer
+            - "null"
+          minimum: 0
+        isEstimateOnly:
+          type: boolean
+        provider:
+          type: string
+        stops:
+          type: array
+          items:
+            $ref: "#/components/schemas/RoutingOptimizeStopResult"
+      required:
+        - mode
+        - isEstimateOnly
+        - provider
+        - stops
+    DelayDecisionRequest:
+      type: object
+      properties:
+        decision:
+          type: string
+          enum: &a17
+            - cancel
+            - extend
+        newSlaTargetAt:
+          type: string
+          format: date-time
+          example: 2026-08-25T09:15:00.000Z
+        reason:
+          type: string
+          maxLength: 160
+        operatorId:
+          type: string
+          format: uuid
+          example: 9f1c2f8a-7d1e-4f6b-9a3c-2b5d4e6f7a81
+      required:
+        - decision
+    DelayDecisionResponse:
+      type: object
+      properties:
+        taskId:
+          type: string
+          format: uuid
+          example: 9f1c2f8a-7d1e-4f6b-9a3c-2b5d4e6f7a81
+        decision:
+          type: string
+          enum: &a18
+            - cancel
+            - extend
+        appliedAt:
+          type: string
+          format: date-time
+          example: 2026-08-25T09:15:00.000Z
+      required:
+        - taskId
+        - decision
+        - appliedAt
     CustodyItem:
       type: object
       properties:
@@ -4611,7 +4751,7 @@ components:
           example: 9f1c2f8a-7d1e-4f6b-9a3c-2b5d4e6f7a81
         type:
           type: string
-          enum: &a17
+          enum: &a19
             - parcel
             - document
             - cash
@@ -4640,6 +4780,30 @@ components:
             - "null"
           format: uuid
           example: 9f1c2f8a-7d1e-4f6b-9a3c-2b5d4e6f7a81
+        status:
+          type: string
+          enum:
+            - PRD-010
+            - PRD-020
+            - PRD-030
+            - PRD-040
+            - PRD-050
+            - PRD-060
+            - PRD-070
+            - PRD-080
+            - PRD-090
+            - PRD-100
+            - PRD-110
+            - PRD-120
+            - PRD-130
+            - PRD-140
+            - PRD-150
+            - PRD-160
+            - PRD-170
+            - PRD-180
+            - PRD-190
+            - PRD-200
+            - PRD-210
         acquiredAt:
           type: string
           format: date-time
@@ -4651,6 +4815,7 @@ components:
         - id
         - type
         - description
+        - status
         - acquiredAt
         - rowVersion
     CustodyListResponse:
@@ -5211,12 +5376,23 @@ components:
             - custody.item_taken
             - custody.item_handed_over
             - custody.discrepancy_reported
+            - custody.item_damaged
+            - custody.item_lost
             - call.masked_session_started
             - sms.notification_sent
             - support.ticket_created
             - support.ticket_resolved
             - workflow.published
             - workflow.archived
+            - work_order.transitioned
+            - delivery_result.recorded
+            - document.transitioned
+            - quality_review.recorded
+            - return.transitioned
+            - sla.started
+            - sla.resolved
+            - sla.at_risk
+            - sla.extended
         version:
           type: integer
           exclusiveMinimum: 0
@@ -5233,6 +5409,12 @@ components:
                 - custody
                 - workflow
                 - ticket
+                - work_order
+                - delivery_result
+                - document
+                - quality_review
+                - return
+                - sla
             id:
               type: string
               format: uuid
@@ -5359,6 +5541,21 @@ components:
       required:
         - kind
         - sentAt
+    ConfirmMediaResponse:
+      type: object
+      properties:
+        mediaId:
+          type: string
+          format: uuid
+          example: 9f1c2f8a-7d1e-4f6b-9a3c-2b5d4e6f7a81
+        state:
+          type: string
+          enum:
+            - uploaded
+            - verified
+      required:
+        - mediaId
+        - state
   parameters: {}
 paths:
   /v1/config:
@@ -6216,6 +6413,121 @@ paths:
             application/problem+json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /v1/routing/optimize:
+    post:
+      tags:
+        - Routing
+      summary: Verilen duraklar icin en iyi sirayi hesapla (servisler-arasi)
+      description: Baska bir ekibin backend’i (jetlogi-panel) icin durumsuz uc — kendi `tasks`/`shifts`
+        tablomuza hicbir okuma/yazma yapmaz, caginin kendi duraklarini optimize eder. Ayni motor
+        `GET /v1/routes/current` ile paylasilir.
+      security:
+        - serviceAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoutingOptimizeRequest"
+      responses:
+        "200":
+          description: Optimize sira
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoutingOptimizeResponse"
+        "401":
+          description: Servis anahtari eksik veya hatali
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /v1/tasks/{taskId}/delay-decision:
+    post:
+      tags:
+        - Routing
+      summary: SLA riskindeki gorev icin gecikme/iptal karari uygula
+      description: "Faz 5: operasyon panelinin backend’i, sla.at_risk isaretli bir gorev icin insan
+        kararini bildirir — bu API’de operator kimligi olmadigi icin karar bu ucla disaridan
+        alinir."
+      security:
+        - serviceAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            example: 9f1c2f8a-7d1e-4f6b-9a3c-2b5d4e6f7a81
+          required: true
+          name: taskId
+          in: path
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                decision:
+                  type: string
+                  enum: *a17
+                newSlaTargetAt:
+                  type: string
+                  format: date-time
+                  example: 2026-08-25T09:15:00.000Z
+                reason:
+                  type: string
+                  maxLength: 160
+                operatorId:
+                  type: string
+                  format: uuid
+                  example: 9f1c2f8a-7d1e-4f6b-9a3c-2b5d4e6f7a81
+              required:
+                - decision
+      responses:
+        "200":
+          description: Karar uygulandi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  taskId:
+                    type: string
+                    format: uuid
+                    example: 9f1c2f8a-7d1e-4f6b-9a3c-2b5d4e6f7a81
+                  decision:
+                    type: string
+                    enum: *a18
+                  appliedAt:
+                    type: string
+                    format: date-time
+                    example: 2026-08-25T09:15:00.000Z
+                required:
+                  - taskId
+                  - decision
+                  - appliedAt
+        "400":
+          description: Gecersiz istek
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Servis anahtari eksik veya hatali
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Gorev bulunamadi
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Uygulanamaz durum
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/workflows/{key}/versions/{version}:
     get:
       tags:
@@ -7060,6 +7372,77 @@ paths:
             application/problem+json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /v1/media/{mediaId}/confirm:
+    post:
+      tags:
+        - Media
+      summary: Presign PUT sonrasi medyayi uploaded isaretle
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            format: uuid
+            example: 9f1c2f8a-7d1e-4f6b-9a3c-2b5d4e6f7a81
+          required: true
+          name: mediaId
+          in: path
+        - schema:
+            type: string
+            pattern: ^dijigoo-courier\/\d+\.\d+\.\d+ \((android|ios); build \d+\)$
+            example: dijigoo-courier/1.0.0 (android; build 42)
+          required: true
+          name: x-client-info
+          in: header
+      responses:
+        "200":
+          description: Yukleme onaylandi
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConfirmMediaResponse"
+        "400":
+          description: Gecersiz istek
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Kimlik dogrulanamadi veya token suresi doldu
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Yetkisiz, cihaz bagli degil veya vardiya acik degil
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Kayit bulunamadi
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Nesne henuz depolamada yok
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Hiz siniri asildi
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Beklenmeyen sunucu hatasi
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /v1/custody:
     get:
       tags:
@@ -7091,9 +7474,17 @@ paths:
               - "null"
             items:
               type: string
-              enum: *a17
+              enum: *a19
           required: false
           name: type
+          in: query
+        - schema:
+            type:
+              - string
+              - "null"
+            maxLength: 80
+          required: false
+          name: barcode
           in: query
         - schema:
             type: string
@@ -7254,6 +7645,14 @@ paths:
             default: 50
           required: false
           name: limit
+          in: query
+        - schema:
+            type:
+              - string
+              - "null"
+            maxLength: 80
+          required: false
+          name: barcode
           in: query
         - schema:
             type: string

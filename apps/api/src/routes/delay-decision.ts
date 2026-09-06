@@ -7,6 +7,7 @@ import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 
 import type { AppContext } from '../context.js';
+import { enqueueCourierNotification } from '../services/notify.js';
 import { extendSlaInstance } from '../services/sla.js';
 import { cancelTask } from '../services/task-cancellation.js';
 
@@ -66,6 +67,18 @@ export async function delayDecisionRoutes(app: FastifyInstance, { ctx }: { ctx: 
           });
         }
       });
+
+      if (body.decision === 'cancel' && task.courierId) {
+        await enqueueCourierNotification(ctx.db, ctx.env, {
+          courierId: task.courierId,
+          kind: 'TASK_CANCELLED',
+          title: 'Durak iptal',
+          body: `${task.reference} · ${body.reason ?? 'operasyon iptal etti.'}`,
+          subjectId: task.id,
+          collapseKey: `task-cancel:${task.id}`,
+          route: `task:${task.id}`,
+        });
+      }
 
       return {
         taskId: task.id,

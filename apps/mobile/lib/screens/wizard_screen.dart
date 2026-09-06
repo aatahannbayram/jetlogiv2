@@ -3,8 +3,10 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n.dart';
+import '../media_upload.dart';
 import '../motion.dart';
 import '../session.dart';
+import '../signature.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'fail_screen.dart';
@@ -25,7 +27,10 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
   String? recipient;
   String proof = 'photo';
   bool photo = false;
-  final signature = <Offset?>[];
+  String? photoMediaId;
+  String? signMediaId;
+  SignatureCapture? signature;
+  final _pad = GlobalKey<SignaturePadState>();
   bool otpSent = false;
   final otp = TextEditingController();
   String? error;
@@ -54,7 +59,8 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
     super.dispose();
   }
 
-  bool get proofDone => proof == 'photo' ? photo : signature.isNotEmpty;
+  bool get proofDone =>
+      proof == 'photo' ? photo : signature != null && !signature!.isEmpty;
 
   String whoLabel(L10n l) => optionsFor(l)
       .firstWhere(
@@ -69,8 +75,9 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
     return l.continueLabel;
   }
 
-  void _next() {
+  Future<void> _next() async {
     final l = context.l10n;
+    final s = ref.read(sessionProvider);
     setState(() => error = null);
     if (step == 0 && recipient == null) {
       setState(() => error = l.pickRecipient);
@@ -80,18 +87,88 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
       setState(() => error = l.proofNeeded);
       return;
     }
+    if (step == 0) {
+      s.submitStep(
+        taskId: widget.taskId,
+        stepKey: 'varis_kontrolu',
+        skipReasonCode: 'GPS_UNAVAILABLE',
+        status: 'completed',
+      );
+      s.submitStep(
+        taskId: widget.taskId,
+        stepKey: 'barkod_okut',
+        value: {'code': s.taskById(widget.taskId).ref},
+      );
+      s.submitStep(
+        taskId: widget.taskId,
+        stepKey: 'alici_kim',
+        value: {
+          'teslim_alan': recipient,
+          'teslim_alan_ad': s.taskById(widget.taskId).recipient,
+        },
+      );
+    }
+    if (step == 1) {
+      if (proof == 'photo' && photoMediaId != null) {
+        s.submitStep(
+          taskId: widget.taskId,
+          stepKey: 'teslim_fotografi',
+          mediaIds: [photoMediaId!],
+        );
+      }
+      if (proof == 'sign') {
+        signMediaId ??= await uploadEvidence(
+          api: s.api,
+          bytes: tinyPng(),
+          kind: 'signature',
+          contentType: 'image/png',
+          taskId: widget.taskId,
+          stepKey: 'alici_imza',
+        );
+        if (signMediaId != null) {
+          s.submitStep(
+            taskId: widget.taskId,
+            stepKey: 'alici_imza',
+            value: signature?.toProof(),
+            mediaIds: [signMediaId!],
+          );
+        }
+      }
+    }
     if (step == 2) {
       if (!otpSent) {
+        final sent = await s.sendDeliveryOtp(widget.taskId);
+        if (!mounted) return;
+        if (!sent) {
+          setState(() => error = l.otpMismatchAsk);
+          return;
+        }
         setState(() => otpSent = true);
         return;
       }
-      if (!ref.read(sessionProvider).verifyDeliveryOtp(otp.text.trim())) {
+      if (!await s.verifyDeliveryOtp(widget.taskId, otp.text.trim())) {
+        if (!mounted) return;
         setState(() => error = l.otpMismatchAsk);
         return;
       }
-      ref
-          .read(sessionProvider)
-          .deliverTask(widget.taskId, receivedBy: whoLabel(l));
+      if (recipient == 'recipient' && s.taskById(widget.taskId).otpRequired) {
+        s.submitStep(
+          taskId: widget.taskId,
+          stepKey: 'otp_dogrula',
+          value: {'verificationToken': s.deliveryOtpToken},
+        );
+      }
+      s.deliverTask(
+        widget.taskId,
+        receivedBy: whoLabel(l),
+        proof: proof == 'sign'
+            ? signature?.toProof()
+            : const {
+                'type': 'DOOR_PHOTO',
+                'channel': 'CAMERA_CAPTURE',
+                'btk': {'status': 'PENDING_INTEGRATION', 'qualified': false},
+              },
+      );
       setState(() => done = true);
       return;
     }
@@ -166,7 +243,8 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
                     child: Container(
                       height: 4,
                       decoration: BoxDecoration(
-                        color: i <= step ? Dg.primaryGradientStart : Dg.elev,
+                        gradient: i <= step ? Dg.primaryGradient : null,
+                        color: i <= step ? null : Dg.elev,
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -274,7 +352,17 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
                   if (proof == 'photo') ...[
                     Viewfinder(
                       captured: photo,
-                      onCapture: () => setState(() => photo = true),
+                      onCapture: (path) async {
+                        setState(() => photo = true);
+                        final id = await uploadFileEvidence(
+                          api: ref.read(sessionProvider).api,
+                          path: path,
+                          kind: 'photo',
+                          taskId: widget.taskId,
+                          stepKey: 'teslim_fotografi',
+                        );
+                        if (mounted) setState(() => photoMediaId = id);
+                      },
                     ),
                     if (photo)
                       TextButton(
@@ -309,15 +397,12 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
                         ],
                       ),
                     ),
-                    _SignaturePad(
-                      points: signature,
-                      onChanged: (pts) => setState(() {
-                        signature
-                          ..clear()
-                          ..addAll(pts);
-                      }),
+                    SignaturePad(
+                      key: _pad,
+                      hint: l.signHere,
+                      onChanged: (cap) => setState(() => signature = cap),
                     ),
-                    if (signature.isNotEmpty) ...[
+                    if (proofDone) ...[
                       const SizedBox(height: 10),
                       Row(
                         children: [
@@ -337,7 +422,10 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
                             ),
                           ),
                           TextButton(
-                            onPressed: () => setState(signature.clear),
+                            onPressed: () {
+                              _pad.currentState?.clear();
+                              setState(() => signature = null);
+                            },
                             child: Text(l.clear),
                           ),
                         ],
@@ -511,86 +599,4 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
     String two(int v) => v.toString().padLeft(2, '0');
     return '${two(n.day)}.${two(n.month)}.${n.year} ${two(n.hour)}:${two(n.minute)}';
   }
-}
-
-class _SignaturePad extends StatefulWidget {
-  const _SignaturePad({required this.points, required this.onChanged});
-
-  final List<Offset?> points;
-  final ValueChanged<List<Offset?>> onChanged;
-
-  @override
-  State<_SignaturePad> createState() => _SignaturePadState();
-}
-
-class _SignaturePadState extends State<_SignaturePad> {
-  late final _pts = List<Offset?>.from(widget.points);
-
-  @override
-  Widget build(BuildContext context) {
-    return AspectRatio(
-      aspectRatio: 342 / 274,
-      child: GestureDetector(
-        onPanUpdate: (d) {
-          final box = context.findRenderObject() as RenderBox;
-          setState(() => _pts.add(box.globalToLocal(d.globalPosition)));
-          widget.onChanged(_pts);
-        },
-        onPanEnd: (_) {
-          setState(() => _pts.add(null));
-          widget.onChanged(_pts);
-        },
-        child: Container(
-          decoration: BoxDecoration(
-            color: Dg.surface,
-            borderRadius: BorderRadius.circular(Dg.radius),
-            border: Border.all(color: Dg.rule),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              if (_pts.isEmpty)
-                Center(
-                  child: Text(
-                    'Parmağınla imzala',
-                    style: Dg.ui(size: 14, color: Dg.ink3),
-                  ),
-                ),
-              CustomPaint(painter: _SignaturePainter(_pts)),
-              Positioned(
-                left: 20,
-                right: 20,
-                bottom: 34,
-                child: const DgDivider(),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SignaturePainter extends CustomPainter {
-  const _SignaturePainter(this.points);
-  final List<Offset?> points;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = Dg.ink
-      ..strokeWidth = 2.6
-      ..strokeCap = StrokeCap.round
-      ..style = PaintingStyle.stroke;
-    for (var i = 0; i < points.length - 1; i++) {
-      final a = points[i];
-      final b = points[i + 1];
-      if (a != null && b != null) canvas.drawLine(a, b, p);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _SignaturePainter oldDelegate) =>
-      oldDelegate.points != points;
 }

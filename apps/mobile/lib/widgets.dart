@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/services.dart';
@@ -11,6 +12,7 @@ import 'geo.dart';
 import 'l10n.dart';
 import 'map_config.dart';
 import 'models.dart';
+import 'notif.dart';
 import 'scan.dart';
 import 'theme.dart';
 
@@ -94,13 +96,16 @@ class StatusChip extends StatelessWidget {
           decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
         ),
         const SizedBox(width: 6),
-        Text(
-          label,
-          style: TextStyle(
-            fontFamily: Dg.mono,
-            color: Dg.ink2,
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
+        Flexible(
+          child: Text(
+            label,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontFamily: Dg.mono,
+              color: Dg.ink2,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
       ],
@@ -135,21 +140,11 @@ class DgChoiceSurface extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        gradient: selected ? Dg.primaryGradient : null,
-        color: selected ? null : Dg.rule,
+        color: selected ? Dg.ink : Dg.rule,
         borderRadius: BorderRadius.circular(Dg.radiusHero),
-        boxShadow: selected
-            ? const [
-                BoxShadow(
-                  color: Color(0x598B5CFF),
-                  blurRadius: 14,
-                  offset: Offset(0, 4),
-                ),
-              ]
-            : null,
       ),
       child: Padding(
-        padding: const EdgeInsets.all(2),
+        padding: const EdgeInsets.all(1.5),
         child: Material(
           color: Dg.surface,
           borderRadius: BorderRadius.circular(Dg.radiusHero - 2),
@@ -178,17 +173,18 @@ class DgSelectMark extends StatelessWidget {
     return Container(
       width: size,
       height: size,
-      decoration: const BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: Dg.primaryGradient,
-      ),
+      decoration: BoxDecoration(shape: BoxShape.circle, color: Dg.ink),
       alignment: Alignment.center,
-      child: Icon(LucideIcons.check, size: size * 0.58, color: Colors.white),
+      child: Icon(
+        LucideIcons.check,
+        size: size * 0.58,
+        color: Dg.dark ? Dg.night : Colors.white,
+      ),
     );
   }
 }
 
-enum DgButtonTone { primary, secondary, onDark, danger }
+enum DgButtonTone { primary, secondary, onDark, danger, brand }
 
 /// Ana aksiyon dili: gradyanlı birincil, dolu ikincil, koyu zemin, kare ikon.
 /// Basınca hafif küçülür; [FilledButton] + şeffaf gradyan sarmalayıcısının
@@ -245,11 +241,16 @@ class _DgButtonState extends State<DgButton> {
   Widget build(BuildContext context) {
     final enabled = widget.onPressed != null && !widget.busy;
     final primary = widget.tone == DgButtonTone.primary;
+    final brand = widget.tone == DgButtonTone.brand;
     final onDark = widget.tone == DgButtonTone.onDark;
     final danger = widget.tone == DgButtonTone.danger;
     final ink =
         widget.iconColor ??
-        (primary || onDark || danger ? Colors.white : Dg.ink);
+        (brand || onDark || danger
+            ? Colors.white
+            : primary
+            ? (Dg.dark ? Dg.night : Colors.white)
+            : Dg.ink);
     final fill =
         widget.fillColor ??
         (danger
@@ -306,25 +307,20 @@ class _DgButtonState extends State<DgButton> {
         opacity: enabled ? 1 : 0.42,
         child: DecoratedBox(
           decoration: BoxDecoration(
-            gradient: primary && enabled ? Dg.primaryGradient : null,
-            color: primary && enabled ? null : fill,
+            gradient: brand && enabled ? Dg.primaryGradient : null,
+            color: brand
+                ? null
+                : primary && enabled
+                ? Dg.ink
+                : fill,
             borderRadius: BorderRadius.circular(Dg.radiusPill),
-            border: primary || danger
+            border: primary || danger || brand
                 ? null
                 : Border.all(
                     color: onDark
                         ? Colors.white.withValues(alpha: 0.18)
                         : Dg.rule,
                   ),
-            boxShadow: primary && enabled
-                ? const [
-                    BoxShadow(
-                      color: Color(0x668B5CFF),
-                      blurRadius: 16,
-                      offset: Offset(0, 6),
-                    ),
-                  ]
-                : null,
           ),
           child: ConstrainedBox(
             constraints: BoxConstraints(
@@ -396,9 +392,7 @@ class DgSwitch extends StatelessWidget {
         width: 58,
         height: 34,
         decoration: BoxDecoration(
-          color: value
-              ? (activeColor ?? Dg.primaryGradientStart)
-              : (inactiveColor ?? Dg.rule),
+          color: value ? (activeColor ?? Dg.ink) : (inactiveColor ?? Dg.rule),
           borderRadius: BorderRadius.circular(20),
         ),
         child: AnimatedAlign(
@@ -409,7 +403,7 @@ class DgSwitch extends StatelessWidget {
             width: 26,
             height: 26,
             decoration: BoxDecoration(
-              color: thumbColor ?? Dg.ink,
+              color: thumbColor ?? Dg.surface,
               shape: BoxShape.circle,
             ),
           ),
@@ -477,13 +471,17 @@ class DgCard extends StatelessWidget {
     const radius = Dg.radiusHero;
     final body = Container(
       width: double.infinity,
-      padding: padding ?? const EdgeInsets.all(16),
+      padding: padding ?? const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: dark ? Dg.night : (lime ? Dg.purple : Dg.surface),
+        color: dark ? Dg.night : (lime ? Dg.ink : Dg.surface),
         borderRadius: BorderRadius.circular(radius),
-        // Çerçeve yok — yüzey tonu + gölge + üst kenardaki 1px ışık ayırıyor.
-        border: Border(top: BorderSide(color: Dg.insetHighlight)),
-        boxShadow: hero || lime || dark ? Dg.shadowHero : Dg.shadow,
+        border: Border.all(
+          color: dark
+              ? Colors.white.withValues(alpha: 0.12)
+              : lime
+              ? Colors.transparent
+              : Dg.rule,
+        ),
       ),
       child: child,
     );
@@ -507,95 +505,119 @@ class NotifCard extends StatelessWidget {
     required this.notification,
     this.unread = false,
     this.onTap,
+    this.onLongPress,
+    this.compact = false,
   });
 
   final AppNotification notification;
   final bool unread;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final n = notification;
-    final card = ClipRRect(
-      borderRadius: BorderRadius.circular(Dg.radiusHero),
-      child: ColoredBox(
-        color: Dg.surface,
-        child: Stack(
-          children: [
-            Positioned(
-              left: 12,
-              top: 16,
-              bottom: 16,
-              child: Container(
-                width: 3,
-                decoration: BoxDecoration(
-                  color: n.ink,
-                  borderRadius: BorderRadius.circular(2),
+    final l = L10n.of(context);
+    final titleColor = unread ? Dg.ink : Dg.ink2;
+    final time = formatNotifTime(
+      n.createdAt,
+      DateTime.now(),
+      yesterdayLabel: l.yesterday,
+    );
+    final tile = compact ? 32.0 : 40.0;
+    final pad = compact
+        ? const EdgeInsets.symmetric(vertical: 10)
+        : const EdgeInsets.fromLTRB(12, 12, 12, 12);
+    final row = Padding(
+      padding: pad,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: tile,
+            height: tile,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: n.tint,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(n.icon, size: compact ? 16 : 18, color: n.ink),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l.notifTitle(n.title),
+                  style: Dg.ui(
+                    size: 15,
+                    weight: unread ? FontWeight.w700 : FontWeight.w500,
+                    color: titleColor,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  n.body,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Dg.ui(size: 13, color: Dg.ink3),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(time, style: Dg.ui(size: 12, color: Dg.ink3)),
+              if (unread) ...[
+                const SizedBox(height: 8),
+                Container(
+                  width: 7,
+                  height: 7,
+                  decoration: const BoxDecoration(
+                    color: Dg.red,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          if (!compact && onTap != null) ...[
+            const SizedBox(width: 6),
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Icon(LucideIcons.chevronRight, size: 16, color: Dg.ink3),
+            ),
+          ],
+        ],
+      ),
+    );
+    final painted = compact
+        ? row
+        : DecoratedBox(
+            decoration: BoxDecoration(
+              color: unread ? Dg.surface : Colors.transparent,
+              borderRadius: BorderRadius.circular(Dg.radiusHero),
+              border: Border(
+                left: BorderSide(
+                  color: unread ? n.ink : Colors.transparent,
+                  width: 3,
                 ),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 14, 14, 14),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  IconTintBadge(icon: n.icon, tint: n.tint, ink: n.ink),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          L10n.of(context).notifTitle(n.title),
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 15,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(n.body, style: Dg.ui(size: 13, color: Dg.ink3)),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        n.time,
-                        style: TextStyle(
-                          fontFamily: Dg.mono,
-                          fontSize: 11,
-                          color: Dg.ink3,
-                        ),
-                      ),
-                      if (unread) ...[
-                        const SizedBox(height: 8),
-                        Container(
-                          width: 7,
-                          height: 7,
-                          decoration: const BoxDecoration(
-                            color: Dg.red,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (onTap == null) return card;
+            child: row,
+          );
+    if (onTap == null && onLongPress == null) return painted;
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
+        onLongPress: onLongPress,
         borderRadius: BorderRadius.circular(Dg.radiusHero),
-        child: card,
+        child: painted,
       ),
     );
   }
@@ -619,7 +641,16 @@ class MapStrip extends StatelessWidget {
     this.interactive = false,
     this.points = const [],
     this.encodedPolyline,
+    this.roadPoints,
+    this.highlightPoints,
+    this.polylinePrecision = 5,
+    this.estimated = false,
+    this.couriers = const [],
+    this.fitTo,
     this.label,
+    this.showBadge = true,
+    this.fitEpoch = 0,
+    this.numberStops = false,
     this.onTap,
   });
 
@@ -642,17 +673,55 @@ class MapStrip extends StatelessWidget {
   /// Real road-following geometry from `GET /v1/routes/current` (Google
   /// encoded polyline, see lib/geo.dart). When present, this draws the line
   /// instead of the straight segments between [points] — [points] still
-  /// supplies the stop markers either way.
+  /// supplies the stop markers either way. Prefer [roadPoints] when the
+  /// decoder precision is not 5 (OSRM/Mapbox `polyline6`).
   final String? encodedPolyline;
+
+  /// Pre-decoded road vertices. Wins over [encodedPolyline].
+  final List<LatLng>? roadPoints;
+
+  /// Current leg (origin → next stop), painted in brand purple on top.
+  final List<LatLng>? highlightPoints;
+
+  final int polylinePrecision;
+
+  /// True when the line is bird-flight / locally guessed. Drawn dashed so
+  /// the courier does not treat it as a driven path.
+  final bool estimated;
+  final List<FleetCourier> couriers;
+  final List<LatLng>? fitTo;
   final String? label;
+  final bool showBadge;
+  final int fitEpoch;
+
+  /// Rota ekranı: durakları 1…n numaralandır. Tek-nokta şeritlerde kapalı.
+  final bool numberStops;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final center = points.isNotEmpty ? points.first : _dgDefaultMapCenter;
-    final line = encodedPolyline != null && encodedPolyline!.isNotEmpty
-        ? decodePolyline(encodedPolyline!)
-        : points;
+    final decoded = roadPoints != null && roadPoints!.length > 1
+        ? roadPoints!
+        : encodedPolyline != null && encodedPolyline!.isNotEmpty
+        ? decodePolyline(encodedPolyline!, precision: polylinePrecision)
+        : const <LatLng>[];
+    final line = decoded.length > 1
+        ? decoded
+        : [
+            for (final c in couriers.where((c) => c.self)) LatLng(c.lat, c.lng),
+            ...points,
+          ];
+    final highlight = highlightPoints != null && highlightPoints!.length > 1
+        ? highlightPoints!
+        : const <LatLng>[];
+    final fit = [
+      ...?fitTo,
+      if (fitTo == null) ...line,
+      if (fitTo == null) ...points,
+      if (fitTo == null)
+        for (final c in couriers.where((c) => c.self)) LatLng(c.lat, c.lng),
+    ];
     final body = ClipRRect(
       borderRadius: !rounded
           ? BorderRadius.zero
@@ -667,118 +736,235 @@ class MapStrip extends StatelessWidget {
           children: [
             IgnorePointer(
               ignoring: !interactive,
-              child: FlutterMap(
-                options: MapOptions(
-                  initialCenter: center,
-                  initialZoom: points.length > 1 ? 13 : 14.5,
-                  interactionOptions: InteractionOptions(
-                    flags: interactive
-                        ? InteractiveFlag.all
-                        : InteractiveFlag.none,
-                  ),
+              child: RepaintBoundary(
+                child: _StableMapView(
+                  center: center,
+                  fit: fit,
+                  line: line,
+                  highlight: highlight,
+                  points: points,
+                  couriers: couriers,
+                  estimated: estimated,
+                  interactive: interactive,
+                  fitEpoch: fitEpoch,
+                  numberStops: numberStops,
                 ),
-                children: [
-                  TileLayer(
-                    urlTemplate: mapTileUrlTemplate,
-                    userAgentPackageName: 'com.dijigoo.dijigooKurye',
-                    tileDimension: useMapboxTiles ? 512 : 256,
-                    // Mapbox's 512px tiles are addressed one zoom level lower
-                    // than the 256px XYZ scheme flutter_map assumes by
-                    // default — without this offset every tile request hits
-                    // the wrong z/x/y and the viewport shows nothing, even
-                    // though the (mismatched) requests still succeed.
-                    zoomOffset: useMapboxTiles ? -1 : 0,
-                    subdomains: useMapboxTiles
-                        ? const []
-                        : const ['a', 'b', 'c', 'd'],
-                    retinaMode: !useMapboxTiles,
-                    errorTileCallback: (tile, error, stackTrace) {
-                      // ignore: avoid_print
-                      print(
-                        'TILE ERROR: $error  url=${mapTileUrlTemplate.split('?').first}',
-                      );
-                    },
+              ),
+            ),
+            if (showBadge)
+              Positioned(
+                right: 12,
+                bottom: 10,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
                   ),
-                  if (line.length > 1)
-                    PolylineLayer(
-                      polylines: [
-                        Polyline(
-                          points: line,
-                          color: Dg.purpleDeep,
-                          strokeWidth: 3.5,
-                        ),
-                      ],
+                  decoration: BoxDecoration(
+                    // Sabit koyu zemin: bu rozet her zaman açık renkli harita
+                    // karosunun üstünde duruyor (map_config.dart, haritayı
+                    // temadan bağımsız hep açık tutuyor) — Dg.ink kullanılırsa
+                    // koyu temada neredeyse beyaza döner ve altındaki sabit
+                    // beyaz yazıyla kontrastı kaybolur.
+                    color: Dg.night,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Dg.purple.withValues(alpha: 0.7)),
+                  ),
+                  child: Text(
+                    label ?? (eta == null ? 'Sıradaki durak' : '~$eta dk'),
+                    style: const TextStyle(
+                      fontFamily: Dg.mono,
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
                     ),
-                  MarkerLayer(
-                    markers: [
-                      for (var i = 0; i < points.length; i++)
-                        Marker(
-                          point: points[i],
-                          width: i == points.length - 1 ? 30 : 14,
-                          height: i == points.length - 1 ? 30 : 14,
-                          child: i == points.length - 1
-                              ? const _DestinationPin()
-                              : const _WaypointDot(),
-                        ),
-                      if (points.isEmpty)
-                        Marker(
-                          point: center,
-                          width: 30,
-                          height: 30,
-                          child: const _DestinationPin(),
-                        ),
-                    ],
-                  ),
-                  RichAttributionWidget(
-                    alignment: AttributionAlignment.bottomLeft,
-                    popupInitialDisplayDuration: Duration.zero,
-                    // flutter_map paketinin kendi logosunu göstermesin — bir
-                    // teslimat uygulamasında üçüncü parti kütüphane rozeti
-                    // işi yok, o küçük "manzara" ikonu buydu.
-                    showFlutterMapAttribution: false,
-                    attributions: [
-                      TextSourceAttribution(
-                        useMapboxTiles
-                            ? '© Mapbox © OpenStreetMap'
-                            : '© OpenStreetMap contributors © CARTO',
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            Positioned(
-              right: 12,
-              bottom: 10,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  // Sabit koyu zemin: bu rozet her zaman açık renkli harita
-                  // karosunun üstünde duruyor (map_config.dart, haritayı
-                  // temadan bağımsız hep açık tutuyor) — Dg.ink kullanılırsa
-                  // koyu temada neredeyse beyaza döner ve altındaki sabit
-                  // beyaz yazıyla kontrastı kaybolur.
-                  color: Dg.night,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Dg.purple.withValues(alpha: 0.7)),
-                ),
-                child: Text(
-                  label ?? (eta == null ? 'Sıradaki durak' : '~$eta dk'),
-                  style: const TextStyle(
-                    fontFamily: Dg.mono,
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
-            ),
           ],
         ),
       ),
     );
     if (onTap == null) return body;
     return GestureDetector(onTap: onTap, child: body);
+  }
+}
+
+/// Kamera [MapController] ile yaşar — session her notify ettiğinde
+/// FlutterMap yeniden yaratılıp zoom sıfırlanmasın.
+class _StableMapView extends StatefulWidget {
+  const _StableMapView({
+    required this.center,
+    required this.fit,
+    required this.line,
+    required this.highlight,
+    required this.points,
+    required this.couriers,
+    required this.estimated,
+    required this.interactive,
+    required this.fitEpoch,
+    required this.numberStops,
+  });
+
+  final LatLng center;
+  final List<LatLng> fit;
+  final List<LatLng> line;
+  final List<LatLng> highlight;
+  final List<LatLng> points;
+  final List<FleetCourier> couriers;
+  final bool estimated;
+  final bool interactive;
+  final int fitEpoch;
+  final bool numberStops;
+
+  @override
+  State<_StableMapView> createState() => _StableMapViewState();
+}
+
+class _StableMapViewState extends State<_StableMapView> {
+  final _controller = MapController();
+  String? _fitKey;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  String get _key =>
+      '${widget.line.length}|${widget.points.length}|${widget.couriers.length}|${widget.fit.length}|${widget.fitEpoch}';
+
+  void _fitIfNeeded() {
+    if (!widget.interactive || widget.fit.length < 2) return;
+    if (_fitKey == _key) return;
+    _fitKey = _key;
+    try {
+      _controller.fitCamera(
+        CameraFit.coordinates(
+          coordinates: widget.fit,
+          padding: const EdgeInsets.all(40),
+          maxZoom: 15.2,
+        ),
+      );
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _fitIfNeeded();
+    });
+    final fit = widget.fit;
+    final center = widget.center;
+    return FlutterMap(
+      mapController: widget.interactive ? _controller : null,
+      options: MapOptions(
+        initialCenter: fit.isNotEmpty ? fit.first : center,
+        initialZoom: fit.length > 1 ? 13.4 : 14.5,
+        initialCameraFit: !widget.interactive && fit.length > 1
+            ? CameraFit.coordinates(
+                coordinates: fit,
+                padding: const EdgeInsets.all(40),
+                maxZoom: 15.2,
+              )
+            : null,
+        interactionOptions: InteractionOptions(
+          flags: widget.interactive
+              ? InteractiveFlag.all
+              : InteractiveFlag.none,
+        ),
+      ),
+      children: [
+        TileLayer(
+          urlTemplate: mapTileUrlTemplate,
+          userAgentPackageName: 'com.dijigoo.dijigooKurye',
+          tileDimension: useMapboxTiles ? 512 : 256,
+          zoomOffset: useMapboxTiles ? -1 : 0,
+          subdomains: useMapboxTiles
+              ? const []
+              : const ['a', 'b', 'c', 'd'],
+          retinaMode: !useMapboxTiles,
+        ),
+        if (widget.line.length > 1)
+          PolylineLayer(
+            polylines: [
+              Polyline(
+                points: widget.line,
+                color: widget.estimated
+                    ? Dg.night.withValues(alpha: 0.45)
+                    : Dg.night,
+                strokeWidth: widget.estimated ? 3.4 : 5.2,
+                borderStrokeWidth: widget.estimated ? 0 : 2.4,
+                borderColor: Colors.white,
+                strokeCap: StrokeCap.round,
+                strokeJoin: StrokeJoin.round,
+                pattern: widget.estimated
+                    ? StrokePattern.dashed(segments: const [10, 8])
+                    : const StrokePattern.solid(),
+              ),
+              if (!widget.estimated && widget.highlight.length > 1)
+                Polyline(
+                  points: widget.highlight,
+                  color: Dg.purple,
+                  strokeWidth: 5.6,
+                  borderStrokeWidth: 1.6,
+                  borderColor: Colors.white,
+                  strokeCap: StrokeCap.round,
+                  strokeJoin: StrokeJoin.round,
+                ),
+            ],
+          ),
+        MarkerLayer(
+          markers: [
+            for (var i = 0; i < widget.points.length; i++)
+              Marker(
+                point: widget.points[i],
+                width: widget.numberStops
+                    ? 26
+                    : (i == widget.points.length - 1 ? 30 : 14),
+                height: widget.numberStops
+                    ? 26
+                    : (i == widget.points.length - 1 ? 30 : 14),
+                child: widget.numberStops
+                    ? _StopNumber(
+                        index: i + 1,
+                        next: i == 0,
+                        last: i == widget.points.length - 1,
+                      )
+                    : i == widget.points.length - 1
+                    ? const _DestinationPin()
+                    : const _WaypointDot(),
+              ),
+            if (widget.points.isEmpty && widget.couriers.isEmpty)
+              Marker(
+                point: center,
+                width: 30,
+                height: 30,
+                child: const _DestinationPin(),
+              ),
+            for (final c in widget.couriers)
+              Marker(
+                point: LatLng(c.lat, c.lng),
+                width: c.self ? 36 : 30,
+                height: c.self ? 36 : 30,
+                child: _CourierPin(courier: c),
+              ),
+          ],
+        ),
+        RichAttributionWidget(
+          alignment: AttributionAlignment.bottomLeft,
+          popupInitialDisplayDuration: Duration.zero,
+          showFlutterMapAttribution: false,
+          attributions: [
+            TextSourceAttribution(
+              useMapboxTiles
+                  ? '© Mapbox © OpenStreetMap'
+                  : '© OpenStreetMap contributors © CARTO',
+            ),
+          ],
+        ),
+      ],
+    );
   }
 }
 
@@ -808,6 +994,52 @@ class _DestinationPin extends StatelessWidget {
   }
 }
 
+/// Rotadaki durak sırası — 1 = sıradaki (mor), son = hedef.
+class _StopNumber extends StatelessWidget {
+  const _StopNumber({
+    required this.index,
+    required this.next,
+    required this.last,
+  });
+
+  final int index;
+  final bool next;
+  final bool last;
+
+  @override
+  Widget build(BuildContext context) {
+    final fill = next ? Dg.purple : (last ? Dg.night : Dg.surface);
+    final ink = next || last ? Colors.white : Dg.ink;
+    return Container(
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: fill,
+        border: Border.all(
+          color: next ? Colors.white : Dg.ink.withValues(alpha: 0.35),
+          width: 2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: (next ? Dg.purple : Dg.night).withValues(alpha: 0.28),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Text(
+        '$index',
+        style: TextStyle(
+          fontFamily: Dg.mono,
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          color: ink,
+        ),
+      ),
+    );
+  }
+}
+
 /// Rotadaki ara duraklar için nötr, küçük nokta — hedef pin'iyle karışmaz.
 class _WaypointDot extends StatelessWidget {
   const _WaypointDot();
@@ -824,6 +1056,45 @@ class _WaypointDot extends StatelessWidget {
   }
 }
 
+class _CourierPin extends StatelessWidget {
+  const _CourierPin({required this.courier});
+
+  final FleetCourier courier;
+
+  @override
+  Widget build(BuildContext context) {
+    final ring = courier.self ? Dg.sage : (courier.onBreak ? Dg.sand : Dg.blue);
+    return Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Dg.night,
+        border: Border.all(color: ring, width: courier.self ? 3 : 2),
+        boxShadow: [
+          BoxShadow(
+            color: ring.withValues(alpha: 0.45),
+            blurRadius: courier.self ? 10 : 6,
+          ),
+        ],
+      ),
+      alignment: Alignment.center,
+      child: courier.photoUrl != null
+          ? ClipOval(
+              child: Image.asset(
+                courier.photoUrl!,
+                fit: BoxFit.cover,
+                width: courier.self ? 28 : 22,
+                height: courier.self ? 28 : 22,
+              ),
+            )
+          : Icon(
+              courier.self ? LucideIcons.navigation : LucideIcons.user,
+              size: courier.self ? 15 : 13,
+              color: Colors.white,
+            ),
+    );
+  }
+}
+
 class Viewfinder extends StatefulWidget {
   const Viewfinder({
     super.key,
@@ -836,7 +1107,7 @@ class Viewfinder extends StatefulWidget {
   });
 
   final bool captured;
-  final VoidCallback onCapture;
+  final ValueChanged<String?> onCapture;
   final String hint;
   final String capturedLabel;
   final double aspectRatio;
@@ -851,12 +1122,15 @@ class _ViewfinderState extends State<Viewfinder> {
 
   Future<void> _shoot() async {
     final path = await capturePhoto(front: widget.frontCamera);
-    if (!mounted || path == null) return;
+    if (!mounted) return;
+    if (path == null && !inWidgetTest) {
+      // Simulator / izin yok: yine de kanıt adımını tamamla.
+    }
     setState(() => _flash = 0.35);
     await Future<void>.delayed(const Duration(milliseconds: 80));
     if (mounted) setState(() => _flash = 0);
     HapticFeedback.mediumImpact();
-    widget.onCapture();
+    widget.onCapture(path);
   }
 
   @override
@@ -1037,33 +1311,17 @@ class SquareAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Expanded(
-      child: Material(
-        color: Dg.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(Dg.radius),
-          side: BorderSide(color: Dg.rule),
-        ),
-        elevation: 2,
-        shadowColor: const Color(0x33111716),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(Dg.radius),
-          child: SizedBox(
-            height: 72,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, color: Dg.accent, size: 24),
-                const SizedBox(height: 6),
-                Text(
-                  label,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                  ),
-                ),
-              ],
-            ),
+      child: InkWell(
+        onTap: onTap,
+        child: SizedBox(
+          height: 56,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: Dg.ink, size: 20),
+              const SizedBox(height: 6),
+              Text(label, style: Dg.ui(size: 12, weight: FontWeight.w600)),
+            ],
           ),
         ),
       ),
@@ -1178,17 +1436,10 @@ class _SlideToActState extends State<SlideToAct>
         const thumb = 52.0;
         final max = (c.maxWidth - thumb - 8).clamp(80.0, 400.0);
         return Container(
-          height: 64,
+          height: 58,
           decoration: BoxDecoration(
-            gradient: Dg.primaryGradient,
+            color: Dg.ink,
             borderRadius: BorderRadius.circular(Dg.radiusPill),
-            boxShadow: [
-              BoxShadow(
-                color: Dg.purpleDeep.withValues(alpha: 0.35),
-                blurRadius: 20,
-                offset: const Offset(0, 8),
-              ),
-            ],
           ),
           child: Stack(
             alignment: Alignment.centerLeft,
@@ -1198,8 +1449,8 @@ class _SlideToActState extends State<SlideToAct>
                   widget.label,
                   style: Dg.ui(
                     size: 15,
-                    weight: FontWeight.w700,
-                    color: Colors.white,
+                    weight: FontWeight.w600,
+                    color: Dg.dark ? Dg.night : Colors.white,
                   ),
                 ),
               ),
@@ -1229,20 +1480,10 @@ class _SlideToActState extends State<SlideToAct>
                     width: thumb,
                     height: thumb,
                     decoration: BoxDecoration(
-                      color: Dg.ink,
+                      color: Dg.dark ? Colors.white : Dg.ground,
                       shape: BoxShape.circle,
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x40000000),
-                          blurRadius: 8,
-                          offset: Offset(0, 3),
-                        ),
-                      ],
                     ),
-                    child: const Icon(
-                      LucideIcons.chevronsRight,
-                      color: Dg.purpleBright,
-                    ),
+                    child: Icon(LucideIcons.chevronsRight, color: Dg.ink),
                   ),
                 ),
               ),
@@ -1260,83 +1501,117 @@ class DgPillNav extends StatelessWidget {
     required this.index,
     required this.onChanged,
     required this.items,
+    this.badges = const [],
   });
 
   final int index;
   final ValueChanged<int> onChanged;
   final List<(IconData, IconData, String)> items;
+  final List<int> badges;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      child: Container(
-        height: 68,
-        padding: const EdgeInsets.all(5),
-        decoration: BoxDecoration(
-          color: Dg.dark ? const Color(0xF2140F1C) : Dg.surface,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: Dg.dark
-                ? Colors.white.withValues(alpha: 0.08)
-                : Dg.rule,
-          ),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x59000000),
-              blurRadius: 28,
-              offset: Offset(0, 12),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            for (var i = 0; i < items.length; i++)
-              Expanded(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => onChanged(i),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 220),
-                    curve: Curves.easeOutCubic,
-                    decoration: BoxDecoration(
-                      gradient: index == i ? Dg.primaryGradient : null,
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          index == i ? items[i].$2 : items[i].$1,
-                          color: index == i
-                              ? Colors.white
-                              : (Dg.dark
-                                    ? const Color(0x88FFFFFF)
-                                    : Dg.ink3),
-                          size: 21,
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          items[i].$3,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontFamily: Dg.sans,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            color: index == i
-                                ? Colors.white
-                                : (Dg.dark
-                                      ? const Color(0x77FFFFFF)
-                                      : Dg.ink3),
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Dg.ground,
+        border: Border(top: BorderSide(color: Dg.rule, width: 0.5)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 56,
+          child: Row(
+            children: [
+              for (var i = 0; i < items.length; i++)
+                Expanded(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => onChanged(i),
+                    child: AnimatedScale(
+                      scale: index == i ? 1.0 : 0.96,
+                      duration: const Duration(milliseconds: 220),
+                      curve: Curves.easeOutBack,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: 28,
+                            height: 24,
+                            child: Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                Center(
+                                  child: AnimatedSwitcher(
+                                    duration: const Duration(milliseconds: 180),
+                                    child: Icon(
+                                      index == i ? items[i].$2 : items[i].$1,
+                                      key: ValueKey('${i}_$index'),
+                                      color: index == i
+                                          ? Dg.purpleActive
+                                          : Dg.ink3,
+                                      size: 22,
+                                    ),
+                                  ),
+                                ),
+                                if (i < badges.length && badges[i] > 0)
+                                  Positioned(
+                                    top: -2,
+                                    right: -2,
+                                    child: _NavBadge(count: badges[i]),
+                                  ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 3),
+                          Text(
+                            items[i].$3,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontFamily: Dg.sans,
+                              fontSize: 10,
+                              fontWeight: index == i
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                              color: index == i ? Dg.purpleActive : Dg.ink3,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NavBadge extends StatelessWidget {
+  const _NavBadge({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = count > 9 ? '9+' : '$count';
+    return Container(
+      constraints: const BoxConstraints(minWidth: 14, minHeight: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 3),
+      alignment: Alignment.center,
+      decoration: const BoxDecoration(
+        color: Dg.red,
+        borderRadius: BorderRadius.all(Radius.circular(7)),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 8,
+          fontWeight: FontWeight.w700,
+          color: Colors.white,
+          height: 1,
         ),
       ),
     );
@@ -1355,11 +1630,6 @@ class DgOnlineChip extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.fromLTRB(10, 7, 12, 7),
-        decoration: BoxDecoration(
-          color: online ? Dg.greenBg : Dg.amberBg,
-          borderRadius: BorderRadius.circular(20),
-        ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -1373,12 +1643,8 @@ class DgOnlineChip extends StatelessWidget {
             ),
             const SizedBox(width: 6),
             Text(
-              online ? 'Sahada' : 'Mola',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: online ? Dg.green : Dg.amber,
-              ),
+              online ? L10n.of(context).fieldOn : L10n.of(context).onBreak,
+              style: Dg.ui(size: 13, weight: FontWeight.w600),
             ),
           ],
         ),
@@ -1492,24 +1758,14 @@ class InitialsAvatar extends StatelessWidget {
       width: size,
       height: size,
       alignment: Alignment.center,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: Dg.primaryGradient,
-        boxShadow: [
-          BoxShadow(
-            color: Dg.purpleDeep.withValues(alpha: 0.3),
-            blurRadius: size * 0.22,
-            offset: Offset(0, size * 0.09),
-          ),
-        ],
-      ),
+      decoration: BoxDecoration(shape: BoxShape.circle, color: Dg.ink),
       child: Text(
         initials,
         style: TextStyle(
           fontFamily: Dg.sans,
           fontWeight: FontWeight.w700,
           fontSize: size * 0.32,
-          color: Colors.white,
+          color: Dg.dark ? Dg.night : Colors.white,
         ),
       ),
     );
@@ -1529,21 +1785,10 @@ class InitialsAvatar extends StatelessWidget {
             fit: BoxFit.cover,
             errorBuilder: (_, _, _) => fallback,
           );
-    return Container(
+    return SizedBox(
       width: size,
       height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: Dg.purpleDeep.withValues(alpha: 0.28),
-            blurRadius: size * 0.22,
-            offset: Offset(0, size * 0.09),
-          ),
-        ],
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: image,
+      child: ClipOval(child: image),
     );
   }
 }
@@ -1564,47 +1809,48 @@ class SegmentedTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: glass ? Colors.white.withValues(alpha: 0.08) : Dg.elev,
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Row(
-        children: [
-          for (var i = 0; i < labels.length; i++)
-            Expanded(
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => onChanged(i),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  height: 40,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    gradient: index == i && !glass ? Dg.primaryGradient : null,
+    return Row(
+      children: [
+        for (var i = 0; i < labels.length; i++)
+          Expanded(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => onChanged(i),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOutCubic,
+                height: 40,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(
+                      color: index == i
+                          ? (glass ? Colors.white : Dg.ink)
+                          : Colors.transparent,
+                      width: 2,
+                    ),
+                  ),
+                ),
+                child: AnimatedDefaultTextStyle(
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOutCubic,
+                  style: Dg.ui(
+                    size: 14,
+                    weight: index == i ? FontWeight.w600 : FontWeight.w500,
                     color: index == i
-                        ? (glass ? Colors.white.withValues(alpha: 0.16) : null)
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(14),
+                        ? (glass ? Colors.white : Dg.ink)
+                        : (glass ? const Color(0xFFCBBEEE) : Dg.ink3),
                   ),
                   child: Text(
                     labels[i],
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: Dg.ui(
-                      size: 13,
-                      weight: FontWeight.w600,
-                      color: index == i
-                          ? (glass ? Colors.white : Colors.white)
-                          : (glass ? const Color(0xFFCBBEEE) : Dg.ink3),
-                    ),
                   ),
                 ),
               ),
             ),
-        ],
-      ),
+          ),
+      ],
     );
   }
 }
@@ -1681,15 +1927,10 @@ class IconTintBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       width: size,
       height: size,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: tint,
-        borderRadius: BorderRadius.circular(size * 0.33),
-      ),
-      child: Icon(icon, color: ink, size: size * 0.48),
+      child: Icon(icon, color: ink, size: size * 0.52),
     );
   }
 }
@@ -1714,51 +1955,53 @@ class TaskListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DgCard(
-      padding: const EdgeInsets.all(14),
+    return InkWell(
       onTap: onTap,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Mono('#${task.sequence}  ${task.ref}'),
-              const Spacer(),
-              StatusChip(
-                label: taskStatusLabel(task.status, L10n.of(context)),
-                tone: taskStatusTone(task.status),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Hero(
-            tag: 'recipient-${task.id}',
-            child: Material(
-              color: Colors.transparent,
-              child: Display(task.recipient, size: 22),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            task.address,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(color: Dg.ink2, fontSize: 16, height: 1.3),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  '${L10n.of(context).kindOf(task.kind)}  ·  ${task.window}',
-                  style: TextStyle(fontSize: 13, color: Dg.ink2),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Mono('#${task.sequence}  ${task.ref}'),
+                const Spacer(),
+                StatusChip(
+                  label: taskStatusLabel(task.status, L10n.of(context)),
+                  tone: taskStatusTone(task.status),
                 ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Hero(
+              tag: 'recipient-${task.id}',
+              child: Material(
+                color: Colors.transparent,
+                child: Display(task.recipient, size: 22),
               ),
-              if (task.otpRequired)
-                StatusChip(label: L10n.of(context).codeRequired, tone: 'mid'),
-            ],
-          ),
-        ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              task.address,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: Dg.ink2, fontSize: 16, height: 1.3),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${L10n.of(context).kindOf(task.kind)}  ·  ${task.window}',
+                    style: TextStyle(fontSize: 13, color: Dg.ink2),
+                  ),
+                ),
+                if (task.otpRequired)
+                  StatusChip(label: L10n.of(context).codeRequired, tone: 'mid'),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1767,7 +2010,32 @@ class TaskListTile extends StatelessWidget {
 /// Compact selfie-capture bottom sheet used to open/close the shift from
 /// Home or Profile, without leaving the main shell (unlike the full-screen
 /// onboarding [ShiftScreen]).
-Future<bool> showShiftSelfieSheet(BuildContext context) {
+Future<bool> confirmEndShift(BuildContext context) async {
+  final l = L10n.of(context);
+  return await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(l.endShiftTitle),
+          content: Text(l.endShiftBody),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(l.cancel),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(l.endShiftTitle, style: TextStyle(color: Dg.hi)),
+            ),
+          ],
+        ),
+      ) ??
+      false;
+}
+
+Future<bool> showShiftSelfieSheet(
+  BuildContext context, {
+  required Future<void> Function(String? path) onPhoto,
+}) {
   return showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
@@ -1775,12 +2043,14 @@ Future<bool> showShiftSelfieSheet(BuildContext context) {
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
     ),
-    builder: (ctx) => const _ShiftSelfieSheet(),
+    builder: (ctx) => _ShiftSelfieSheet(onPhoto: onPhoto),
   ).then((v) => v ?? false);
 }
 
 class _ShiftSelfieSheet extends StatefulWidget {
-  const _ShiftSelfieSheet();
+  const _ShiftSelfieSheet({required this.onPhoto});
+
+  final Future<void> Function(String? path) onPhoto;
 
   @override
   State<_ShiftSelfieSheet> createState() => _ShiftSelfieSheetState();
@@ -1788,6 +2058,7 @@ class _ShiftSelfieSheet extends StatefulWidget {
 
 class _ShiftSelfieSheetState extends State<_ShiftSelfieSheet> {
   bool _shot = false;
+  bool _busy = false;
   double _flash = 0;
 
   Future<void> _action() async {
@@ -1795,16 +2066,25 @@ class _ShiftSelfieSheetState extends State<_ShiftSelfieSheet> {
       Navigator.pop(context, true);
       return;
     }
-    final path = await capturePhoto(front: true);
-    if (!mounted || path == null) return;
-    setState(() => _flash = 0.85);
-    HapticFeedback.mediumImpact();
-    await Future<void>.delayed(const Duration(milliseconds: 180));
-    if (!mounted) return;
-    setState(() {
-      _flash = 0;
-      _shot = true;
-    });
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      final path = await capturePhoto(front: true);
+      if (!mounted) return;
+      if (kReleaseMode && (path == null || path.isEmpty)) return;
+      await widget.onPhoto(path);
+      if (!mounted) return;
+      setState(() => _flash = 0.85);
+      HapticFeedback.mediumImpact();
+      await Future<void>.delayed(const Duration(milliseconds: 180));
+      if (!mounted) return;
+      setState(() {
+        _flash = 0;
+        _shot = true;
+      });
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   @override
@@ -1822,7 +2102,9 @@ class _ShiftSelfieSheetState extends State<_ShiftSelfieSheet> {
         children: [
           Row(
             children: [
-              Expanded(child: Display(L10n.of(context).startShiftTitle, size: 24)),
+              Expanded(
+                child: Display(L10n.of(context).startShiftTitle, size: 24),
+              ),
               GestureDetector(
                 onTap: () => Navigator.pop(context, false),
                 child: Container(
@@ -1910,7 +2192,8 @@ class _ShiftSelfieSheetState extends State<_ShiftSelfieSheet> {
                 ? L10n.of(context).startShiftCta
                 : L10n.of(context).takePhoto,
             icon: _shot ? LucideIcons.sun : LucideIcons.camera,
-            onPressed: _action,
+            busy: _busy,
+            onPressed: _busy ? null : _action,
           ),
         ],
       ),

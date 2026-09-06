@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>JetLogi Kurye</string>
+	<string>Dijigoo</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -59,6 +59,8 @@
 	<string>Adrese varış doğrulaması (geofence) için konum gerekir.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Vardiya boyunca rota kaydı için konum gerekir. v1.1.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Teslim kanıtı için fotoğraf gerekir. Galeri varsayılan kapalıdır.</string>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>tel</string>

@@ -54,3 +54,11 @@ export const MediaRef = z
   })
   .openapi('MediaRef');
 export type MediaRef = z.infer<typeof MediaRef>;
+
+export const ConfirmMediaResponse = z
+  .object({
+    mediaId: Uuid,
+    state: z.enum(['uploaded', 'verified']),
+  })
+  .openapi('ConfirmMediaResponse');
+export type ConfirmMediaResponse = z.infer<typeof ConfirmMediaResponse>;

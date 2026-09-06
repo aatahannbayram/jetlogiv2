@@ -113,6 +113,7 @@ class DeliveryTask {
     this.rowVersion = 0,
     this.workflowVersion = 1,
     this.photoUrl,
+    this.phone,
     String? wireStatus,
   }) : wireStatus = wireStatus ??
             switch (status) {
@@ -127,6 +128,7 @@ class DeliveryTask {
   final String ref;
   final String recipient;
   final String? photoUrl;
+  final String? phone;
   final String address;
   final String window;
   final TaskKind kind;
@@ -152,7 +154,7 @@ class DeliveryTask {
 
   /// İmza zaten alınmış mı — dağıtım listesinde tamamlanan durağın "İmza"
   /// pili için.
-  final bool signed;
+  bool signed;
 
   /// Aynı değere sahip görevler "aynı adres" olarak gruplanıp "Birlikte
   /// teslim edilebilir" kartı altında gösterilir.
@@ -263,22 +265,39 @@ class OutboxEvent {
   bool get pending => status == 'pending';
 }
 
+enum NotifKind {
+  stopAssigned,
+  custody,
+  syncFail,
+  bonus,
+  shift,
+  stopPulled,
+  stopCancelled,
+  slaRisk,
+}
+
 class AppNotification {
   const AppNotification({
+    required this.id,
+    required this.kind,
     required this.title,
     required this.body,
-    required this.time,
+    required this.createdAt,
     required this.icon,
     required this.tint,
     required this.ink,
+    this.taskId,
   });
 
+  final String id;
+  final NotifKind kind;
   final String title;
   final String body;
-  final String time;
+  final DateTime createdAt;
   final IconData icon;
   final Color tint;
   final Color ink;
+  final String? taskId;
 }
 
 class DepotOption {
@@ -356,6 +375,30 @@ class BonusProgress {
   final double pct;
   final String meta;
   final Color color;
+}
+
+/// Haritadaki kurye konumu — kendi konum + filodaki diğerleri.
+/// Canlı GPS / panel filoları aynı modele bağlanır.
+class FleetCourier {
+  const FleetCourier({
+    required this.id,
+    required this.name,
+    required this.lat,
+    required this.lng,
+    this.self = false,
+    this.status = 'on',
+    this.photoUrl,
+  });
+
+  final String id;
+  final String name;
+  final double lat;
+  final double lng;
+  final bool self;
+  final String status;
+  final String? photoUrl;
+
+  bool get onBreak => status == 'break';
 }
 
 /// Demo / known people — local portraits so the field UI works offline.

@@ -1,4 +1,7 @@
+import 'package:dijigoo_kurye/alerts.dart';
 import 'package:dijigoo_kurye/app.dart';
+import 'package:dijigoo_kurye/l10n.dart';
+import 'package:dijigoo_kurye/screens/sync_screen.dart';
 import 'package:dijigoo_kurye/session.dart';
 import 'package:dijigoo_kurye/theme.dart';
 import 'package:flutter/material.dart';
@@ -19,7 +22,7 @@ void main() {
     await tester.tap(find.text('Atla'));
     await tester.pumpAndSettle();
     await tester.pump(const Duration(milliseconds: 600));
-    await tester.tap(find.text('Vardiyaya başla'));
+    await tester.tap(find.text('Demoyu aç'));
     await tester.pumpAndSettle();
   }
 
@@ -108,9 +111,27 @@ void main() {
 
     await tester.tap(find.text('Rotayı gör'));
     await tester.pumpAndSettle();
-    expect(find.text('4 durak kaldı. Durağa basınca yol tarifi açılır.'), findsOneWidget);
+    expect(find.textContaining('durak kaldı'), findsOneWidget);
     expect(find.text('Ahmet Yılmaz'), findsWidgets);
-    expect(find.text('Elif Koç'), findsOneWidget);
+    expect(
+      find.text('Elif Koç', skipOffstage: false),
+      findsWidgets,
+    );
+  });
+
+  testWidgets('görev detayı rota özeti ve kuryeleri gösterir', (tester) async {
+    await bindPhone(tester);
+    await openDemo(tester);
+    await tester.tap(find.text('Rota'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ahmet Yılmaz').first);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('dk'), findsWidgets);
+    expect(find.text('Kuryeler'), findsWidgets);
+    expect(find.textContaining('#1'), findsOneWidget);
+    await tester.tap(find.byTooltip('Geri'));
+    await tester.pumpAndSettle();
+    expect(find.text('Ahmet Yılmaz'), findsWidgets);
   });
 
   testWidgets('dağıtım listesi sekmeleri durak sayısını gösterir', (tester) async {
@@ -263,6 +284,27 @@ void main() {
     expect(find.text('AYLIK SABİT'), findsOneWidget);
   });
 
+  testWidgets('menü kimlik doğrulamaya gider', (tester) async {
+    await bindPhone(tester);
+    await openDemo(tester);
+
+    await tester.tap(find.text('Menü'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Kimlik doğrulama'),
+      240,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('Kimlik doğrulama'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Belgeyi seç, fotoğrafını çek, çipi oku.'),
+      findsOneWidget,
+    );
+    expect(find.text('Fotoğraf çek'), findsOneWidget);
+    expect(find.text('Yeni kimlik ön yüz'), findsOneWidget);
+  });
+
   testWidgets('profil koduna 5 dokunuş mühendis katmanını açar', (tester) async {
     await bindPhone(tester);
     await openDemo(tester);
@@ -281,6 +323,104 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Mühendis'), findsOneWidget);
     expect(find.textContaining('/v1/config'), findsOneWidget);
+  });
+
+  testWidgets('bildirimler okundu işaretler ve uyarı filtresi çalışır', (
+    tester,
+  ) async {
+    await bindPhone(tester);
+    final session = SessionController();
+    session.skipToDemo();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [sessionProvider.overrideWith((ref) => session)],
+        child: const DijigooApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Bildirim'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('notif-demo-stop')), findsOneWidget);
+    expect(find.byKey(const Key('notif-demo-sync')), findsOneWidget);
+    expect(session.unreadNotifCount, greaterThan(0));
+
+    await tester.tap(find.text('Uyarı'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('notif-demo-sync')), findsOneWidget);
+    expect(find.byKey(const Key('notif-demo-bonus')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('notif-mark-all')));
+    await tester.pumpAndSettle();
+    expect(session.unreadNotifCount, 0);
+    expect(find.text('Hepsi okundu'), findsOneWidget);
+  });
+
+  testWidgets('bildirim durak detayına gider, uzun basınca okunmadı olur', (
+    tester,
+  ) async {
+    await bindPhone(tester);
+    final session = SessionController();
+    session.skipToDemo();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [sessionProvider.overrideWith((ref) => session)],
+        child: const DijigooApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Bildirim'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('notif-demo-stop')));
+    await tester.pumpAndSettle();
+    expect(find.text('Fatma Şahin'), findsWidgets);
+    expect(session.isNotifRead('demo-stop'), isTrue);
+
+    tester.state<NavigatorState>(find.byType(Navigator).first).pop();
+    await tester.pumpAndSettle();
+    await tester.longPress(find.byKey(const Key('notif-demo-stop')));
+    await tester.pumpAndSettle();
+    expect(session.isNotifRead('demo-stop'), isFalse);
+  });
+
+  testWidgets('sistem bildirimi durak kaydını açar', (tester) async {
+    await bindPhone(tester);
+    addTearDown(() => FieldAlerts.tapId.value = null);
+    final session = SessionController();
+    session.skipToDemo();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [sessionProvider.overrideWith((ref) => session)],
+        child: const DijigooApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    FieldAlerts.tapId.value = 'demo-stop';
+    await tester.pumpAndSettle();
+    expect(find.text('Fatma Şahin'), findsWidgets);
+    expect(session.isNotifRead('demo-stop'), isTrue);
+  });
+
+  testWidgets('senkron kuyruğu kurye adını ve hattı gösterir', (tester) async {
+    await bindPhone(tester);
+    final session = SessionController();
+    session.skipToDemo();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [sessionProvider.overrideWith((ref) => session)],
+        child: const L10nScope(
+          l10n: L10n('tr'),
+          child: MaterialApp(home: SyncScreen()),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('Fatma Şahin'), findsWidgets);
+    expect(find.text('Alıcı adreste yok'), findsOneWidget);
+    expect(find.textContaining('DGO-8844'), findsOneWidget);
+    expect(find.text('TASK_TRANSITION'), findsNothing);
+    expect(find.text('t4'), findsNothing);
+    expect(find.text('Merkez hattı'), findsOneWidget);
   });
 
   testWidgets('İngilizce ve açık tema ana ekranda açılır', (tester) async {

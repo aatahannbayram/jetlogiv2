@@ -41,9 +41,14 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
     final b = body.text.trim();
     if (s.isEmpty || b.isEmpty || sending) return;
     setState(() => sending = true);
-    ref
-        .read(sessionProvider)
-        .createSupportTicket(category: category, subject: s, body: b);
+    final session = ref.read(sessionProvider);
+    final tid = session.nextStop?.id;
+    session.createSupportTicket(
+      category: category,
+      subject: s,
+      body: b,
+      taskId: tid != null && tid.contains('-') ? tid : null,
+    );
     subject.clear();
     body.clear();
     if (mounted) setState(() => sending = false);

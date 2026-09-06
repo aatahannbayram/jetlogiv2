@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -5,6 +7,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../l10n.dart';
 import '../models.dart';
 import '../motion.dart';
+import '../road.dart';
 import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -26,10 +29,18 @@ class _ListScreenState extends ConsumerState<ListScreen> {
   int tab = 0;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(ref.read(sessionProvider).ensureDayRoute());
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final l = context.l10n;
     final s = ref.watch(sessionProvider);
-    final acik = s.tasks.where((t) => t.isOpen).toList();
+    final acik = s.orderedOpenTasks;
     final teslim = s.tasks
         .where((t) => t.status == TaskStatus.delivered)
         .toList();
@@ -44,17 +55,20 @@ class _ListScreenState extends ConsumerState<ListScreen> {
       1 => teslim,
       _ => iade,
     };
-    final plan = s.routePlan;
-    final kmLabel = plan == null
+    final day = s.dayRoute;
+    final kmLabel = day != null
+        ? (day.meters / 1000).toStringAsFixed(1)
+        : s.routePlan == null
         ? null
-        : (plan.totalDistanceMeters / 1000).toStringAsFixed(1);
+        : (s.routePlan!.totalDistanceMeters / 1000).toStringAsFixed(1);
 
     return Scaffold(
       body: SafeArea(
         child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+            Appear(
+              child: Padding(
+              padding: const EdgeInsets.fromLTRB(Dg.pagePad, 8, Dg.pagePad, 0),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -62,7 +76,10 @@ class _ListScreenState extends ConsumerState<ListScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Display(l.distribution, size: 26),
+                        Text(
+                          l.distribution,
+                          style: Dg.ui(size: 22, weight: FontWeight.w600),
+                        ),
                         const SizedBox(height: 2),
                         Text(
                           l.listSummary(s.tasks.length, acik.length, kmLabel),
@@ -71,52 +88,40 @@ class _ListScreenState extends ConsumerState<ListScreen> {
                       ],
                     ),
                   ),
-                  _ToggleIcon(
-                    icon: LucideIcons.map,
-                    active: false,
+                  GestureDetector(
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute<void>(
                         builder: (_) => const RouteScreen(),
                       ),
                     ),
+                    child: Icon(LucideIcons.map, size: 22, color: Dg.ink),
                   ),
-                  const SizedBox(width: 8),
-                  const _ToggleIcon(icon: LucideIcons.list, active: true),
                 ],
               ),
+            ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _FilterPill(
-                      label: l.openTab(acik.length),
-                      active: tab == 0,
-                      onTap: () => setState(() => tab = 0),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _FilterPill(
-                      label: l.deliveredTab(teslim.length),
-                      active: tab == 1,
-                      onTap: () => setState(() => tab = 1),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _FilterPill(
-                      label: l.returnedTab(iade.length),
-                      active: tab == 2,
-                      onTap: () => setState(() => tab = 2),
-                    ),
-                  ),
+              padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+              child: SegmentedTabs(
+                labels: [
+                  l.openTab(acik.length),
+                  l.deliveredTab(teslim.length),
+                  l.returnedTab(iade.length),
                 ],
+                index: tab,
+                onChanged: (i) => setState(() => tab = i),
               ),
             ),
+            DgDivider(),
             Expanded(
-              child: RefreshIndicator(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 280),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                transitionBuilder: dgSwitchTransition,
+                child: KeyedSubtree(
+                  key: ValueKey(tab),
+                  child: RefreshIndicator(
                 onRefresh: () => s.refreshField(),
                 child: rows.isEmpty
                     ? ListView(
@@ -141,27 +146,52 @@ class _ListScreenState extends ConsumerState<ListScreen> {
                           ),
                         ],
                       )
-                    : ListView.separated(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-                        itemCount: rows.length,
-                        separatorBuilder: (context, i) =>
-                            const SizedBox(height: 10),
-                        itemBuilder: (context, i) {
-                          return StaggerIn(
-                            index: i,
-                            child: _RotaTaskCard(
-                              task: rows[i],
-                              onTap: () => Navigator.of(context).push(
-                                MaterialPageRoute<void>(
-                                  builder: (_) =>
-                                      TaskDetailScreen(taskId: rows[i].id),
-                                ),
-                              ),
+                    : Builder(
+                        builder: (context) {
+                          final items = _groupRows(rows);
+                          final visitAt = <String, int>{
+                            for (var i = 0; i < acik.length; i++) acik[i].id: i + 1,
+                          };
+                          return ListView.separated(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: const EdgeInsets.fromLTRB(
+                              Dg.pagePad,
+                              10,
+                              Dg.pagePad,
+                              24,
                             ),
+                            itemCount: items.length,
+                            separatorBuilder: (context, i) =>
+                                const SizedBox(height: 8),
+                            itemBuilder: (context, i) {
+                              final item = items[i];
+                              void openTask(String id) =>
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute<void>(
+                                      builder: (_) =>
+                                          TaskDetailScreen(taskId: id),
+                                    ),
+                                  );
+                              return StaggerIn(
+                                index: i,
+                                child: item.length == 1
+                                    ? _RotaTaskCard(
+                                        task: item.single,
+                                        visitIndex: visitAt[item.single.id],
+                                        travel: s.roadToTask(item.single.id),
+                                        onTap: () => openTask(item.single.id),
+                                      )
+                                    : _GroupedTaskCard(
+                                        tasks: item,
+                                        onTapTask: openTask,
+                                      ),
+                              );
+                            },
                           );
                         },
                       ),
+                  ),
+                ),
               ),
             ),
           ],
@@ -171,62 +201,111 @@ class _ListScreenState extends ConsumerState<ListScreen> {
   }
 }
 
-class _ToggleIcon extends StatelessWidget {
-  const _ToggleIcon({required this.icon, required this.active, this.onTap});
-
-  final IconData icon;
-  final bool active;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 38,
-        height: 38,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: active ? Dg.primaryGradientStart : Dg.elev,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Icon(icon, size: 17, color: active ? Colors.white : Dg.ink2),
-      ),
-    );
+/// [rows]'u aynı [DeliveryTask.groupKey] değerine sahip görevler için
+/// birleştirir — her eleman ya tek bir görev (`length == 1`) ya da "aynı
+/// adres" grubu (`length >= 2`) olur. Sıra korunur, gruplar ilk görüldükleri
+/// yerde oluşur.
+List<List<DeliveryTask>> _groupRows(List<DeliveryTask> rows) {
+  final byKey = <String, List<DeliveryTask>>{};
+  for (final t in rows) {
+    final key = t.groupKey;
+    if (key != null) (byKey[key] ??= []).add(t);
   }
+  final out = <List<DeliveryTask>>[];
+  final seenKeys = <String>{};
+  for (final t in rows) {
+    final key = t.groupKey;
+    if (key != null && byKey[key]!.length > 1) {
+      if (seenKeys.add(key)) out.add(byKey[key]!);
+    } else {
+      out.add([t]);
+    }
+  }
+  return out;
 }
 
-class _FilterPill extends StatelessWidget {
-  const _FilterPill({
-    required this.label,
-    required this.active,
-    required this.onTap,
-  });
+/// Canvas'ın "aynı adres" kartı: tek bir adres altında birden çok alıcı —
+/// "Birlikte teslim edilebilir" rozetiyle işaretlenir, her satır kendi
+/// görev detayına gider.
+class _GroupedTaskCard extends StatelessWidget {
+  const _GroupedTaskCard({required this.tasks, required this.onTapTask});
 
-  final String label;
-  final bool active;
-  final VoidCallback onTap;
+  final List<DeliveryTask> tasks;
+  final ValueChanged<String> onTapTask;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: active ? Dg.primaryGradientStart : Dg.elev,
-          borderRadius: BorderRadius.circular(Dg.radiusPill),
-        ),
-        child: Text(
-          textAlign: TextAlign.center,
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-            color: active ? Colors.white : Dg.ink2,
+    final l = context.l10n;
+    final first = tasks.first;
+    return DgCard(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+      child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                l.sameAddressCount(tasks.length),
+                style: Dg.ui(size: 13, weight: FontWeight.w600),
+              ),
+              Text(
+                first.address,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Dg.ui(size: 12, color: Dg.ink3),
+              ),
+              const SizedBox(height: 4),
+              StatusChip(label: l.deliverTogether, tone: 'lime'),
+            ],
           ),
         ),
+          for (final t in tasks)
+            InkWell(
+              onTap: () => onTapTask(t.id),
+              borderRadius: BorderRadius.circular(Dg.radius),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  children: [
+                    InitialsAvatar(
+                      name: t.recipient,
+                      photoUrl: t.personPhoto,
+                      size: 34,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            t.recipient,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Dg.ink,
+                            ),
+                          ),
+                          Text(
+                            t.window,
+                            style: TextStyle(fontSize: 12, color: Dg.ink3),
+                          ),
+                        ],
+                      ),
+                    ),
+                    StatusChip(
+                      label: taskStatusLabel(t.status, l),
+                      tone: taskStatusTone(t.status),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(LucideIcons.chevronRight, size: 16, color: Dg.ink3),
+                  ],
+                ),
+              ),
+            ),
+      ],
       ),
     );
   }
@@ -236,10 +315,17 @@ class _FilterPill extends StatelessWidget {
 /// noktası, sonra Aralık/Zimmet/Teslim kodu bilgi pilleri (açık görevler
 /// için) ya da teslim/iade özeti (kapanmış görevler için).
 class _RotaTaskCard extends StatelessWidget {
-  const _RotaTaskCard({required this.task, required this.onTap});
+  const _RotaTaskCard({
+    required this.task,
+    required this.onTap,
+    this.visitIndex,
+    this.travel,
+  });
 
   final DeliveryTask task;
   final VoidCallback onTap;
+  final int? visitIndex;
+  final RoadSlice? travel;
 
   @override
   Widget build(BuildContext context) {
@@ -247,197 +333,84 @@ class _RotaTaskCard extends StatelessWidget {
     final open = task.isOpen;
     return DgCard(
       onTap: onTap,
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              InitialsAvatar(
-                name: task.recipient,
-                photoUrl: task.personPhoto,
-                size: 44,
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+      child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 28,
+              height: 28,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: open ? Dg.violetBg : Dg.elev,
+                borderRadius: BorderRadius.circular(8),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(child: Display(task.recipient, size: 16)),
-                        StatusChip(
-                          label: taskStatusLabel(task.status, context.l10n),
-                          tone: taskStatusTone(task.status),
-                        ),
-                        const SizedBox(width: 4),
-                        Icon(
-                          LucideIcons.chevronRight,
-                          size: 16,
-                          color: Dg.ink3,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      task.address,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 13, color: Dg.ink3),
-                    ),
-                  ],
+              child: Text(
+                '${visitIndex ?? task.sequence}',
+                style: Dg.ui(
+                  size: 12,
+                  weight: FontWeight.w700,
+                  color: open ? Dg.purpleActive : Dg.ink3,
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: open
-                ? [
-                    _InfoPill(
-                      label: l.window,
-                      value: task.window.split('–').first,
-                    ),
-                    if (task.custodyCount != null)
-                      _InfoPill(
-                        label: l.custody,
-                        value: l.itemsCount(task.custodyCount!),
+            ),
+            const SizedBox(width: 10),
+            InitialsAvatar(
+              name: task.recipient,
+              photoUrl: task.personPhoto,
+              size: 44,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          task.recipient,
+                          style: Dg.ui(size: 16, weight: FontWeight.w600),
+                        ),
                       ),
-                    if (task.otpRequired)
-                      _InfoPill(
-                        label: l.deliveryCode,
-                        value: l.required,
-                        dot: true,
+                      StatusChip(
+                        label: taskStatusLabel(task.status, context.l10n),
+                        tone: taskStatusTone(task.status),
                       ),
-                  ]
-                : [
-                    _InfoPill(label: l.time, value: task.window),
-                    if (task.signed)
-                      _InfoPill(
-                        label: '',
-                        value: l.signature,
-                        icon: LucideIcons.penLine,
-                      ),
-                    if (task.otpRequired)
-                      _InfoPill(
-                        label: '',
-                        value: l.codeShort,
-                        icon: LucideIcons.key,
-                      ),
-                  ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatusBadge extends StatelessWidget {
-  const _StatusBadge({required this.task});
-
-  final DeliveryTask task;
-
-  @override
-  Widget build(BuildContext context) {
-    if (task.status == TaskStatus.delivered) {
-      return _badge(
-        color: Dg.sage,
-        child: const Icon(LucideIcons.check, size: 16, color: Colors.white),
-      );
-    }
-    if (task.status == TaskStatus.failed ||
-        task.status == TaskStatus.cancelled) {
-      return _badge(
-        color: Dg.elev,
-        child: Icon(LucideIcons.undo2, size: 16, color: Dg.ink2),
-      );
-    }
-    return _badge(
-      color: Dg.primaryGradientStart,
-      child: Text(
-        '${task.sequence}',
-        style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w700,
-          fontSize: 14,
-        ),
-      ),
-    );
-  }
-
-  Widget _badge({required Color color, required Widget child}) {
-    return Container(
-      width: 30,
-      height: 30,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(9),
-      ),
-      child: child,
-    );
-  }
-}
-
-class _InfoPill extends StatelessWidget {
-  const _InfoPill({
-    required this.label,
-    required this.value,
-    this.dot = false,
-    this.icon,
-  });
-
-  final String label;
-  final String value;
-  final bool dot;
-  final IconData? icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: Dg.elev,
-        borderRadius: BorderRadius.circular(Dg.radius),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (label.isNotEmpty)
-            Text(label, style: TextStyle(fontSize: 10, color: Dg.ink3)),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (icon != null) ...[
-                Icon(icon, size: 12, color: Dg.ink2),
-                const SizedBox(width: 4),
-              ],
-              if (dot) ...[
-                Container(
-                  width: 5,
-                  height: 5,
-                  decoration: BoxDecoration(
-                    color: Dg.sand,
-                    shape: BoxShape.circle,
+                    ],
                   ),
-                ),
-                const SizedBox(width: 4),
-              ],
-              Text(
-                value,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: Dg.ink,
-                ),
+                  const SizedBox(height: 3),
+                  Text(
+                    task.address,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Dg.ui(size: 13, color: Dg.ink3),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    open
+                        ? [
+                            if (travel != null)
+                              context.l10n.routeKmMin(
+                                (travel!.meters / 1000).toStringAsFixed(1),
+                                travel!.minutes,
+                              ),
+                            task.window,
+                            if (task.custodyCount != null)
+                              l.itemsCount(task.custodyCount!),
+                            if (task.otpRequired) l.deliveryCode,
+                          ].join('  ·  ')
+                        : [
+                            task.window,
+                            if (task.signed) l.signature,
+                            if (task.otpRequired) l.codeShort,
+                          ].join('  ·  '),
+                    style: Dg.ui(size: 12, color: Dg.ink3),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ],
+            ),
+          ],
       ),
     );
   }

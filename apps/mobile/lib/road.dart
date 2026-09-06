@@ -1,0 +1,614 @@
+import 'package:dio/dio.dart';
+import 'package:latlong2/latlong.dart';
+
+import 'geo.dart';
+import 'map_config.dart';
+
+/// OSRM (OpenStreetMap, BSD) — Türkiye dahil planet grafiği. Anahtar yok,
+/// canlı trafik yok; yol geometrisi ve serbest-akış süre.
+///
+/// Neden bu, neden GraphHopper/Valhalla değil:
+/// - Türkiye'de OSM araç ağı şehir içi teslimatta yeterli (Geofabrik TR).
+/// - OSRM `/route` tek istekte çok durak birleştirir; 2–6 nokta <1s.
+/// - Canlı trafik (Google/TomTom/Yandex) ücretli; OSM tarafında yok.
+///   ETA'yı "yaklaşık" tutuyoruz, UI'yı bloklamıyoruz.
+///
+/// Varsayılan `router.project-osrm.org` — anahtarsız, herkese açık demo
+/// sunucu, ama üretim yükü için tasarlanmamış (rate-limit, düşünülmemiş
+/// kesinti). Kendi barındırdığımız OSRM (`infra/osrm`, `docker-compose.yml`
+/// → `osrm` servisi, Faz 1+2'de zaten inşa edildi ve test edildi) varsa
+/// `--dart-define=OSRM_URL=http://localhost:5001` ile ona işaret et — aynı
+/// API, sadece güvenilir. Prod'da CDN arkasında herkese açık bir OSRM ucu
+/// varsa aynı şekilde geçilir.
+///
+/// Mapbox token varsa (`MAPBOX_TOKEN`) Directions v5 tercih edilir: aynı
+/// OSRM ailesi, barındırılan graf + `polyline6`. Token yoksa public OSRM.
+const kOsrmUrl = String.fromEnvironment(
+  'OSRM_URL',
+  defaultValue: 'https://router.project-osrm.org',
+);
+
+const _publicOsrm = 'https://router.project-osrm.org';
+
+/// Public OSRM / OSM tile politikası bir tanımlı UA ister; Dio'nun varsayılan
+/// `dart:io` başlığı bazı edge'lerde 403/boş cevap üretip düz çizgiye düşürüyordu.
+const kRoutingUserAgent = 'DijigooKurye/1.0 (courier-routing)';
+
+/// Güney demo kümesi (kurye → Mehmet → Ahmet → Elif → Fatma).
+/// Public OSRM `/trip` + `/route` 2026-09-07 — kasabayı çaprazlamayan tur.
+const _demoSeedWaypoints = [
+  LatLng(38.1476, 29.0702),
+  LatLng(38.1554, 29.0692),
+  LatLng(38.1512, 29.0614),
+  LatLng(38.1481, 29.0558),
+  LatLng(38.1460, 29.0488),
+];
+const _demoSeedMeters = [1435, 1486, 1026, 592];
+const _demoSeedSeconds = [219, 196, 281, 213];
+const _demoSeedPolyline =
+    r'angwgA_odmv@cN|N_GnMoAxKc@pKsApHaDbEaWhRaGbAeL@aL`B}MzBmQ]qFdDuE~HqInDqFiB_DkAsLL_e@rG{\dAgSpCwSaMyLkDqCsHcF}MoBeDqIoCyDy@u@QaNuCoIgAgIo@eVaCmQmFaE}CkDkCwG{@me@UyBqBmGiBkCtBh@mGL}ArAcFxEgPt@iC|HoPRyFgBkE?qDlCeJPcMl@wFtAgM`CyT}GpDcBjA}At@gD?a@J{@Ry@TyD~BcF~AeCjB}K^aF`AiFnGgIzHsGPaJcBmPuEiJiCqc@mM}WwFc^sBqD`DeGdGkIzQfJsFnG_@xOhEnk@hZnPhS`GjLvEdJh@~@jT~_@lD|FhOfSvM|HdDp@sBpRwA|McAnG_AdGQ|DeDns@gCjV{@fO`@`IjGuAjMbBvCXhLfA~M`FtEtH|LhSTfIxD|Q~DlLbHhI`GvNhHjFZfAjEnOrDlWbC`IbB|BnBNd@_AjAbChFqBdC{AdDaB|DqBlDqB|BwBjCoB~BsChFgCbCeClDmAfB_CjCb@|DLbBv@`EtCxEjEhClChFdGrA`AjHfFnFvF`EhDtCvB`DrC~BsAlAyBlAkEf@{GEoHTiFmAgFaAgEeCaHcEyEkDcD}A{AqCeCoDgFdB`@lPjMvG|JvJdTrR~T|EzBrIzNxNlPlLvL|FfGrKbCnW|OrTpLfI|DvEdCxEvI`CrL`C`NLvJs@tOSzMl@vReAxS}AnNiA~QgCxQ_AlM@fMaBpS_HhVgBjFyBvG_GnTqCvFcAlFUbPbE`KnC|KhDdHzFxDjFpEf@zEWzIj@hGxClJbEpHrBvKQvI}@lJi@zNh@nFv@hKDtKaAhODpLf@bHsAfG?pKAbLgC~KhAjKtCbId@bJoArJwCnP';
+
+class RoadLeg {
+  const RoadLeg({
+    required this.polyline,
+    required this.meters,
+    required this.seconds,
+    this.precision = 6,
+  });
+
+  final String polyline;
+  final int meters;
+  final int seconds;
+  final int precision;
+
+  int get minutes => (seconds / 60).clamp(1, 180).round();
+
+  List<LatLng> get points =>
+      polyline.isEmpty ? const [] : decodePolyline(polyline, precision: precision);
+}
+
+/// Bir günün kalan durakları — kurye konumu sabit başlangıç, duraklar
+/// NN+2-opt (SLA ağırlıklı) + yol ağı geometrisi.
+class DayRoute {
+  const DayRoute({
+    required this.points,
+    required this.meters,
+    required this.seconds,
+    required this.estimated,
+    required this.provider,
+    required this.stops,
+    required this.waypoints,
+    this.polyline = '',
+    this.precision = 6,
+    this.highlight = const [],
+  });
+
+  final List<LatLng> points;
+  final String polyline;
+  final int precision;
+  final int meters;
+  final int seconds;
+  final bool estimated;
+  final String provider;
+
+  /// Ziyaret sırası (aynı kapıdaki görevler gruplu).
+  final List<DayStop> stops;
+
+  /// origin + sıralı duraklar (tekilleştirilmiş).
+  final List<LatLng> waypoints;
+
+  /// origin → ilk durak — haritada mor vurgulanan bacak.
+  final List<LatLng> highlight;
+
+  int get minutes => (seconds / 60).clamp(1, 180).round();
+
+  /// Public/self-host OSRM veya Mapbox — tohum / kuş-uçuşu değil.
+  bool get fromLiveEngine => provider == 'osrm' || provider == 'mapbox';
+
+  List<String> get stopTaskIds => [for (final s in stops) ...s.taskIds];
+
+  /// [taskId] durağına gelen bacak — harita şeridi ve detay ETA için.
+  RoadSlice? legFor(String taskId) {
+    final i = stops.indexWhere((s) => s.taskIds.contains(taskId));
+    if (i < 0 || i + 1 >= waypoints.length) return null;
+    final from = waypoints[i];
+    final to = waypoints[i + 1];
+    final pts = points.length > waypoints.length
+        ? _sliceAlong(points, from, to)
+        : [from, to];
+    return RoadSlice(
+      points: pts,
+      meters: stops[i].meters,
+      seconds: stops[i].seconds,
+      precision: precision,
+      estimated: estimated,
+    );
+  }
+}
+
+List<LatLng> _sliceAlong(List<LatLng> line, LatLng from, LatLng to) {
+  final cuts = snapAlongRoute(line, [from, to]);
+  final a = cuts[0];
+  var b = cuts[1];
+  if (b <= a) b = (a + 1).clamp(0, line.length - 1);
+  return line.sublist(a, b + 1);
+}
+
+class RoadSlice {
+  const RoadSlice({
+    required this.points,
+    required this.meters,
+    required this.seconds,
+    required this.precision,
+    this.estimated = false,
+  });
+
+  final List<LatLng> points;
+  final int meters;
+  final int seconds;
+  final int precision;
+  final bool estimated;
+
+  int get minutes => (seconds / 60).clamp(1, 180).round();
+}
+
+class DayStop {
+  const DayStop({
+    required this.taskIds,
+    required this.at,
+    required this.meters,
+    required this.seconds,
+  });
+
+  final List<String> taskIds;
+  final LatLng at;
+  final int meters;
+  final int seconds;
+}
+
+class RouteStopInput {
+  const RouteStopInput({
+    required this.id,
+    required this.at,
+    this.urgency = 0,
+  });
+
+  final String id;
+  final LatLng at;
+  final double urgency;
+}
+
+String roadCacheKey(Iterable<LatLng> points) => [
+  for (final p in points)
+    '${p.latitude.toStringAsFixed(4)},${p.longitude.toStringAsFixed(4)}',
+].join('>');
+
+String dayRouteCacheKey(
+  LatLng origin,
+  Iterable<RouteStopInput> stops, {
+  String? pinFirstId,
+}) =>
+    '${origin.latitude.toStringAsFixed(4)},${origin.longitude.toStringAsFixed(4)}|$pinFirstId|'
+    '${[for (final s in stops) '${s.id}:${s.at.latitude.toStringAsFixed(4)},${s.at.longitude.toStringAsFixed(4)}:${s.urgency.toStringAsFixed(2)}'].join('>')}';
+
+/// Tek HTTP: [points] sırasıyla yol-izleyen geometri. Başarısız/timeout → null.
+Future<RoadLeg?> fetchRoadLeg(
+  List<LatLng> points, {
+  Dio? dio,
+  String baseUrl = kOsrmUrl,
+  Duration timeout = const Duration(seconds: 6),
+}) async {
+  if (points.length < 2) return null;
+  final fetched = await _fetchRoad(points, dio: dio, timeout: timeout);
+  if (fetched == null) return null;
+  return RoadLeg(
+    polyline: fetched.polyline,
+    meters: fetched.meters,
+    seconds: fetched.seconds,
+    precision: fetched.precision,
+  );
+}
+
+/// Ağ yokken bile doğru ziyaret sırası — kuş uçuşu + SLA. Harita kesikli
+/// çizer; [planDayRoute] sonra yol geometrisiyle yükseltir.
+DayRoute planDayRouteLocal(
+  LatLng origin,
+  List<RouteStopInput> input, {
+  String? pinFirstId,
+}) {
+  final clustered = _clusterStops(origin, input);
+  if (clustered.isEmpty) {
+    return DayRoute(
+      points: const [],
+      meters: 0,
+      seconds: 0,
+      estimated: true,
+      provider: 'none',
+      stops: const [],
+      waypoints: [origin],
+    );
+  }
+  final pinAt = pinFirstId == null
+      ? -1
+      : clustered.indexWhere((c) => c.ids.contains(pinFirstId));
+  final List<_Cluster> ordered;
+  if (pinAt >= 0) {
+    final head = clustered[pinAt];
+    final rest = [for (var i = 0; i < clustered.length; i++) if (i != pinAt) clustered[i]];
+    if (rest.isEmpty) {
+      ordered = [head];
+    } else {
+      final restOrder = optimizeVisitOrder(
+        head.at,
+        [for (final c in rest) c.at],
+        urgency: [for (final c in rest) c.urgency],
+      );
+      ordered = [head, for (final i in restOrder) rest[i]];
+    }
+  } else {
+    final order = optimizeVisitOrder(
+      origin,
+      [for (final c in clustered) c.at],
+      urgency: [for (final c in clustered) c.urgency],
+    );
+    ordered = [for (final i in order) clustered[i]];
+  }
+  final waypoints = [origin, ...ordered.map((c) => c.at)];
+
+  final stops = <DayStop>[];
+  var meters = 0;
+  var seconds = 0;
+  for (var i = 0; i < ordered.length; i++) {
+    final from = i == 0 ? origin : ordered[i - 1].at;
+    final d = haversineMeters(from, ordered[i].at).round();
+    final t = (d / kUrbanSpeedMps).round();
+    meters += d;
+    seconds += t;
+    stops.add(
+      DayStop(taskIds: ordered[i].ids, at: ordered[i].at, meters: d, seconds: t),
+    );
+  }
+
+  final highlight = waypoints.length > 1
+      ? [waypoints[0], waypoints[1]]
+      : const <LatLng>[];
+
+  final local = DayRoute(
+    points: waypoints,
+    meters: meters,
+    seconds: seconds,
+    estimated: true,
+    provider: 'haversine',
+    stops: stops,
+    waypoints: waypoints,
+    highlight: highlight,
+  );
+  // Demo Güney kümesi: ağ beklemeden caddeyi izleyen çizgi.
+  return _demoSeedIfMatch(local) ?? local;
+}
+
+/// Yerel sırayı koruyup OSRM/Mapbox yol geometrisiyle yükseltir. Motor
+/// susarsa [planDayRouteLocal] sonucu döner — sıra yine doğru, çizgi kesikli.
+Future<DayRoute> planDayRoute(
+  LatLng origin,
+  List<RouteStopInput> input, {
+  String? pinFirstId,
+  Dio? dio,
+  Duration timeout = const Duration(seconds: 6),
+}) async {
+  var local = planDayRouteLocal(origin, input, pinFirstId: pinFirstId);
+  if (local.waypoints.length < 2) return local;
+
+  final client = dio ??
+      Dio(
+        BaseOptions(
+          connectTimeout: timeout,
+          receiveTimeout: timeout,
+          sendTimeout: timeout,
+          headers: const {
+            'User-Agent': kRoutingUserAgent,
+            'Accept': 'application/json',
+          },
+        ),
+      );
+
+  final tripped = await _applyTripOrder(
+    origin,
+    local,
+    pinFirstId: pinFirstId,
+    client: client,
+  );
+  if (tripped != null) local = tripped;
+
+  var road = await _fetchRoad(
+    local.waypoints,
+    dio: client,
+    timeout: timeout,
+  );
+  if (road != null &&
+      !lineFitsWaypoints(road.points, local.waypoints)) {
+    road = null;
+  }
+  if (road == null) {
+    road = await _fetchRoadLegs(
+      local.waypoints,
+      dio: client,
+      timeout: timeout,
+    );
+  }
+  if (road != null && road.points.length > 1) {
+    return _withRoad(local, road);
+  }
+  final seeded = _demoSeedIfMatch(local);
+  return seeded ?? local;
+}
+
+DayRoute _withRoad(DayRoute local, _FetchedRoad road) {
+  final legs = _splitLegs(local.waypoints, road);
+  final stops = <DayStop>[
+    for (var i = 0; i < local.stops.length; i++)
+      DayStop(
+        taskIds: local.stops[i].taskIds,
+        at: local.stops[i].at,
+        meters: i < legs.length ? legs[i].meters : local.stops[i].meters,
+        seconds: i < legs.length ? legs[i].seconds : local.stops[i].seconds,
+      ),
+  ];
+  final cuts = snapAlongRoute(road.points, [
+    local.waypoints.first,
+    local.stops.first.at,
+  ]);
+  final cut = (cuts.length > 1 ? cuts[1] : 1).clamp(1, road.points.length - 1);
+  return DayRoute(
+    points: road.points,
+    polyline: road.polyline,
+    precision: road.precision,
+    meters: road.meters,
+    seconds: road.seconds,
+    estimated: false,
+    provider: road.provider,
+    stops: stops,
+    waypoints: local.waypoints,
+    highlight: road.points.sublist(0, cut + 1),
+  );
+}
+
+DayRoute? _demoSeedIfMatch(DayRoute local) {
+  if (local.waypoints.length != _demoSeedWaypoints.length) return null;
+  for (var i = 0; i < local.waypoints.length; i++) {
+    if (haversineMeters(local.waypoints[i], _demoSeedWaypoints[i]) >
+        kSameStopMeters) {
+      return null;
+    }
+  }
+  return _withRoad(
+    local,
+    _FetchedRoad(
+      polyline: _demoSeedPolyline,
+      precision: 6,
+      meters: _demoSeedMeters.fold(0, (a, b) => a + b),
+      seconds: _demoSeedSeconds.fold(0, (a, b) => a + b),
+      provider: 'osrm-seed',
+      legMeters: _demoSeedMeters,
+      legSeconds: _demoSeedSeconds,
+    ),
+  );
+}
+
+class _Cluster {
+  _Cluster({required this.ids, required this.at, required this.urgency});
+  final List<String> ids;
+  final LatLng at;
+  final double urgency;
+}
+
+List<_Cluster> _clusterStops(LatLng origin, List<RouteStopInput> input) {
+  final clusters = <_Cluster>[];
+  for (final s in input) {
+    if (haversineMeters(origin, s.at) < kSameStopMeters) {
+      // Kurye zaten bu kapıdaysa rota durağı olarak ekleme.
+      continue;
+    }
+    final hit = clusters.indexWhere(
+      (c) => haversineMeters(c.at, s.at) < kSameStopMeters,
+    );
+    if (hit >= 0) {
+      clusters[hit].ids.add(s.id);
+      if (s.urgency > clusters[hit].urgency) {
+        clusters[hit] = _Cluster(
+          ids: clusters[hit].ids,
+          at: clusters[hit].at,
+          urgency: s.urgency,
+        );
+      }
+    } else {
+      clusters.add(_Cluster(ids: [s.id], at: s.at, urgency: s.urgency));
+    }
+  }
+  return clusters;
+}
+
+class _FetchedRoad {
+  const _FetchedRoad({
+    required this.polyline,
+    required this.precision,
+    required this.meters,
+    required this.seconds,
+    required this.provider,
+    required this.legMeters,
+    required this.legSeconds,
+  });
+
+  final String polyline;
+  final int precision;
+  final int meters;
+  final int seconds;
+  final String provider;
+  final List<int> legMeters;
+  final List<int> legSeconds;
+
+  List<LatLng> get points =>
+      decodePolyline(polyline, precision: precision);
+}
+
+/// OSRM bacak uzunluklarını duraklara yazar; yoksa geometriyi duraklarda keser.
+List<({int meters, int seconds})> _splitLegs(
+  List<LatLng> waypoints,
+  _FetchedRoad road,
+) {
+  if (road.legMeters.length == waypoints.length - 1) {
+    return [
+      for (var i = 0; i < road.legMeters.length; i++)
+        (meters: road.legMeters[i], seconds: road.legSeconds[i]),
+    ];
+  }
+  final out = <({int meters, int seconds})>[];
+  for (var i = 1; i < waypoints.length; i++) {
+    final d = haversineMeters(waypoints[i - 1], waypoints[i]).round();
+    out.add((meters: d, seconds: (d / kUrbanSpeedMps).round()));
+  }
+  return out;
+}
+
+Future<_FetchedRoad?> _fetchRoad(
+  List<LatLng> points, {
+  Dio? dio,
+  Duration timeout = const Duration(seconds: 6),
+}) async {
+  if (points.length < 2) return null;
+  final client =
+      dio ??
+      Dio(
+        BaseOptions(
+          connectTimeout: timeout,
+          receiveTimeout: timeout,
+          sendTimeout: timeout,
+          headers: const {
+            'User-Agent': kRoutingUserAgent,
+            'Accept': 'application/json',
+          },
+        ),
+      );
+
+  if (kMapboxToken.isNotEmpty) {
+    final mapped = await _get(
+      client,
+      _mapboxUrl(points),
+      precision: 6,
+      provider: 'mapbox',
+    );
+    if (mapped != null) return mapped;
+  }
+
+  final hosts = <String>[kOsrmUrl];
+  if (_publicOsrm != kOsrmUrl) hosts.add(_publicOsrm);
+  final attempts = <({String url, int precision})>[
+    for (final host in hosts) (url: _osrmUrl(host, points, rich: true), precision: 6),
+    for (final host in hosts) (url: _osrmUrl(host, points, rich: false), precision: 6),
+    for (final host in hosts)
+      (url: _osrmUrl(host, points, rich: false, polyline6: false), precision: 5),
+  ];
+  for (final attempt in attempts) {
+    final fetched = await _get(
+      client,
+      attempt.url,
+      precision: attempt.precision,
+      provider: 'osrm',
+    );
+    if (fetched != null) return fetched;
+  }
+  return null;
+}
+
+String _osrmUrl(
+  String base,
+  List<LatLng> points, {
+  bool rich = true,
+  bool polyline6 = true,
+}) {
+  final coords = points
+      .map(
+        (p) =>
+            '${p.longitude.toStringAsFixed(6)},${p.latitude.toStringAsFixed(6)}',
+      )
+      .join(';');
+  final geom = polyline6 ? 'polyline6' : 'polyline';
+  if (!rich) {
+    return '$base/route/v1/driving/$coords?overview=full&geometries=$geom&steps=false';
+  }
+  // 1 km kurye (bina içi GPS), 250 m durak — snap başarısız olursa tüm
+  // istek düşmesin. polyline6: haritada yol çizgisi kaba görünmesin.
+  final radiuses = [
+    '1000',
+    ...List.filled(points.length - 1, '250'),
+  ].join(';');
+  return '$base/route/v1/driving/$coords?overview=full&geometries=$geom&steps=false&continue_straight=true&radiuses=$radiuses';
+}
+
+String _mapboxUrl(List<LatLng> points) {
+  final coords = points
+      .map(
+        (p) =>
+            '${p.longitude.toStringAsFixed(6)},${p.latitude.toStringAsFixed(6)}',
+      )
+      .join(';');
+  return 'https://api.mapbox.com/directions/v5/mapbox/driving/$coords?geometries=polyline6&overview=full&steps=false&access_token=$kMapboxToken';
+}
+
+Future<_FetchedRoad?> _get(
+  Dio client,
+  String url, {
+  required int precision,
+  required String provider,
+}) async {
+  Future<_FetchedRoad?> once() async {
+    try {
+      final res = await client.get<Map<String, dynamic>>(
+        url,
+        options: Options(
+          headers: const {
+            'User-Agent': kRoutingUserAgent,
+            'Accept': 'application/json',
+          },
+        ),
+      );
+      final body = res.data;
+      if (body == null) return null;
+      final code = body['code'];
+      if (code != null && code != 'Ok') return null;
+      final routes = body['routes'];
+      if (routes is! List || routes.isEmpty) return null;
+      final route = routes.first;
+      if (route is! Map) return null;
+      final geometry = route['geometry'];
+      if (geometry is! String || geometry.isEmpty) return null;
+      final distance = route['distance'];
+      final duration = route['duration'];
+      final rawLegs = route['legs'];
+      final legMeters = <int>[];
+      final legSeconds = <int>[];
+      if (rawLegs is List) {
+        for (final leg in rawLegs) {
+          if (leg is! Map) continue;
+          final d = leg['distance'];
+          final t = leg['duration'];
+          legMeters.add(d is num ? d.round() : 0);
+          legSeconds.add(t is num ? t.round() : 0);
+        }
+      }
+      return _FetchedRoad(
+        polyline: geometry,
+        precision: precision,
+        meters: distance is num ? distance.round() : 0,
+        seconds: duration is num ? duration.round() : 0,
+        provider: provider,
+        legMeters: legMeters,
+        legSeconds: legSeconds,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  return await once() ?? await once();
+}

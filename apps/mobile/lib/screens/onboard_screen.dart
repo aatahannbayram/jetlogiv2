@@ -6,6 +6,8 @@ import 'package:latlong2/latlong.dart';
 
 import '../l10n.dart';
 import '../session.dart';
+import '../brand.dart';
+import '../motion.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
@@ -59,10 +61,7 @@ class _OnboardScreenState extends ConsumerState<OnboardScreen> {
                 children: [
                   const Padding(
                     padding: EdgeInsets.only(left: 16),
-                    child: Image(
-                      image: AssetImage('assets/images/jetlogi_logo_color.png'),
-                      height: 30,
-                    ),
+                    child: Appear(child: DijigooWordmark(height: 26)),
                   ),
                   const Spacer(),
                   TextButton(

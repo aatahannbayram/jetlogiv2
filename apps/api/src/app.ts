@@ -16,7 +16,9 @@ import { delayDecisionRoutes } from './routes/delay-decision.js';
 import { healthRoutes } from './routes/health.js';
 import { identityRoutes } from './routes/identity.js';
 import { mediaRoutes } from './routes/media.js';
+import { notificationRoutes } from './routes/notifications.js';
 import { routingRoutes } from './routes/routing.js';
+import { routingServiceRoutes } from './routes/routing-service.js';
 import { shiftRoutes } from './routes/shift.js';
 import { syncRoutes } from './routes/sync.js';
 import { taskRoutes } from './routes/task.js';
@@ -60,7 +62,7 @@ export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
   await app.register(cors, {
     // Only the panel calls this API from a browser; the mobile app is not
     // subject to CORS at all.
-    origin: ctx.env.NODE_ENV === 'production' ? [/\.dijigoo\.example$/] : true,
+    origin: ctx.env.NODE_ENV === 'production' ? [/\.dijigoo\.com$/] : true,
     credentials: true,
   });
 
@@ -87,8 +89,10 @@ export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
   await app.register(delayDecisionRoutes, { ctx });
   await app.register(shiftRoutes, { ctx });
   await app.register(routingRoutes, { ctx });
+  await app.register(routingServiceRoutes, { ctx });
   await app.register(custodyRoutes, { ctx });
   await app.register(mediaRoutes, { ctx });
+  await app.register(notificationRoutes, { ctx });
   // Registered last on purpose: it re-dispatches into the routes above via
   // app.inject, so they must already exist.
   await app.register(syncRoutes, { ctx });

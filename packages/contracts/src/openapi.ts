@@ -43,8 +43,16 @@ import {
   SupportTicketCreateRequest,
   SupportTicketListResponse,
 } from './custody.js';
+import { DelayDecisionRequest, DelayDecisionResponse } from './delay-decision.js';
 import { EventEnvelope, PushNotification, WebhookPayload } from './events.js';
-import { MediaRef, PresignRequest, PresignResponse } from './media.js';
+import {
+  CourierInboxItem,
+  NotificationDispatchRequest,
+  NotificationListResponse,
+  NotificationReadRequest,
+} from './notifications.js';
+import { ConfirmMediaResponse, MediaRef, PresignRequest, PresignResponse } from './media.js';
+import { RoutingOptimizeRequest, RoutingOptimizeResponse } from './routing-service.js';
 import {
   LocationBatchRequest,
   LocationBatchResponse,
@@ -89,6 +97,20 @@ const bearerAuth = registry.registerComponent('securitySchemes', 'bearerAuth', {
   description:
     'Aktivasyon sonrasi verilen kisa omurlu access token. 15 dakika gecerli, ' +
     'refresh ile doner. Token cihaz kimligine (installationId) baglidir.',
+});
+
+/**
+ * Not a courier identity — a shared secret for another team's *backend*
+ * (jetlogi-panel) to call our service-to-service endpoints. See
+ * apps/api/src/plugins/service-auth.ts.
+ */
+const serviceAuth = registry.registerComponent('securitySchemes', 'serviceAuth', {
+  type: 'apiKey',
+  in: 'header',
+  name: 'x-service-token',
+  description:
+    'Operasyon panelinin backend’i icin paylasilan servis anahtari. Kurye bearer ' +
+    'tokeni degildir, bu API’de operator kimligi yoktur.',
 });
 
 /* ------------------------------------------------------------------ *
@@ -146,6 +168,10 @@ const schemas = {
   LocationBatchResponse,
   RouteStop,
   Route,
+  RoutingOptimizeRequest,
+  RoutingOptimizeResponse,
+  DelayDecisionRequest,
+  DelayDecisionResponse,
   CustodyItem,
   CustodyListResponse,
   CustodyHandoverRequest,
@@ -160,6 +186,10 @@ const schemas = {
   EventEnvelope,
   WebhookPayload,
   PushNotification,
+  CourierInboxItem,
+  NotificationListResponse,
+  NotificationReadRequest,
+  NotificationDispatchRequest,
 } as const;
 
 for (const [name, schema] of Object.entries(schemas)) {
@@ -414,6 +444,54 @@ registry.registerPath({
 });
 
 /* ------------------------------------------------------------------ *
+ * Routing (service-to-service — jetlogi-panel, not the mobile app)
+ * ------------------------------------------------------------------ */
+
+registry.registerPath({
+  method: 'post',
+  path: '/v1/routing/optimize',
+  tags: ['Routing'],
+  summary: 'Verilen duraklar icin en iyi sirayi hesapla (servisler-arasi)',
+  description:
+    'Baska bir ekibin backend’i (jetlogi-panel) icin durumsuz uc — kendi ' +
+    '`tasks`/`shifts` tablomuza hicbir okuma/yazma yapmaz, caginin kendi ' +
+    'duraklarini optimize eder. Ayni motor `GET /v1/routes/current` ile paylasilir.',
+  security: [{ [serviceAuth.name]: [] }],
+  request: { body: { content: json(RoutingOptimizeRequest) } },
+  responses: {
+    200: { description: 'Optimize sira', content: json(RoutingOptimizeResponse) },
+    401: { description: 'Servis anahtari eksik veya hatali', content: errorContent },
+  },
+});
+
+/* ------------------------------------------------------------------ *
+ * Delay decision (service-to-service — jetlogi-panel, not the mobile app)
+ * ------------------------------------------------------------------ */
+
+registry.registerPath({
+  method: 'post',
+  path: '/v1/tasks/{taskId}/delay-decision',
+  tags: ['Routing'],
+  summary: 'SLA riskindeki gorev icin gecikme/iptal karari uygula',
+  description:
+    'Faz 5: operasyon panelinin backend’i, sla.at_risk isaretli bir gorev icin ' +
+    'insan kararini bildirir — bu API’de operator kimligi olmadigi icin karar ' +
+    'bu ucla disaridan alinir.',
+  security: [{ [serviceAuth.name]: [] }],
+  request: {
+    params: z.object({ taskId: Uuid }),
+    body: { content: json(DelayDecisionRequest) },
+  },
+  responses: {
+    200: { description: 'Karar uygulandi', content: json(DelayDecisionResponse) },
+    400: { description: 'Gecersiz istek', content: errorContent },
+    401: { description: 'Servis anahtari eksik veya hatali', content: errorContent },
+    404: { description: 'Gorev bulunamadi', content: errorContent },
+    409: { description: 'Uygulanamaz durum', content: errorContent },
+  },
+});
+
+/* ------------------------------------------------------------------ *
  * Workflow
  * ------------------------------------------------------------------ */
 
@@ -588,6 +666,20 @@ registry.registerPath({
   },
 });
 
+registry.registerPath({
+  method: 'post',
+  path: '/v1/media/{mediaId}/confirm',
+  tags: ['Media'],
+  summary: 'Presign PUT sonrasi medyayi uploaded isaretle',
+  security: [{ [bearerAuth.name]: [] }],
+  request: { params: z.object({ mediaId: Uuid }), headers: clientHeaders },
+  responses: {
+    200: { description: 'Yukleme onaylandi', content: json(ConfirmMediaResponse) },
+    ...authedErrors,
+    409: { description: 'Nesne henuz depolamada yok', content: errorContent },
+  },
+});
+
 /* ------------------------------------------------------------------ *
  * Custody & support
  * ------------------------------------------------------------------ */
@@ -669,6 +761,43 @@ registry.registerPath({
 });
 
 /* ------------------------------------------------------------------ *
+ * Notifications
+ * ------------------------------------------------------------------ */
+
+registry.registerPath({
+  method: 'get',
+  path: '/v1/notifications',
+  tags: ['Notifications'],
+  summary: 'Kurye bildirim kutusunu getir',
+  security: [{ [bearerAuth.name]: [] }],
+  request: { headers: clientHeaders },
+  responses: { 200: { description: 'Kutu', content: json(NotificationListResponse) }, ...authedErrors },
+});
+
+registry.registerPath({
+  method: 'post',
+  path: '/v1/notifications/read',
+  tags: ['Notifications'],
+  summary: 'Bildirimleri okundu isaretle',
+  security: [{ [bearerAuth.name]: [] }],
+  request: { headers: clientHeaders, body: { content: json(NotificationReadRequest) } },
+  responses: { 204: { description: 'Kaydedildi' }, ...authedErrors },
+});
+
+registry.registerPath({
+  method: 'post',
+  path: '/v1/notifications/dispatch',
+  tags: ['Notifications'],
+  summary: 'Panelden kuryeye bildirim yaz ve FCM gonder',
+  security: [{ [serviceAuth.name]: [] }],
+  request: { body: { content: json(NotificationDispatchRequest) } },
+  responses: {
+    201: { description: 'Yazildi', content: json(CourierInboxItem) },
+    ...mutationErrors,
+  },
+});
+
+/* ------------------------------------------------------------------ *
  * Document
  * ------------------------------------------------------------------ */
 
@@ -718,6 +847,7 @@ export function buildOpenApiDocument(): OpenAPIObject {
       { name: 'Auth', description: 'Aktivasyon, cihaz baglama, token — cookie yok' },
       { name: 'Identity', description: 'Web onboarding kayitlarinin mobil devri' },
       { name: 'Shift', description: 'Vardiya, konum, rota' },
+      { name: 'Routing', description: 'Servisler-arasi: jetlogi-panel icin rota/gecikme karari' },
       { name: 'Workflow', description: 'Dinamik islem sihirbazi tanimlari' },
       { name: 'Task', description: 'Gorev listesi, detay, adimlar, sonuclandirma' },
       { name: 'Media', description: 'Kanit yukleme' },

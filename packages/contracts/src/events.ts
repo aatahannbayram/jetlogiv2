@@ -140,10 +140,13 @@ export const PushNotificationKind = z.enum([
   'TASK_ASSIGNED',
   'TASK_UPDATED',
   'TASK_CANCELLED',
+  'TASK_PULLED',
   'ROUTE_RECALCULATED',
   'SHIFT_REMINDER',
   'SUPPORT_REPLY',
   'ANNOUNCEMENT',
+  'SLA_AT_RISK',
+  'CUSTODY_TAKEN',
   /** Silent push that tells the app to run a delta pull. */
   'SYNC_HINT',
 ]);

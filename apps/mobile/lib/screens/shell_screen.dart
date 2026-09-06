@@ -1,16 +1,21 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../alerts.dart';
 import '../api/models.dart';
+import '../geo.dart';
 import '../l10n.dart';
 import '../launchers.dart';
 import '../models.dart';
 import '../motion.dart';
+import '../road.dart';
 import '../session.dart';
+import '../shell_nav.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'home_screen.dart';
@@ -18,6 +23,7 @@ import 'list_screen.dart';
 import 'menu_screen.dart';
 import 'notif_screen.dart';
 import 'tara_screen.dart';
+import 'task_detail_screen.dart';
 
 /// Rota haritası açık renkli karolarla (bkz. map_config.dart) çalışıyor —
 /// üstteki yüzen pilller karonun rengine göre gözden kaybolmasın diye hepsi
@@ -33,11 +39,84 @@ class ShellScreen extends ConsumerStatefulWidget {
   ConsumerState<ShellScreen> createState() => _ShellScreenState();
 }
 
-class _ShellScreenState extends ConsumerState<ShellScreen> {
-  int index = 0;
+class _ShellScreenState extends ConsumerState<ShellScreen>
+    with WidgetsBindingObserver {
+  int _seenUnread = -1;
+  AppNotification? _banner;
+  Timer? _bannerTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    FieldAlerts.tapId.addListener(_onAlertTap);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _onAlertTap();
+      unawaited(ref.read(sessionProvider).reconcilePushPermit());
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    FieldAlerts.tapId.removeListener(_onAlertTap);
+    _bannerTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(ref.read(sessionProvider).reconcilePushPermit());
+    }
+  }
+
+  void _onAlertTap() {
+    final id = FieldAlerts.tapId.value;
+    if (id == null) return;
+    FieldAlerts.tapId.value = null;
+    ref.read(shellNavProvider).go(ShellNav.notif);
+    if (id == FieldAlerts.shiftPayload) return;
+    final s = ref.read(sessionProvider);
+    final n = s.notificationById(id);
+    if (n == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      openAppNotification(context, s, n);
+    });
+  }
+
+  void _showArrival(AppNotification n) {
+    _bannerTimer?.cancel();
+    final s = ref.read(sessionProvider);
+    if (s.beepEnabled) {
+      unawaited(SystemSound.play(SystemSoundType.click));
+    }
+    setState(() => _banner = n);
+    _bannerTimer = Timer(const Duration(seconds: 4), () {
+      if (mounted) setState(() => _banner = null);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
+    final unread = ref.watch(
+      sessionProvider.select((s) => s.unreadNotifCount),
+    );
+    ref.listen<SessionController>(sessionProvider, (prev, next) {
+      if (_seenUnread < 0) {
+        _seenUnread = next.unreadNotifCount;
+        return;
+      }
+      if (next.unreadNotifCount > _seenUnread &&
+          next.notifyEnabled &&
+          ref.read(shellNavProvider).index != ShellNav.notif &&
+          next.visibleNotifications.isNotEmpty) {
+        HapticFeedback.mediumImpact();
+        _showArrival(next.visibleNotifications.first);
+      }
+      _seenUnread = next.unreadNotifCount;
+    });
     // Profil artık ayrı bir sekme değil — Menü'nün üst kartından açılıyor
     // (canvas'ın "1k Menü" tasarımı, profil özetini orada gösteriyor).
     final pages = [
@@ -47,8 +126,11 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
       const NotifScreen(),
       const MenuScreen(),
     ];
+    final nav = ref.watch(shellNavProvider);
+    final index = nav.index;
+    final l = context.l10n;
     return Scaffold(
-      extendBody: true,
+      extendBody: false,
       // IndexedStack keeps all 5 tabs mounted so switching tabs no longer
       // resets scroll position or in-progress state (e.g. ListScreen's
       // search field) — previously this was a plain `pages[index]` swap,
@@ -56,27 +138,127 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
       // AnimatedOpacity per-page gives a soft cross-fade cue without
       // wrapping in AnimatedSwitcher, which would dispose+rebuild the whole
       // stack on every switch and defeat the point of IndexedStack.
-      body: IndexedStack(
-        index: index,
+      body: Stack(
         children: [
-          for (var i = 0; i < pages.length; i++)
-            AnimatedOpacity(
-              opacity: index == i ? 1 : 0,
-              duration: const Duration(milliseconds: 160),
-              child: pages[i],
+          IndexedStack(
+            index: index,
+            children: [
+              for (var i = 0; i < pages.length; i++)
+                AnimatedOpacity(
+                  opacity: index == i ? 1 : 0,
+                  duration: const Duration(milliseconds: 220),
+                  child: pages[i],
+                ),
+            ],
+          ),
+          if (_banner != null)
+            Positioned(
+              left: Dg.pagePad,
+              right: Dg.pagePad,
+              top: MediaQuery.paddingOf(context).top + 8,
+              child: _ArrivalBanner(
+                notification: _banner!,
+                onTap: () {
+                  _bannerTimer?.cancel();
+                  final n = _banner!;
+                  setState(() => _banner = null);
+                  nav.go(ShellNav.notif);
+                  openAppNotification(context, ref.read(sessionProvider), n);
+                },
+                onClose: () {
+                  _bannerTimer?.cancel();
+                  setState(() => _banner = null);
+                },
+              ),
             ),
         ],
       ),
       bottomNavigationBar: DgPillNav(
         index: index,
-        onChanged: (i) => setState(() => index = i),
+        onChanged: nav.go,
+        badges: [0, 0, 0, unread, 0],
         items: [
-          (LucideIcons.house, LucideIcons.house, context.l10n.home),
-          (LucideIcons.truck, LucideIcons.truck, context.l10n.route),
-          (LucideIcons.qrCode, LucideIcons.qrCode, context.l10n.scan),
-          (LucideIcons.bell, LucideIcons.bell, context.l10n.permPush),
-          (LucideIcons.layoutGrid, LucideIcons.layoutGrid, context.l10n.menu),
+          (LucideIcons.house, LucideIcons.house, l.home),
+          (LucideIcons.truck, LucideIcons.truck, l.route),
+          (LucideIcons.qrCode, LucideIcons.qrCode, l.scan),
+          (LucideIcons.bell, LucideIcons.bell, l.permPush),
+          (LucideIcons.layoutGrid, LucideIcons.layoutGrid, l.menu),
         ],
+      ),
+    );
+  }
+}
+
+class _ArrivalBanner extends StatelessWidget {
+  const _ArrivalBanner({
+    required this.notification,
+    required this.onTap,
+    required this.onClose,
+  });
+
+  final AppNotification notification;
+  final VoidCallback onTap;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final n = notification;
+    final l = context.l10n;
+    return Material(
+      color: Dg.surface,
+      borderRadius: BorderRadius.circular(Dg.radiusHero),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(Dg.radiusHero),
+        child: Ink(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(Dg.radiusHero),
+            border: Border.all(color: Dg.rule),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+            child: Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: n.tint,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(n.icon, size: 16, color: n.ink),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        l.notifTitle(n.title),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Dg.ui(size: 14, weight: FontWeight.w700),
+                      ),
+                      Text(
+                        n.body,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Dg.ui(size: 12, color: Dg.ink3),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  onPressed: onClose,
+                  icon: Icon(LucideIcons.x, size: 16, color: Dg.ink3),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -93,251 +275,34 @@ class RouteScreen extends ConsumerStatefulWidget {
 }
 
 class _RouteScreenState extends ConsumerState<RouteScreen> {
-  bool _panelExpanded = true;
+  int _fitEpoch = 0;
 
   @override
   void initState() {
     super.initState();
-    // Loaded proactively on shift-open (session.dart#openShift), but the
-    // screen can be reached before that finishes, or after tasks changed —
-    // this catches those cases without blocking first paint.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final s = ref.read(sessionProvider);
+      unawaited(s.ensureDayRoute());
       if (!s.routeLoading) unawaited(s.loadRoute());
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final s = ref.watch(sessionProvider);
-    final plan = s.routePlan;
-    // The optimizer (apps/api/src/services/optimizer.ts, Faz 2) may reorder
-    // stops for the shortest real drive time — reflect that order here
-    // rather than the raw dispatch list, with any task the plan does not
-    // know about yet (freshly assigned, not in the last computed route)
-    // appended at the end so nothing silently disappears.
-    final tasks = _orderedTasks(s.tasks, plan);
-    final open = tasks.where((t) => t.isOpen).length;
-    final next = s.nextStop;
-    final summary = _routeSummary(
-      plan,
-      fallback: next == null ? 'Rota bitti' : '0,6 km  sağa',
-    );
     return Scaffold(
       body: Stack(
         children: [
-          Positioned.fill(
-            child: MapStrip(
-              height: 900,
-              clipTopOnly: false,
-              interactive: true,
-              points: [for (final t in tasks) LatLng(t.lat, t.lng)],
-              encodedPolyline: plan?.geometry,
-              label: context.l10n.stopsCount(open),
-            ),
-          ),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-              child: Row(
-                children: [
-                  GestureDetector(
-                    onTap: () => Navigator.of(context).pop(),
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: Dg.surface,
-                        shape: BoxShape.circle,
-                        boxShadow: _floatingPillShadow,
-                      ),
-                      child: Icon(
-                        LucideIcons.arrowLeft,
-                        size: 18,
-                        color: Dg.ink,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Dg.purple,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: _floatingPillShadow,
-                      ),
-                      child: Text(
-                        summary,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Dg.ui(
-                          size: 13,
-                          weight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: s.toggleOnline,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Dg.surface,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: _floatingPillShadow,
-                      ),
-                      child: Text(
-                        s.online ? 'Mola' : 'Devam',
-                        style: Dg.ui(
-                          size: 13,
-                          weight: FontWeight.w700,
-                          color: Dg.ink,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  DgCard(
-                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Sürüklenebilir alt panel görünümünü çağrıştıran
-                        // tutamaç — dokununca listeyi açıp kapatıyor, harita
-                        // görünür kalsın isteyen kurye için.
-                        GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: () =>
-                              setState(() => _panelExpanded = !_panelExpanded),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Container(
-                                width: 36,
-                                height: 4,
-                                margin: const EdgeInsets.only(bottom: 10),
-                                decoration: BoxDecoration(
-                                  color: Dg.ink2.withValues(alpha: 0.35),
-                                  borderRadius: BorderRadius.circular(2),
-                                ),
-                              ),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      context.l10n.remainingStopsHint(open),
-                                      style: Dg.ui(size: 15, color: Dg.ink2),
-                                    ),
-                                  ),
-                                  Icon(
-                                    _panelExpanded
-                                        ? LucideIcons.chevronDown
-                                        : LucideIcons.chevronUp,
-                                    size: 18,
-                                    color: Dg.ink2,
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                        AnimatedSize(
-                          duration: const Duration(milliseconds: 220),
-                          curve: Curves.easeOutCubic,
-                          alignment: Alignment.topCenter,
-                          child: !_panelExpanded
-                              ? const SizedBox.shrink()
-                              : Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const SizedBox(height: 12),
-                                    SizedBox(
-                                      // Zengin durak kartları (özellikle aktif
-                                      // durağın tam mor kartı) eski 168px'e
-                                      // sığmıyor — ekranın ~%45'i kadar yer
-                                      // ayırıp gerisini ListView'ın kendi
-                                      // kaydırmasına bırakıyoruz.
-                                      height:
-                                          MediaQuery.of(context).size.height *
-                                          0.45,
-                                      child: s.routeLoading && plan == null
-                                          ? ListView.separated(
-                                              itemCount: 3,
-                                              separatorBuilder: (
-                                                context,
-                                                index,
-                                              ) => const SizedBox(height: 8),
-                                              itemBuilder: (context, i) =>
-                                                  const Padding(
-                                                    padding:
-                                                        EdgeInsets.symmetric(
-                                                          vertical: 6,
-                                                        ),
-                                                    child: DgSkeleton(
-                                                      width: double.infinity,
-                                                      height: 20,
-                                                    ),
-                                                  ),
-                                            )
-                                          : ListView.builder(
-                                              // Dikey zaman çizelgesi: durak
-                                              // düğümü → yolculuk segmenti →
-                                              // durak düğümü — bu yüzden n
-                                              // durak için 2n-1 öğe var, tek
-                                              // indeksler segment.
-                                              itemCount: tasks.isEmpty
-                                                  ? 0
-                                                  : tasks.length * 2 - 1,
-                                              itemBuilder: (context, i) {
-                                                if (i.isOdd) {
-                                                  final task =
-                                                      tasks[(i + 1) ~/ 2];
-                                                  final leg = plan == null
-                                                      ? null
-                                                      : _findStop(
-                                                          plan.stops,
-                                                          task.id,
-                                                        );
-                                                  return _TravelSegment(
-                                                    stop: leg,
-                                                  );
-                                                }
-                                                final idx = i ~/ 2;
-                                                return _StopNode(
-                                                  task: tasks[idx],
-                                                  active:
-                                                      tasks[idx].id == next?.id,
-                                                  last: idx == tasks.length - 1,
-                                                );
-                                              },
-                                            ),
-                                    ),
-                                  ],
-                                ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+          Positioned.fill(child: _RouteMap(fitEpoch: _fitEpoch)),
+          const _RouteTopBar(),
+          const _RouteSheet(),
+          Positioned(
+            right: 16,
+            bottom: MediaQuery.sizeOf(context).height * 0.42 + 12,
+            child: _MapChip(
+              onTap: () => setState(() => _fitEpoch++),
+              child: Tooltip(
+                message: context.l10n.recenterRoute,
+                child: Icon(LucideIcons.locate, size: 18, color: Dg.ink),
               ),
             ),
           ),
@@ -347,18 +312,277 @@ class _RouteScreenState extends ConsumerState<RouteScreen> {
   }
 }
 
-/// Reorders [tasks] to match `plan.stops` (optimizer output); a task the
-/// plan does not mention — newly assigned since the last computed route —
-/// is appended at the end rather than dropped.
-List<DeliveryTask> _orderedTasks(List<DeliveryTask> tasks, RoutePlanDto? plan) {
-  if (plan == null || plan.stops.isEmpty) return tasks;
-  final byId = {for (final t in tasks) t.id: t};
-  final ordered = <DeliveryTask>[
-    for (final stop in plan.stops) ?byId[stop.taskId],
-  ];
-  final seen = ordered.map((t) => t.id).toSet();
-  ordered.addAll(tasks.where((t) => !seen.contains(t.id)));
-  return ordered;
+class _RouteMap extends ConsumerWidget {
+  const _RouteMap({this.fitEpoch = 0});
+
+  final int fitEpoch;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(
+      sessionProvider.select(
+        (s) => Object.hash(
+          s.dayRoute?.polyline,
+          s.dayRoute?.meters,
+          s.dayRoute?.estimated,
+          s.dayRouteLoading,
+          s.showFleet,
+          s.openCount,
+          s.tasks.length,
+        ),
+      ),
+    );
+    final s = ref.read(sessionProvider);
+    final tasks = s.orderedOpenTasks;
+    final day = s.dayRoute;
+    final pts = _uniquePoints(tasks);
+    return MapStrip(
+      height: 1200,
+      clipTopOnly: false,
+      rounded: false,
+      interactive: true,
+      showBadge: false,
+      points: pts,
+      roadPoints: day != null && day.points.length > 1 ? day.points : null,
+      highlightPoints: day != null && !day.estimated ? day.highlight : null,
+      polylinePrecision: day?.precision ?? 5,
+      estimated: day == null || day.estimated,
+      couriers: s.visibleFleet,
+      fitEpoch: fitEpoch,
+      numberStops: true,
+      fitTo: [
+        LatLng(s.selfLat, s.selfLng),
+        ...pts,
+        if (day != null) ...day.waypoints,
+      ],
+    );
+  }
+}
+
+class _RouteTopBar extends ConsumerWidget {
+  const _RouteTopBar();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(sessionProvider);
+    final next = s.nextStop;
+    final day = s.dayRoute;
+    final summary = next == null
+        ? context.l10n.routeFinished
+        : s.dayRouteLoading && (day == null || day.estimated)
+        ? context.l10n.routeComputing
+        : day != null
+        ? (day.estimated
+              ? '${context.l10n.routeKmMin((day.meters / 1000).toStringAsFixed(1), day.minutes)}  ·  ${context.l10n.approxRoute}'
+              : context.l10n.routeKmMin(
+                  (day.meters / 1000).toStringAsFixed(1),
+                  day.minutes,
+                ))
+        : _routeSummary(s.routePlan, fallback: context.l10n.approxRoute);
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+        child: Row(
+          children: [
+            _MapChip(
+              onTap: () {
+                if (Navigator.of(context).canPop()) {
+                  Navigator.of(context).pop();
+                }
+              },
+              child: Icon(LucideIcons.arrowLeft, size: 18, color: Dg.ink),
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  gradient: Dg.primaryGradient,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: _floatingPillShadow,
+                ),
+                child: Text(
+                  summary,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Dg.ui(
+                    size: 13,
+                    weight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            _MapChip(
+              on: s.showFleet,
+              onTap: s.toggleFleet,
+              child: Icon(
+                LucideIcons.users,
+                size: 18,
+                color: s.showFleet ? Colors.white : Dg.ink,
+              ),
+            ),
+            const SizedBox(width: 8),
+            _MapChip(
+              onTap: s.toggleOnline,
+              child: Icon(
+                s.online ? LucideIcons.pause : LucideIcons.play,
+                size: 18,
+                color: Dg.ink,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MapChip extends StatelessWidget {
+  const _MapChip({required this.onTap, required this.child, this.on = false});
+
+  final VoidCallback onTap;
+  final Widget child;
+  final bool on;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 40,
+        height: 40,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: on ? Dg.night : Dg.surface,
+          shape: BoxShape.circle,
+          boxShadow: _floatingPillShadow,
+        ),
+        child: child,
+      ),
+    );
+  }
+}
+
+class _RouteSheet extends ConsumerWidget {
+  const _RouteSheet();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(sessionProvider);
+    final plan = s.routePlan;
+    final day = s.dayRoute;
+    final openTasks = s.orderedOpenTasks;
+    final nextId = s.nextStop?.id;
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.40,
+      minChildSize: 0.16,
+      maxChildSize: 0.78,
+      snap: true,
+      snapSizes: const [0.16, 0.40, 0.78],
+      builder: (context, scroll) {
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            color: Dg.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x33000000),
+                blurRadius: 24,
+                offset: Offset(0, -4),
+              ),
+            ],
+          ),
+          child: ListView(
+            controller: scroll,
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: Dg.ink2.withValues(alpha: 0.35),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Text(
+                context.l10n.remainingStopsHint(openTasks.length),
+                style: Dg.ui(size: 17, weight: FontWeight.w700),
+              ),
+              const SizedBox(height: 14),
+              if (s.routeLoading && plan == null)
+                const DgSkeleton(width: double.infinity, height: 88)
+              else if (openTasks.isEmpty)
+                Text(
+                  context.l10n.routeFinished,
+                  style: Dg.ui(size: 14, color: Dg.ink2),
+                )
+              else ...[
+                if (day != null && day.stops.isNotEmpty)
+                  _TravelSegment(
+                    meters: day.stops.first.meters,
+                    seconds: day.stops.first.seconds,
+                    fromYou: true,
+                  ),
+                for (var i = 0; i < openTasks.length; i++) ...[
+                  if (i > 0 &&
+                      haversineMeters(
+                            LatLng(openTasks[i - 1].lat, openTasks[i - 1].lng),
+                            LatLng(openTasks[i].lat, openTasks[i].lng),
+                          ) >=
+                          kSameStopMeters)
+                    _TravelSegment(
+                      meters: day == null
+                          ? _findStop(plan?.stops ?? const [], openTasks[i].id)
+                              ?.distanceMeters
+                          : _dayLeg(day, openTasks[i].id)?.meters,
+                      seconds: day == null
+                          ? _findStop(plan?.stops ?? const [], openTasks[i].id)
+                              ?.durationSeconds
+                          : _dayLeg(day, openTasks[i].id)?.seconds,
+                    ),
+                  _StopNode(
+                    task: openTasks[i],
+                    active: openTasks[i].id == nextId,
+                    last: i == openTasks.length - 1,
+                  ),
+                ],
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+DayStop? _dayLeg(DayRoute route, String taskId) {
+  for (final s in route.stops) {
+    if (s.taskIds.contains(taskId)) return s;
+  }
+  return null;
+}
+
+/// Aynı adrese gruplanan görevler aynı koordinatı paylaşır ("Aynı adres · N
+/// gönderi" kartı) — tekilleştirilmeden polyline'a/fallback düz çizgiye
+/// geçilirse, sondaki yinelenen nokta rotanın ortasına geri "sıçrıyormuş"
+/// gibi görünen bir zikzak yaratıyordu.
+List<LatLng> _uniquePoints(Iterable<DeliveryTask> tasks) {
+  final out = <LatLng>[];
+  final seen = <String>{};
+  for (final t in tasks) {
+    final key = '${t.lat.toStringAsFixed(4)},${t.lng.toStringAsFixed(4)}';
+    if (seen.add(key)) out.add(LatLng(t.lat, t.lng));
+  }
+  return out;
 }
 
 RouteStopDto? _findStop(List<RouteStopDto> stops, String taskId) {
@@ -391,97 +615,88 @@ class _StopNode extends StatelessWidget {
   final bool active;
   final bool last;
 
+  void _openDetail(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => TaskDetailScreen(taskId: task.id),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final delivered = task.status == TaskStatus.delivered;
-    final cancelled = task.status == TaskStatus.cancelled;
-    final icon = delivered
-        ? LucideIcons.check
-        : cancelled
-        ? LucideIcons.x
-        : (last
-              ? LucideIcons.flag
-              : (active ? LucideIcons.mapPin : LucideIcons.layers));
+    final l = context.l10n;
+    final meta = [
+      if (task.custodyCount != null) l.itemsCount(task.custodyCount!),
+      if (task.otpRequired) l.codeRequired,
+    ].join(' · ');
 
     if (active) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 2),
-        child: Row(
+      return Container(
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+        decoration: BoxDecoration(
+          gradient: Dg.primaryGradient,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 26,
-              height: 26,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Dg.primaryGradientStart,
-              ),
-              child: Icon(icon, size: 14, color: Colors.white),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  gradient: Dg.primaryGradient,
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Display(
-                            task.recipient,
-                            size: 16,
-                            color: Colors.white,
-                          ),
-                        ),
-                        StatusChip(
-                          label: taskStatusLabel(task.status, context.l10n),
-                          tone: 'lime',
-                          fg: Colors.white,
-                        ),
-                      ],
+            GestureDetector(
+              onTap: () => _openDetail(context),
+              behavior: HitTestBehavior.opaque,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    task.recipient,
+                    style: Dg.ui(
+                      size: 17,
+                      weight: FontWeight.w700,
+                      color: Colors.white,
                     ),
-                    const SizedBox(height: 2),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    task.address,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Dg.ui(
+                      size: 13,
+                      color: Colors.white.withValues(alpha: 0.82),
+                      height: 1.3,
+                    ),
+                  ),
+                  if (meta.isNotEmpty) ...[
+                    const SizedBox(height: 8),
                     Text(
-                      '${task.address}  ·  ${task.window}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.white.withValues(alpha: 0.85),
+                      meta,
+                      style: Dg.ui(
+                        size: 12,
+                        weight: FontWeight.w600,
+                        color: Colors.white.withValues(alpha: 0.72),
                       ),
                     ),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        if (task.custodyCount != null)
-                          _pill('Zimmet', '${task.custodyCount} kalem'),
-                        if (task.otpRequired) _pill('Kod', 'Gerekli'),
-                        if (task.slaMinutesLeft != null)
-                          _pill('Kalan', task.slaLabel),
-                      ],
-                    ),
-                    if (task.isOpen) ...[
-                      const SizedBox(height: 10),
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton.icon(
-                          style: FilledButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            foregroundColor: Dg.primaryGradientStart,
-                          ),
-                          onPressed: () => openDirections(context, task),
-                          icon: const Icon(LucideIcons.navigation, size: 15),
-                          label: Text(context.l10n.goToThisStop),
-                        ),
-                      ),
-                    ],
                   ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              height: 44,
+              child: FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: Dg.primaryGradientStart,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                onPressed: () => openDirections(context, task),
+                icon: const Icon(LucideIcons.navigation, size: 16),
+                label: Text(
+                  l.goToThisStop,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
               ),
             ),
@@ -490,117 +705,58 @@ class _StopNode extends StatelessWidget {
       );
     }
 
-    return GestureDetector(
-      onTap: () => openDirections(context, task),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 26,
-            height: 26,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: delivered
-                  ? Dg.sage
-                  : cancelled
-                  ? Dg.ink3
-                  : Dg.elev,
-            ),
-            child: Icon(
-              icon,
-              size: 14,
-              color: delivered || cancelled ? Colors.white : Dg.ink2,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    InitialsAvatar(
-                      name: task.recipient,
-                      photoUrl: task.personPhoto,
-                      size: 22,
+    return Pressable(
+      onTap: () => _openDetail(context),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Row(
+          children: [
+            Container(
+              width: 24,
+              height: 24,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: last ? Dg.violetBg : Dg.elev,
+                border: Border.all(color: last ? Dg.purpleActive : Dg.rule),
+              ),
+              child: last
+                  ? Icon(LucideIcons.flag, size: 11, color: Dg.purpleActive)
+                  : Text(
+                      '${task.sequence}',
+                      style: Dg.ui(
+                        size: 11,
+                        weight: FontWeight.w700,
+                        color: Dg.ink2,
+                      ),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(child: Display(task.recipient, size: 15)),
-                    Text(
-                      task.window.split('–').first,
-                      style: TextStyle(fontSize: 12, color: Dg.ink3),
-                    ),
-                  ],
-                ),
-                Text(
-                  task.address,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 12, color: Dg.ink3),
-                ),
-                if (delivered || task.custodyCount != null) ...[
-                  const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: [
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    task.recipient,
+                    style: Dg.ui(size: 15, weight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    [
+                      task.address,
                       if (task.custodyCount != null)
-                        _pill('Zimmet', '${task.custodyCount} kalem'),
-                      if (delivered && task.signed)
-                        _pillIcon(LucideIcons.penLine, 'İmzalandı'),
-                      if (delivered && task.otpRequired)
-                        _pillIcon(LucideIcons.key, 'Kod'),
-                    ],
+                        l.itemsCount(task.custodyCount!),
+                    ].join(' · '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Dg.ui(size: 13, color: Dg.ink2),
                   ),
                 ],
-              ],
+              ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _pill(String label, String value) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.18),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Text(
-        '$label $value',
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
+            Icon(LucideIcons.chevronRight, size: 16, color: Dg.ink3),
+          ],
         ),
-      ),
-    );
-  }
-
-  Widget _pillIcon(IconData icon, String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-      decoration: BoxDecoration(
-        color: Dg.elev,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 11, color: Dg.ink2),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              color: Dg.ink2,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -609,31 +765,39 @@ class _StopNode extends StatelessWidget {
 /// İki durak arasındaki yolculuğu gösteren segment — araç ikonu + süre/km,
 /// ince dikey bir çizgi üzerinde (durak noktalarını görsel olarak bağlar).
 class _TravelSegment extends StatelessWidget {
-  const _TravelSegment({required this.stop});
+  const _TravelSegment({this.meters, this.seconds, this.fromYou = false});
 
   /// Null: rota henüz hesaplanmadı, ya da bu bacak için veri yok.
-  final RouteStopDto? stop;
+  final int? meters;
+  final int? seconds;
+  final bool fromYou;
 
   @override
   Widget build(BuildContext context) {
-    final distanceMeters = stop?.distanceMeters;
-    final label = distanceMeters == null
-        ? '…'
-        : '${(distanceMeters / 1000).toStringAsFixed(1)} km · ${((stop!.durationSeconds ?? 0) / 60).round()} dk';
+    final distanceMeters = meters;
+    if (distanceMeters == null) {
+      return const SizedBox(height: 8);
+    }
+    final minutes = ((seconds ?? 0) / 60).clamp(1, 180).round();
+    final travel =
+        '${(distanceMeters / 1000).toStringAsFixed(1)} km · $minutes dk';
+    final label = fromYou
+        ? '${context.l10n.youToNext}  ·  $travel'
+        : travel;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
+      padding: const EdgeInsets.fromLTRB(11, 2, 0, 2),
       child: Row(
         children: [
-          SizedBox(
-            width: 12,
-            child: Center(
-              child: Container(width: 2, height: 22, color: Dg.rule),
+          Container(width: 2, height: 20, color: Dg.rule),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Dg.ui(size: 12, color: Dg.ink3),
             ),
           ),
-          const SizedBox(width: 12),
-          Icon(LucideIcons.truck, size: 13, color: Dg.ink3),
-          const SizedBox(width: 6),
-          Text(label, style: TextStyle(fontSize: 11, color: Dg.ink3)),
         ],
       ),
     );

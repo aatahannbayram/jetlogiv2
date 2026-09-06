@@ -4,6 +4,8 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../l10n.dart';
 import '../session.dart';
+import '../brand.dart';
+import '../motion.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
@@ -37,6 +39,21 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
     _identifier.dispose();
     _password.dispose();
     super.dispose();
+  }
+
+  String _activationError(L10n l, SessionController session, {bool verify = false}) {
+    final raw = session.lastActivationError;
+    if (raw == 'NETWORK') return l.activationSendFailed;
+    if (raw == 'OTP_RESEND_TOO_SOON' || raw == 'RATE_LIMITED') {
+      return l.waitToResend;
+    }
+    if (raw != null &&
+        raw != 'REQUEST_FAILED' &&
+        raw != 'VERIFY_FAILED' &&
+        raw != 'NO_CHALLENGE') {
+      return raw;
+    }
+    return verify ? l.codeMismatch : l.activationSendFailed;
   }
 
   InputDecoration _plainFieldDecoration() {
@@ -89,19 +106,8 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 22,
-                        vertical: 14,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Image.asset(
-                        'assets/images/jetlogi_logo_color.png',
-                        height: 34,
-                      ),
+                    const Appear(
+                      child: DijigooWordmark(height: 36, onDark: true),
                     ),
                     const SizedBox(height: 28),
                     Text(
@@ -352,16 +358,41 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
                             ],
                           ),
                         ),
+                        if (_error != null)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: Text(
+                              _error!,
+                              style: const TextStyle(
+                                color: Dg.clay,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
                         const SizedBox(height: 18),
                         DgButton(
                           label: l.sendCode,
                           trailing: LucideIcons.arrowRight,
-                          onPressed: () async {
-                            await ref
-                                .read(sessionProvider)
-                                .requestActivationCode(_phone.text);
-                            if (mounted) setState(() => _sent = true);
-                          },
+                          busy: session.activationBusy,
+                          onPressed: session.activationBusy
+                              ? null
+                              : () async {
+                                  setState(() => _error = null);
+                                  final ok = await ref
+                                      .read(sessionProvider)
+                                      .requestActivationCode(_phone.text);
+                                  if (!mounted) return;
+                                  if (!ok) {
+                                    setState(
+                                      () => _error = _activationError(
+                                        l,
+                                        ref.read(sessionProvider),
+                                      ),
+                                    );
+                                    return;
+                                  }
+                                  setState(() => _sent = true);
+                                },
                         ),
                       ] else ...[
                         Text(
@@ -403,13 +434,46 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
                                 .verifyLoginOtp(_otp.text.trim());
                             if (!ok) {
                               setState(
-                                () =>
-                                    _error = l.codeMismatch,
+                                () => _error = _activationError(
+                                  l,
+                                  ref.read(sessionProvider),
+                                  verify: true,
+                                ),
                               );
                               return;
                             }
                             ref.read(sessionProvider).completeActivation();
                           },
+                        ),
+                        const SizedBox(height: 12),
+                        Center(
+                          child: TextButton(
+                            onPressed: session.activationBusy ||
+                                    (session.otpResendAt != null &&
+                                        DateTime.now().isBefore(
+                                          session.otpResendAt!,
+                                        ))
+                                ? null
+                                : () async {
+                                    setState(() => _error = null);
+                                    final ok = await ref
+                                        .read(sessionProvider)
+                                        .requestActivationCode(_phone.text);
+                                    if (!mounted) return;
+                                    if (!ok) {
+                                      setState(
+                                        () => _error = _activationError(
+                                          l,
+                                          ref.read(sessionProvider),
+                                        ),
+                                      );
+                                    }
+                                  },
+                            child: Text(
+                              l.resendCode,
+                              style: TextStyle(color: muted),
+                            ),
+                          ),
                         ),
                       ],
                       const SizedBox(height: 14),

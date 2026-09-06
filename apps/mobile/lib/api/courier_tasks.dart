@@ -137,6 +137,11 @@ String failureOutcomeCode(String reason) => switch (reason) {
   _ => 'RECIPIENT_ABSENT',
 };
 
+bool photoRequiredForFailure(String reason) {
+  final code = failureOutcomeCode(reason);
+  return code == 'RECIPIENT_ABSENT' || code == 'ADDRESS_NOT_FOUND';
+}
+
 DeliveryTask deliveryTaskFromSummary(Map<String, dynamic> json) {
   final address = Map<String, dynamic>.from(json['address'] as Map? ?? const {});
   final contact = Map<String, dynamic>.from(json['contact'] as Map? ?? const {});
@@ -164,6 +169,7 @@ DeliveryTask deliveryTaskFromSummary(Map<String, dynamic> json) {
     id: json['id'] as String? ?? Vault.newUuid(),
     ref: json['reference'] as String? ?? '',
     recipient: contact['name'] as String? ?? '',
+    phone: contact['phone'] as String? ?? contact['maskedPhone'] as String?,
     address: composed,
     window: _slotWindow(json['slotStartAt'] as String?, json['slotEndAt'] as String?),
     kind: taskKindFromWire(json['type'] as String?),
@@ -189,6 +195,7 @@ DeliveryTask deliveryTaskFromPanel(PanelCourierTaskDto row) {
     id: row.id,
     ref: row.shipmentNumber,
     recipient: row.recipientName ?? '',
+    phone: row.recipientPhone,
     address: dest.address ?? '',
     window: _slotWindow(row.plannedDeliveryAt, null),
     kind: TaskKind.delivery,

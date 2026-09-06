@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +8,8 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../l10n.dart';
 import '../session.dart';
+import '../brand.dart';
+import '../motion.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
@@ -97,6 +100,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                   children: [
                     Row(
                       children: [
+                        Appear(
+                          child: DijigooWordmark(height: 24, onDark: Dg.dark),
+                        ),
+                        const Spacer(),
                         if (s.panelLoggedIn)
                           Text(
                             l.panelSessionOn,
@@ -106,14 +113,16 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                        const Spacer(),
-                        DemoPill(
-                          onLongPress: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(l.demoCodesHint)),
-                            );
-                          },
-                        ),
+                        if (s.demo) ...[
+                          const SizedBox(width: 8),
+                          DemoPill(
+                            onLongPress: () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text(l.demoCodesHint)),
+                              );
+                            },
+                          ),
+                        ],
                       ],
                     ),
                     const Spacer(),
@@ -196,7 +205,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                                             CrossAxisAlignment.start,
                                         children: [
                                           Text(
-                                            l.todayStopsGuney,
+                                            s.demo
+                                                ? l.todayStopsGuney
+                                                : l.todayFieldHint,
                                             style: TextStyle(
                                               color: onHero,
                                               fontSize: 15,
@@ -238,7 +249,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                                 busy: !canGo,
                                 onPressed: canGo
                                     ? () =>
-                                          ref.read(sessionProvider).skipToDemo()
+                                          ref.read(sessionProvider).enterField()
                                     : null,
                               ),
                               const SizedBox(height: 8),
@@ -251,6 +262,18 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                                 onPressed: () =>
                                     ref.read(sessionProvider).finishSplash(),
                               ),
+                              if (!kReleaseMode) ...[
+                                const SizedBox(height: 8),
+                                TextButton(
+                                  key: const Key('open-demo'),
+                                  onPressed: () =>
+                                      ref.read(sessionProvider).skipToDemo(),
+                                  child: Text(
+                                    l.openDemo,
+                                    style: TextStyle(color: muted),
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         )

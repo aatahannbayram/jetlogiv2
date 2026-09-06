@@ -56,16 +56,66 @@ class StaggerIn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (MediaQuery.disableAnimationsOf(context)) return child;
     return child
-        .animate(delay: (30 * index.clamp(0, 10)).ms)
-        .fadeIn(duration: 220.ms, curve: Curves.easeOutCubic)
+        .animate(delay: (36 * index.clamp(0, 8)).ms)
+        .fadeIn(duration: 280.ms, curve: Curves.easeOutCubic)
         .slideY(
-          begin: 0.08,
+          begin: 0.06,
           end: 0,
-          duration: 220.ms,
+          duration: 420.ms,
           curve: Curves.easeOutCubic,
         );
   }
+}
+
+/// Framer-style mount: fade + rise + slight scale. One-shot, no loop.
+class Appear extends StatelessWidget {
+  const Appear({
+    super.key,
+    required this.child,
+    this.delay = Duration.zero,
+    this.slide = 0.04,
+  });
+
+  final Widget child;
+  final Duration delay;
+  final double slide;
+
+  @override
+  Widget build(BuildContext context) {
+    if (MediaQuery.disableAnimationsOf(context)) return child;
+    return child
+        .animate(delay: delay)
+        .fadeIn(duration: 280.ms, curve: Curves.easeOutCubic)
+        .slideY(
+          begin: slide,
+          end: 0,
+          duration: 420.ms,
+          curve: Curves.easeOutCubic,
+        )
+        .scale(
+          begin: const Offset(0.98, 0.98),
+          end: const Offset(1, 1),
+          duration: 420.ms,
+          curve: Curves.easeOutCubic,
+        );
+  }
+}
+
+/// Phase / tab crossfade used by [DijigooApp] and the shell.
+Widget dgSwitchTransition(Widget child, Animation<double> animation) {
+  final curved = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
+  return FadeTransition(
+    opacity: curved,
+    child: SlideTransition(
+      position: Tween<Offset>(
+        begin: const Offset(0, 0.018),
+        end: Offset.zero,
+      ).animate(curved),
+      child: child,
+    ),
+  );
 }
 
 /// A plain opacity-pulse loading placeholder — not a shimmer sweep, which
@@ -119,9 +169,9 @@ class _PressableState extends State<Pressable> {
       onTapCancel: () => setState(() => _down = false),
       onTap: widget.onTap,
       child: AnimatedScale(
-        scale: _down ? 0.96 : 1.0,
-        duration: const Duration(milliseconds: 100),
-        curve: Curves.easeOut,
+        scale: _down ? 0.97 : 1.0,
+        duration: Duration(milliseconds: _down ? 80 : 220),
+        curve: _down ? Curves.easeOut : Curves.easeOutBack,
         child: widget.child,
       ),
     );

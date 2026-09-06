@@ -8,7 +8,7 @@ import {
   SyncPullQuery,
   type SyncOperation,
 } from '@dijigoo/contracts';
-import { custodyItems, shifts, tasks, workflows } from '@dijigoo/db';
+import { custodyItems, notifications, shifts, tasks, workflows } from '@dijigoo/db';
 import { and, asc, eq, gt, inArray, isNull, or, sql } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
@@ -16,6 +16,7 @@ import { z } from 'zod';
 
 import type { AppContext } from '../context.js';
 import { toCustodyItem } from './custody.js';
+import { toInboxItem } from '../services/notify.js';
 import { decodeCursor, encodeCursor, toSummary } from './task.js';
 
 /**
@@ -199,6 +200,7 @@ export async function syncRoutes(app: FastifyInstance, { ctx }: { ctx: AppContex
           removedCustodyIds: [],
           shift: null,
           workflows: [],
+          notifications: [],
           nextCursor: null,
           syncedAt: new Date().toISOString(),
           resyncRequired: true,
@@ -211,7 +213,7 @@ export async function syncRoutes(app: FastifyInstance, { ctx }: { ctx: AppContex
         .from(tasks)
         .where(
           and(
-            eq(tasks.assignedCourierId, courier.courierId),
+            eq(tasks.courierId, courier.courierId),
             eq(tasks.tenantId, courier.tenantId),
             watermark ? gt(tasks.updatedAt, watermark) : undefined,
             keyset
@@ -243,7 +245,7 @@ export async function syncRoutes(app: FastifyInstance, { ctx }: { ctx: AppContex
                 eq(tasks.tenantId, courier.tenantId),
                 eq(tasks.previousCourierId, courier.courierId),
                 gt(tasks.updatedAt, watermark),
-                sql`${tasks.assignedCourierId} is distinct from ${courier.courierId}`,
+                sql`${tasks.courierId} is distinct from ${courier.courierId}`,
               ),
             )
         : [];
@@ -264,11 +266,36 @@ export async function syncRoutes(app: FastifyInstance, { ctx }: { ctx: AppContex
         .where(and(eq(custodyItems.holderCourierId, courier.courierId), isNull(custodyItems.releasedAt)))
         .limit(500);
 
+      const inbox = await ctx.db
+        .select()
+        .from(notifications)
+        .where(
+          and(
+            eq(notifications.courierId, courier.courierId),
+            watermark ? gt(notifications.createdAt, watermark) : undefined,
+          ),
+        )
+        .orderBy(asc(notifications.createdAt))
+        .limit(40);
+
       return {
         tasks: page.map(toSummary),
         removedTaskIds: removed.map((r) => r.id),
         custody: custody.map(toCustodyItem),
         removedCustodyIds: [],
+        notifications: inbox.map((row) =>
+          toInboxItem({
+            id: row.id,
+            kind: row.kind,
+            title: row.title ?? '',
+            body: row.body ?? '',
+            route: row.route ?? null,
+            subjectId: row.subjectId ?? null,
+            collapseKey: row.collapseKey ?? null,
+            readAt: row.readAt ?? null,
+            createdAt: row.createdAt,
+          }),
+        ),
         shift: openShift
           ? {
               id: openShift.id,

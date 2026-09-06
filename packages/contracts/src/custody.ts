@@ -56,6 +56,8 @@ export const CustodyItem = z
 
 export const CustodyListQuery = CursorPageQuery.extend({
   type: z.array(CustodyItemType).nullish(),
+  /** Tenant-wide lookup for takeover — not limited to items the courier already holds. */
+  barcode: z.string().max(80).nullish(),
 });
 
 export const CustodyListResponse = cursorPage(CustodyItem, 'CustodyListResponse');

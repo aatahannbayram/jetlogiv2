@@ -41,6 +41,32 @@ void main() {
     expect(task.cod, 40);
     expect(task.custodyCount, 3);
     expect(task.lat, 38.1);
+    expect(task.phone, isNull);
+  });
+
+  test('Contact phone ve maskedPhone DeliveryTask.phone olur', () {
+    final raw = deliveryTaskFromSummary({
+      'id': '9f1c2f8a-7d1e-4f6b-9a3c-2b5d4e6f7a81',
+      'reference': 'DJG-2',
+      'type': 'DELIVERY',
+      'status': 'ASSIGNED',
+      'sequence': 1,
+      'address': {'line1': 'A', 'city': 'Denizli'},
+      'contact': {'name': 'Bora', 'phone': '+905321110026'},
+      'rowVersion': 0,
+    });
+    expect(raw.phone, '+905321110026');
+    final masked = deliveryTaskFromSummary({
+      'id': '9f1c2f8a-7d1e-4f6b-9a3c-2b5d4e6f7a82',
+      'reference': 'DJG-3',
+      'type': 'DELIVERY',
+      'status': 'ASSIGNED',
+      'sequence': 1,
+      'address': {'line1': 'A', 'city': 'Denizli'},
+      'contact': {'name': 'Ada', 'maskedPhone': '+90532***0026'},
+      'rowVersion': 0,
+    });
+    expect(masked.phone, '+90532***0026');
   });
 
   test('demo GET /v1/tasks tohumu Ahmet Yılmaz’ı döner', () {
@@ -51,6 +77,33 @@ void main() {
     expect(mapped.first.recipient, 'Ahmet Yılmaz');
     expect(mapped.first.ref, 'DGO-8841');
     expect(mapped.map((t) => t.id), ['t1', 't2', 't3', 't4']);
+    expect(mapped.first.phone, '+905321110026');
+  });
+
+  test('POST /v1/tasks/:id/call mock dialNumber döner', () async {
+    final payload = mockPayload(
+      '/v1/tasks/t1/call',
+      RequestOptions(path: '/v1/tasks/t1/call'),
+    );
+    expect(payload['dialNumber'], '+905321110026');
+    expect(payload['sessionId'], isNotEmpty);
+    final dio = Dio();
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          handler.resolve(
+            Response<Map<String, dynamic>>(
+              requestOptions: options,
+              statusCode: 200,
+              extra: const {'demo': true},
+              data: payload,
+            ),
+          );
+        },
+      ),
+    );
+    final call = await MobileApi(dio: dio).startMaskedCall('t1');
+    expect(call.dialNumber, '+905321110026');
   });
 
   test('FailScreen gerekçesi kanonik outcomeCode’a düşer', () {
@@ -58,6 +111,23 @@ void main() {
     expect(failureOutcomeCode('Adres bulunamadı'), 'ADDRESS_NOT_FOUND');
     expect(failureOutcomeCode('Alıcı teslim almadı'), 'REFUSED');
     expect(failureOutcomeCode('Ödeme alınamadı'), 'REFUSED');
+    expect(photoRequiredForFailure('Alıcı adreste yok'), isTrue);
+    expect(photoRequiredForFailure('Adres bulunamadı'), isTrue);
+    expect(photoRequiredForFailure('Alıcı teslim almadı'), isFalse);
+  });
+
+  test('submitStep STEP_SUBMIT kuyruğa yazar', () {
+    final s = SessionController();
+    s.online = false;
+    s.submitStep(
+      taskId: 't1',
+      stepKey: 'alici_kim',
+      value: {'teslim_alan': 'recipient'},
+    );
+    final last = s.outbox.events.last;
+    expect(last.operation, SyncOperation.stepSubmit);
+    expect(last.payload['stepKey'], 'alici_kim');
+    expect(s.stepAnswers['t1']!.single['stepKey'], 'alici_kim');
   });
 
   test('iade TASK_FINALIZE + RECIPIENT_ABSENT yazar', () {
@@ -69,39 +139,50 @@ void main() {
     expect(last.payload['workflowVersion'], 1);
     expect(last.payload['clientEventId'], last.clientEventId);
     expect(last.payload['occurredAt'], isNotNull);
+    expect(last.payload['location'], isA<Map>());
     expect(s.taskById('t1').status, TaskStatus.failed);
   });
 
   test('start zinciri ACCEPTED…IN_PROGRESS ve rowVersion artırır', () {
     expect(
-      startTransitions(wireStatus: 'ASSIGNED', rowVersion: 2).map((s) => (s.to, s.rowVersion)),
-      [
-        ('ACCEPTED', 2),
-        ('EN_ROUTE', 3),
-        ('ARRIVED', 4),
-        ('IN_PROGRESS', 5),
-      ],
+      startTransitions(
+        wireStatus: 'ASSIGNED',
+        rowVersion: 2,
+      ).map((s) => (s.to, s.rowVersion)),
+      [('ACCEPTED', 2), ('EN_ROUTE', 3), ('ARRIVED', 4), ('IN_PROGRESS', 5)],
     );
     expect(startTransitions(wireStatus: 'IN_PROGRESS', rowVersion: 7), isEmpty);
-    expect(startTransitions(wireStatus: 'ARRIVED', rowVersion: 1).single.to, 'IN_PROGRESS');
+    expect(
+      startTransitions(wireStatus: 'ARRIVED', rowVersion: 1).single.to,
+      'IN_PROGRESS',
+    );
   });
 
-  test('startTask dört geçiş kuyruklar; finalize sonraki rowVersion kullanır', () {
-    final s = SessionController();
-    s.startTask('t1');
-    final startEvents = s.outbox.events
-        .where((e) => e.subjectId == 't1' && e.operation == SyncOperation.taskTransition)
-        .toList();
-    expect(
-      startEvents.map((e) => e.payload['to']),
-      ['ACCEPTED', 'EN_ROUTE', 'ARRIVED', 'IN_PROGRESS'],
-    );
-    expect(startEvents.map((e) => e.payload['rowVersion']), [0, 1, 2, 3]);
-    expect(s.taskById('t1').rowVersion, 4);
-    expect(s.taskById('t1').wireStatus, 'IN_PROGRESS');
-    s.deliverTask('t1', receivedBy: 'Alıcının kendisi');
-    expect(s.outbox.events.last.payload['rowVersion'], 4);
-  });
+  test(
+    'startTask dört geçiş kuyruklar; finalize sonraki rowVersion kullanır',
+    () {
+      final s = SessionController();
+      s.startTask('t1');
+      final startEvents = s.outbox.events
+          .where(
+            (e) =>
+                e.subjectId == 't1' &&
+                e.operation == SyncOperation.taskTransition,
+          )
+          .toList();
+      expect(startEvents.map((e) => e.payload['to']), [
+        'ACCEPTED',
+        'EN_ROUTE',
+        'ARRIVED',
+        'IN_PROGRESS',
+      ]);
+      expect(startEvents.map((e) => e.payload['rowVersion']), [0, 1, 2, 3]);
+      expect(s.taskById('t1').rowVersion, 4);
+      expect(s.taskById('t1').wireStatus, 'IN_PROGRESS');
+      s.deliverTask('t1', receivedBy: 'Alıcının kendisi');
+      expect(s.outbox.events.last.payload['rowVersion'], 4);
+    },
+  );
 
   test('destek talebi SUPPORT_TICKET_CREATE kuyruğa yazar', () {
     final s = SessionController();
@@ -150,7 +231,10 @@ void main() {
     expect(taskStatusFromPanel('FAILED'), TaskStatus.failed);
     expect(taskStatusFromPanel('REDELIVERY'), TaskStatus.assigned);
     expect(taskStatusFromPanel('CANCELLED'), TaskStatus.cancelled);
-    expect(startTransitions(wireStatus: task.wireStatus, rowVersion: 0), isEmpty);
+    expect(
+      startTransitions(wireStatus: task.wireStatus, rowVersion: 0),
+      isEmpty,
+    );
   });
 
   test('GET /v1/tasks cursor sayfalarını birleştirir', () async {
@@ -393,7 +477,8 @@ void main() {
         },
       ),
     );
-    final delta = await MobileApi(dio: dio).fetchChanges(since: '2026-09-06T16:00:00.000Z');
+    final delta = await MobileApi(dio: dio)
+        .fetchChanges(since: '2026-09-06T16:00:00.000Z');
     expect(delta.tasks.map((t) => t.id), ['a', 'b']);
     expect(delta.tasks.first.status, TaskStatus.cancelled);
     expect(delta.removedTaskIds, ['gone']);
@@ -461,10 +546,7 @@ void main() {
       api: MobileApi(dio: dio),
     );
     final before = s.outbox.events.length;
-    final ok = await s.loginWithPanel(
-      identifier: 'a@b.com',
-      password: 'x',
-    );
+    final ok = await s.loginWithPanel(identifier: 'a@b.com', password: 'x');
     expect(ok, isTrue);
     expect(s.panelLoggedIn, isTrue);
     expect(s.courier.fullName, 'Ayşe Kurye');
@@ -751,7 +833,7 @@ void main() {
     );
     await s.restoreOpenShift();
     expect(s.phase, AppPhase.splash);
-    expect(s.shiftOpen, isFalse);
+    expect(s.currentShiftId, isNull);
   });
 
   test('zimmet taraması boş ve tekrar kodu yutmaz', () {
@@ -769,10 +851,185 @@ void main() {
   test('iptal açık sayaçta ve nextStop’ta yok', () {
     final s = SessionController();
     s.taskById('t1').status = TaskStatus.cancelled;
-    expect(s.openCount, 3);
+    expect(s.openCount, 4);
     expect(s.nextStop?.id, 't2');
     expect(s.returnCount, 1);
     expect(s.remainingStops.map((t) => t.id), isNot(contains('t1')));
     expect(s.taskById('t1').isClosed, isTrue);
+  });
+
+  test('remainingStops gün rotası sırasını izler', () async {
+    final s = SessionController();
+    await s.ensureDayRoute();
+    expect(s.nextStop?.id, 't1');
+    expect(s.remainingStops.map((t) => t.id).toList(), ['t3', 't2', 't5', 't4']);
+  });
+
+  test(
+    'reddedilen senkron olayı gerçek "Gönderim başarısız" bildirimi üretir',
+    () async {
+      final dio = Dio();
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            if (options.path.contains('/v1/sync/batch')) {
+              final events = (options.data as Map)['events'] as List;
+              handler.resolve(
+                Response<Map<String, dynamic>>(
+                  requestOptions: options,
+                  statusCode: 200,
+                  data: {
+                    'results': [
+                      for (final e in events)
+                        {
+                          'clientEventId': (e as Map)['clientEventId'],
+                          'status': 'rejected',
+                        },
+                    ],
+                  },
+                ),
+              );
+              return;
+            }
+            handler.resolve(
+              Response<Map<String, dynamic>>(
+                requestOptions: options,
+                statusCode: 200,
+                data: const {'items': <dynamic>[]},
+              ),
+            );
+          },
+        ),
+      );
+      final s = SessionController(api: MobileApi(dio: dio));
+      // returnTask'ın kendi unawaited flush'ıyla yarışmaması için online'ı
+      // geçici kapatıp tek, belirlenimci bir pushSyncQueue() ile akıtıyoruz.
+      s.online = false;
+      s.returnTask('t1', reason: 'Alıcı adreste yok');
+      s.online = true;
+      await s.pushSyncQueue();
+      expect(s.notifications.first.title, 'Gönderim başarısız');
+      expect(s.notifications.first.kind, NotifKind.syncFail);
+      expect(s.notifications.first.taskId, 't1');
+    },
+  );
+
+  test('şube zimmet devri başarılı olunca gerçek "Zimmet onaylandı" bildirimi üretir', () async {
+    final dio = Dio();
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          if (options.path.contains('/v1/custody/handover')) {
+            handler.resolve(
+              Response<Map<String, dynamic>>(
+                requestOptions: options,
+                statusCode: 200,
+                data: {
+                  'handoverId': 'h-1',
+                  'remaining': <dynamic>[],
+                  'appliedAt': DateTime.now().toUtc().toIso8601String(),
+                },
+              ),
+            );
+            return;
+          }
+          handler.resolve(
+            Response<Map<String, dynamic>>(
+              requestOptions: options,
+              statusCode: 200,
+              data: const {'items': <dynamic>[]},
+            ),
+          );
+        },
+      ),
+    );
+    final s = SessionController(api: MobileApi(dio: dio));
+    s.custodyItems = const [
+      CustodyItemDto(
+        id: 'ci-1',
+        type: 'parcel',
+        description: 'Koli',
+        quantity: 1,
+        acquiredAt: '2026-09-01T00:00:00.000Z',
+        barcode: 'DGO-9107',
+      ),
+    ];
+    s.zimmetMode = 'sube';
+    s.addZimmetScan('DGO-9107');
+    final ok = await s.completeZimmet();
+    expect(ok, isTrue);
+    expect(s.notifications.first.title, 'Zimmet onaylandı');
+    expect(s.notifications.first.kind, NotifKind.custody);
+  });
+
+  test('kurye zimmeti barkodla takeover çağırır', () async {
+    final calls = <String>[];
+    final dio = Dio();
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          calls.add('${options.method} ${options.path}');
+          if (options.path.contains('/v1/custody/handover')) {
+            expect(options.data['direction'], 'takeover');
+            handler.resolve(
+              Response<Map<String, dynamic>>(
+                requestOptions: options,
+                statusCode: 200,
+                data: {
+                  'handoverId': 'h-2',
+                  'remaining': [
+                    {
+                      'id': 'ci-2',
+                      'type': 'parcel',
+                      'description': 'Koli',
+                      'quantity': 1,
+                      'acquiredAt': DateTime.now().toUtc().toIso8601String(),
+                      'barcode': 'DGO-2201',
+                    },
+                  ],
+                  'appliedAt': DateTime.now().toUtc().toIso8601String(),
+                },
+              ),
+            );
+            return;
+          }
+          if (options.path.contains('/v1/custody')) {
+            handler.resolve(
+              Response<Map<String, dynamic>>(
+                requestOptions: options,
+                statusCode: 200,
+                data: {
+                  'items': [
+                    {
+                      'id': 'ci-2',
+                      'type': 'parcel',
+                      'description': 'Koli',
+                      'quantity': 1,
+                      'acquiredAt': DateTime.now().toUtc().toIso8601String(),
+                      'barcode': 'DGO-2201',
+                    },
+                  ],
+                },
+              ),
+            );
+            return;
+          }
+          handler.resolve(
+            Response<Map<String, dynamic>>(
+              requestOptions: options,
+              statusCode: 200,
+              data: const {},
+            ),
+          );
+        },
+      ),
+    );
+    final s = SessionController(api: MobileApi(dio: dio));
+    s.zimmetMode = 'kurye';
+    s.addZimmetScan('DGO-2201');
+    final ok = await s.completeZimmet();
+    expect(ok, isTrue);
+    expect(s.notifications.first.title, 'Zimmet alındı');
+    expect(calls.any((c) => c.contains('/v1/custody/handover')), isTrue);
   });
 }

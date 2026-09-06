@@ -19,24 +19,29 @@ class Dg {
   static bool dark = true;
 
   // ---- Zemin / yüzey ----
+  /// Koyu tema: saf #000 + #737373 ikincil metin WCAG 2.2 SC 1.4.3'ü
+  /// (~4.1:1) kaçırıyordu. Material 3 yüzey tonu (#121212) + iOS grouped
+  /// #1C1C1E; saf siyah/beyaz parlamayı ve okunaksız griyi keser.
+  /// https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html
+  /// https://m3.material.io/styles/color/system/overview
   static Color get ground =>
-      dark ? const Color(0xFF0C0C0F) : const Color(0xFFF4F3F0);
+      dark ? const Color(0xFF121212) : const Color(0xFFF4F4F5);
   static Color get surface =>
-      dark ? const Color(0xFF16161A) : const Color(0xFFFFFFFF);
+      dark ? const Color(0xFF1C1C1E) : const Color(0xFFFFFFFF);
 
   /// İkinci kademe yüzey (surface üstünde surface — skeleton, track, vb.)
   static Color get elev =>
-      dark ? const Color(0xFF1D1D22) : const Color(0xFFF0F1EA);
+      dark ? const Color(0xFF2C2C2E) : const Color(0xFFEEEEEE);
 
   // ---- Metin ----
   static Color get ink =>
-      dark ? const Color(0xFFF4F2EE) : const Color(0xFF121212);
+      dark ? const Color(0xFFF5F5F7) : const Color(0xFF111111);
   static Color get ink2 =>
-      dark ? const Color(0xFFACACB4) : const Color(0xFF5F6357);
+      dark ? const Color(0xFFC7C7CC) : const Color(0xFF5C5C5C);
   static Color get ink3 =>
-      dark ? const Color(0xFF6F6F78) : const Color(0xFF8B8F82);
+      dark ? const Color(0xFFA1A1AA) : const Color(0xFF6B6B6B);
   static Color get rule =>
-      dark ? const Color(0xFF2A2A30) : const Color(0xFFE3E6DC);
+      dark ? const Color(0xFF3A3A3C) : const Color(0xFFE4E4E7);
 
   /// Koşulsuz koyu — temadan bağımsız gerçek siyah/gece yüzeyler için
   /// (giriş/tören ekranı gradyanının tabanı, PhoneShell çerçevesi).
@@ -44,8 +49,9 @@ class Dg {
 
   // ---- Marka moru ----
   /// Birincil eylem gradyanı — buton/CTA ve seçili halka.
-  static const primaryGradientStart = Color(0xFFC4A6FF);
-  static const primaryGradientEnd = Color(0xFF8B5CFF);
+  /// Pastel lila yerine doygun, koyu zeminle uyumlu marka moru.
+  static const primaryGradientStart = Color(0xFF6B46D4);
+  static const primaryGradientEnd = Color(0xFF3F1F8C);
   static const primaryGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
@@ -53,7 +59,7 @@ class Dg {
   );
 
   /// Aktif/seçili durum vurgusu (sekme, adım noktası, seçili kart kenarı).
-  static const purpleActive = Color(0xFFD4B8FF);
+  static const purpleActive = Color(0xFF8B6AE8);
 
   /// Giriş/tören ekranı zemin gradyanı (üstten alta).
   static LinearGradient get heroGradient => LinearGradient(
@@ -76,9 +82,9 @@ class Dg {
   // Legacy brand-purple isimleri — hâlâ referans veren yerler (menü ikon
   // rozetleri, harita polyline'ı, hero kart zemini gibi "marka moru" ama
   // "birincil eylem gradyanı" olmayan kullanımlar) için korunuyor.
-  static const purple = Color(0xFF9B6EFF);
-  static const purpleDeep = Color(0xFF6E48D9);
-  static const purpleBright = Color(0xFFE0C8FF);
+  static const purple = Color(0xFF7C5CE0);
+  static const purpleDeep = Color(0xFF4E2CB8);
+  static const purpleBright = Color(0xFFB8A0F0);
   static const accent = primaryGradientStart;
   static const accentSoft = Color(0xFFEAF6B8);
 
@@ -130,27 +136,26 @@ class Dg {
   static const statFamily = 'Geist';
   static const mono = 'Geist Mono';
 
-  // ---- Radius skalası: telefon 46 / kart 28 / buton 18 / çip 13 ----
+  // ---- Radius: Uber/IG — küçük köşe, yüzen “AI kartı” yok ----
   static const radiusPhone = 46.0;
-  static const radiusHero = 28.0;
-  static const radius = 13.0;
-  static const radiusPill = 18.0;
+  static const radiusHero = 14.0;
+  static const radius = 8.0;
+  static const radiusPill = 10.0;
+
+  /// Yatay içerik — 16px (Material / iOS grouped inset); 20px satırları daraltıyordu.
+  static const pagePad = 16.0;
+
+  /// Saha dokunma hedefi. Apple HIG 44pt, Material 48dp; eldiven/araç için 56.
+  static const rowMin = 56.0;
 
   /// İçerik, alt tab bar'ın bu kadar üstünde bitmeli (ör. son elemana
   /// `SizedBox(height: Dg.bottomNavClearance)` veya liste `padding.bottom`).
-  static const bottomNavClearance = 98.0;
+  static const bottomNavClearance = 76.0;
 
-  // Kontak gölgesi nötr siyah kalır (kartı sayfaya "basar"); yumuşak
-  // ambiyans katmanı marka moruyla tintlenir.
-  static const shadow = [
-    BoxShadow(color: Color(0x14000000), blurRadius: 2, offset: Offset(0, 1)),
-    BoxShadow(color: Color(0x24000000), blurRadius: 28, offset: Offset(0, 12)),
-  ];
+  /// Kartlar artık gölgeyle yüzmüyor — Instagram/Uber satır dili.
+  static const shadow = <BoxShadow>[];
 
-  static const shadowHero = [
-    BoxShadow(color: Color(0x26000000), blurRadius: 8, offset: Offset(0, 4)),
-    BoxShadow(color: Color(0x33000000), blurRadius: 32, offset: Offset(0, 16)),
-  ];
+  static const shadowHero = <BoxShadow>[];
 
   /// Kartın üst kenarına eklenen 1px inset beyaz ışık — [DgCard] bunu
   /// `Container`'ın `foregroundDecoration`'ında bir üst-kenar `Border` ile

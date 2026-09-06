@@ -98,6 +98,48 @@ class AppConfig {
   }
 }
 
+class PresignResult {
+  const PresignResult({
+    required this.mediaId,
+    required this.uploadUrl,
+    required this.headers,
+    required this.alreadyUploaded,
+  });
+
+  final String mediaId;
+  final String uploadUrl;
+  final Map<String, String> headers;
+  final bool alreadyUploaded;
+
+  factory PresignResult.fromJson(Map<String, dynamic> json) => PresignResult(
+    mediaId: json['mediaId'] as String? ?? '',
+    uploadUrl: json['uploadUrl'] as String? ?? '',
+    headers: {
+      for (final e in (json['headers'] as Map? ?? const {}).entries)
+        '${e.key}': '${e.value}',
+    },
+    alreadyUploaded: json['alreadyUploaded'] == true,
+  );
+}
+
+class MaskedCallDto {
+  const MaskedCallDto({
+    required this.dialNumber,
+    required this.sessionId,
+    required this.expiresAt,
+  });
+
+  final String dialNumber;
+  final String sessionId;
+  final String expiresAt;
+
+  factory MaskedCallDto.fromJson(Map<String, dynamic> json) => MaskedCallDto(
+    dialNumber: json['dialNumber'] as String? ?? '',
+    sessionId: json['sessionId'] as String? ?? '',
+    expiresAt: json['expiresAt'] as String? ?? '',
+  );
+}
+
 class SyncBatchResult {
   const SyncBatchResult({required this.clientEventId, required this.status});
   final String clientEventId;
@@ -318,6 +360,45 @@ class RoutePlanDto {
       stops.fold(0, (sum, s) => sum + (s.durationSeconds ?? 0));
 
   bool get hasRealGeometry => geometry != null && geometry!.isNotEmpty;
+
+  /// Demo / interceptor tohumu — OSRM’den alınmış gerçek Güney hattı
+  /// (`apps/api/test/optimizer.test.ts`). API yokken de harita çizilsin.
+  static const demoGeometry =
+      r'_kzgFybkpD\VVVPPNJNLJGFKFSB[?_@@UGWESM[SUOOIIMMQUH@TFl@DjD?@eADm@Eq@?Uv@BXHxAb@nBh@v@T^RrEnHbAfDRtD?n@i@jDFlBR|@BDTb@xAbBVd@xAhG^|Bv@zCj@nAV`Al@hECnAa@nDBnBv@hCf@~BTh@b@d@bCdArAlAvBbAdDlCfAh@rC~@x@|@|@`BJ@RJb@BzAIp@Pb@Pd@VPTLXJf@B`@L\XTRJFN@RGVK`@CZ@RDLEMASB[Ja@FWASGOSKYUM]Ca@Kg@MYQUe@Wc@Qq@Q{AHc@CSKKA}@aBy@}@sC_AgAi@eDmCwBcAsAmAcCeAc@e@Ui@g@_CWy@_@oACoB`@oDBoAm@iEWaAk@oAw@{C_@}ByAiGWe@yAcBYi@S}@GmBh@kD?o@SuDcAgDsEoH_@Sw@UoBi@yAc@YIw@CS?cEx@eCFo@RqAx@k@^g@LWCUYIIGm@V}AV_Br@}EDWGa@CS@y@EGEKa@GEEGIMOoAcBU[mAyAq@m@KKYIMJB[@GFWTu@BM^w@@YIS?QLc@@k@BYHm@JeA[PIFIDO?C?E@EBQJWHKHi@BUDWZ_@\[@c@Iw@S';
+
+  factory RoutePlanDto.demo({DateTime? now}) {
+    var eta = now ?? DateTime.now().toUtc();
+    RouteStopDto stop(
+      String taskId,
+      int sequence,
+      int? distanceMeters,
+      int? durationSeconds,
+    ) {
+      if (durationSeconds != null) {
+        eta = eta.add(Duration(seconds: durationSeconds));
+      }
+      return RouteStopDto(
+        taskId: taskId,
+        sequence: sequence,
+        etaAt: eta.toIso8601String(),
+        distanceMeters: distanceMeters,
+        durationSeconds: durationSeconds,
+      );
+    }
+
+    return RoutePlanDto(
+      id: 'demo-route',
+      mode: 'distance_optimized',
+      geometry: demoGeometry,
+      computedAt: (now ?? DateTime.now().toUtc()).toIso8601String(),
+      stops: [
+        stop('t1', 0, null, null),
+        stop('t2', 1, 1185, 145),
+        stop('t4', 2, 2799, 383),
+        stop('t3', 3, 2817, 292),
+      ],
+    );
+  }
 
   factory RoutePlanDto.fromJson(Map<String, dynamic> json) {
     final raw = json['stops'] as List? ?? const [];

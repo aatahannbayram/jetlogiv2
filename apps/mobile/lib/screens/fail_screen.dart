@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../api/courier_tasks.dart';
 import '../l10n.dart';
+import '../media_upload.dart';
 import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -32,6 +34,15 @@ class _FailScreenState extends ConsumerState<FailScreen> {
   String? picked;
   final note = TextEditingController();
   bool closed = false;
+  bool photo = false;
+  bool uploading = false;
+  String? photoMediaId;
+
+  bool get _photoRequired =>
+      picked != null && photoRequiredForFailure(picked!);
+
+  bool get _canSubmit =>
+      picked != null && !uploading && (!_photoRequired || photoMediaId != null);
 
   @override
   void dispose() {
@@ -78,49 +89,28 @@ class _FailScreenState extends ConsumerState<FailScreen> {
           for (final r in reasons)
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
-              child: Material(
-                color: picked == r ? Dg.redBg : Dg.surface,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(Dg.radius),
-                  side: BorderSide(
-                    color: picked == r ? Dg.red : Dg.rule,
-                    width: picked == r ? 2 : 1,
+              child: DgChoiceSurface(
+                selected: picked == r,
+                onTap: () => setState(() => picked = r),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
                   ),
-                ),
-                child: InkWell(
-                  onTap: () => setState(() => picked = r),
-                  borderRadius: BorderRadius.circular(Dg.radius),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 18,
-                      vertical: 16,
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            l.failReasonOf(r),
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 16,
-                              color: picked == r ? Dg.red : Dg.ink,
-                            ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          l.failReasonOf(r),
+                          style: Dg.ui(
+                            size: 16,
+                            weight: FontWeight.w600,
+                            color: picked == r ? Dg.red : Dg.ink,
                           ),
                         ),
-                        Container(
-                          width: 20,
-                          height: 20,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: picked == r ? Dg.red : Dg.rule,
-                              width: 2,
-                            ),
-                            color: picked == r ? Dg.red : Colors.transparent,
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                      DgSelectMark(selected: picked == r),
+                    ],
                   ),
                 ),
               ),
@@ -148,21 +138,51 @@ class _FailScreenState extends ConsumerState<FailScreen> {
             ),
           ),
           const SizedBox(height: 16),
+          Viewfinder(
+            captured: photo,
+            hint: _photoRequired ? l.proofPhotoRequired : l.proofNeeded,
+            onCapture: (path) async {
+              setState(() {
+                photo = true;
+                uploading = true;
+              });
+              final id = await uploadFileEvidence(
+                api: ref.read(sessionProvider).api,
+                path: path,
+                kind: 'photo',
+                taskId: widget.taskId,
+                stepKey: failureOutcomeCode(picked ?? '') == 'ADDRESS_NOT_FOUND'
+                    ? 'adres_kanit_fotografi'
+                    : 'yok_kanit_fotografi',
+              );
+              if (mounted) {
+                setState(() {
+                  photoMediaId = id;
+                  uploading = false;
+                });
+              }
+            },
+          ),
+          const SizedBox(height: 16),
           if (picked != null)
             DgButton(
               label: l.closeAsReturn,
               icon: LucideIcons.packageX,
               tone: DgButtonTone.danger,
-              onPressed: () {
-                ref
-                    .read(sessionProvider)
-                    .returnTask(
-                      widget.taskId,
-                      reason: picked!,
-                      note: note.text.trim(),
-                    );
-                setState(() => closed = true);
-              },
+              busy: uploading,
+              onPressed: _canSubmit
+                  ? () {
+                      ref
+                          .read(sessionProvider)
+                          .returnTask(
+                            widget.taskId,
+                            reason: picked!,
+                            note: note.text.trim(),
+                            photoMediaId: photoMediaId,
+                          );
+                      setState(() => closed = true);
+                    }
+                  : null,
             ),
         ],
       ),

@@ -53,8 +53,13 @@ class L10n {
 
   String get startShiftCta => _t('Vardiyaya başla', 'Start shift');
   String get showActivation => _t('Aktivasyonu göster', 'Show activation');
+  String get openDemo => _t('Demoyu aç', 'Open demo');
   String get updateApp => _t('Uygulamayı güncelle', 'Update the app');
   String get todayStopsGuney => _t('Bugünün durakları Güney’de.', 'Today’s stops are in Güney.');
+  String get todayFieldHint => _t(
+    'Telefonunu doğrula; bugünün durakları sunucudan gelir.',
+    'Verify your phone; today’s stops come from the server.',
+  );
   String openStops(int n) => _t('$n açık durak', '$n open stops');
   String openInQueue(int n, String name) =>
       _t('$n açık · sırada $name', '$n open · next $name');
@@ -76,12 +81,17 @@ class L10n {
   String get verifyCode => _t('Kodu doğrula', 'Verify code');
   String get phoneNumber => _t('Telefon numarası', 'Phone number');
   String get rememberDevice => _t('Bu cihazı hatırla', 'Remember this device');
-  String get askFourDigit => _t('Alıcıdan 4 haneli kodu isteyin', 'Ask the recipient for the 4-digit code');
+  String get askFourDigit =>
+      _t('Alıcıdan 6 haneli kodu isteyin', 'Ask the recipient for the 6-digit code');
+  String get signHere => _t('Parmağınla imzala', 'Sign with your finger');
   String get codeNotDelivery => _t('Kod sizin telefonunuza gider. Teslim kodu değil.', 'The code goes to your phone. It is not the delivery code.');
   String get panelReadyHint => _t('İzinlere geç, sonra vardiyayı aç.', 'Continue to permissions, then open the shift.');
   String get loginFailed => _t('Giriş olmadı. Bilgileri kontrol et.', 'Sign-in failed. Check the details.');
   String get panelUnavailable => _t('Panel şu an ulaşılmıyor.', 'The panel is unavailable right now.');
   String get codeMismatch => _t('Kod eşleşmedi. Yeniden deneyin.', 'Code did not match. Try again.');
+  String get activationSendFailed => _t('Kod gönderilemedi. Numarayı kontrol et.', 'Could not send the code. Check the number.');
+  String get waitToResend => _t('Yeni kod için biraz bekle.', 'Wait a moment before requesting a new code.');
+  String get proofPhotoRequired => _t('Bu gerekçe için kapı fotoğrafı zorunlu.', 'A door photo is required for this reason.');
   String get supportHint => _t('Sorun mu var? Şube yöneticine ulaş', 'Need help? Contact the branch manager');
 
   String get devicePermissions => _t('Cihaz izinleri', 'Device permissions');
@@ -95,6 +105,9 @@ class L10n {
   String get permPushHint => _t('Yeni görev ve zorunlu güncelleme.', 'New tasks and required updates.');
   String get grantAllThree => _t('Üç izni de ver', 'Allow all three');
   String get goToShift => _t('Vardiyaya geç', 'Go to shift');
+  String get noRecipientPhone =>
+      _t('Alıcı telefonu yok.', 'Recipient phone is missing.');
+  String get callOpening => _t('Aranıyor…', 'Calling…');
 
   String get startShiftTitle => _t('Vardiya başlat', 'Start shift');
   String get shiftSelfieHint => _t('Bu fotoğraf yalnız vardiya kanıtı. Yüz aranmaz.', 'This photo is shift proof only. Faces are not searched.');
@@ -116,6 +129,17 @@ class L10n {
   String get menu => _t('Menü', 'Menu');
   String get nextStop => _t('Sıradaki durak', 'Next stop');
   String get seeRoute => _t('Rotayı gör', 'See route');
+  String get youOnMap => _t('Sen', 'You');
+  String get fleetOnMap => _t('Kuryeler', 'Couriers');
+  String get optimizedRoute => _t('Optimize rota', 'Optimized route');
+  String get approxRoute => _t('Yaklaşık rota', 'Approximate route');
+  String get recenterRoute => _t('Rotayı ortala', 'Center route');
+  String get routeComputing => _t('Rota hesaplanıyor', 'Calculating route');
+  String get youToNext => _t('Konumundan', 'From you');
+  String get routeFinished => _t('Rota bitti', 'Route finished');
+  String etaMinutesLabel(int n) => _t('$n dk', '$n min');
+  String routeKmMin(String km, int minutes) =>
+      _t('$km km · $minutes dk', '$km km · $minutes min');
   String get startDelivery => _t('Teslime başla', 'Start delivery');
   String get directions => _t('Yol tarifi', 'Directions');
   String get shipment => _t('Gönderi', 'Shipment');
@@ -148,12 +172,38 @@ class L10n {
   String pendingChip(int n) => _t('$n bekliyor', '$n waiting');
   String get noNotifications => _t('Yeni bildirim yok', 'No new notifications');
   String get markAllRead => _t('Tümü okundu', 'Mark all read');
+  String get notifUnread => _t('Yeni', 'New');
+  String get notifAlerts => _t('Uyarı', 'Alerts');
+  String unreadLeft(int n) => _t('$n okunmamış', '$n unread');
+  String get allCaughtUp => _t('Hepsi okundu', 'You\'re all caught up');
+  String get noUnreadTitle => _t('Okunmamış yok', 'Nothing unread');
+  String get noUnreadBody =>
+      _t('Yeni bildirim kalmadı.', 'No unread notifications.');
+  String get noAlertNotifs => _t('Uyarı yok', 'No alerts');
+  String get noAlertNotifsBody => _t(
+    'Başarısız gönderim ve iptaller burada.',
+    'Failed sends and cancellations show here.',
+  );
+  String get notifHide => _t('Gizle', 'Hide');
+  String get notifMarkedRead => _t('Okundu', 'Read');
+  String get notifMarkedUnread => _t('Okunmadı', 'Unread');
+  String get notifHidden => _t('Bildirim gizlendi', 'Notification hidden');
+  String get undo => _t('Geri al', 'Undo');
+  String get today => _t('Bugün', 'Today');
+  String get earlier => _t('Daha eski', 'Earlier');
+  String get notifStopGone =>
+      _t('Bu durak artık listede yok.', 'That stop is no longer on your list.');
   String get shiftStatus => _t('VARDİYA DURUMU', 'SHIFT STATUS');
   String get closed => _t('Kapalı', 'Closed');
   String get shiftSelfieNeeded => _t('Vardiyayı başlatmak için selfie doğrulaması gerekir.', 'A selfie check is required to start the shift.');
   String get shiftOpen => _t('Vardiya açık', 'Shift open');
   String get shiftClosed => _t('Vardiya kapalı', 'Shift closed');
-  String sinceFrom(String time) => _t("$time'tan beri", 'since $time');
+  String get endShiftTitle => _t('Vardiyayı kapat', 'End shift');
+  String get endShiftBody =>
+      _t('Vardiya kapanınca sıradaki durak gizlenir.', 'Ending the shift hides the next stop.');
+  String sinceFrom(String time) => _t("$time’dan beri", 'since $time');
+  String shiftDayLine(String time, String km) =>
+      _t('$time’dan beri · $km km', 'since $time · $km km');
   String get delivered => _t('Teslim', 'Delivered');
   String get distance => _t('Mesafe', 'Distance');
   String get noNextStop => _t('Sıradaki durak yok', 'No next stop');
@@ -164,6 +214,9 @@ class L10n {
   String openTab(int n) => _t('Açık $n', 'Open $n');
   String deliveredTab(int n) => _t('Teslim $n', 'Delivered $n');
   String returnedTab(int n) => _t('İade $n', 'Returned $n');
+  String sameAddressCount(int n) =>
+      _t('Aynı adres · $n gönderi', 'Same address · $n shipments');
+  String get deliverTogether => _t('Birlikte teslim', 'Deliver together');
 
   String get myCustody => _t('Zimmetim', 'My custody');
   String get branchHandover => _t('Şubeye teslim', 'Branch handover');
@@ -262,7 +315,7 @@ class L10n {
 
   String get goToThisStop => _t('Bu durağa git', 'Go to this stop');
   String remainingStopsHint(int n) =>
-      _t('$n durak kaldı. Durağa basınca yol tarifi açılır.', '$n stops left. Tap a stop to open directions.');
+      _t('$n durak kaldı', '$n stops left');
   String stopsCount(int n) => _t('$n durak', '$n stops');
   String get slideToDeliver => _t('Teslim etmek için kaydır', 'Slide to deliver');
   String get deliveryWindowLeft => _t('Teslim penceresi', 'Delivery window');
@@ -281,6 +334,15 @@ class L10n {
   String get off => _t('Kapalı', 'Off');
   String get newStopAlerts => _t('Yeni durak bildirimi', 'New stop alerts');
   String get onNotify => _t('Açık · titreşim + ses', 'On · haptic + sound');
+  String get notifyDenied =>
+      _t('Bildirim izni verilmedi.', 'Notification permission was denied.');
+  String get notifyBlocked => _t(
+    'Bildirim izni kapalı. Sistem ayarlarından aç.',
+    'Notifications are blocked. Enable them in system settings.',
+  );
+  String get notifyNeedOs =>
+      _t('İzin kapalı · Ayarlardan aç', 'Permission off · Open settings');
+  String get openSettings => _t('Ayarlar', 'Settings');
   String get logout => _t('Çıkış yap', 'Sign out');
   String get logoutPanelBody => _t(
     'Panel oturumu da kapanacak. Tekrar giriş yapman gerekecek.',
@@ -318,13 +380,35 @@ class L10n {
   String get verified => _t('Doğrulandı', 'Verified');
   String get calling => _t('Aranıyor…', 'Calling…');
   String get openingDirections => _t('Yol tarifi açılıyor…', 'Opening directions…');
-  String get kycTitle => _t('Digital Test (KYC)', 'Digital Test (KYC)');
+  String get kycTitle => _t('Kimlik doğrulama', 'Identity check');
+  String get kycLead => _t(
+    'Belgeyi seç, fotoğrafını çek, çipi oku.',
+    'Pick a document, take a photo, then read the chip.',
+  );
+  String get kycDocsKicker => _t('BELGE', 'DOCUMENT');
+  String get kycPhotoKicker => _t('FOTOĞRAF', 'PHOTO');
+  String get kycChipKicker => _t('ÇİP', 'CHIP');
+  String get kycMrzKicker => _t('MRZ', 'MRZ');
+  String get kycPhotoHint =>
+      _t('Belgeyi çerçeveye al', 'Frame the document');
+  String get kycPhotoTaken => _t('Fotoğraf alındı', 'Photo captured');
+  String get kycScanning => _t('Çip okunuyor…', 'Reading chip…');
+  String kycDocAt(int i) => switch (i) {
+    0 => _t('Yeni kimlik ön yüz', 'New ID front'),
+    1 => _t('Yeni kimlik arka yüz', 'New ID back'),
+    2 => _t('Eski kimlik', 'Old ID'),
+    3 => _t('Pasaport', 'Passport'),
+    4 => _t('Yabancı kimlik', 'Foreign ID'),
+    _ => '',
+  };
 
   String get notifNewStop => _t('Yeni durak atandı', 'New stop assigned');
   String get notifCustody => _t('Zimmet onaylandı', 'Custody confirmed');
   String get notifSyncFail => _t('Gönderim başarısız', 'Send failed');
   String get notifBonus => _t('Prim güncellendi', 'Bonus updated');
   String get notifShift => _t('Vardiya hatırlatması', 'Shift reminder');
+  String get notifShiftBody =>
+      _t('Yarın 09:00 vardiyası atanmıştır.', 'A 09:00 shift is assigned tomorrow.');
   String get notifStopPulled => _t('Durak çekildi', 'Stop pulled');
   String get notifStopCancelled => _t('Durak iptal', 'Stop cancelled');
   String get yesterday => _t('Dün', 'Yesterday');
@@ -362,7 +446,7 @@ class L10n {
   String get password => _t('Şifre', 'Password');
   String get openProfile => _t('Profili aç', 'Open profile');
   String get fieldAppVersion =>
-      _t('v1.0.0 · JetLogi Saha', 'v1.0.0 · JetLogi Field');
+      _t('v1.0.0 · Dijigoo Saha', 'v1.0.0 · Dijigoo Field');
   String get demoCodesHint =>
       _t('Giriş 123456  ·  Teslim 482913', 'Login 123456  ·  Delivery 482913');
   String get otpMismatchAsk =>
@@ -411,11 +495,77 @@ class L10n {
   );
   String get pickDepot => _t('Teslim alacağın depoyu seç.', 'Pick the depot you will collect from.');
   String get depotShipments => _t('Bu depodaki gönderiler', 'Shipments at this depot');
-  String get backgroundSend => _t('Arka plan gönderimi', 'Background send');
-  String get workerOn => _t('Worker açık', 'Worker on');
-  String get workerOff => _t('Worker kapalı', 'Worker off');
+  String get backgroundSend => _t('Otomatik gönderim', 'Auto send');
+  String get workerOn => _t('Hat açık — kuyruk kendi gider', 'Line open — queue sends itself');
+  String get workerOff => _t('Hat kapalı — sen gönderirsin', 'Line closed — you send');
   String get queueEmptyAllSent =>
       _t('Kuyruk boş, tüm kayıtlar merkeze iletildi.', 'Queue is empty. All records were sent.');
+  String get hubLine => _t('Merkez hattı', 'Hub line');
+  String get hubLinked => _t('Bağlı', 'Linked');
+  String get hubOffline => _t('Hat yok', 'No line');
+  String get hubFlushing => _t('Kuyruk merkeze gidiyor', 'Queue going to hub');
+  String get hubQueuedOnPhone =>
+      _t('Kayıtlar telefonda bekliyor', 'Records waiting on the phone');
+  String hubQueuedCount(int n) =>
+      _t('$n kayıt sırada', '$n records in line');
+  String get phoneEnd => _t('Telefon', 'Phone');
+  String get hubEnd => _t('Merkez', 'Hub');
+  String get inLine => _t('Sırada', 'In line');
+  String get queuedRecord => _t('Kayıt', 'Record');
+  String get shiftRecord => _t('Vardiya', 'Shift');
+  String get syncShiftStart => _t('Vardiya açıldı', 'Shift started');
+  String get syncShiftEnd => _t('Vardiya kapandı', 'Shift ended');
+  String get syncCustodyHandover => _t('Zimmet teslimi', 'Custody handover');
+  String get syncSupportTicket => _t('Destek kaydı', 'Support ticket');
+  String get syncAccepted => _t('Görevi aldı', 'Accepted the stop');
+  String get syncEnRoute => _t('Yola çıktı', 'On the way');
+  String get syncArrived => _t('Kapıya vardı', 'Arrived at the door');
+  String get syncStarted => _t('Teslime başladı', 'Started the delivery');
+  String get syncFailedStop => _t('Teslim edilemedi', 'Could not deliver');
+  String get syncDelivered => _t('Teslim edildi', 'Delivered');
+  String get syncStepGeneric => _t('Teslim adımı', 'Delivery step');
+  String get syncStepArrive => _t('Varış kontrolü', 'Arrival check');
+  String get syncStepBarcode => _t('Barkod okutuldu', 'Barcode scanned');
+  String get syncStepWho => _t('Teslim alan seçildi', 'Recipient chosen');
+  String get syncStepPhoto => _t('Teslim fotoğrafı', 'Delivery photo');
+  String get syncStepSign => _t('İmza alındı', 'Signature taken');
+  String get syncStepOtp => _t('Teslim kodu', 'Delivery code');
+  String get syncStepAbsentNote => _t('Alıcı yok notu', 'Recipient-absent note');
+  String get syncStepDoorPhoto => _t('Kapı fotoğrafı', 'Door photo');
+  String get syncStepAddressPhoto => _t('Adres fotoğrafı', 'Address photo');
+  String get syncStepRefuse => _t('Teslim reddi', 'Delivery refused');
+
+  String syncTransitionOf(String to) => switch (to) {
+    'ACCEPTED' => syncAccepted,
+    'EN_ROUTE' => syncEnRoute,
+    'ARRIVED' => syncArrived,
+    'IN_PROGRESS' => syncStarted,
+    'FAILED' => syncFailedStop,
+    _ => syncStarted,
+  };
+
+  String syncOutcomeOf(String code) => switch (code) {
+    'DELIVERED' => syncDelivered,
+    'RECIPIENT_ABSENT' || 'ALICI_YOK' => reasonRecipientAbsent,
+    'ADDRESS_NOT_FOUND' => reasonAddressNotFound,
+    'REFUSED' => reasonRefused,
+    'TESLIM_EDILEMEDI' || 'FAILED' => syncFailedStop,
+    _ => code.isEmpty ? queuedRecord : code,
+  };
+
+  String syncStepOf(String key) => switch (key) {
+    'varis_kontrolu' => syncStepArrive,
+    'barkod_okut' => syncStepBarcode,
+    'alici_kim' => syncStepWho,
+    'teslim_fotografi' => syncStepPhoto,
+    'alici_imza' => syncStepSign,
+    'otp_dogrula' => syncStepOtp,
+    'yok_notu' => syncStepAbsentNote,
+    'yok_kanit_fotografi' => syncStepDoorPhoto,
+    'adres_kanit_fotografi' => syncStepAddressPhoto,
+    'ret_nedeni' => syncStepRefuse,
+    _ => syncStepGeneric,
+  };
   String get failed => _t('Başarısız', 'Failed');
   String get pickDocType =>
       _t('Doğrulanacak belge türünü seç.', 'Choose the document type to verify.');

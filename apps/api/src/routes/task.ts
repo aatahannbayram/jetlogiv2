@@ -1,7 +1,13 @@
 import {
   ErrorResponse,
+  MaskedCallRequest,
+  MaskedCallResponse,
   StepSubmitRequest,
   TaskDetail,
+  TaskOtpSendRequest,
+  TaskOtpSendResponse,
+  TaskOtpVerifyRequest,
+  TaskOtpVerifyResponse,
   TaskFinalizeRequest,
   TaskListQuery,
   TaskListResponse,
@@ -16,12 +22,13 @@ import {
   checkGeofence,
   clampOccurredAt,
   emitEvent,
+  fieldKeyFromEnv,
   missingRequiredSteps,
   runIdempotent,
   visibleSteps,
 } from '@dijigoo/core';
 import type { ConditionContext } from '@dijigoo/core';
-import { taskItems, taskSteps, taskTransitions, tasks, workflows } from '@dijigoo/db';
+import { maskedCallSessions, media, taskItems, taskSteps, taskTransitions, tasks, workflows } from '@dijigoo/db';
 import { and, asc, eq, gte, inArray, lt, or, sql } from 'drizzle-orm';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
@@ -36,6 +43,8 @@ import {
   transitionDocument,
 } from '../services/document-status.js';
 import { PostgresIdempotencyStore } from '../services/idempotency-store.js';
+import { plaintextPhone } from '../services/masked-call.js';
+import { signOtpProof, verifyOtpProof } from '../services/otp-token.js';
 import { openReturnsForFailedTask } from '../services/return-status.js';
 import { resolveSlaInstance, startSlaInstance } from '../services/sla.js';
 import { ensureWorkOrder, recordDeliveryResult, transitionWorkOrder } from '../services/work-order.js';
@@ -47,6 +56,7 @@ const problem = {
   404: ErrorResponse,
   409: ErrorResponse,
   422: ErrorResponse,
+  503: ErrorResponse,
 };
 
 export async function taskRoutes(app: FastifyInstance, { ctx }: { ctx: AppContext }) {
@@ -105,6 +115,160 @@ export async function taskRoutes(app: FastifyInstance, { ctx }: { ctx: AppContex
     async (request) => {
       const courier = await app.authenticate(request);
       return toDetail(await loadTask(ctx, courier, request.params.taskId));
+    },
+  );
+
+  route.post(
+    '/v1/tasks/:taskId/call',
+    {
+      schema: {
+        tags: ['Task'],
+        params: z.object({ taskId: Uuid }),
+        body: MaskedCallRequest,
+        response: { 200: MaskedCallResponse, ...problem },
+      },
+    },
+    async (request) => {
+      const courier = await app.authenticate(request);
+      const task = await loadTask(ctx, courier, request.params.taskId);
+      const { target } = request.body;
+
+      if (ctx.env.MASKED_CALL_PROVIDER !== 'mock' && !ctx.env.MASKED_CALL_API_KEY) {
+        throw new AppError('UPSTREAM_UNAVAILABLE', {
+          message: 'Arama servisi su anda kullanilamiyor.',
+          userVisible: true,
+        });
+      }
+
+      let stored: string | null = null;
+      if (target === 'recipient') {
+        stored = task.contactPhoneEncrypted;
+      } else if (target === 'dispatcher') {
+        stored = '+902124440026';
+      } else {
+        throw new AppError('BUSINESS_RULE_VIOLATION', {
+          message: 'Bu hedef icin arama yok.',
+          userVisible: true,
+        });
+      }
+
+      const dialNumber = plaintextPhone(stored, fieldKeyFromEnv(ctx.env.FIELD_ENCRYPTION_KEY));
+      if (!dialNumber) {
+        throw new AppError('BUSINESS_RULE_VIOLATION', {
+          message: 'Alici telefonu kayitli degil.',
+          userVisible: true,
+        });
+      }
+
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+      const [session] = await ctx.db
+        .insert(maskedCallSessions)
+        .values({
+          taskId: task.id,
+          courierId: courier.courierId,
+          target,
+          provider: ctx.env.MASKED_CALL_PROVIDER,
+          proxyNumber: dialNumber,
+          expiresAt,
+        })
+        .returning();
+
+      return {
+        dialNumber,
+        sessionId: session!.id,
+        expiresAt: expiresAt.toISOString(),
+      };
+    },
+  );
+
+  route.post(
+    '/v1/tasks/:taskId/otp/send',
+    {
+      schema: {
+        tags: ['Task'],
+        params: z.object({ taskId: Uuid }),
+        body: TaskOtpSendRequest,
+        response: { 200: TaskOtpSendResponse, ...problem },
+      },
+    },
+    async (request) => {
+      const courier = await app.authenticate(request);
+      const task = await loadTask(ctx, courier, request.params.taskId);
+      const workflow = await loadWorkflow(ctx, task);
+      const answers = await loadAnswers(ctx, task.id);
+      const context = buildConditionContext(task, answers);
+      const step = visibleSteps(workflow.steps, context).find((s) => s.key === request.body.stepKey);
+      if (!step || step.type !== 'OTP_VERIFY') {
+        throw new AppError('WORKFLOW_STEP_OUT_OF_ORDER', {
+          details: [{ field: 'stepKey', issue: 'not_otp', meta: { stepKey: request.body.stepKey } }],
+        });
+      }
+
+      const key = fieldKeyFromEnv(ctx.env.FIELD_ENCRYPTION_KEY);
+      const target = (step.config as { target?: string }).target ?? 'recipient';
+      let phone: string | null = null;
+      if (target === 'custom') {
+        phone = plaintextPhone(request.body.phone, key);
+      } else {
+        phone = plaintextPhone(task.contactPhoneEncrypted, key);
+      }
+      if (!phone) {
+        throw new AppError('BUSINESS_RULE_VIOLATION', {
+          message: 'Alici telefonu kayitli degil.',
+          userVisible: true,
+        });
+      }
+
+      const issued = await ctx.otp.issue({
+        purpose: 'task_delivery',
+        phone,
+        channel: request.body.channel,
+        courierId: courier.courierId,
+        taskId: task.id,
+        stepKey: step.key,
+      });
+
+      return {
+        challengeId: issued.challengeId,
+        maskedPhone: maskMsisdn(phone),
+        expiresAt: issued.expiresAt.toISOString(),
+        resendAvailableAt: issued.resendAvailableAt.toISOString(),
+        attemptsRemaining: issued.attemptsRemaining,
+      };
+    },
+  );
+
+  route.post(
+    '/v1/tasks/:taskId/otp/verify',
+    {
+      schema: {
+        tags: ['Task'],
+        params: z.object({ taskId: Uuid }),
+        body: TaskOtpVerifyRequest,
+        response: { 200: TaskOtpVerifyResponse, ...problem },
+      },
+    },
+    async (request) => {
+      const courier = await app.authenticate(request);
+      const task = await loadTask(ctx, courier, request.params.taskId);
+      const result = await ctx.otp.verify({
+        challengeId: request.body.challengeId,
+        code: request.body.code,
+      });
+      if (result.taskId && result.taskId !== task.id) {
+        throw new AppError('OTP_INVALID');
+      }
+      const stepKey = result.stepKey ?? 'otp_dogrula';
+      return {
+        verified: true,
+        verificationToken: signOtpProof(
+          ctx.env.JWT_ACCESS_SECRET,
+          task.id,
+          stepKey,
+          request.body.challengeId,
+        ),
+        attemptsRemaining: result.attemptsRemaining,
+      };
     },
   );
 
@@ -244,6 +408,10 @@ export async function taskRoutes(app: FastifyInstance, { ctx }: { ctx: AppContex
           assertWithinFence(step.config, task, body.location);
         }
 
+        if (body.status === 'completed') {
+          await assertStepEvidence(ctx, courier, task.id, step.key, step, body);
+        }
+
         const now = new Date();
         const occurredAt = clampOccurredAt(new Date(body.occurredAt), now);
         const previous = answers.find((a) => a.stepKey === body.stepKey);
@@ -258,6 +426,7 @@ export async function taskRoutes(app: FastifyInstance, { ctx }: { ctx: AppContex
             value: body.value ?? null,
             mediaIds: body.mediaIds,
             skipReasonCode: body.skipReasonCode ?? null,
+            overrideReasonCode: body.skipReasonCode ?? null,
             position: body.location ? { lat: body.location.lat, lng: body.location.lng } : null,
             accuracy: body.location ? Math.round(body.location.accuracy) : null,
             occurredAt,
@@ -689,6 +858,57 @@ function toDetail(task: TaskRow) {
     attemptNumber: task.attemptNumber,
     previousFailureReason: null,
   };
+}
+
+function maskMsisdn(phone: string): string {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length < 7) return '+90 ***';
+  return `+${digits.slice(0, 2)} ${digits.slice(2, 5)} *** ** ${digits.slice(-2)}`;
+}
+
+async function assertStepEvidence(
+  ctx: AppContext,
+  courier: AuthenticatedCourier,
+  taskId: string,
+  stepKey: string,
+  step: { type: string; config: Record<string, unknown> },
+  body: { value?: unknown; mediaIds: string[] },
+) {
+  if (body.mediaIds.length > 0) {
+    const rows = await ctx.db
+      .select({ id: media.id, state: media.state, courierId: media.courierId })
+      .from(media)
+      .where(inArray(media.id, body.mediaIds));
+    if (rows.length !== body.mediaIds.length) {
+      throw new AppError('MEDIA_NOT_READY', { message: 'Kanit dosyasi bulunamadi.', userVisible: true });
+    }
+    for (const row of rows) {
+      if (row.courierId !== courier.courierId) throw new AppError('FORBIDDEN');
+      if (row.state === 'purged') {
+        throw new AppError('MEDIA_NOT_READY', { message: 'Kanit dosyasi silinmis.', userVisible: true });
+      }
+      if (row.state === 'pending') {
+        await ctx.db.update(media).set({ state: 'uploaded' }).where(eq(media.id, row.id));
+      }
+    }
+  }
+
+  if (step.type === 'OTP_VERIFY') {
+    const token =
+      body.value && typeof body.value === 'object'
+        ? (body.value as { verificationToken?: unknown }).verificationToken
+        : undefined;
+    if (!verifyOtpProof(ctx.env.JWT_ACCESS_SECRET, token, taskId, stepKey)) {
+      throw new AppError('OTP_INVALID', { message: 'Teslim kodu dogrulanmadi.', userVisible: true });
+    }
+  }
+
+  if ((step.type === 'PHOTO_EVIDENCE' || step.type === 'SIGNATURE') && body.mediaIds.length < 1) {
+    throw new AppError('EVIDENCE_INCOMPLETE', {
+      message: 'Bu adim icin fotograf veya imza gerekir.',
+      userVisible: true,
+    });
+  }
 }
 
 /** Opaque to the client, but just a base64 keyset tuple underneath. */

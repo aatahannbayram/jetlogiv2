@@ -12,7 +12,7 @@ const kApiBase = String.fromEnvironment(
 );
 
 const kAppVersion = '1.0.0';
-const kAppBuild = 1;
+const kAppBuild = 42;
 
 String clientInfoHeader() {
   final os = defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android';
@@ -28,12 +28,20 @@ String e164(String raw) {
   return '+90$digits';
 }
 
+class InboxItemDto {
+  const InboxItemDto({required this.item, required this.read});
+
+  final AppNotification item;
+  final bool read;
+}
+
 class SyncChangesDto {
   const SyncChangesDto({
     required this.tasks,
     required this.removedTaskIds,
     required this.syncedAt,
     this.custody,
+    this.notifications = const [],
     this.resyncRequired = false,
   });
 
@@ -41,6 +49,7 @@ class SyncChangesDto {
   final List<String> removedTaskIds;
   final String syncedAt;
   final List<CustodyItemDto>? custody;
+  final List<InboxItemDto> notifications;
   final bool resyncRequired;
 }
 
@@ -58,8 +67,8 @@ class MobileApi {
     final dio = Dio(
       BaseOptions(
         baseUrl: kApiBase,
-        connectTimeout: const Duration(seconds: 2),
-        receiveTimeout: const Duration(seconds: 4),
+        connectTimeout: const Duration(seconds: 8),
+        receiveTimeout: const Duration(seconds: 15),
         headers: {
           'x-client-info': clientInfoHeader(),
           'accept': 'application/json',
@@ -69,8 +78,8 @@ class MobileApi {
     final refreshDio = Dio(
       BaseOptions(
         baseUrl: kApiBase,
-        connectTimeout: const Duration(seconds: 2),
-        receiveTimeout: const Duration(seconds: 4),
+        connectTimeout: const Duration(seconds: 8),
+        receiveTimeout: const Duration(seconds: 15),
         headers: {
           'x-client-info': clientInfoHeader(),
           'accept': 'application/json',
@@ -81,7 +90,9 @@ class MobileApi {
     dio.interceptors.add(
       _RefreshInterceptor(vault: vault, refreshDio: refreshDio, dio: dio),
     );
-    dio.interceptors.add(DemoFallbackInterceptor());
+    if (!kReleaseMode) {
+      dio.interceptors.add(DemoFallbackInterceptor());
+    }
     return MobileApi(dio: dio, vault: vault);
   }
 
@@ -255,12 +266,97 @@ class MobileApi {
     return ShiftDto.fromJson(map);
   }
 
+  Future<MaskedCallDto> startMaskedCall(
+    String taskId, {
+    String target = 'recipient',
+  }) async {
+    final res = await dio.post<Map<String, dynamic>>(
+      '/v1/tasks/$taskId/call',
+      data: {'target': target},
+    );
+    lastWasLive = res.extra['demo'] != true;
+    return MaskedCallDto.fromJson(res.data ?? const {});
+  }
+
+  Future<PresignResult> presignMedia({
+    required String mediaId,
+    required String kind,
+    required String contentType,
+    required int byteSize,
+    required String sha256,
+    String? taskId,
+    String? stepKey,
+    double? lat,
+    double? lng,
+  }) async {
+    final res = await dio.post<Map<String, dynamic>>(
+      '/v1/media/presign',
+      data: {
+        'mediaId': mediaId,
+        'kind': kind,
+        'contentType': contentType,
+        'byteSize': byteSize,
+        'sha256': sha256,
+        if (taskId != null && taskId.contains('-')) 'taskId': taskId,
+        if (stepKey != null) 'stepKey': stepKey,
+        'capturedAt': DateTime.now().toUtc().toIso8601String(),
+        if (lat != null && lng != null)
+          'capturedAt_location': {
+            'lat': lat,
+            'lng': lng,
+            'accuracy': 25,
+            'capturedAt': DateTime.now().toUtc().toIso8601String(),
+            'isMocked': false,
+          },
+      },
+    );
+    lastWasLive = res.extra['demo'] != true;
+    return PresignResult.fromJson(res.data ?? const {});
+  }
+
+  Future<void> confirmMedia(String mediaId) async {
+    await dio.post<Map<String, dynamic>>('/v1/media/$mediaId/confirm');
+    lastWasLive = true;
+  }
+
+  Future<Map<String, dynamic>> sendTaskOtp({
+    required String taskId,
+    required String stepKey,
+    String channel = 'sms',
+  }) async {
+    final res = await dio.post<Map<String, dynamic>>(
+      '/v1/tasks/$taskId/otp/send',
+      data: {'stepKey': stepKey, 'channel': channel},
+    );
+    lastWasLive = res.extra['demo'] != true;
+    return res.data ?? const {};
+  }
+
+  Future<Map<String, dynamic>> verifyTaskOtp({
+    required String taskId,
+    required String challengeId,
+    required String code,
+  }) async {
+    final res = await dio.post<Map<String, dynamic>>(
+      '/v1/tasks/$taskId/otp/verify',
+      data: {'challengeId': challengeId, 'code': code},
+    );
+    lastWasLive = res.extra['demo'] != true;
+    return res.data ?? const {};
+  }
+
   /// Today's optimized stop order (apps/api `GET /v1/routes/current`) — real
   /// road-network distances/geometry and, past 2 stops, a reordered sequence
   /// (see apps/api/src/services/optimizer.ts). Null on 204 (no open shift or
   /// no geocoded stops yet), matching the API contract rather than throwing.
-  Future<RoutePlanDto?> fetchRoute() async {
-    final res = await dio.get<Map<String, dynamic>>('/v1/routes/current');
+  Future<RoutePlanDto?> fetchRoute({double? lat, double? lng}) async {
+    final res = await dio.get<Map<String, dynamic>>(
+      '/v1/routes/current',
+      queryParameters: {
+        if (lat != null) 'lat': lat,
+        if (lng != null) 'lng': lng,
+      },
+    );
     lastWasLive = res.extra['demo'] != true;
     if (res.statusCode == 204 || res.data == null || res.data!.isEmpty)
       return null;
@@ -268,10 +364,14 @@ class MobileApi {
   }
 
   /// What the courier currently holds (apps/api `GET /v1/custody`).
-  Future<List<CustodyItemDto>> fetchCustody({String? type}) async {
+  /// [barcode] looks up a tenant item for takeover, not only items already held.
+  Future<List<CustodyItemDto>> fetchCustody({String? type, String? barcode}) async {
     final res = await dio.get<Map<String, dynamic>>(
       '/v1/custody',
-      queryParameters: type == null ? null : {'type': type},
+      queryParameters: {
+        if (type != null) 'type': type,
+        if (barcode != null && barcode.isNotEmpty) 'barcode': barcode,
+      },
     );
     lastWasLive = res.extra['demo'] != true;
     final raw = (res.data?['items'] as List?) ?? const [];
@@ -299,6 +399,29 @@ class MobileApi {
         'clientEventId': Vault.newUuid(),
         'occurredAt': DateTime.now().toUtc().toIso8601String(),
         'direction': 'handover',
+        'counterparty': {'kind': 'branch', 'id': branchId, 'name': branchName},
+        'itemIds': itemIds,
+        'photoMediaIds': const [],
+        if (note != null) 'note': note,
+      },
+    );
+    lastWasLive = res.extra['demo'] != true;
+    return CustodyHandoverResultDto.fromJson(res.data ?? const {});
+  }
+
+  Future<CustodyHandoverResultDto> takeoverFromBranch({
+    required List<String> itemIds,
+    required String branchName,
+    String? branchId,
+    String? note,
+  }) async {
+    final res = await dio.post<Map<String, dynamic>>(
+      '/v1/custody/handover',
+      options: Options(headers: {'idempotency-key': Vault.newUuid()}),
+      data: {
+        'clientEventId': Vault.newUuid(),
+        'occurredAt': DateTime.now().toUtc().toIso8601String(),
+        'direction': 'takeover',
         'counterparty': {'kind': 'branch', 'id': branchId, 'name': branchName},
         'itemIds': itemIds,
         'photoMediaIds': const [],
@@ -566,7 +689,11 @@ Map<String, Object?> _demoTask({
       'countryCode': 'TR',
       'coordinates': {'lat': lat, 'lng': lng},
     },
-    'contact': {'name': name, 'maskedPhone': null, 'hasReachablePhone': true},
+    'contact': {
+      'name': name,
+      'maskedPhone': '+905321110026',
+      'hasReachablePhone': true,
+    },
     'slotStartAt': start.toIso8601String(),
     'slotEndAt': start.add(const Duration(minutes: 30)).toIso8601String(),
     'priority': 'normal',
@@ -647,7 +774,7 @@ Map<String, dynamic> mockPayload(String path, RequestOptions options) {
       'geofenceDefaultRadiusMeters': 200,
       'geofenceMaxAccuracyMeters': 100,
       'featureFlags': {
-        'maskedCall': false,
+        'maskedCall': true,
         'cashCollect': true,
         'documentScan': false,
         'custody': false,
@@ -799,10 +926,58 @@ Map<String, dynamic> mockPayload(String path, RequestOptions options) {
       'syncedAt': DateTime.now().toUtc().toIso8601String(),
     };
   }
+  if (path.contains('/media/presign')) {
+    return {
+      'mediaId': (options.data is Map ? (options.data as Map)['mediaId'] : null) ??
+          Vault.newUuid(),
+      'uploadUrl': 'about:blank',
+      'method': 'PUT',
+      'headers': <String, String>{},
+      'expiresAt': DateTime.now()
+          .toUtc()
+          .add(const Duration(minutes: 10))
+          .toIso8601String(),
+      'alreadyUploaded': true,
+    };
+  }
+  if (path.contains('/otp/send')) {
+    return {
+      'challengeId': Vault.newUuid(),
+      'maskedPhone': '+90 532 *** ** 26',
+      'expiresAt': DateTime.now()
+          .toUtc()
+          .add(const Duration(minutes: 5))
+          .toIso8601String(),
+      'resendAvailableAt': DateTime.now()
+          .toUtc()
+          .add(const Duration(seconds: 30))
+          .toIso8601String(),
+      'attemptsRemaining': 5,
+    };
+  }
+  if (path.contains('/otp/verify')) {
+    return {
+      'verified': true,
+      'verificationToken': 'demo-otp-token',
+      'attemptsRemaining': 4,
+    };
+  }
+  if (path.contains('/call')) {
+    return {
+      'dialNumber': '+905321110026',
+      'sessionId': Vault.newUuid(),
+      'expiresAt': DateTime.now()
+          .toUtc()
+          .add(const Duration(minutes: 10))
+          .toIso8601String(),
+    };
+  }
   if (path.contains('/v1/tasks') &&
       !path.contains('/finalize') &&
       !path.contains('/transition') &&
-      !path.contains('/steps')) {
+      !path.contains('/steps') &&
+      !path.contains('/call') &&
+      !path.contains('/otp')) {
     return {
       'items': _demoTaskSummaries,
       'nextCursor': null,
@@ -815,35 +990,22 @@ Map<String, dynamic> mockPayload(String path, RequestOptions options) {
     // t1-t2-t4-t3 shorter than the t1-t2-t3-t4 dispatch order: 820s/6801m
     // vs. 1127s/9872m on the real road network.
     final now = DateTime.now().toUtc();
-    var eta = now;
-    Map<String, Object?> stop(
-      String taskId,
-      int sequence,
-      int? distanceMeters,
-      int? durationSeconds,
-    ) {
-      if (durationSeconds != null)
-        eta = eta.add(Duration(seconds: durationSeconds));
-      return {
-        'taskId': taskId,
-        'sequence': sequence,
-        'etaAt': eta.toIso8601String(),
-        'distanceMeters': distanceMeters,
-        'durationSeconds': durationSeconds,
-      };
-    }
-
+    final plan = RoutePlanDto.demo(now: now);
     return {
-      'id': Vault.newUuid(),
+      'id': plan.id,
       'shiftId': Vault.newUuid(),
-      'mode': 'distance_optimized',
-      'computedAt': now.toIso8601String(),
-      'geometry': '_kzgFybkpD\\VVVPPNJNLJGFKFSB[?_@@UGWESM[SUOOIIMMQUH@TFl@DjD?@eADm@Eq@?Uv@BXHxAb@nBh@v@T^RrEnHbAfDRtD?n@i@jDFlBR|@BDTb@xAbBVd@xAhG^|Bv@zCj@nAV`Al@hECnAa@nDBnBv@hCf@~BTh@b@d@bCdArAlAvBbAdDlCfAh@rC~@x@|@|@`BJ@RJb@BzAIp@Pb@Pd@VPTLXJf@B`@L\\XTRJFN@RGVK`@CZ@RDLEMASB[Ja@FWASGOSKYUM]Ca@Kg@MYQUe@Wc@Qq@Q{AHc@CSKKA}@aBy@}@sC_AgAi@eDmCwBcAsAmAcCeAc@e@Ui@g@_CWy@_@oACoB`@oDBoAm@iEWaAk@oAw@{C_@}ByAiGWe@yAcBYi@S}@GmBh@kD?o@SuDcAgDsEoH_@Sw@UoBi@yAc@YIw@CS?cEx@eCFo@RqAx@k@^g@LWCUYIIGm@V}AV_Br@}EDWGa@CS@y@EGEKa@GEEGIMOoAcBU[mAyAq@m@KKYIMJB[@GFWTu@BM^w@@YIS?QLc@@k@BYHm@JeA[PIFIDO?C?E@EBQJWHKHi@BUDWZ_@\\[@c@Iw@S',
+      'mode': plan.mode,
+      'computedAt': plan.computedAt,
+      'geometry': plan.geometry,
       'stops': [
-        stop('t1', 0, null, null),
-        stop('t2', 1, 1185, 145),
-        stop('t4', 2, 2799, 383),
-        stop('t3', 3, 2817, 292),
+        for (final s in plan.stops)
+          {
+            'taskId': s.taskId,
+            'sequence': s.sequence,
+            'etaAt': s.etaAt,
+            'distanceMeters': s.distanceMeters,
+            'durationSeconds': s.durationSeconds,
+          },
       ],
     };
   }
