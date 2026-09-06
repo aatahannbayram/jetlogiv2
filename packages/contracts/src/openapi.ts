@@ -44,6 +44,7 @@ import {
   SupportTicketListResponse,
 } from './custody.js';
 import { DelayDecisionRequest, DelayDecisionResponse } from './delay-decision.js';
+import { TaskAssignRequest, TaskAssignResponse } from './task-assign.js';
 import { EventEnvelope, PushNotification, WebhookPayload } from './events.js';
 import {
   CourierInboxItem,
@@ -172,6 +173,8 @@ const schemas = {
   RoutingOptimizeResponse,
   DelayDecisionRequest,
   DelayDecisionResponse,
+  TaskAssignRequest,
+  TaskAssignResponse,
   CustodyItem,
   CustodyListResponse,
   CustodyHandoverRequest,
@@ -487,6 +490,28 @@ registry.registerPath({
     400: { description: 'Gecersiz istek', content: errorContent },
     401: { description: 'Servis anahtari eksik veya hatali', content: errorContent },
     404: { description: 'Gorev bulunamadi', content: errorContent },
+    409: { description: 'Uygulanamaz durum', content: errorContent },
+  },
+});
+
+registry.registerPath({
+  method: 'post',
+  path: '/v1/tasks/{taskId}/assign',
+  tags: ['Task'],
+  summary: 'Gorevi kuryeye ata veya baska kuryeden cek',
+  description:
+    'Operasyon paneli bir gorevi kuryeye verir. Onceki kurye varsa TASK_PULLED, ' +
+    'yeni kuryeye TASK_ASSIGNED yazilir ve token varsa FCM gider.',
+  security: [{ [serviceAuth.name]: [] }],
+  request: {
+    params: z.object({ taskId: Uuid }),
+    body: { content: json(TaskAssignRequest) },
+  },
+  responses: {
+    200: { description: 'Atama uygulandi', content: json(TaskAssignResponse) },
+    400: { description: 'Gecersiz istek', content: errorContent },
+    401: { description: 'Servis anahtari eksik veya hatali', content: errorContent },
+    404: { description: 'Gorev veya kurye bulunamadi', content: errorContent },
     409: { description: 'Uygulanamaz durum', content: errorContent },
   },
 });

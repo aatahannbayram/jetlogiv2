@@ -404,6 +404,7 @@ class L10n {
 
   String get notifNewStop => _t('Yeni durak atandı', 'New stop assigned');
   String get notifCustody => _t('Zimmet onaylandı', 'Custody confirmed');
+  String get notifCustodyTaken => _t('Zimmet size geçti', 'Custody transferred to you');
   String get notifSyncFail => _t('Gönderim başarısız', 'Send failed');
   String get notifBonus => _t('Prim güncellendi', 'Bonus updated');
   String get notifShift => _t('Vardiya hatırlatması', 'Shift reminder');
@@ -637,6 +638,7 @@ class L10n {
   String notifTitle(String title) => switch (title) {
     'Yeni durak atandı' => notifNewStop,
     'Zimmet onaylandı' => notifCustody,
+    'Zimmet size geçti' => notifCustodyTaken,
     'Gönderim başarısız' => notifSyncFail,
     'Prim güncellendi' => notifBonus,
     'Vardiya hatırlatması' => notifShift,

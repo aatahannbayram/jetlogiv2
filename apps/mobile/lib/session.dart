@@ -1654,6 +1654,8 @@ class SessionController extends ChangeNotifier {
     'TASK_CANCELLED',
     'TASK_PULLED',
     'ROUTE_RECALCULATED',
+    'SLA_AT_RISK',
+    'CUSTODY_TAKEN',
   };
 
   void ingestPushData(Map<String, String> data) {

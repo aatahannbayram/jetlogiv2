@@ -26,6 +26,7 @@ import { decodeCursor, encodeCursor } from './task.js';
 import type { AuthenticatedCourier } from '../plugins/authenticate.js';
 import { productStatusForHandover, transitionCustodyItem } from '../services/custody-status.js';
 import { PostgresIdempotencyStore } from '../services/idempotency-store.js';
+import { enqueueCourierNotification } from '../services/notify.js';
 import { closeReturnOnBranchHandover } from '../services/return-status.js';
 
 export async function custodyRoutes(app: FastifyInstance, { ctx }: { ctx: AppContext }) {
@@ -218,6 +219,25 @@ export async function custodyRoutes(app: FastifyInstance, { ctx }: { ctx: AppCon
 
           return { handoverId: handover!.id, remaining };
         });
+
+        const toCourier =
+          body.direction === 'handover' &&
+          body.counterparty.kind === 'courier' &&
+          body.counterparty.id &&
+          body.counterparty.id !== courier.courierId
+            ? body.counterparty.id
+            : null;
+        if (toCourier) {
+          await enqueueCourierNotification(ctx.db, ctx.env, {
+            courierId: toCourier,
+            kind: 'CUSTODY_TAKEN',
+            title: 'Zimmet size geçti',
+            body: `${body.itemIds.length} kalem · ${body.counterparty.name || 'devralındı'}.`,
+            subjectId: result.handoverId,
+            collapseKey: `custody-in:${result.handoverId}`,
+            route: 'custody',
+          });
+        }
 
         return {
           status: 201,

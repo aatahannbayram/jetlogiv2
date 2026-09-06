@@ -13,6 +13,7 @@ import { authRoutes } from './routes/auth.js';
 import { configRoutes } from './routes/config.js';
 import { custodyRoutes } from './routes/custody.js';
 import { delayDecisionRoutes } from './routes/delay-decision.js';
+import { taskAssignRoutes } from './routes/task-assign.js';
 import { healthRoutes } from './routes/health.js';
 import { identityRoutes } from './routes/identity.js';
 import { mediaRoutes } from './routes/media.js';
@@ -87,6 +88,7 @@ export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
   await app.register(workflowRoutes, { ctx });
   await app.register(taskRoutes, { ctx });
   await app.register(delayDecisionRoutes, { ctx });
+  await app.register(taskAssignRoutes, { ctx });
   await app.register(shiftRoutes, { ctx });
   await app.register(routingRoutes, { ctx });
   await app.register(routingServiceRoutes, { ctx });

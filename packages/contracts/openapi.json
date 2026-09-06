@@ -6898,6 +6898,66 @@
           "appliedAt"
         ]
       },
+      "TaskAssignRequest": {
+        "type": "object",
+        "properties": {
+          "courierId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "9f1c2f8a-7d1e-4f6b-9a3c-2b5d4e6f7a81"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "operatorId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "9f1c2f8a-7d1e-4f6b-9a3c-2b5d4e6f7a81"
+          }
+        },
+        "required": [
+          "courierId"
+        ]
+      },
+      "TaskAssignResponse": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "9f1c2f8a-7d1e-4f6b-9a3c-2b5d4e6f7a81"
+          },
+          "courierId": {
+            "type": "string",
+            "format": "uuid",
+            "example": "9f1c2f8a-7d1e-4f6b-9a3c-2b5d4e6f7a81"
+          },
+          "previousCourierId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "example": "9f1c2f8a-7d1e-4f6b-9a3c-2b5d4e6f7a81"
+          },
+          "alreadyAssigned": {
+            "type": "boolean"
+          },
+          "appliedAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-08-25T09:15:00.000Z"
+          }
+        },
+        "required": [
+          "taskId",
+          "courierId",
+          "previousCourierId",
+          "alreadyAssigned",
+          "appliedAt"
+        ]
+      },
       "CustodyItem": {
         "type": "object",
         "properties": {
@@ -9786,6 +9846,147 @@
           },
           "404": {
             "description": "Gorev bulunamadi",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Uygulanamaz durum",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tasks/{taskId}/assign": {
+      "post": {
+        "tags": [
+          "Task"
+        ],
+        "summary": "Gorevi kuryeye ata veya baska kuryeden cek",
+        "description": "Operasyon paneli bir gorevi kuryeye verir. Onceki kurye varsa TASK_PULLED, yeni kuryeye TASK_ASSIGNED yazilir ve token varsa FCM gider.",
+        "security": [
+          {
+            "serviceAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "example": "9f1c2f8a-7d1e-4f6b-9a3c-2b5d4e6f7a81"
+            },
+            "required": true,
+            "name": "taskId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "courierId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "example": "9f1c2f8a-7d1e-4f6b-9a3c-2b5d4e6f7a81"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "maxLength": 160
+                  },
+                  "operatorId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "example": "9f1c2f8a-7d1e-4f6b-9a3c-2b5d4e6f7a81"
+                  }
+                },
+                "required": [
+                  "courierId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Atama uygulandi",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "taskId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "example": "9f1c2f8a-7d1e-4f6b-9a3c-2b5d4e6f7a81"
+                    },
+                    "courierId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "example": "9f1c2f8a-7d1e-4f6b-9a3c-2b5d4e6f7a81"
+                    },
+                    "previousCourierId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "uuid",
+                      "example": "9f1c2f8a-7d1e-4f6b-9a3c-2b5d4e6f7a81"
+                    },
+                    "alreadyAssigned": {
+                      "type": "boolean"
+                    },
+                    "appliedAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "example": "2026-08-25T09:15:00.000Z"
+                    }
+                  },
+                  "required": [
+                    "taskId",
+                    "courierId",
+                    "previousCourierId",
+                    "alreadyAssigned",
+                    "appliedAt"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Gecersiz istek",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Servis anahtari eksik veya hatali",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Gorev veya kurye bulunamadi",
             "content": {
               "application/problem+json": {
                 "schema": {
