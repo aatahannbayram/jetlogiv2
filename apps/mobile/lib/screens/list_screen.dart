@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../l10n.dart';
 import '../models.dart';
 import '../motion.dart';
 import '../session.dart';
@@ -26,17 +27,18 @@ class _ListScreenState extends ConsumerState<ListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final s = ref.watch(sessionProvider);
-    final acik = s.tasks
-        .where(
-          (t) =>
-              t.status != TaskStatus.delivered && t.status != TaskStatus.failed,
-        )
-        .toList();
+    final acik = s.tasks.where((t) => t.isOpen).toList();
     final teslim = s.tasks
         .where((t) => t.status == TaskStatus.delivered)
         .toList();
-    final iade = s.tasks.where((t) => t.status == TaskStatus.failed).toList();
+    final iade = s.tasks
+        .where(
+          (t) =>
+              t.status == TaskStatus.failed || t.status == TaskStatus.cancelled,
+        )
+        .toList();
     final rows = switch (tab) {
       0 => acik,
       1 => teslim,
@@ -60,10 +62,10 @@ class _ListScreenState extends ConsumerState<ListScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Display('Dağıtım', size: 26),
+                        Display(l.distribution, size: 26),
                         const SizedBox(height: 2),
                         Text(
-                          '${s.tasks.length} durak · ${acik.length} açık${kmLabel == null ? '' : ' · $kmLabel km'}',
+                          l.listSummary(s.tasks.length, acik.length, kmLabel),
                           style: Dg.ui(size: 13, color: Dg.ink3),
                         ),
                       ],
@@ -89,7 +91,7 @@ class _ListScreenState extends ConsumerState<ListScreen> {
                 children: [
                   Expanded(
                     child: _FilterPill(
-                      label: 'Açık ${acik.length}',
+                      label: l.openTab(acik.length),
                       active: tab == 0,
                       onTap: () => setState(() => tab = 0),
                     ),
@@ -97,7 +99,7 @@ class _ListScreenState extends ConsumerState<ListScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: _FilterPill(
-                      label: 'Teslim ${teslim.length}',
+                      label: l.deliveredTab(teslim.length),
                       active: tab == 1,
                       onTap: () => setState(() => tab = 1),
                     ),
@@ -105,7 +107,7 @@ class _ListScreenState extends ConsumerState<ListScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: _FilterPill(
-                      label: 'İade ${iade.length}',
+                      label: l.returnedTab(iade.length),
                       active: tab == 2,
                       onTap: () => setState(() => tab = 2),
                     ),
@@ -114,34 +116,53 @@ class _ListScreenState extends ConsumerState<ListScreen> {
               ),
             ),
             Expanded(
-              child: rows.isEmpty
-                  ? Center(
-                      child: Text(switch (tab) {
-                        0 => 'Bekleyen görev yok — hepsi tamam.',
-                        1 => 'Henüz teslimat yapılmadı.',
-                        _ => 'İade kaydı yok.',
-                      }, style: Dg.ui(size: 15, color: Dg.ink3)),
-                    )
-                  : ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-                      itemCount: rows.length,
-                      separatorBuilder: (context, i) =>
-                          const SizedBox(height: 10),
-                      itemBuilder: (context, i) {
-                        return StaggerIn(
-                          index: i,
-                          child: _RotaTaskCard(
-                            task: rows[i],
-                            onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) =>
-                                    TaskDetailScreen(taskId: rows[i].id),
+              child: RefreshIndicator(
+                onRefresh: () => s.refreshField(),
+                child: rows.isEmpty
+                    ? ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        children: [
+                          DgEmptyState(
+                            icon: switch (tab) {
+                              0 => LucideIcons.circleCheck,
+                              1 => LucideIcons.package,
+                              _ => LucideIcons.undo2,
+                            },
+                            title: switch (tab) {
+                              0 => l.emptyOpenTitle,
+                              1 => l.emptyDeliveredTitle,
+                              _ => l.emptyReturnTitle,
+                            },
+                            body: switch (tab) {
+                              0 => l.emptyOpenBody,
+                              1 => l.emptyDeliveredBody,
+                              _ => l.emptyReturnBody,
+                            },
+                          ),
+                        ],
+                      )
+                    : ListView.separated(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                        itemCount: rows.length,
+                        separatorBuilder: (context, i) =>
+                            const SizedBox(height: 10),
+                        itemBuilder: (context, i) {
+                          return StaggerIn(
+                            index: i,
+                            child: _RotaTaskCard(
+                              task: rows[i],
+                              onTap: () => Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) =>
+                                      TaskDetailScreen(taskId: rows[i].id),
+                                ),
                               ),
                             ),
-                          ),
-                        );
-                      },
-                    ),
+                          );
+                        },
+                      ),
+              ),
             ),
           ],
         ),
@@ -222,8 +243,8 @@ class _RotaTaskCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final open =
-        task.status != TaskStatus.delivered && task.status != TaskStatus.failed;
+    final l = context.l10n;
+    final open = task.isOpen;
     return DgCard(
       onTap: onTap,
       padding: const EdgeInsets.all(14),
@@ -233,7 +254,11 @@ class _RotaTaskCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _StatusBadge(task: task),
+              InitialsAvatar(
+                name: task.recipient,
+                photoUrl: task.personPhoto,
+                size: 44,
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
@@ -243,8 +268,14 @@ class _RotaTaskCard extends StatelessWidget {
                       children: [
                         Expanded(child: Display(task.recipient, size: 16)),
                         StatusChip(
-                          label: taskStatusLabel(task.status),
+                          label: taskStatusLabel(task.status, context.l10n),
                           tone: taskStatusTone(task.status),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(
+                          LucideIcons.chevronRight,
+                          size: 16,
+                          color: Dg.ink3,
                         ),
                       ],
                     ),
@@ -267,33 +298,33 @@ class _RotaTaskCard extends StatelessWidget {
             children: open
                 ? [
                     _InfoPill(
-                      label: 'Aralık',
+                      label: l.window,
                       value: task.window.split('–').first,
                     ),
                     if (task.custodyCount != null)
                       _InfoPill(
-                        label: 'Zimmet',
-                        value: '${task.custodyCount} kalem',
+                        label: l.custody,
+                        value: l.itemsCount(task.custodyCount!),
                       ),
                     if (task.otpRequired)
-                      const _InfoPill(
-                        label: 'Teslim kodu',
-                        value: 'Gerekli',
+                      _InfoPill(
+                        label: l.deliveryCode,
+                        value: l.required,
                         dot: true,
                       ),
                   ]
                 : [
-                    _InfoPill(label: 'Saat', value: task.window),
+                    _InfoPill(label: l.time, value: task.window),
                     if (task.signed)
-                      const _InfoPill(
+                      _InfoPill(
                         label: '',
-                        value: 'İmza',
+                        value: l.signature,
                         icon: LucideIcons.penLine,
                       ),
                     if (task.otpRequired)
-                      const _InfoPill(
+                      _InfoPill(
                         label: '',
-                        value: 'Kod',
+                        value: l.codeShort,
                         icon: LucideIcons.key,
                       ),
                   ],
@@ -317,7 +348,8 @@ class _StatusBadge extends StatelessWidget {
         child: const Icon(LucideIcons.check, size: 16, color: Colors.white),
       );
     }
-    if (task.status == TaskStatus.failed) {
+    if (task.status == TaskStatus.failed ||
+        task.status == TaskStatus.cancelled) {
       return _badge(
         color: Dg.elev,
         child: Icon(LucideIcons.undo2, size: 16, color: Dg.ink2),

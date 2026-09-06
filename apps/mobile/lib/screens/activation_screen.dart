@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../l10n.dart';
 import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -19,34 +20,41 @@ class ActivationScreen extends ConsumerStatefulWidget {
 class _ActivationScreenState extends ConsumerState<ActivationScreen> {
   final _phone = TextEditingController(text: '532 •• •• 26');
   final _otp = TextEditingController();
+  final _identifier = TextEditingController();
+  final _password = TextEditingController();
   bool _sent = false;
   bool _remember = true;
+  bool _panelMode = false;
+  bool _panelBusy = false;
+  bool _obscurePassword = true;
+  bool _skipStoredPanel = false;
   String? _error;
 
   @override
   void dispose() {
     _phone.dispose();
     _otp.dispose();
+    _identifier.dispose();
+    _password.dispose();
     super.dispose();
   }
 
-  InputDecoration _fieldDecoration() {
+  InputDecoration _plainFieldDecoration() {
+    final fill = Dg.dark
+        ? Colors.white.withValues(alpha: 0.06)
+        : Dg.elev;
+    final border = Dg.onHero.withValues(alpha: Dg.dark ? 0.14 : 0.18);
     return InputDecoration(
       isDense: true,
       filled: true,
-      fillColor: Colors.white.withValues(alpha: 0.06),
-      prefixText: '+90  ',
-      prefixStyle: const TextStyle(
-        color: Colors.white,
-        fontWeight: FontWeight.w600,
-      ),
+      fillColor: fill,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
         borderSide: BorderSide.none,
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.14)),
+        borderSide: BorderSide(color: border),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
@@ -56,8 +64,22 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
     );
   }
 
+  InputDecoration _fieldDecoration() {
+    return _plainFieldDecoration().copyWith(
+      prefixText: '+90  ',
+      prefixStyle: TextStyle(
+        color: Dg.onHero,
+        fontWeight: FontWeight.w600,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
+    final session = ref.watch(sessionProvider);
+    final onHero = Dg.onHero;
+    final muted = Dg.onHeroMuted;
     return Scaffold(
       body: HeroBackground(
         child: SafeArea(
@@ -83,22 +105,22 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
                     ),
                     const SizedBox(height: 28),
                     Text(
-                      'Vardiyana hoş geldin',
+                      l.welcomeShift,
                       textAlign: TextAlign.center,
                       style: Dg.serif(
                         size: 28,
                         weight: FontWeight.w700,
-                        color: Colors.white,
+                        color: onHero,
                       ),
                     ),
                     const SizedBox(height: 10),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 40),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 40),
                       child: Text(
-                        'Telefonunla giriş yap, vardiyayı aç ve rotan hazır olsun.',
+                        l.welcomeBody,
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          color: Color(0xFFCBBEEE),
+                          color: muted,
                           fontSize: 14,
                           height: 1.4,
                         ),
@@ -117,171 +139,302 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
                   ),
                   border: Border(
                     top: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.12),
+                      color: onHero.withValues(alpha: 0.12),
                     ),
                   ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (!_sent) ...[
-                      const Text(
-                        'Telefon numarası',
-                        style: TextStyle(
-                          color: Color(0xFFCBBEEE),
-                          fontSize: 13,
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (!session.panelLoggedIn ||
+                          _panelMode ||
+                          _sent ||
+                          _skipStoredPanel) ...[
+                        SegmentedTabs(
+                          glass: true,
+                          labels: [l.smsLogin, l.passwordLogin],
+                          index: _panelMode ? 1 : 0,
+                          onChanged: (i) => setState(() {
+                            _panelMode = i == 1;
+                            _sent = false;
+                            _skipStoredPanel = true;
+                            _error = null;
+                          }),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: _phone,
-                        keyboardType: TextInputType.phone,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: _fieldDecoration(),
-                      ),
-                      const SizedBox(height: 14),
-                      GestureDetector(
-                        onTap: () => setState(() => _remember = !_remember),
-                        child: Row(
-                          children: [
-                            Icon(
-                              _remember
-                                  ? LucideIcons.checkSquare
-                                  : LucideIcons.square,
-                              size: 20,
-                              color: Dg.purpleActive,
+                        const SizedBox(height: 18),
+                      ],
+                      if (session.panelLoggedIn &&
+                          !_panelMode &&
+                          !_sent &&
+                          !_skipStoredPanel) ...[
+                        Text(
+                          l.panelSessionOn,
+                          key: const Key('panel-session-ready'),
+                          style: TextStyle(
+                            color: onHero,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          l.panelReadyHint,
+                          style: TextStyle(
+                            color: muted,
+                            fontSize: 14,
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        DgButton(
+                          key: const Key('panel-continue'),
+                          label: l.goToPermissions,
+                          trailing: LucideIcons.arrowRight,
+                          onPressed: () =>
+                              ref.read(sessionProvider).completeActivation(),
+                        ),
+                        const SizedBox(height: 12),
+                        Center(
+                          child: TextButton(
+                            onPressed: () => setState(() {
+                              _panelMode = true;
+                              _error = null;
+                            }),
+                            child: Text(
+                              l.otherAccount,
+                              style: TextStyle(color: muted),
                             ),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'Bu cihazı hatırla',
-                              style: TextStyle(
-                                color: Color(0xFFCBBEEE),
+                          ),
+                        ),
+                        Center(
+                          child: TextButton(
+                            onPressed: () => setState(() {
+                              _skipStoredPanel = true;
+                              _sent = false;
+                              _error = null;
+                            }),
+                            child: Text(
+                              l.smsLogin,
+                              style: TextStyle(color: muted),
+                            ),
+                          ),
+                        ),
+                      ] else if (_panelMode) ...[
+                        Text(
+                          l.emailOrPhone,
+                          style: TextStyle(
+                            color: muted,
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextField(
+                          key: const Key('panel-identifier'),
+                          controller: _identifier,
+                          keyboardType: TextInputType.emailAddress,
+                          autocorrect: false,
+                          style: TextStyle(color: onHero),
+                          decoration: _plainFieldDecoration(),
+                        ),
+                        const SizedBox(height: 14),
+                        Text(
+                          l.password,
+                          style: TextStyle(
+                            color: muted,
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextField(
+                          key: const Key('panel-password'),
+                          controller: _password,
+                          obscureText: _obscurePassword,
+                          style: TextStyle(color: onHero),
+                          decoration: _plainFieldDecoration().copyWith(
+                            suffixIcon: IconButton(
+                              onPressed: () => setState(
+                                () => _obscurePassword = !_obscurePassword,
+                              ),
+                              icon: Icon(
+                                _obscurePassword
+                                    ? LucideIcons.eyeOff
+                                    : LucideIcons.eye,
+                                size: 18,
+                                color: muted,
+                              ),
+                            ),
+                          ),
+                        ),
+                        if (_error != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 10),
+                            child: Text(
+                              _error!,
+                              style: const TextStyle(
+                                color: Dg.clay,
                                 fontSize: 14,
                               ),
                             ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 18),
-                      SizedBox(
-                        width: double.infinity,
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: Dg.primaryGradient,
-                            borderRadius: BorderRadius.circular(Dg.radiusPill),
                           ),
-                          child: FilledButton(
-                            style: FilledButton.styleFrom(
-                              backgroundColor: Colors.transparent,
-                              shadowColor: Colors.transparent,
-                            ),
-                            onPressed: () async {
-                              await ref
-                                  .read(sessionProvider)
-                                  .requestActivationCode(_phone.text);
-                              if (mounted) setState(() => _sent = true);
-                            },
-                            child: const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text('Doğrulama kodu gönder'),
-                                SizedBox(width: 8),
-                                Icon(LucideIcons.arrowRight, size: 18),
-                              ],
-                            ),
-                          ),
+                        const SizedBox(height: 18),
+                        DgButton(
+                          key: const Key('panel-login'),
+                          label: _panelBusy ? l.signingIn : l.enterPanel,
+                          trailing: LucideIcons.arrowRight,
+                          busy: _panelBusy,
+                          onPressed: _panelBusy
+                              ? null
+                              : () async {
+                                  setState(() {
+                                    _panelBusy = true;
+                                    _error = null;
+                                  });
+                                  final ok = await ref
+                                      .read(sessionProvider)
+                                      .loginWithPanel(
+                                        identifier: _identifier.text,
+                                        password: _password.text,
+                                      );
+                                  if (!mounted) return;
+                                  setState(() => _panelBusy = false);
+                                  if (!ok) {
+                                    final code = ref
+                                        .read(sessionProvider)
+                                        .lastPanelError;
+                                    setState(
+                                      () => _error = code == 'PANEL_UNAVAILABLE'
+                                          ? l.panelUnavailable
+                                          : l.loginFailed,
+                                    );
+                                    return;
+                                  }
+                                  ref
+                                      .read(sessionProvider)
+                                      .completeActivation();
+                                },
                         ),
-                      ),
-                    ] else ...[
-                      const Text(
-                        'Alıcıdan 4 haneli kodu isteyin',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      const Text(
-                        'Kod sizin telefonunuza gider. Teslim kodu değil.',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFFCBBEEE),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      OtpPin(controller: _otp, error: _error != null),
-                      if (_error != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 10),
-                          child: Text(
-                            _error!,
-                            style: const TextStyle(
-                              color: Dg.clay,
-                              fontSize: 14,
-                            ),
+                      ] else if (!_sent) ...[
+                        Text(
+                          l.phoneNumber,
+                          style: TextStyle(
+                            color: muted,
+                            fontSize: 13,
                           ),
                         ),
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        width: double.infinity,
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: Dg.primaryGradient,
-                            borderRadius: BorderRadius.circular(Dg.radiusPill),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: _phone,
+                          keyboardType: TextInputType.phone,
+                          style: TextStyle(color: onHero),
+                          decoration: _fieldDecoration(),
+                        ),
+                        const SizedBox(height: 14),
+                        GestureDetector(
+                          onTap: () => setState(() => _remember = !_remember),
+                          child: Row(
+                            children: [
+                              Icon(
+                                _remember
+                                    ? LucideIcons.checkSquare
+                                    : LucideIcons.square,
+                                size: 20,
+                                color: Dg.purpleActive,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                l.rememberDevice,
+                                style: TextStyle(
+                                  color: muted,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
                           ),
-                          child: FilledButton(
-                            style: FilledButton.styleFrom(
-                              backgroundColor: Colors.transparent,
-                              shadowColor: Colors.transparent,
+                        ),
+                        const SizedBox(height: 18),
+                        DgButton(
+                          label: l.sendCode,
+                          trailing: LucideIcons.arrowRight,
+                          onPressed: () async {
+                            await ref
+                                .read(sessionProvider)
+                                .requestActivationCode(_phone.text);
+                            if (mounted) setState(() => _sent = true);
+                          },
+                        ),
+                      ] else ...[
+                        Text(
+                          l.askFourDigit,
+                          style: TextStyle(
+                            color: onHero,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          l.codeNotDelivery,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: muted,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        OtpPin(controller: _otp, error: _error != null),
+                        if (_error != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 10),
+                            child: Text(
+                              _error!,
+                              style: const TextStyle(
+                                color: Dg.clay,
+                                fontSize: 14,
+                              ),
                             ),
-                            onPressed: () async {
-                              final ok = await ref
-                                  .read(sessionProvider)
-                                  .verifyLoginOtp(_otp.text.trim());
-                              if (!ok) {
-                                setState(
-                                  () => _error =
-                                      'Kod eşleşmedi. Yeniden deneyin.',
-                                );
-                                return;
-                              }
-                              ref.read(sessionProvider).completeActivation();
-                            },
-                            child: const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text('Kodu doğrula'),
-                                SizedBox(width: 8),
-                                Icon(LucideIcons.arrowRight, size: 18),
-                              ],
-                            ),
+                          ),
+                        const SizedBox(height: 16),
+                        DgButton(
+                          label: l.verifyCode,
+                          trailing: LucideIcons.arrowRight,
+                          onPressed: () async {
+                            final ok = await ref
+                                .read(sessionProvider)
+                                .verifyLoginOtp(_otp.text.trim());
+                            if (!ok) {
+                              setState(
+                                () =>
+                                    _error = l.codeMismatch,
+                              );
+                              return;
+                            }
+                            ref.read(sessionProvider).completeActivation();
+                          },
+                        ),
+                      ],
+                      const SizedBox(height: 14),
+                      Center(
+                        child: Text(
+                          l.supportHint,
+                          style: TextStyle(
+                            color: onHero.withValues(alpha: 0.7),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Center(
+                        child: Text(
+                          l.fieldAppVersion,
+                          style: TextStyle(
+                            color: onHero.withValues(alpha: 0.35),
+                            fontSize: 11,
                           ),
                         ),
                       ),
                     ],
-                    const SizedBox(height: 14),
-                    Center(
-                      child: Text(
-                        'Sorun mu var? Şube yöneticine ulaş',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.7),
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Center(
-                      child: Text(
-                        'v1.0.0 · JetLogi Saha',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.35),
-                          fontSize: 11,
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ],

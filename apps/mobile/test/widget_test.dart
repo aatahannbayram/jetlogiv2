@@ -1,4 +1,6 @@
 import 'package:dijigoo_kurye/app.dart';
+import 'package:dijigoo_kurye/session.dart';
+import 'package:dijigoo_kurye/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -34,13 +36,34 @@ void main() {
     await tester.pump(const Duration(milliseconds: 600));
   });
 
+  testWidgets('aktivasyon panel şifre formunu gösterir', (tester) async {
+    await bindPhone(tester);
+    await tester.pumpWidget(const ProviderScope(child: DijigooApp()));
+    await tester.pump();
+    await tester.tap(find.text('Atla'));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.tap(find.text('Aktivasyonu göster'));
+    await tester.pumpAndSettle();
+    expect(find.text('Doğrulama kodu gönder'), findsOneWidget);
+    await tester.tap(find.text('Şifre ile gir'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('panel-identifier')), findsOneWidget);
+    expect(find.byKey(const Key('panel-password')), findsOneWidget);
+    expect(find.text('Panele gir'), findsOneWidget);
+    expect(find.text('Doğrulama kodu gönder'), findsNothing);
+    await tester.tap(find.text('SMS kodu ile gir'));
+    await tester.pumpAndSettle();
+    expect(find.text('Doğrulama kodu gönder'), findsOneWidget);
+  });
+
   testWidgets('görüşme demosu teslimatı bitirir', (tester) async {
     await bindPhone(tester);
     await openDemo(tester);
     expect(find.text('Ahmet Yılmaz'), findsWidgets);
     expect(find.text('Güney / Denizli'), findsOneWidget);
 
-    await tester.tap(find.text('Yol tarifi'));
+    await tester.tap(find.text('Teslime başla'));
     await tester.pumpAndSettle();
     expect(find.text('Teslim alan'), findsWidgets);
 
@@ -66,6 +89,19 @@ void main() {
     expect(find.text('Teslim edildi'), findsOneWidget);
   });
 
+  testWidgets('sıradaki durak kartı gönderi ve kuyruğu açar', (tester) async {
+    await bindPhone(tester);
+    await openDemo(tester);
+    expect(find.text('Gönderi ve kuyruk'), findsOneWidget);
+    expect(find.text('Gönderi'), findsNothing);
+    await tester.tap(find.text('Gönderi ve kuyruk'));
+    await tester.pumpAndSettle();
+    expect(find.text('Gönderi'), findsOneWidget);
+    expect(find.text('Kuyruk'), findsOneWidget);
+    expect(find.text('Teslime başla'), findsOneWidget);
+    expect(find.text('Yol tarifi'), findsOneWidget);
+  });
+
   testWidgets('rota zaman çizelgesi durakları gösterir', (tester) async {
     await bindPhone(tester);
     await openDemo(tester);
@@ -87,12 +123,137 @@ void main() {
     expect(find.textContaining('Açık '), findsWidgets);
   });
 
+  testWidgets('zimmet taraması kodu listeye yazar', (tester) async {
+    await bindPhone(tester);
+    await openDemo(tester);
+    await tester.tap(find.text('Tara'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Kurye Zimmet'));
+    await tester.pumpAndSettle();
+    expect(find.text('Barkodu çerçeveye getir'), findsOneWidget);
+    expect(find.text('Henüz taranan gönderi yok'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), 'DGO-9107');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+    expect(find.text('DGO-9107'), findsOneWidget);
+    expect(find.text('1 okundu'), findsOneWidget);
+  });
+
+  testWidgets('destek talebi menüden açılır ve kuyruğa yazar', (tester) async {
+    await bindPhone(tester);
+    await openDemo(tester);
+
+    await tester.tap(find.text('Menü'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Destek talebi'));
+    await tester.pumpAndSettle();
+    expect(find.text('Talep aç'), findsOneWidget);
+    expect(find.text('Henüz destek talebin yok.'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField).at(0), 'Kapı yok');
+    await tester.enterText(find.byType(TextField).at(1), 'Numara görünmüyor');
+    await tester.tap(find.text('Gönder'));
+    await tester.pumpAndSettle();
+    expect(find.text('Kapı yok'), findsOneWidget);
+    expect(find.text('Henüz destek talebin yok.'), findsNothing);
+  });
+
+  testWidgets('aktivasyon açık panel oturumunda izinlere geçer', (tester) async {
+    await bindPhone(tester);
+    final session = SessionController();
+    session.finishOnboard();
+    session.finishSplash();
+    session.panelLoggedIn = true;
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [sessionProvider.overrideWith((ref) => session)],
+        child: const DijigooApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('İzinlere geç'), findsOneWidget);
+    expect(find.byKey(const Key('panel-identifier')), findsNothing);
+    await tester.tap(find.byKey(const Key('panel-continue')));
+    await tester.pumpAndSettle();
+    expect(find.text('Cihaz izinleri'), findsOneWidget);
+    expect(session.phase, AppPhase.permissions);
+  });
+
+  testWidgets('menü panel oturumu kapandı yazar', (tester) async {
+    await bindPhone(tester);
+    final session = SessionController();
+    session.skipToDemo();
+    session.lastPanelError = SessionController.panelSessionExpired;
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [sessionProvider.overrideWith((ref) => session)],
+        child: const DijigooApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Menü'));
+    await tester.pumpAndSettle();
+    expect(find.text('Panel oturumu kapandı'), findsOneWidget);
+    expect(find.text('Panel oturumu açık'), findsNothing);
+  });
+
+  testWidgets('çıkış panel oturumunu da kapatacağını söyler', (tester) async {
+    await bindPhone(tester);
+    final session = SessionController();
+    session.skipToDemo();
+    session.panelLoggedIn = true;
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [sessionProvider.overrideWith((ref) => session)],
+        child: const DijigooApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Menü'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ruken Turhan'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Çıkış yap'),
+      400,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.tap(find.text('Çıkış yap'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Panel oturumu da kapanacak. Tekrar giriş yapman gerekecek.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('menü panel oturumu açık yazar', (tester) async {
+    await bindPhone(tester);
+    final session = SessionController();
+    session.skipToDemo();
+    session.panelLoggedIn = true;
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [sessionProvider.overrideWith((ref) => session)],
+        child: const DijigooApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Menü'));
+    await tester.pumpAndSettle();
+    expect(find.text('Panel oturumu açık'), findsOneWidget);
+  });
+
   testWidgets('menü ekranı yeni bölümlere gider', (tester) async {
     await bindPhone(tester);
     await openDemo(tester);
 
     await tester.tap(find.text('Menü'));
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Performansım'),
+      240,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('Performansım'), findsOneWidget);
 
     await tester.tap(find.text('Performansım'));
@@ -120,5 +281,24 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Mühendis'), findsOneWidget);
     expect(find.textContaining('/v1/config'), findsOneWidget);
+  });
+
+  testWidgets('İngilizce ve açık tema ana ekranda açılır', (tester) async {
+    await bindPhone(tester);
+    final session = SessionController();
+    session.skipToDemo();
+    session.localeCode = 'en';
+    session.darkModeUi = false;
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [sessionProvider.overrideWith((ref) => session)],
+        child: const DijigooApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Menu'), findsOneWidget);
+    expect(find.text('Start delivery'), findsOneWidget);
+    expect(find.text('Next stop'), findsOneWidget);
+    expect(Dg.dark, isFalse);
   });
 }

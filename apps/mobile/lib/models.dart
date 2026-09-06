@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 enum TaskKind { delivery, pickup, document }
 
-enum TaskStatus { assigned, inProgress, delivered, failed, queued }
+enum TaskStatus { assigned, inProgress, delivered, failed, queued, cancelled }
 
 /// Whether a courier works independently or is dispatched by an agency
 /// ("acenta") — agency couriers never see per-delivery pricing.
@@ -26,6 +26,7 @@ class Courier {
     this.affiliation = CourierAffiliation.independent,
     this.compensationType = CompensationType.pieceRate,
     this.monthlyPayLabel = '₺18.500',
+    this.photoUrl,
   });
 
   final String fullName;
@@ -42,6 +43,9 @@ class Courier {
 
   /// Shown instead of per-delivery pricing when [canSeePricing] is false.
   final String monthlyPayLabel;
+
+  /// Asset or http portrait. Falls back to initials when null.
+  final String? photoUrl;
 
   /// Acenta (agency) couriers never see pricing. Independent couriers only
   /// see it when they're paid per delivery (hakediş/parça başı) — fixed
@@ -64,6 +68,7 @@ class Courier {
     CourierAffiliation? affiliation,
     CompensationType? compensationType,
     String? monthlyPayLabel,
+    String? photoUrl,
   }) {
     return Courier(
       fullName: fullName ?? this.fullName,
@@ -78,6 +83,7 @@ class Courier {
       affiliation: affiliation ?? this.affiliation,
       compensationType: compensationType ?? this.compensationType,
       monthlyPayLabel: monthlyPayLabel ?? this.monthlyPayLabel,
+      photoUrl: photoUrl ?? this.photoUrl,
     );
   }
 }
@@ -104,11 +110,23 @@ class DeliveryTask {
     this.slaMinutesLeft,
     this.signed = false,
     this.groupKey,
-  });
+    this.rowVersion = 0,
+    this.workflowVersion = 1,
+    this.photoUrl,
+    String? wireStatus,
+  }) : wireStatus = wireStatus ??
+            switch (status) {
+              TaskStatus.delivered => 'COMPLETED',
+              TaskStatus.failed => 'FAILED',
+              TaskStatus.cancelled => 'CANCELLED',
+              TaskStatus.inProgress => 'IN_PROGRESS',
+              TaskStatus.assigned || TaskStatus.queued => 'ASSIGNED',
+            };
 
   final String id;
   final String ref;
   final String recipient;
+  final String? photoUrl;
   final String address;
   final String window;
   final TaskKind kind;
@@ -140,6 +158,25 @@ class DeliveryTask {
   /// teslim edilebilir" kartı altında gösterilir.
   final String? groupKey;
 
+  /// Optimistic concurrency — Fastify `TaskSummary.rowVersion`.
+  int rowVersion;
+
+  /// Finalize body — listede yoksa 1; detay gelince güncellenir.
+  int workflowVersion;
+
+  /// Fastify `TaskStatus` teli. Dart [status] ACCEPTED/EN_ROUTE'u sıkıştırır.
+  String wireStatus;
+
+  bool get isOpen =>
+      status == TaskStatus.assigned ||
+      status == TaskStatus.inProgress ||
+      status == TaskStatus.queued;
+
+  bool get isClosed =>
+      status == TaskStatus.delivered ||
+      status == TaskStatus.failed ||
+      status == TaskStatus.cancelled;
+
   String get slaLabel {
     final m = slaMinutesLeft;
     if (m == null) return '';
@@ -147,6 +184,8 @@ class DeliveryTask {
     final mm = m % 60;
     return '${h.toString().padLeft(2, '0')}:${mm.toString().padLeft(2, '0')}';
   }
+
+  String? get personPhoto => photoUrl ?? personPhotoAsset(recipient);
 
   String get kindLabel => switch (kind) {
     TaskKind.delivery => 'Teslimat',
@@ -318,3 +357,13 @@ class BonusProgress {
   final String meta;
   final Color color;
 }
+
+/// Demo / known people — local portraits so the field UI works offline.
+String? personPhotoAsset(String name) => switch (name.trim()) {
+  'Ruken Turhan' => 'assets/images/avatars/ruken.jpg',
+  'Ahmet Yılmaz' => 'assets/images/avatars/ahmet.jpg',
+  'Elif Koç' => 'assets/images/avatars/elif.jpg',
+  'Mehmet Aydın' => 'assets/images/avatars/mehmet.jpg',
+  'Fatma Şahin' => 'assets/images/avatars/fatma.jpg',
+  _ => null,
+};

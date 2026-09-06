@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../l10n.dart';
 import '../models.dart';
 import '../session.dart';
 import '../theme.dart';
@@ -12,15 +14,16 @@ class DepoScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = context.l10n;
     final s = ref.watch(sessionProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Depodan Alım')),
+      appBar: AppBar(title: Text(l.depotTitle)),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
         children: [
           Text(
-            'Teslim alacağın depoyu seç.',
+            l.pickDepot,
             style: Dg.ui(size: 15, color: Dg.ink2),
           ),
           const SizedBox(height: 16),
@@ -34,9 +37,9 @@ class DepoScreen extends ConsumerWidget {
           ],
           if (s.selectedDepot != null) ...[
             const SizedBox(height: 8),
-            const Text(
-              'Bu depodaki gönderiler',
-              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+            Text(
+              l.depotShipments,
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
             ),
             const SizedBox(height: 10),
             for (final p in s.depotPreview)
@@ -70,7 +73,9 @@ class DepoScreen extends ConsumerWidget {
                 ),
               ),
             const SizedBox(height: 8),
-            FilledButton(
+            DgButton(
+              label: l.iPickedUp,
+              icon: LucideIcons.packageCheck,
               onPressed: () {
                 s.confirmDepotPickup();
                 Navigator.of(context).pushReplacement(
@@ -79,7 +84,6 @@ class DepoScreen extends ConsumerWidget {
                   ),
                 );
               },
-              child: const Text('Teslim aldım'),
             ),
           ],
         ],
@@ -101,65 +105,66 @@ class _DepotRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: selected ? Dg.purple : Dg.surface,
-      shape: RoundedRectangleBorder(
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: selected ? Dg.primaryGradient : null,
+        color: selected ? null : Dg.surface,
         borderRadius: BorderRadius.circular(Dg.radius),
-        side: BorderSide(
-          color: selected ? Dg.purpleDeep : Dg.rule,
-          width: selected ? 2 : 1,
-        ),
+        border: selected ? null : Border.all(color: Dg.rule),
       ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(Dg.radius),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      depot.name,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 17,
-                        color: selected ? Colors.white : Dg.ink,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(Dg.radius),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        depot.name,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 17,
+                          color: selected ? Colors.white : Dg.ink,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      depot.meta,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: selected ? const Color(0xFFE3D9F2) : Dg.ink2,
+                      const SizedBox(height: 4),
+                      Text(
+                        depot.meta,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: selected ? const Color(0xFFE3D9F2) : Dg.ink2,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 5,
-                ),
-                decoration: BoxDecoration(
-                  color: selected ? Dg.ink : Dg.elev,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  '${depot.count}',
-                  style: TextStyle(
-                    fontFamily: Dg.mono,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: selected ? Dg.purpleBright : Dg.ink3,
+                    ],
                   ),
                 ),
-              ),
-            ],
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: selected ? Dg.ink : Dg.elev,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    '${depot.count}',
+                    style: TextStyle(
+                      fontFamily: Dg.mono,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: selected ? Dg.purpleBright : Dg.ink3,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

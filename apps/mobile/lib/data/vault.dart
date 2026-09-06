@@ -62,6 +62,33 @@ class Vault {
   }
 
   static const _onboard = 'dg.onboard.v2';
+  static const _taskWatermark = 'dg.task.watermark';
+  static const _locale = 'dg.ui.locale';
+  static const _dark = 'dg.ui.dark';
+
+  Future<String?> get locale async => _storage.read(key: _locale);
+
+  Future<void> saveLocale(String value) =>
+      _storage.write(key: _locale, value: value);
+
+  Future<bool?> get darkMode async {
+    final v = await _storage.read(key: _dark);
+    if (v == null) return null;
+    return v == '1';
+  }
+
+  Future<void> saveDarkMode(bool value) =>
+      _storage.write(key: _dark, value: value ? '1' : '0');
+
+  Future<String?> get taskWatermark async => _storage.read(key: _taskWatermark);
+
+  Future<void> saveTaskWatermark(String? value) async {
+    if (value == null || value.isEmpty) {
+      await _storage.delete(key: _taskWatermark);
+    } else {
+      await _storage.write(key: _taskWatermark, value: value);
+    }
+  }
 
   Future<bool> get onboardSeen async =>
       (await _storage.read(key: _onboard)) == '1';

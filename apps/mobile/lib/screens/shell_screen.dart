@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../api/models.dart';
+import '../l10n.dart';
 import '../launchers.dart';
 import '../models.dart';
 import '../motion.dart';
@@ -17,6 +18,13 @@ import 'list_screen.dart';
 import 'menu_screen.dart';
 import 'notif_screen.dart';
 import 'tara_screen.dart';
+
+/// Rota haritası açık renkli karolarla (bkz. map_config.dart) çalışıyor —
+/// üstteki yüzen pilller karonun rengine göre gözden kaybolmasın diye hepsi
+/// aynı yumuşak gölgeyi paylaşıyor.
+const _floatingPillShadow = [
+  BoxShadow(color: Color(0x1F000000), blurRadius: 8, offset: Offset(0, 2)),
+];
 
 class ShellScreen extends ConsumerStatefulWidget {
   const ShellScreen({super.key});
@@ -62,12 +70,12 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
       bottomNavigationBar: DgPillNav(
         index: index,
         onChanged: (i) => setState(() => index = i),
-        items: const [
-          (LucideIcons.house, LucideIcons.house, 'Ana sayfa'),
-          (LucideIcons.truck, LucideIcons.truck, 'Rota'),
-          (LucideIcons.qrCode, LucideIcons.qrCode, 'Tara'),
-          (LucideIcons.bell, LucideIcons.bell, 'Bildirim'),
-          (LucideIcons.layoutGrid, LucideIcons.layoutGrid, 'Menü'),
+        items: [
+          (LucideIcons.house, LucideIcons.house, context.l10n.home),
+          (LucideIcons.truck, LucideIcons.truck, context.l10n.route),
+          (LucideIcons.qrCode, LucideIcons.qrCode, context.l10n.scan),
+          (LucideIcons.bell, LucideIcons.bell, context.l10n.permPush),
+          (LucideIcons.layoutGrid, LucideIcons.layoutGrid, context.l10n.menu),
         ],
       ),
     );
@@ -85,6 +93,8 @@ class RouteScreen extends ConsumerStatefulWidget {
 }
 
 class _RouteScreenState extends ConsumerState<RouteScreen> {
+  bool _panelExpanded = true;
+
   @override
   void initState() {
     super.initState();
@@ -107,12 +117,7 @@ class _RouteScreenState extends ConsumerState<RouteScreen> {
     // know about yet (freshly assigned, not in the last computed route)
     // appended at the end so nothing silently disappears.
     final tasks = _orderedTasks(s.tasks, plan);
-    final open = tasks
-        .where(
-          (t) =>
-              t.status != TaskStatus.delivered && t.status != TaskStatus.failed,
-        )
-        .length;
+    final open = tasks.where((t) => t.isOpen).length;
     final next = s.nextStop;
     final summary = _routeSummary(
       plan,
@@ -125,9 +130,10 @@ class _RouteScreenState extends ConsumerState<RouteScreen> {
             child: MapStrip(
               height: 900,
               clipTopOnly: false,
+              interactive: true,
               points: [for (final t in tasks) LatLng(t.lat, t.lng)],
               encodedPolyline: plan?.geometry,
-              label: '$open durak',
+              label: context.l10n.stopsCount(open),
             ),
           ),
           SafeArea(
@@ -143,6 +149,7 @@ class _RouteScreenState extends ConsumerState<RouteScreen> {
                       decoration: BoxDecoration(
                         color: Dg.surface,
                         shape: BoxShape.circle,
+                        boxShadow: _floatingPillShadow,
                       ),
                       child: Icon(
                         LucideIcons.arrowLeft,
@@ -161,6 +168,7 @@ class _RouteScreenState extends ConsumerState<RouteScreen> {
                       decoration: BoxDecoration(
                         color: Dg.purple,
                         borderRadius: BorderRadius.circular(16),
+                        boxShadow: _floatingPillShadow,
                       ),
                       child: Text(
                         summary,
@@ -183,15 +191,16 @@ class _RouteScreenState extends ConsumerState<RouteScreen> {
                         vertical: 10,
                       ),
                       decoration: BoxDecoration(
-                        color: Dg.ink,
+                        color: Dg.surface,
                         borderRadius: BorderRadius.circular(16),
+                        boxShadow: _floatingPillShadow,
                       ),
                       child: Text(
                         s.online ? 'Mola' : 'Devam',
                         style: Dg.ui(
                           size: 13,
                           weight: FontWeight.w700,
-                          color: Colors.white,
+                          color: Dg.ink,
                         ),
                       ),
                     ),
@@ -208,57 +217,121 @@ class _RouteScreenState extends ConsumerState<RouteScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   DgCard(
-                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          '$open durak kaldı. Durağa basınca yol tarifi açılır.',
-                          style: Dg.ui(size: 15, color: Dg.ink2),
-                        ),
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          // Zengin durak kartları (özellikle aktif durağın
-                          // tam mor kartı) eski 168px'e sığmıyor — ekranın
-                          // ~%45'i kadar yer ayırıp gerisini ListView'ın
-                          // kendi kaydırmasına bırakıyoruz.
-                          height: MediaQuery.of(context).size.height * 0.45,
-                          child: s.routeLoading && plan == null
-                              ? ListView.separated(
-                                  itemCount: 3,
-                                  separatorBuilder: (context, index) =>
-                                      const SizedBox(height: 8),
-                                  itemBuilder: (context, i) => const Padding(
-                                    padding: EdgeInsets.symmetric(vertical: 6),
-                                    child: DgSkeleton(
-                                      width: double.infinity,
-                                      height: 20,
+                        // Sürüklenebilir alt panel görünümünü çağrıştıran
+                        // tutamaç — dokununca listeyi açıp kapatıyor, harita
+                        // görünür kalsın isteyen kurye için.
+                        GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () =>
+                              setState(() => _panelExpanded = !_panelExpanded),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Container(
+                                width: 36,
+                                height: 4,
+                                margin: const EdgeInsets.only(bottom: 10),
+                                decoration: BoxDecoration(
+                                  color: Dg.ink2.withValues(alpha: 0.35),
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                              ),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      context.l10n.remainingStopsHint(open),
+                                      style: Dg.ui(size: 15, color: Dg.ink2),
                                     ),
                                   ),
-                                )
-                              : ListView.builder(
-                                  // Dikey zaman çizelgesi: durak düğümü →
-                                  // yolculuk segmenti → durak düğümü — bu
-                                  // yüzden n durak için 2n-1 öğe var, tek
-                                  // indeksler segment.
-                                  itemCount: tasks.isEmpty
-                                      ? 0
-                                      : tasks.length * 2 - 1,
-                                  itemBuilder: (context, i) {
-                                    if (i.isOdd) {
-                                      final task = tasks[(i + 1) ~/ 2];
-                                      final leg = plan == null
-                                          ? null
-                                          : _findStop(plan.stops, task.id);
-                                      return _TravelSegment(stop: leg);
-                                    }
-                                    final idx = i ~/ 2;
-                                    return _StopNode(
-                                      task: tasks[idx],
-                                      active: idx == 0,
-                                      last: idx == tasks.length - 1,
-                                    );
-                                  },
+                                  Icon(
+                                    _panelExpanded
+                                        ? LucideIcons.chevronDown
+                                        : LucideIcons.chevronUp,
+                                    size: 18,
+                                    color: Dg.ink2,
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        AnimatedSize(
+                          duration: const Duration(milliseconds: 220),
+                          curve: Curves.easeOutCubic,
+                          alignment: Alignment.topCenter,
+                          child: !_panelExpanded
+                              ? const SizedBox.shrink()
+                              : Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const SizedBox(height: 12),
+                                    SizedBox(
+                                      // Zengin durak kartları (özellikle aktif
+                                      // durağın tam mor kartı) eski 168px'e
+                                      // sığmıyor — ekranın ~%45'i kadar yer
+                                      // ayırıp gerisini ListView'ın kendi
+                                      // kaydırmasına bırakıyoruz.
+                                      height:
+                                          MediaQuery.of(context).size.height *
+                                          0.45,
+                                      child: s.routeLoading && plan == null
+                                          ? ListView.separated(
+                                              itemCount: 3,
+                                              separatorBuilder: (
+                                                context,
+                                                index,
+                                              ) => const SizedBox(height: 8),
+                                              itemBuilder: (context, i) =>
+                                                  const Padding(
+                                                    padding:
+                                                        EdgeInsets.symmetric(
+                                                          vertical: 6,
+                                                        ),
+                                                    child: DgSkeleton(
+                                                      width: double.infinity,
+                                                      height: 20,
+                                                    ),
+                                                  ),
+                                            )
+                                          : ListView.builder(
+                                              // Dikey zaman çizelgesi: durak
+                                              // düğümü → yolculuk segmenti →
+                                              // durak düğümü — bu yüzden n
+                                              // durak için 2n-1 öğe var, tek
+                                              // indeksler segment.
+                                              itemCount: tasks.isEmpty
+                                                  ? 0
+                                                  : tasks.length * 2 - 1,
+                                              itemBuilder: (context, i) {
+                                                if (i.isOdd) {
+                                                  final task =
+                                                      tasks[(i + 1) ~/ 2];
+                                                  final leg = plan == null
+                                                      ? null
+                                                      : _findStop(
+                                                          plan.stops,
+                                                          task.id,
+                                                        );
+                                                  return _TravelSegment(
+                                                    stop: leg,
+                                                  );
+                                                }
+                                                final idx = i ~/ 2;
+                                                return _StopNode(
+                                                  task: tasks[idx],
+                                                  active:
+                                                      tasks[idx].id == next?.id,
+                                                  last: idx == tasks.length - 1,
+                                                );
+                                              },
+                                            ),
+                                    ),
+                                  ],
                                 ),
                         ),
                       ],
@@ -321,8 +394,11 @@ class _StopNode extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final delivered = task.status == TaskStatus.delivered;
+    final cancelled = task.status == TaskStatus.cancelled;
     final icon = delivered
         ? LucideIcons.check
+        : cancelled
+        ? LucideIcons.x
         : (last
               ? LucideIcons.flag
               : (active ? LucideIcons.mapPin : LucideIcons.layers));
@@ -364,7 +440,7 @@ class _StopNode extends StatelessWidget {
                           ),
                         ),
                         StatusChip(
-                          label: taskStatusLabel(task.status),
+                          label: taskStatusLabel(task.status, context.l10n),
                           tone: 'lime',
                           fg: Colors.white,
                         ),
@@ -390,19 +466,21 @@ class _StopNode extends StatelessWidget {
                           _pill('Kalan', task.slaLabel),
                       ],
                     ),
-                    const SizedBox(height: 10),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        style: FilledButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: Dg.primaryGradientStart,
+                    if (task.isOpen) ...[
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: Dg.primaryGradientStart,
+                          ),
+                          onPressed: () => openDirections(context, task),
+                          icon: const Icon(LucideIcons.navigation, size: 15),
+                          label: Text(context.l10n.goToThisStop),
                         ),
-                        onPressed: () => openDirections(context, task),
-                        icon: const Icon(LucideIcons.navigation, size: 15),
-                        label: const Text('Bu durağa git'),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),
@@ -423,12 +501,16 @@ class _StopNode extends StatelessWidget {
             alignment: Alignment.center,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: delivered ? Dg.sage : Dg.elev,
+              color: delivered
+                  ? Dg.sage
+                  : cancelled
+                  ? Dg.ink3
+                  : Dg.elev,
             ),
             child: Icon(
               icon,
               size: 14,
-              color: delivered ? Colors.white : Dg.ink2,
+              color: delivered || cancelled ? Colors.white : Dg.ink2,
             ),
           ),
           const SizedBox(width: 10),
@@ -438,6 +520,12 @@ class _StopNode extends StatelessWidget {
               children: [
                 Row(
                   children: [
+                    InitialsAvatar(
+                      name: task.recipient,
+                      photoUrl: task.personPhoto,
+                      size: 22,
+                    ),
+                    const SizedBox(width: 8),
                     Expanded(child: Display(task.recipient, size: 15)),
                     Text(
                       task.window.split('–').first,

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../l10n.dart';
 import '../launchers.dart';
 import '../models.dart';
 import '../session.dart';
@@ -22,9 +23,11 @@ class TaskDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = context.l10n;
     final session = ref.watch(sessionProvider);
     final t = session.taskById(taskId);
     final done = t.status == TaskStatus.delivered;
+    final canAct = !t.isClosed;
 
     void start() {
       ref.read(sessionProvider).startTask(t.id);
@@ -107,7 +110,7 @@ class TaskDetailScreen extends ConsumerWidget {
                         Mono('#${t.sequence}  ·  ${t.ref}', color: Dg.ink3),
                         const Spacer(),
                         StatusChip(
-                          label: taskStatusLabel(t.status),
+                          label: taskStatusLabel(t.status, l),
                           tone: taskStatusTone(t.status),
                         ),
                       ],
@@ -117,7 +120,17 @@ class TaskDetailScreen extends ConsumerWidget {
                       tag: 'recipient-${t.id}',
                       child: Material(
                         color: Colors.transparent,
-                        child: Display(t.recipient, size: 22),
+                        child: Row(
+                          children: [
+                            InitialsAvatar(
+                              name: t.recipient,
+                              photoUrl: t.personPhoto,
+                              size: 40,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(child: Display(t.recipient, size: 22)),
+                          ],
+                        ),
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -134,25 +147,25 @@ class TaskDetailScreen extends ConsumerWidget {
                     const SizedBox(height: 14),
                     _InfoCard(
                       icon: LucideIcons.layers,
-                      label: 'Zimmet',
+                      label: l.custody,
                       value: t.custodyCount == null
                           ? '—'
-                          : '${t.custodyCount} kalem${t.custodyRef == null ? '' : ' · ${t.custodyRef}'}',
+                          : l.itemsWithRef(t.custodyCount!, t.custodyRef),
                     ),
                     const SizedBox(height: 8),
                     _InfoCard(
                       icon: LucideIcons.clock,
-                      label: 'Teslim penceresi',
+                      label: l.deliveryWindowLeft,
                       value: t.slaMinutesLeft == null
                           ? t.window
-                          : '${t.slaLabel} kaldı',
+                          : l.slaLeft(t.slaLabel),
                     ),
                     if (t.otpRequired) ...[
                       const SizedBox(height: 8),
-                      const _InfoCard(
+                      _InfoCard(
                         icon: LucideIcons.key,
-                        label: 'Teslim kodu',
-                        value: 'Alıcıdan istenecek',
+                        label: l.deliveryCode,
+                        value: l.askRecipient,
                         dot: true,
                       ),
                     ],
@@ -161,19 +174,19 @@ class TaskDetailScreen extends ConsumerWidget {
                       children: [
                         SquareAction(
                           icon: LucideIcons.phone,
-                          label: 'Ara',
+                          label: l.callShort,
                           onTap: () => callRecipient(context),
                         ),
                         const SizedBox(width: 10),
                         SquareAction(
                           icon: LucideIcons.navigation,
-                          label: 'Yol',
+                          label: l.routeShort,
                           onTap: () => openDirections(context, t),
                         ),
                         const SizedBox(width: 10),
                         SquareAction(
                           icon: LucideIcons.camera,
-                          label: 'Foto',
+                          label: l.photo,
                           onTap: () {},
                         ),
                       ],
@@ -199,7 +212,7 @@ class TaskDetailScreen extends ConsumerWidget {
                                 ),
                                 const SizedBox(width: 8),
                                 Text(
-                                  'Teslim edildi',
+                                  l.deliveredOk,
                                   style: Dg.ui(
                                     size: 16,
                                     weight: FontWeight.w700,
@@ -216,12 +229,12 @@ class TaskDetailScreen extends ConsumerWidget {
                             curve: Curves.easeOutBack,
                           )
                           .fadeIn(duration: 180.ms)
-                    else
+                    else if (canAct)
                       SlideToAct(
-                        label: 'Teslim etmek için kaydır',
+                        label: l.slideToDeliver,
                         onConfirm: start,
                       ),
-                    if (!done) ...[
+                    if (canAct) ...[
                       const SizedBox(height: 8),
                       Center(
                         child: TextButton(
@@ -236,7 +249,7 @@ class TaskDetailScreen extends ConsumerWidget {
                               Navigator.of(context).pop();
                           },
                           child: Text(
-                            'Teslim edilemedi',
+                            l.couldNotDeliverShort,
                             style: TextStyle(
                               color: Dg.hi,
                               fontWeight: FontWeight.w600,

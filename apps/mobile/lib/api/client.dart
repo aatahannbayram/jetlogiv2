@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 
 import '../data/vault.dart';
 import '../models.dart';
+import 'courier_tasks.dart';
 import 'models.dart';
 
 const kApiBase = String.fromEnvironment(
@@ -27,12 +28,31 @@ String e164(String raw) {
   return '+90$digits';
 }
 
+class SyncChangesDto {
+  const SyncChangesDto({
+    required this.tasks,
+    required this.removedTaskIds,
+    required this.syncedAt,
+    this.custody,
+    this.resyncRequired = false,
+  });
+
+  final List<DeliveryTask> tasks;
+  final List<String> removedTaskIds;
+  final String syncedAt;
+  final List<CustodyItemDto>? custody;
+  final bool resyncRequired;
+}
+
 class MobileApi {
-  MobileApi({required this.dio, this.vault});
+  MobileApi({required this.dio, this.vault}) : tasks = CourierTaskClient(dio);
 
   final Dio dio;
   final Vault? vault;
+  final CourierTaskClient tasks;
   bool lastWasLive = false;
+  bool lastPullRequired = false;
+  String? lastSyncedAt;
 
   factory MobileApi.create({Vault? vault}) {
     final dio = Dio(
@@ -63,6 +83,105 @@ class MobileApi {
     );
     dio.interceptors.add(DemoFallbackInterceptor());
     return MobileApi(dio: dio, vault: vault);
+  }
+
+  Future<List<DeliveryTask>> fetchTasks({String? updatedSince}) async {
+    final items = <DeliveryTask>[];
+    String? cursor;
+    var pages = 0;
+    do {
+      final res = await tasks.list(updatedSince: updatedSince, cursor: cursor);
+      lastWasLive = res.extra['demo'] != true;
+      final raw = (res.data?['items'] as List?) ?? const [];
+      for (final row in raw) {
+        if (row is Map) {
+          items.add(deliveryTaskFromSummary(Map<String, dynamic>.from(row)));
+        }
+      }
+      final next = res.data?['nextCursor'];
+      cursor = next is String && next.isNotEmpty ? next : null;
+      final synced = res.data?['syncedAt'];
+      if (synced is String && synced.isNotEmpty) lastSyncedAt = synced;
+      pages += 1;
+    } while (cursor != null && pages < 20);
+    return items;
+  }
+
+  Future<SyncChangesDto> fetchChanges({String? since}) async {
+    final items = <DeliveryTask>[];
+    final removed = <String>{};
+    List<CustodyItemDto>? custody;
+    String? cursor;
+    var pages = 0;
+    var resyncRequired = false;
+    String syncedAt = lastSyncedAt ?? DateTime.now().toUtc().toIso8601String();
+    do {
+      final res = await dio.get<Map<String, dynamic>>(
+        '/v1/sync/changes',
+        queryParameters: {
+          if (since != null) 'since': since,
+          if (cursor != null) 'cursor': cursor,
+        },
+      );
+      lastWasLive = res.extra['demo'] != true;
+      final raw = (res.data?['tasks'] as List?) ?? const [];
+      for (final row in raw) {
+        if (row is Map) {
+          items.add(deliveryTaskFromSummary(Map<String, dynamic>.from(row)));
+        }
+      }
+      final gone = (res.data?['removedTaskIds'] as List?) ?? const [];
+      for (final id in gone) {
+        if (id is String && id.isNotEmpty) removed.add(id);
+      }
+      if (res.data?['resyncRequired'] == true) resyncRequired = true;
+      final rawCustody = res.data?['custody'] as List?;
+      if (rawCustody != null) {
+        custody = [
+          for (final row in rawCustody)
+            if (row is Map)
+              CustodyItemDto.fromJson(Map<String, dynamic>.from(row)),
+        ];
+      }
+      final synced = res.data?['syncedAt'];
+      if (synced is String && synced.isNotEmpty) {
+        syncedAt = synced;
+        lastSyncedAt = synced;
+      }
+      final next = res.data?['nextCursor'];
+      cursor = next is String && next.isNotEmpty ? next : null;
+      pages += 1;
+    } while (cursor != null && pages < 20 && !resyncRequired);
+    return SyncChangesDto(
+      tasks: items,
+      removedTaskIds: removed.toList(),
+      syncedAt: syncedAt,
+      custody: custody,
+      resyncRequired: resyncRequired,
+    );
+  }
+
+  Future<List<SupportTicketDto>> fetchSupportTickets() async {
+    final items = <SupportTicketDto>[];
+    String? cursor;
+    var pages = 0;
+    do {
+      final res = await dio.get<Map<String, dynamic>>(
+        '/v1/support/tickets',
+        queryParameters: {if (cursor != null) 'cursor': cursor},
+      );
+      lastWasLive = res.extra['demo'] != true;
+      final raw = (res.data?['items'] as List?) ?? const [];
+      for (final row in raw) {
+        if (row is Map) {
+          items.add(SupportTicketDto.fromJson(Map<String, dynamic>.from(row)));
+        }
+      }
+      final next = res.data?['nextCursor'];
+      cursor = next is String && next.isNotEmpty ? next : null;
+      pages += 1;
+    } while (cursor != null && pages < 20);
+    return items;
   }
 
   Future<CourierAvailabilityDto> fetchAvailability() async {
@@ -122,6 +241,18 @@ class MobileApi {
           DateTime.tryParse(tokens['refreshTokenExpiresAt'] as String? ?? '') ??
           DateTime.now().toUtc().add(const Duration(days: 30)),
     );
+  }
+
+  Future<ShiftDto?> fetchCurrentShift() async {
+    final res = await dio.get<dynamic>('/v1/shifts/current');
+    lastWasLive = res.extra['demo'] != true;
+    final data = res.data;
+    if (data is! Map) return null;
+    final map = Map<String, dynamic>.from(data);
+    if (map.isEmpty) return null;
+    final id = map['id'] as String?;
+    if (id == null || id.isEmpty) return null;
+    return ShiftDto.fromJson(map);
   }
 
   /// Today's optimized stop order (apps/api `GET /v1/routes/current`) — real
@@ -201,6 +332,7 @@ class MobileApi {
       },
     );
     lastWasLive = res.extra['demo'] != true;
+    lastPullRequired = res.data?['pullRequired'] == true;
     final results = (res.data?['results'] as List?) ?? const [];
     return [
       for (final r in results)
@@ -349,7 +481,11 @@ class DemoFallbackInterceptor extends Interceptor {
     final mockable =
         path.contains('/me/availability') ||
         path.contains('/me/documents') ||
-        path.contains('/v1/routes/current');
+        path.contains('/v1/routes/current') ||
+        path.contains('/v1/tasks') ||
+        path.contains('/v1/support/tickets') ||
+        path.contains('/v1/sync/changes') ||
+        path.contains('/v1/shifts');
     return mockable && (code == 401 || code == 404 || code == 501);
   }
 
@@ -397,6 +533,106 @@ final _demoCustodyItems = [
     'acquiredAt': '2026-08-28T07:00:00.000Z',
     'rowVersion': 0,
   },
+];
+
+Map<String, Object?> _demoTask({
+  required String id,
+  required String reference,
+  required String name,
+  required String line1,
+  required String district,
+  required int sequence,
+  required String status,
+  required double lat,
+  required double lng,
+  String type = 'DELIVERY',
+  double? slotHour,
+  int? itemCount,
+  double? codAmount,
+  String? note,
+}) {
+  final day = DateTime.utc(2026, 8, 25, 14);
+  final start = day.add(Duration(minutes: ((slotHour ?? 14.5) * 60).round() - 14 * 60));
+  return {
+    'id': id,
+    'reference': reference,
+    'type': type,
+    'status': status,
+    'sequence': sequence,
+    'address': {
+      'line1': line1,
+      'district': district,
+      'city': 'Denizli',
+      'countryCode': 'TR',
+      'coordinates': {'lat': lat, 'lng': lng},
+    },
+    'contact': {'name': name, 'maskedPhone': null, 'hasReachablePhone': true},
+    'slotStartAt': start.toIso8601String(),
+    'slotEndAt': start.add(const Duration(minutes: 30)).toIso8601String(),
+    'priority': 'normal',
+    'itemCount': itemCount ?? 1,
+    'codAmount': codAmount,
+    'updatedAt': '2026-08-25T10:00:00.000Z',
+    'rowVersion': 0,
+    'notes': note,
+    'workflow': {'version': 1},
+  };
+}
+
+final _demoTaskSummaries = [
+  _demoTask(
+    id: 't1',
+    reference: 'DGO-8841',
+    name: 'Ahmet Yılmaz',
+    line1: 'Kayalık Mah. Cumhuriyet Cd. No:14',
+    district: 'Güney',
+    sequence: 1,
+    status: 'ASSIGNED',
+    lat: 38.1512,
+    lng: 29.0614,
+    itemCount: 2,
+    slotHour: 14.5,
+  ),
+  _demoTask(
+    id: 't2',
+    reference: 'DGO-8842',
+    name: 'Elif Koç',
+    line1: 'İstiklal Cd. No:8 D:3',
+    district: 'Güney',
+    sequence: 2,
+    status: 'ASSIGNED',
+    lat: 38.1481,
+    lng: 29.0558,
+    type: 'DOCUMENT',
+    slotHour: 15,
+  ),
+  _demoTask(
+    id: 't3',
+    reference: 'DGO-8843',
+    name: 'Mehmet Aydın',
+    line1: 'Atatürk Mah. 7. Sk. No:22',
+    district: 'Güney',
+    sequence: 3,
+    status: 'ASSIGNED',
+    lat: 38.1554,
+    lng: 29.0692,
+    itemCount: 1,
+    codAmount: 185,
+    slotHour: 15.75,
+  ),
+  _demoTask(
+    id: 't4',
+    reference: 'DGO-8844',
+    name: 'Fatma Şahin',
+    line1: 'Yeni Mah. Okul Sk. No:4',
+    district: 'Güney',
+    sequence: 4,
+    status: 'ASSIGNED',
+    lat: 38.1460,
+    lng: 29.0488,
+    note: 'Alıcı yoktu · kapı fotoğrafı kuyrukta',
+    slotHour: 13,
+  ),
 ];
 
 Map<String, dynamic> mockPayload(String path, RequestOptions options) {
@@ -494,6 +730,83 @@ Map<String, dynamic> mockPayload(String path, RequestOptions options) {
       ],
       'serverTime': DateTime.now().toUtc().toIso8601String(),
       'pullRequired': false,
+    };
+  }
+  if (path.contains('/v1/shifts/current')) {
+    return <String, dynamic>{};
+  }
+  if (path.contains('/v1/shifts/start') || path.contains('/v1/shifts/end')) {
+    final now = DateTime.now().toUtc().toIso8601String();
+    return {
+      'id': Vault.newUuid(),
+      'courierId': '00000000-0000-4000-a000-000000000026',
+      'status': path.contains('/end') ? 'closed' : 'active',
+      'startedAt': now,
+      'endedAt': path.contains('/end') ? now : null,
+      'taskCount': 0,
+      'completedCount': 0,
+    };
+  }
+  if (path.contains('/v1/sync/changes')) {
+    return {
+      'tasks': _demoTaskSummaries,
+      'removedTaskIds': const <String>[],
+      'custody': _demoCustodyItems,
+      'removedCustodyIds': const <String>[],
+      'shift': null,
+      'workflows': const [],
+      'nextCursor': null,
+      'syncedAt': DateTime.now().toUtc().toIso8601String(),
+      'resyncRequired': false,
+    };
+  }
+  if (path.contains('/v1/support/tickets')) {
+    if (options.method == 'POST' ||
+        (options.data is Map && (options.data as Map).containsKey('subject'))) {
+      final body = options.data is Map
+          ? Map<String, dynamic>.from(options.data as Map)
+          : const <String, dynamic>{};
+      return {
+        'id': Vault.newUuid(),
+        'reference': 'DST-DEMO-1',
+        'category': body['category'] ?? 'OTHER',
+        'subject': body['subject'] ?? 'Destek',
+        'body': body['body'] ?? '',
+        'status': 'open',
+        'priority': 'normal',
+        'createdAt': DateTime.now().toUtc().toIso8601String(),
+        'updatedAt': DateTime.now().toUtc().toIso8601String(),
+        'media': const [],
+      };
+    }
+    return {
+      'items': [
+        {
+          'id': '20000000-0000-4000-a000-000000000001',
+          'reference': 'DST-20260825-DEMO',
+          'category': 'ADDRESS_PROBLEM',
+          'subject': 'Kapı numarası görünmüyor',
+          'body': 'DGO-8841 adresinde bina girişi karanlık.',
+          'status': 'open',
+          'priority': 'high',
+          'taskId': 't1',
+          'createdAt': '2026-08-25T09:00:00.000Z',
+          'updatedAt': '2026-08-25T09:00:00.000Z',
+          'media': const [],
+        },
+      ],
+      'nextCursor': null,
+      'syncedAt': DateTime.now().toUtc().toIso8601String(),
+    };
+  }
+  if (path.contains('/v1/tasks') &&
+      !path.contains('/finalize') &&
+      !path.contains('/transition') &&
+      !path.contains('/steps')) {
+    return {
+      'items': _demoTaskSummaries,
+      'nextCursor': null,
+      'syncedAt': DateTime.now().toUtc().toIso8601String(),
     };
   }
   if (path.contains('/v1/routes/current')) {

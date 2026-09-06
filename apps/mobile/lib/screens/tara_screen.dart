@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../l10n.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'zimmet_screen.dart';
@@ -17,6 +18,7 @@ class TaraScreen extends StatelessWidget {
     // menu_screen.dart'ın "Zimmetim" satırından push edildiğinde de
     // açılıyor — o yoldan geldiğinde geri dönecek yer var, canPop bunu
     // ayırt ediyor (bkz. profile_screen.dart'taki aynı patern).
+    final l = context.l10n;
     final canPop = Navigator.canPop(context);
     return Scaffold(
       body: SafeArea(
@@ -41,17 +43,17 @@ class TaraScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 14),
               ],
-              const Display('Tara', size: 26),
+              Display(l.scan, size: 26),
               const SizedBox(height: 4),
               Text(
-                'Zimmet almak veya teslim etmek için barkod okut.',
+                l.scanHint,
                 style: Dg.ui(size: 14, color: Dg.ink2),
               ),
               const SizedBox(height: 24),
               _ScanOption(
                 icon: LucideIcons.qrCode,
-                title: 'Kurye Zimmet',
-                subtitle: 'Şubeden üzerine alacağın paketleri okut',
+                title: l.courierCustody,
+                subtitle: l.courierCustodyHint,
                 tint: Dg.redBg,
                 ink: Dg.red,
                 onTap: () => Navigator.of(context).push(
@@ -63,8 +65,8 @@ class TaraScreen extends StatelessWidget {
               const SizedBox(height: 12),
               _ScanOption(
                 icon: LucideIcons.qrCode,
-                title: 'Şube Zimmet',
-                subtitle: 'Şubeye teslim ettiğin paketleri okut',
+                title: l.branchCustody,
+                subtitle: l.branchCustodyHint,
                 tint: Dg.greenBg,
                 ink: Dg.green,
                 onTap: () => Navigator.of(context).push(

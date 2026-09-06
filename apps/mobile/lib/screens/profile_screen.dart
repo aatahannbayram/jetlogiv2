@@ -3,6 +3,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../api/client.dart';
+import '../l10n.dart';
 import '../models.dart';
 import '../motion.dart';
 import '../session.dart';
@@ -70,18 +71,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Çıkış yap'),
-        content: const Text(
-          'Oturumun kapatılacak, tekrar giriş yapman gerekecek.',
+        title: Text(context.l10n.logout),
+        content: Text(
+          s.panelLoggedIn
+              ? context.l10n.logoutPanelBody
+              : context.l10n.logoutBody,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Vazgeç'),
+            child: Text(context.l10n.cancel),
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text('Çıkış yap', style: TextStyle(color: Dg.hi)),
+            child: Text(context.l10n.logout, style: TextStyle(color: Dg.hi)),
           ),
         ],
       ),
@@ -260,7 +263,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ],
                   Row(
                     children: [
-                      InitialsAvatar(name: c.fullName, size: 62),
+                      InitialsAvatar(
+                        name: c.fullName,
+                        photoUrl: c.photoUrl,
+                        size: 62,
+                      ),
                       const SizedBox(width: 14),
                       Expanded(
                         child: Column(
@@ -310,11 +317,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   const SizedBox(height: 20),
                   Row(
                     children: [
-                      _stat('${s.deliveredCount}', 'teslim', Dg.purpleBright),
+                      _stat('${s.deliveredCount}', context.l10n.deliveredShort, Dg.purpleBright),
                       _divider(),
-                      _stat('${s.openCount}', 'açık', Colors.white),
+                      _stat('${s.openCount}', context.l10n.openShort, Colors.white),
                       _divider(),
-                      _stat('${s.returnCount}', 'iade', Colors.white),
+                      _stat('${s.returnCount}', context.l10n.returnShort, Colors.white),
                     ],
                   ),
                 ],
@@ -322,12 +329,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ),
             const SizedBox(height: 18),
             Text(
-              'Kullanıcı',
+              context.l10n.userSection,
               style: Dg.ui(size: 20, weight: FontWeight.w700, color: Dg.ink),
             ),
             const SizedBox(height: 4),
             Text(
-              'Her alanı ayrı ayrı düzenleyebilirsin.',
+              context.l10n.editFieldsHint,
               style: Dg.ui(size: 13, color: Dg.ink3),
             ),
             const SizedBox(height: 10),
@@ -340,18 +347,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     padding: EdgeInsets.symmetric(vertical: 10),
                     child: DgDivider(),
                   ),
-                  _field('phone', 'TELEFON', phone, mono: 'm'),
+                  _field('phone', context.l10n.phoneCaps, phone, mono: 'm'),
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 10),
                     child: DgDivider(),
                   ),
-                  _field('plate', 'PLAKA', plate, mono: 'm'),
+                  _field('plate', context.l10n.plate, plate, mono: 'm'),
                 ],
               ),
             ),
             const SizedBox(height: 18),
             Text(
-              'Uygulama',
+              context.l10n.appSection,
               style: Dg.ui(size: 20, weight: FontWeight.w700, color: Dg.ink),
             ),
             const SizedBox(height: 10),
@@ -359,8 +366,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               child: Column(
                 children: [
                   _settingRow(
-                    'Görünüm',
-                    s.darkModeUi ? 'Koyu tema' : 'Açık tema',
+                    context.l10n.appearance,
+                    s.darkModeUi ? context.l10n.darkTheme : context.l10n.lightTheme,
                     icon: LucideIcons.palette,
                     trailing: GestureDetector(
                       onTap: s.toggleDarkModeUi,
@@ -410,25 +417,95 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ),
                   ),
                   const DgDivider(),
+                  _settingRow(
+                    context.l10n.language,
+                    s.localeCode == 'en'
+                        ? context.l10n.languageEn
+                        : context.l10n.languageTr,
+                    icon: LucideIcons.languages,
+                    trailing: GestureDetector(
+                      onTap: () => s.setLocale(s.localeCode == 'en' ? 'tr' : 'en'),
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Dg.elev,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 44,
+                              height: 34,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: s.localeCode == 'tr'
+                                    ? Dg.purple
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                'TR',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                  color: s.localeCode == 'tr'
+                                      ? Colors.white
+                                      : Dg.ink,
+                                ),
+                              ),
+                            ),
+                            Container(
+                              width: 44,
+                              height: 34,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: s.localeCode == 'en'
+                                    ? Dg.purple
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                'EN',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                  color: s.localeCode == 'en'
+                                      ? Colors.white
+                                      : Dg.ink,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const DgDivider(),
                   _switchRow(
-                    'Sesli barkod onayı',
-                    s.beepEnabled ? 'Açık · bip + titreşim' : 'Kapalı',
+                    context.l10n.barcodeBeep,
+                    s.beepEnabled ? context.l10n.onBeep : context.l10n.off,
                     s.beepEnabled,
                     s.toggleBeep,
                     icon: LucideIcons.volume2,
                   ),
                   const DgDivider(),
                   _switchRow(
-                    'Yeni durak bildirimi',
-                    s.notifyEnabled ? 'Açık · titreşim + ses' : 'Kapalı',
+                    context.l10n.newStopAlerts,
+                    s.notifyEnabled ? context.l10n.onNotify : context.l10n.off,
                     s.notifyEnabled,
                     s.toggleNotifyPref,
                     icon: LucideIcons.bellRing,
                   ),
                   const DgDivider(),
                   _switchRow(
-                    s.shiftOpen ? 'Vardiya açık' : 'Vardiya kapalı',
-                    '${s.courier.district} / ${s.courier.city} · ${s.shiftOpen ? "açık" : "yeni durak atanmaz"}',
+                    s.shiftOpen
+                        ? context.l10n.shiftOpen
+                        : context.l10n.shiftClosed,
+                    context.l10n.shiftCityHint(
+                      s.courier.district,
+                      s.courier.city,
+                      s.shiftOpen,
+                    ),
                     s.shiftOpen,
                     () async {
                       if (s.shiftOpen) {

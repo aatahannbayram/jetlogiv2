@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../l10n.dart';
 import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -40,115 +42,226 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final s = ref.watch(sessionProvider);
     final canGo = _ready && s.configReady && !s.forceUpdate;
+    final open = s.openCount;
+    final next = s.nextStop;
+    final onHero = Dg.onHero;
+    final muted = Dg.onHeroMuted;
     return Scaffold(
-      backgroundColor: Dg.night,
+      backgroundColor: Dg.dark ? Dg.night : Dg.ground,
       body: Stack(
         children: [
-          // Shown at its own aspect ratio, anchored to the top, instead of
-          // full-bleed BoxFit.cover — on tall/narrow phones cover was
-          // cropping ~40-60% off each side (this art is a wide 1290×1596
-          // render), slicing straight through the embossed logo. This way
-          // the whole piece is always visible, at native resolution (no
-          // upscaling blur), and just fades into the solid Dg.night below
-          // it rather than being forced to fill the full screen.
-          Align(
-            alignment: Alignment.topCenter,
-            child: AspectRatio(
-              aspectRatio: 1290 / 1596,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  Image.asset(
-                    'assets/images/jetlogi_splash_bg.png',
-                    fit: BoxFit.cover,
-                    filterQuality: FilterQuality.high,
-                  ),
-                  const DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.transparent,
-                          Colors.transparent,
-                          Dg.night,
-                        ],
-                        stops: [0.0, 0.62, 1.0],
+          if (Dg.dark)
+            Align(
+              alignment: Alignment.topCenter,
+              child: AspectRatio(
+                aspectRatio: 1290 / 1596,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.asset(
+                      'assets/images/jetlogi_splash_bg.png',
+                      fit: BoxFit.cover,
+                      filterQuality: FilterQuality.high,
+                    ),
+                    const DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            Colors.transparent,
+                            Dg.night,
+                          ],
+                          stops: [0.0, 0.55, 1.0],
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
+            )
+          else
+            const Positioned.fill(
+              child: HeroBackground(child: SizedBox.expand()),
             ),
-          ),
           NightGrain(
             child: SafeArea(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Row(
                       children: [
+                        if (s.panelLoggedIn)
+                          Text(
+                            l.panelSessionOn,
+                            style: TextStyle(
+                              color: muted,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         const Spacer(),
                         DemoPill(
                           onLongPress: () {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Giriş 123456  ·  Teslim 482913'),
-                              ),
+                              SnackBar(content: Text(l.demoCodesHint)),
                             );
                           },
                         ),
                       ],
                     ),
                     const Spacer(),
-                    Text(
-                          'Bugünün durakları Güney’de.',
-                          style: Dg.ui(
-                            size: 17,
-                            color: const Color(0xFFB7C4C1),
-                            height: 1.4,
+                    Container(
+                          padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+                          decoration: BoxDecoration(
+                            color: Dg.heroGlass,
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(
+                              color: onHero.withValues(alpha: 0.08),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  InitialsAvatar(
+                                    name: s.courier.fullName,
+                                    photoUrl: s.courier.photoUrl,
+                                    size: 52,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          s.courier.fullName,
+                                          style: TextStyle(
+                                            color: onHero,
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 17,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 3),
+                                        Text(
+                                          '${s.courier.district} / ${s.courier.city}',
+                                          style: TextStyle(
+                                            color: muted,
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 14),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  color: onHero.withValues(alpha: 0.05),
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 36,
+                                      height: 36,
+                                      alignment: Alignment.center,
+                                      decoration: BoxDecoration(
+                                        color: Dg.violetBg,
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Icon(
+                                        LucideIcons.mapPin,
+                                        size: 18,
+                                        color: Dg.dark
+                                            ? const Color(0xFFE3D9F2)
+                                            : Dg.violet,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            l.todayStopsGuney,
+                                            style: TextStyle(
+                                              color: onHero,
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w600,
+                                              height: 1.3,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            next == null
+                                                ? l.openStops(open)
+                                                : l.openInQueue(
+                                                    open,
+                                                    next.recipient,
+                                                  ),
+                                            style: TextStyle(
+                                              color: muted,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    if (next != null)
+                                      InitialsAvatar(
+                                        name: next.recipient,
+                                        photoUrl: next.personPhoto,
+                                        size: 32,
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              DgButton(
+                                label: s.forceUpdate
+                                    ? l.updateApp
+                                    : l.startShiftCta,
+                                icon: LucideIcons.play,
+                                busy: !canGo,
+                                onPressed: canGo
+                                    ? () =>
+                                          ref.read(sessionProvider).skipToDemo()
+                                    : null,
+                              ),
+                              const SizedBox(height: 8),
+                              DgButton(
+                                label: l.showActivation,
+                                icon: LucideIcons.key,
+                                tone: Dg.dark
+                                    ? DgButtonTone.onDark
+                                    : DgButtonTone.secondary,
+                                onPressed: () =>
+                                    ref.read(sessionProvider).finishSplash(),
+                              ),
+                            ],
                           ),
                         )
                         .animate(delay: 160.ms)
-                        .fadeIn(duration: 420.ms, curve: Curves.easeOutCubic),
-                    const Spacer(),
-                    FilledButton(
-                      style: FilledButton.styleFrom(
-                        backgroundColor: Dg.purple,
-                        foregroundColor: Colors.white,
-                      ),
-                      onPressed: canGo
-                          ? () => ref.read(sessionProvider).skipToDemo()
-                          : null,
-                      child: canGo
-                          ? Text(
-                              s.forceUpdate
-                                  ? 'Uygulamayı güncelle'
-                                  : 'Vardiyaya başla',
-                            )
-                          : const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.4,
-                                color: Colors.white,
-                              ),
-                            ),
-                    ),
-                    const SizedBox(height: 10),
-                    OutlinedButton(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFFF3F0E7),
-                        side: const BorderSide(color: Color(0xFF3A4744)),
-                        backgroundColor: Colors.transparent,
-                      ),
-                      onPressed: () => ref.read(sessionProvider).finishSplash(),
-                      child: const Text('Aktivasyonu göster'),
-                    ),
+                        .fadeIn(duration: 420.ms, curve: Curves.easeOutCubic)
+                        .slideY(
+                          begin: 0.08,
+                          end: 0,
+                          duration: 420.ms,
+                          curve: Curves.easeOutCubic,
+                        ),
                   ],
                 ),
               ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n.dart';
 import '../models.dart';
 import '../motion.dart';
 import '../session.dart';
@@ -12,11 +13,12 @@ class EarningsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = context.l10n;
     final s = ref.watch(sessionProvider);
     final canSeePricing = s.courier.canSeePricing;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Kazanç & Prim')),
+      appBar: AppBar(title: Text(l.earnings)),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
         children: [
@@ -26,7 +28,7 @@ class EarningsScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Mono('BUGÜN', size: 11, color: Dg.ink3),
+                  Mono(l.todayCaps, size: 11, color: Dg.ink3),
                   const SizedBox(height: 8),
                   Text(SessionController.todayEarn, style: Dg.stat(size: 34)),
                   const SizedBox(height: 6),
@@ -39,7 +41,7 @@ class EarningsScreen extends ConsumerWidget {
                   const SizedBox(height: 14),
                   Row(
                     children: [
-                      Text('Bu hafta', style: Dg.ui(size: 14, color: Dg.ink2)),
+                      Text(l.thisWeek, style: Dg.ui(size: 14, color: Dg.ink2)),
                       const Spacer(),
                       Text(
                         SessionController.weekEarn,
@@ -58,8 +60,8 @@ class EarningsScreen extends ConsumerWidget {
                 children: [
                   Mono(
                     s.courier.affiliation == CourierAffiliation.agency
-                        ? 'ACENTA · AYLIK KARŞILIK'
-                        : 'AYLIK SABİT',
+                        ? l.agencyMonthly
+                        : l.monthlyFixed,
                     size: 11,
                     color: Dg.ink3,
                   ),
@@ -68,8 +70,8 @@ class EarningsScreen extends ConsumerWidget {
                   const SizedBox(height: 6),
                   Text(
                     s.courier.affiliation == CourierAffiliation.agency
-                        ? 'Fiyatlandırma acenta tarafından yönetilir.'
-                        : 'Sabit aylık ücretlisiniz, teslimat başına tutar gösterilmez.',
+                        ? l.agencyPricingHint
+                        : l.fixedMonthlyHint,
                     style: Dg.ui(size: 13, color: Dg.ink2),
                   ),
                 ],
@@ -78,18 +80,18 @@ class EarningsScreen extends ConsumerWidget {
             const SizedBox(height: 12),
             Row(
               children: [
-                StatTile(label: 'TESLİM', value: '${s.deliveredCount}'),
+                StatTile(label: l.deliveredCaps, value: '${s.deliveredCount}'),
                 const SizedBox(width: 12),
-                StatTile(label: 'AÇIK', value: '${s.openCount}'),
+                StatTile(label: l.openCaps, value: '${s.openCount}'),
                 const SizedBox(width: 12),
-                StatTile(label: 'İADE', value: '${s.returnCount}'),
+                StatTile(label: l.returnCaps, value: '${s.returnCount}'),
               ],
             ),
           ],
           const SizedBox(height: 16),
-          const Text(
-            'Haftalık',
-            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+          Text(
+            l.weekly,
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
           ),
           const SizedBox(height: 14),
           DgCard(
@@ -98,7 +100,7 @@ class EarningsScreen extends ConsumerWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  for (final b in s.weeklyBars)
+                  for (final (i, b) in s.weeklyBars.indexed)
                     Expanded(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -122,7 +124,7 @@ class EarningsScreen extends ConsumerWidget {
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              b.label,
+                              l.weekdayAt(i),
                               style: Dg.ui(size: 11, color: Dg.ink3),
                             ),
                           ],
@@ -135,9 +137,9 @@ class EarningsScreen extends ConsumerWidget {
           ),
           if (canSeePricing) ...[
             const SizedBox(height: 20),
-            const Text(
-              'Primler',
-              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+            Text(
+              l.bonuses,
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
             ),
             const SizedBox(height: 10),
           ],

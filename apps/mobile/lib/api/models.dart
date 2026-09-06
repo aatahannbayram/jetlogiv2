@@ -104,6 +104,32 @@ class SyncBatchResult {
   final String status;
 }
 
+class ShiftDto {
+  const ShiftDto({
+    required this.id,
+    required this.status,
+    required this.startedAt,
+    this.vehiclePlate,
+    this.endedAt,
+  });
+
+  final String id;
+  final String status;
+  final String startedAt;
+  final String? vehiclePlate;
+  final String? endedAt;
+
+  bool get isOpen => status == 'active' || status == 'paused';
+
+  factory ShiftDto.fromJson(Map<String, dynamic> json) => ShiftDto(
+    id: json['id'] as String? ?? '',
+    status: json['status'] as String? ?? 'closed',
+    startedAt: json['startedAt'] as String? ?? '',
+    vehiclePlate: json['vehiclePlate'] as String?,
+    endedAt: json['endedAt'] as String?,
+  );
+}
+
 class TokenPair {
   const TokenPair({
     required this.accessToken,
@@ -367,6 +393,76 @@ class CustodyHandoverResultDto {
     );
   }
 }
+
+class SupportTicketDto {
+  const SupportTicketDto({
+    required this.id,
+    required this.reference,
+    required this.category,
+    required this.subject,
+    required this.body,
+    required this.status,
+    required this.priority,
+    required this.createdAt,
+    this.taskId,
+  });
+
+  final String id;
+  final String reference;
+  final String category;
+  final String subject;
+  final String body;
+  final String status;
+  final String priority;
+  final String createdAt;
+  final String? taskId;
+
+  String get statusLabel => switch (status) {
+    'open' => 'Açık',
+    'in_progress' => 'İşlemde',
+    'resolved' => 'Çözüldü',
+    'closed' => 'Kapalı',
+    _ => status,
+  };
+
+  String get categoryLabel => supportCategoryLabel(category);
+
+  factory SupportTicketDto.fromJson(Map<String, dynamic> json) =>
+      SupportTicketDto(
+        id: json['id'] as String? ?? '',
+        reference: json['reference'] as String? ?? '',
+        category: json['category'] as String? ?? 'OTHER',
+        subject: json['subject'] as String? ?? '',
+        body: json['body'] as String? ?? '',
+        status: json['status'] as String? ?? 'open',
+        priority: json['priority'] as String? ?? 'normal',
+        createdAt: json['createdAt'] as String? ?? '',
+        taskId: json['taskId'] as String?,
+      );
+}
+
+String supportCategoryLabel(String category) => switch (category) {
+  'APP_ISSUE' => 'Uygulama',
+  'ADDRESS_PROBLEM' => 'Adres',
+  'RECIPIENT_UNREACHABLE' => 'Alıcıya ulaşılamıyor',
+  'VEHICLE' => 'Araç',
+  'ACCIDENT' => 'Kaza',
+  'SECURITY' => 'Güvenlik',
+  'PAYMENT' => 'Ödeme',
+  'OTHER' => 'Diğer',
+  _ => category,
+};
+
+const supportCategories = [
+  'APP_ISSUE',
+  'ADDRESS_PROBLEM',
+  'RECIPIENT_UNREACHABLE',
+  'VEHICLE',
+  'ACCIDENT',
+  'SECURITY',
+  'PAYMENT',
+  'OTHER',
+];
 
 class CourierDocumentListDto {
   const CourierDocumentListDto({

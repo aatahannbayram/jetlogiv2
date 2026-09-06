@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../l10n.dart';
 import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -39,6 +41,7 @@ class _FailScreenState extends ConsumerState<FailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final s = ref.watch(sessionProvider);
     final task = s.taskById(widget.taskId);
 
@@ -65,10 +68,10 @@ class _FailScreenState extends ConsumerState<FailScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
         children: [
-          const Display('Neden teslim edilemedi?', size: 28),
+          Display(l.whyFailed, size: 28),
           const SizedBox(height: 8),
           Text(
-            'Seçtiğin neden merkeze anında iletilir, gönderi iadeye düşer.',
+            l.whyFailedBody,
             style: TextStyle(color: Dg.ink2, fontSize: 15, height: 1.4),
           ),
           const SizedBox(height: 20),
@@ -96,7 +99,7 @@ class _FailScreenState extends ConsumerState<FailScreen> {
                       children: [
                         Expanded(
                           child: Text(
-                            r,
+                            l.failReasonOf(r),
                             style: TextStyle(
                               fontWeight: FontWeight.w600,
                               fontSize: 16,
@@ -127,14 +130,14 @@ class _FailScreenState extends ConsumerState<FailScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Mono('EK NOT', size: 11, color: Dg.ink3),
+                Mono(l.extraNote, size: 11, color: Dg.ink3),
                 const SizedBox(height: 6),
                 TextField(
                   controller: note,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     border: InputBorder.none,
                     isDense: true,
-                    hintText: 'İsteğe bağlı açıklama',
+                    hintText: l.optionalNote,
                   ),
                   style: const TextStyle(
                     fontSize: 16,
@@ -146,8 +149,10 @@ class _FailScreenState extends ConsumerState<FailScreen> {
           ),
           const SizedBox(height: 16),
           if (picked != null)
-            FilledButton(
-              style: FilledButton.styleFrom(backgroundColor: Dg.red),
+            DgButton(
+              label: l.closeAsReturn,
+              icon: LucideIcons.packageX,
+              tone: DgButtonTone.danger,
               onPressed: () {
                 ref
                     .read(sessionProvider)
@@ -158,7 +163,6 @@ class _FailScreenState extends ConsumerState<FailScreen> {
                     );
                 setState(() => closed = true);
               },
-              child: const Text('İade olarak kapat'),
             ),
         ],
       ),

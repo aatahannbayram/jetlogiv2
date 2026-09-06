@@ -54,7 +54,7 @@
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Teslim ve vardiya kanıt fotoğrafı çekmek için kamera gerekir.</string>
+	<string>Barkod okutmak, teslim ve vardiya kanıtı çekmek için kamera gerekir.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Adrese varış doğrulaması (geofence) için konum gerekir.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>

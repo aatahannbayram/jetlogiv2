@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../l10n.dart';
 import '../models.dart';
 import '../session.dart';
 import '../theme.dart';
@@ -11,6 +13,7 @@ class SyncScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = context.l10n;
     final s = ref.watch(sessionProvider);
     final pending = s.outbox.events.where((e) => e.pending).toList();
     final failed = s.outbox.events
@@ -19,7 +22,7 @@ class SyncScreen extends ConsumerWidget {
     final queue = [...pending, ...failed];
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Senkronizasyon')),
+      appBar: AppBar(title: Text(l.syncTitle)),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
         children: [
@@ -31,12 +34,12 @@ class SyncScreen extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Arka plan gönderimi',
+                        l.backgroundSend,
                         style: Dg.ui(size: 16, weight: FontWeight.w600),
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        s.workerEnabled ? 'Worker açık' : 'Worker kapalı',
+                        s.workerEnabled ? l.workerOn : l.workerOff,
                         style: Dg.ui(size: 13, color: Dg.ink2),
                       ),
                     ],
@@ -53,12 +56,12 @@ class SyncScreen extends ConsumerWidget {
           Row(
             children: [
               Expanded(
-                child: StatTile(label: 'BEKLEYEN', value: '${pending.length}'),
+                child: StatTile(label: l.pendingCaps, value: '${pending.length}'),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: StatTile(
-                  label: 'BAŞARISIZ',
+                  label: l.failedCaps,
                   value: '${failed.length}',
                   subColor: Dg.hi,
                 ),
@@ -66,15 +69,15 @@ class SyncScreen extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 16),
-          const Text(
-            'Kuyruk',
-            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+          Text(
+            l.queue,
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
           ),
           const SizedBox(height: 10),
           if (queue.isEmpty)
             DgCard(
               child: Text(
-                'Kuyruk boş, tüm kayıtlar merkeze iletildi.',
+                l.queueEmptyAllSent,
                 style: Dg.ui(size: 15, color: Dg.ink2),
               ),
             )
@@ -116,8 +119,8 @@ class SyncScreen extends ConsumerWidget {
                       ),
                       StatusChip(
                         label: e.status == 'rejected'
-                            ? 'Başarısız'
-                            : 'Bekliyor',
+                            ? l.failed
+                            : l.waiting,
                         tone: e.status == 'rejected' ? 'hi' : 'mid',
                       ),
                     ],
@@ -125,19 +128,13 @@ class SyncScreen extends ConsumerWidget {
                 ),
               ),
           const SizedBox(height: 16),
-          FilledButton(
-            style: queue.isEmpty
-                ? FilledButton.styleFrom(
-                    backgroundColor: Dg.elev,
-                    foregroundColor: Dg.ink3,
-                  )
-                : null,
+          DgButton(
+            label: s.pushingSync
+                ? l.sending
+                : (queue.isEmpty ? l.queueEmpty : l.pushData),
+            icon: LucideIcons.upload,
+            busy: s.pushingSync,
             onPressed: queue.isEmpty ? null : () => s.pushSyncQueue(),
-            child: Text(
-              s.pushingSync
-                  ? 'Gönderiliyor…'
-                  : (queue.isEmpty ? 'Kuyruk boş' : 'Verileri gönder'),
-            ),
           ),
         ],
       ),

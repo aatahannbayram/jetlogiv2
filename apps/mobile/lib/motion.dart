@@ -7,7 +7,7 @@ import 'theme.dart';
 /// one consistent motion vocabulary instead of every screen inventing its
 /// own timing/curve. Built on `flutter_animate` (already a dependency, used
 /// once already in result_screen.dart) for one-shot declarative effects;
-/// continuous/gesture-driven effects (SlideToAct's nudge, RouteGlowBackground)
+/// continuous/gesture-driven effects (SlideToAct's nudge)
 /// stay on raw AnimationController — this file doesn't touch those.
 
 /// Fade + a short upward slide, on [Curves.easeOutCubic] — the curve this

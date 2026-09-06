@@ -18,6 +18,8 @@ void main() {
     expect(last.operation, SyncOperation.taskFinalize);
     expect(last.subjectId, 't1');
     expect(last.status, 'applied');
+    expect(last.payload['outcomeCode'], 'DELIVERED');
+    expect(last.payload['clientEventId'], last.clientEventId);
     expect(s.pendingSync, 1);
   });
 

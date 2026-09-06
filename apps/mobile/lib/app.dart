@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'l10n.dart';
 import 'screens/activation_screen.dart';
 import 'screens/onboard_screen.dart';
 import 'screens/permissions_screen.dart';
@@ -17,10 +19,8 @@ class DijigooApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(sessionProvider);
-    // Dg's color getters read this flag directly (see theme.dart) — set it
-    // before building anything so the whole tree picks up the right theme
-    // in one pass, no per-widget Theme.of(context) plumbing needed.
     Dg.dark = session.darkModeUi;
+    final l10n = L10n(session.localeCode);
     final phase = session.phase;
     final page = switch (phase) {
       AppPhase.onboard => const OnboardScreen(),
@@ -30,14 +30,23 @@ class DijigooApp extends ConsumerWidget {
       AppPhase.shift => const ShiftScreen(),
       AppPhase.main => const ShellScreen(),
     };
-    return MaterialApp(
-      title: 'JetLogi Kurye',
-      debugShowCheckedModeBanner: false,
-      locale: const Locale('tr'),
-      theme: Dg.theme(),
-      builder: (context, child) =>
-          PhoneShell(child: child ?? const SizedBox.shrink()),
-      home: page,
+    return L10nScope(
+      l10n: l10n,
+      child: MaterialApp(
+        title: 'JetLogi Kurye',
+        debugShowCheckedModeBanner: false,
+        locale: Locale(session.localeCode),
+        supportedLocales: const [Locale('tr'), Locale('en')],
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        theme: Dg.theme(),
+        builder: (context, child) =>
+            PhoneShell(child: child ?? const SizedBox.shrink()),
+        home: page,
+      ),
     );
   }
 }

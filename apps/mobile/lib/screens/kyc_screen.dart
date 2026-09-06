@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n.dart';
 import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -30,15 +31,16 @@ class _KycScreenState extends ConsumerState<KycScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final s = ref.watch(sessionProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Digital Test (KYC)')),
+      appBar: AppBar(title: Text(l.kycTitle)),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
         children: [
           Text(
-            'Doğrulanacak belge türünü seç.',
+            l.pickDocType,
             style: Dg.ui(size: 15, color: Dg.ink2),
           ),
           const SizedBox(height: 14),
@@ -84,7 +86,7 @@ class _KycScreenState extends ConsumerState<KycScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        s.nfcRead ? 'Çip okundu' : 'NFC hazır',
+                        s.nfcRead ? l.chipRead : l.nfcReady,
                         style: const TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 16,
@@ -92,9 +94,7 @@ class _KycScreenState extends ConsumerState<KycScreen> {
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        s.nfcRead
-                            ? 'MRZ ile şifre çözüldü · doğrulandı'
-                            : 'Kimliği telefonun arkasına yaklaştır',
+                        s.nfcRead ? l.mrzVerified : l.holdIdBack,
                         style: Dg.ui(size: 13, color: Dg.ink2),
                       ),
                     ],
@@ -108,7 +108,7 @@ class _KycScreenState extends ConsumerState<KycScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Mono('BELGE NO', size: 11, color: Dg.ink3),
+                Mono(l.docNo, size: 11, color: Dg.ink3),
                 const SizedBox(height: 4),
                 TextField(
                   controller: doc,
@@ -124,7 +124,7 @@ class _KycScreenState extends ConsumerState<KycScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                Mono('DOĞUM TARİHİ (YYMMDD)', size: 11, color: Dg.ink3),
+                Mono(l.dobYymmdd, size: 11, color: Dg.ink3),
                 const SizedBox(height: 4),
                 TextField(
                   controller: dob,
@@ -143,15 +143,10 @@ class _KycScreenState extends ConsumerState<KycScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          FilledButton(
-            style: s.nfcRead
-                ? FilledButton.styleFrom(
-                    backgroundColor: Dg.purple,
-                    foregroundColor: Colors.white,
-                  )
-                : null,
+          DgButton(
+            label: s.nfcRead ? l.verified : l.nfcRead,
+            icon: s.nfcRead ? LucideIcons.badgeCheck : LucideIcons.nfc,
             onPressed: s.nfcRead ? null : s.readNfc,
-            child: Text(s.nfcRead ? 'Doğrulandı' : 'NFC ile oku'),
           ),
         ],
       ),

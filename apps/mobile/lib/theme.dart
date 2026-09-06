@@ -43,10 +43,9 @@ class Dg {
   static const night = Color(0xFF0C0C0F);
 
   // ---- Marka moru ----
-  /// Birincil eylem gradyanı — buton/CTA arka planı. Düz renk değil,
-  /// [primaryGradientStart]→[primaryGradientEnd].
-  static const primaryGradientStart = Color(0xFF8B6BF0);
-  static const primaryGradientEnd = Color(0xFF5B3FBF);
+  /// Birincil eylem gradyanı — buton/CTA ve seçili halka.
+  static const primaryGradientStart = Color(0xFFC4A6FF);
+  static const primaryGradientEnd = Color(0xFF8B5CFF);
   static const primaryGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
@@ -54,26 +53,32 @@ class Dg {
   );
 
   /// Aktif/seçili durum vurgusu (sekme, adım noktası, seçili kart kenarı).
-  static const purpleActive = Color(0xFFA78BFA);
+  static const purpleActive = Color(0xFFD4B8FF);
 
   /// Giriş/tören ekranı zemin gradyanı (üstten alta).
-  static const heroGradient = LinearGradient(
+  static LinearGradient get heroGradient => LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
-    colors: [Color(0xFF4B268F), Color(0xFF2A1360), Color(0xFF150A2E)],
+    colors: dark
+        ? const [Color(0xFF4B268F), Color(0xFF2A1360), Color(0xFF150A2E)]
+        : const [Color(0xFFEDE4FF), Color(0xFFF7F4FF), Color(0xFFF4F3F0)],
   );
   static const heroAccentOrange = Color(0xFFF08A24);
 
-  /// Giriş/tören ekranındaki cam-efekti kart yüzeyi — `BackdropFilter`
-  /// blur(14) ile birlikte kullanılır.
-  static const heroGlass = Color(0x80140A2A); // rgba(20,10,42,.5)
+  static Color get onHero => dark ? Colors.white : ink;
+  static Color get onHeroMuted =>
+      dark ? const Color(0xFFCBBEEE) : ink2;
+
+  /// Giriş/tören ekranındaki cam-efekti kart yüzeyi.
+  static Color get heroGlass =>
+      dark ? const Color(0x80140A2A) : const Color(0xF2FFFFFF);
 
   // Legacy brand-purple isimleri — hâlâ referans veren yerler (menü ikon
   // rozetleri, harita polyline'ı, hero kart zemini gibi "marka moru" ama
   // "birincil eylem gradyanı" olmayan kullanımlar) için korunuyor.
-  static const purple = Color(0xFF614293);
-  static const purpleDeep = Color(0xFF4A3373);
-  static const purpleBright = Color(0xFFAF93DC);
+  static const purple = Color(0xFF9B6EFF);
+  static const purpleDeep = Color(0xFF6E48D9);
+  static const purpleBright = Color(0xFFE0C8FF);
   static const accent = primaryGradientStart;
   static const accentSoft = Color(0xFFEAF6B8);
 
@@ -103,9 +108,9 @@ class Dg {
 
   // Design-token tints for menu/notification icon badges — koyu temada
   // tint arka planı %10 alpha'ya düşer, ink rengi olduğu gibi kalır.
-  static const violet = Color(0xFF7B5AC2);
+  static const violet = Color(0xFFB794F6);
   static Color get violetBg =>
-      dark ? const Color(0x1A7B5AC2) : const Color(0xFFF3F0FB);
+      dark ? const Color(0x2EB794F6) : const Color(0xFFF3F0FB);
   static const blue = Color(0xFF4A7FD8);
   static Color get blueBg =>
       dark ? const Color(0x1A4A7FD8) : const Color(0xFFEEF4FF);
@@ -138,13 +143,13 @@ class Dg {
   // Kontak gölgesi nötr siyah kalır (kartı sayfaya "basar"); yumuşak
   // ambiyans katmanı marka moruyla tintlenir.
   static const shadow = [
-    BoxShadow(color: Color(0x33000000), blurRadius: 2, offset: Offset(0, 1)),
-    BoxShadow(color: Color(0x8C000000), blurRadius: 40, offset: Offset(0, 20)),
+    BoxShadow(color: Color(0x14000000), blurRadius: 2, offset: Offset(0, 1)),
+    BoxShadow(color: Color(0x24000000), blurRadius: 28, offset: Offset(0, 12)),
   ];
 
   static const shadowHero = [
-    BoxShadow(color: Color(0x40000000), blurRadius: 8, offset: Offset(0, 4)),
-    BoxShadow(color: Color(0x8C000000), blurRadius: 40, offset: Offset(0, 20)),
+    BoxShadow(color: Color(0x26000000), blurRadius: 8, offset: Offset(0, 4)),
+    BoxShadow(color: Color(0x33000000), blurRadius: 32, offset: Offset(0, 16)),
   ];
 
   /// Kartın üst kenarına eklenen 1px inset beyaz ışık — [DgCard] bunu
@@ -281,12 +286,14 @@ class Dg {
           foregroundColor: Colors.white,
           disabledBackgroundColor: primaryGradientStart.withValues(alpha: 0.35),
           disabledForegroundColor: Colors.white,
-          minimumSize: const Size.fromHeight(56),
+          minimumSize: const Size.fromHeight(52),
+          padding: const EdgeInsets.symmetric(horizontal: 18),
+          elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(radiusPill),
           ),
           textStyle: ui(
-            size: 16,
+            size: 15,
             weight: FontWeight.w700,
             color: Colors.white,
             height: 1.1,
@@ -296,12 +303,14 @@ class Dg {
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: ink,
-          minimumSize: const Size.fromHeight(56),
+          backgroundColor: surface,
+          minimumSize: const Size.fromHeight(52),
+          padding: const EdgeInsets.symmetric(horizontal: 18),
           side: BorderSide(color: rule),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(radiusPill),
           ),
-          textStyle: ui(size: 16, weight: FontWeight.w600, height: 1.1),
+          textStyle: ui(size: 15, weight: FontWeight.w700, height: 1.1),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
