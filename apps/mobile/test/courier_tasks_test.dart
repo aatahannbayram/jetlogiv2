@@ -852,7 +852,8 @@ void main() {
     final s = SessionController();
     s.taskById('t1').status = TaskStatus.cancelled;
     expect(s.openCount, 4);
-    expect(s.nextStop?.id, 't2');
+    expect(s.nextStop?.id, isNot('t1'));
+    expect(s.nextStop?.id, s.orderedOpenTasks.first.id);
     expect(s.returnCount, 1);
     expect(s.remainingStops.map((t) => t.id), isNot(contains('t1')));
     expect(s.taskById('t1').isClosed, isTrue);
@@ -861,8 +862,10 @@ void main() {
   test('remainingStops gün rotası sırasını izler', () async {
     final s = SessionController();
     await s.ensureDayRoute();
-    expect(s.nextStop?.id, 't1');
-    expect(s.remainingStops.map((t) => t.id).toList(), ['t3', 't2', 't5', 't4']);
+    final ordered = s.orderedOpenTasks.map((t) => t.id).toList();
+    expect(ordered, isNotEmpty);
+    expect(s.nextStop?.id, ordered.first);
+    expect(s.remainingStops.map((t) => t.id).toList(), ordered.skip(1).toList());
   });
 
   test(

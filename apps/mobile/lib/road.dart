@@ -34,19 +34,48 @@ const _publicOsrm = 'https://router.project-osrm.org';
 /// `dart:io` başlığı bazı edge'lerde 403/boş cevap üretip düz çizgiye düşürüyordu.
 const kRoutingUserAgent = 'DijigooKurye/1.0 (courier-routing)';
 
-/// Güney demo kümesi (kurye → Mehmet → Ahmet → Elif → Fatma).
-/// Public OSRM `/trip` + `/route` 2026-09-07 — kasabayı çaprazlamayan tur.
-const _demoSeedWaypoints = [
-  LatLng(38.1476, 29.0702),
-  LatLng(38.1554, 29.0692),
-  LatLng(38.1512, 29.0614),
-  LatLng(38.1481, 29.0558),
-  LatLng(38.1460, 29.0488),
+class _DemoSeed {
+  const _DemoSeed({
+    required this.waypoints,
+    required this.meters,
+    required this.seconds,
+    required this.polyline,
+  });
+  final List<LatLng> waypoints;
+  final List<int> meters;
+  final List<int> seconds;
+  final String polyline;
+}
+
+/// Güney demo: (1) pin=Ahmet — kurye uygulaması, (2) pinsiz çaprazsız tur.
+const _demoSeeds = [
+  _DemoSeed(
+    waypoints: [
+      LatLng(38.1476, 29.0702),
+      LatLng(38.1512, 29.0614),
+      LatLng(38.1554, 29.0692),
+      LatLng(38.1481, 29.0558),
+      LatLng(38.1460, 29.0488),
+    ],
+    meters: [1472, 1486, 1997, 592],
+    seconds: [227, 195, 398, 213],
+    polyline:
+        r'angwgA_odmv@cN|N_GnMoAxKc@pKsApHaDbEaWhRaGbAeL@aL`B}MzBmQ]qFdDuE~HqInDqFiB_DkAsLL_e@rG{\dAgSpCwSaMyLkDVjCk@hB[hBEdGDhF`@zE`@dGsAfFsAtEsBzAiBvBsAlAiBv@o@\yCsB_DpB}Db@gDr@wCd`@cCb\Mx@{Jlr@m@bSbChJqLtHoKjCoFg@~DxGhDNvKeCjOuCpS{HjMcApUtC|EhAnDfFpCdC|AzAjDbDbExEdC`H`AfElAfFUhFDnHg@zGmAjEmAxB_CrAaDsCuCwBaEiDoFwFkHgFsAaAiFeGiCmCyEkEaEuCcBw@}DMkCc@gB~BmDlAcCdCiFfC_CrCkCnB}BvBmDpB}DpBeD`BeCzAiFpBkAcCe@~@oBOcB}BcCaIsDmWkEoO[gAiHkFaGwNcHiI_EmLyD}QUgI}LiSuEuH_NaFiLgAwCYkMcBkGtAa@aIz@gOfCkVdDos@P}D~@eGbAoGvA}MrBqReDq@wM}HiOgSmD}FkT_`@i@_AwEeJaGkLoPiSok@iZyOiEoG^gJrFjI{QdGeGpDaDb^rB|WvFpc@lMhJhClPtE`JbBrGQfI{HhFoG`FaA|K_@dCkBbF_BxD_Cx@Uz@S`@KfD?|Au@bBkA|GqDaCxTuAfMm@vFQbMmCdJ?pDfBjESxF}HnPu@hCyEfPsAbFM|Ai@lGjCuBlGhBxBpBrNpMzV`[dFlGfXv^~BvClAzA|@jAvIdA`ApBv@`B[vPl@rEfA`Iw@`GeO`dAsFf]kFb\nAjMzAfBbF~F~DxGhDNvKeCjOuCpS{HjMcApUtC|EhAdB`@lPjMvG|JvJdTrR~T|EzBrIzNxNlPlLvL|FfGrKbCnW|OrTpLfI|DvEdCxEvI`CrL`C`NLvJs@tOSzMl@vReAxS}AnNiA~QgCxQ_AlM@fMaBpS_HhVgBjFyBvG_GnTqCvFcAlFUbPbE`KnC|KhDdHzFxDjFpEf@zEWzIj@hGxClJbEpHrBvKQvI}@lJi@zNh@nFv@hKDtKaAhODpLf@bHsAfG?pKAbLgC~KhAjKtCbId@bJoArJwCnP',
+  ),
+  _DemoSeed(
+    waypoints: [
+      LatLng(38.1476, 29.0702),
+      LatLng(38.1554, 29.0692),
+      LatLng(38.1512, 29.0614),
+      LatLng(38.1481, 29.0558),
+      LatLng(38.1460, 29.0488),
+    ],
+    meters: [1435, 1486, 1026, 592],
+    seconds: [219, 196, 281, 213],
+    polyline:
+        r'angwgA_odmv@cN|N_GnMoAxKc@pKsApHaDbEaWhRaGbAeL@aL`B}MzBmQ]qFdDuE~HqInDqFiB_DkAsLL_e@rG{\dAgSpCwSaMyLkDqCsHcF}MoBeDqIoCyDy@u@QaNuCoIgAgIo@eVaCmQmFaE}CkDkCwG{@me@UyBqBmGiBkCtBh@mGL}ArAcFxEgPt@iC|HoPRyFgBkE?qDlCeJPcMl@wFtAgM`CyT}GpDcBjA}At@gD?a@J{@Ry@TyD~BcF~AeCjB}K^aF`AiFnGgIzHsGPaJcBmPuEiJiCqc@mM}WwFc^sBqD`DeGdGkIzQfJsFnG_@xOhEnk@hZnPhS`GjLvEdJh@~@jT~_@lD|FhOfSvM|HdDp@sBpRwA|McAnG_AdGQ|DeDns@gCjV{@fO`@`IjGuAjMbBvCXhLfA~M`FtEtH|LhSTfIxD|Q~DlLbHhI`GvNhHjFZfAjEnOrDlWbC`IbB|BnBNd@_AjAbChFqBdC{AdDaB|DqBlDqB|BwBjCoB~BsChFgCbCeClDmAfB_CjCb@|DLbBv@`EtCxEjEhClChFdGrA`AjHfFnFvF`EhDtCvB`DrC~BsAlAyBlAkEf@{GEoHTiFmAgFaAgEeCaHcEyEkDcD}A{AqCeCoDgFdB`@lPjMvG|JvJdTrR~T|EzBrIzNxNlPlLvL|FfGrKbCnW|OrTpLfI|DvEdCxEvI`CrL`C`NLvJs@tOSzMl@vReAxS}AnNiA~QgCxQ_AlM@fMaBpS_HhVgBjFyBvG_GnTqCvFcAlFUbPbE`KnC|KhDdHzFxDjFpEf@zEWzIj@hGxClJbEpHrBvKQvI}@lJi@zNh@nFv@hKDtKaAhODpLf@bHsAfG?pKAbLgC~KhAjKtCbId@bJoArJwCnP',
+  ),
 ];
-const _demoSeedMeters = [1435, 1486, 1026, 592];
-const _demoSeedSeconds = [219, 196, 281, 213];
-const _demoSeedPolyline =
-    r'angwgA_odmv@cN|N_GnMoAxKc@pKsApHaDbEaWhRaGbAeL@aL`B}MzBmQ]qFdDuE~HqInDqFiB_DkAsLL_e@rG{\dAgSpCwSaMyLkDqCsHcF}MoBeDqIoCyDy@u@QaNuCoIgAgIo@eVaCmQmFaE}CkDkCwG{@me@UyBqBmGiBkCtBh@mGL}ArAcFxEgPt@iC|HoPRyFgBkE?qDlCeJPcMl@wFtAgM`CyT}GpDcBjA}At@gD?a@J{@Ry@TyD~BcF~AeCjB}K^aF`AiFnGgIzHsGPaJcBmPuEiJiCqc@mM}WwFc^sBqD`DeGdGkIzQfJsFnG_@xOhEnk@hZnPhS`GjLvEdJh@~@jT~_@lD|FhOfSvM|HdDp@sBpRwA|McAnG_AdGQ|DeDns@gCjV{@fO`@`IjGuAjMbBvCXhLfA~M`FtEtH|LhSTfIxD|Q~DlLbHhI`GvNhHjFZfAjEnOrDlWbC`IbB|BnBNd@_AjAbChFqBdC{AdDaB|DqBlDqB|BwBjCoB~BsChFgCbCeClDmAfB_CjCb@|DLbBv@`EtCxEjEhClChFdGrA`AjHfFnFvF`EhDtCvB`DrC~BsAlAyBlAkEf@{GEoHTiFmAgFaAgEeCaHcEyEkDcD}A{AqCeCoDgFdB`@lPjMvG|JvJdTrR~T|EzBrIzNxNlPlLvL|FfGrKbCnW|OrTpLfI|DvEdCxEvI`CrL`C`NLvJs@tOSzMl@vReAxS}AnNiA~QgCxQ_AlM@fMaBpS_HhVgBjFyBvG_GnTqCvFcAlFUbPbE`KnC|KhDdHzFxDjFpEf@zEWzIj@hGxClJbEpHrBvKQvI}@lJi@zNh@nFv@hKDtKaAhODpLf@bHsAfG?pKAbLgC~KhAjKtCbId@bJoArJwCnP';
 
 class RoadLeg {
   const RoadLeg({
@@ -346,136 +375,6 @@ Future<DayRoute> planDayRoute(
   return seeded ?? local;
 }
 
-/// OSRM `/trip`: yol ağı üzerinde sıra. Pin (sıradaki durak) yerinden
-/// oynarsa sonucu at — kuryenin başladığı görev değişmesin.
-Future<DayRoute?> _applyTripOrder(
-  LatLng origin,
-  DayRoute local, {
-  String? pinFirstId,
-  required Dio client,
-}) async {
-  if (local.stops.length < 2) return null;
-  try {
-    final res = await client.get<Map<String, dynamic>>(
-      _osrmTripUrl(local.waypoints),
-      options: Options(
-        headers: const {
-          'User-Agent': kRoutingUserAgent,
-          'Accept': 'application/json',
-        },
-      ),
-    );
-    final body = res.data;
-    if (body == null || body['code'] != 'Ok') return null;
-    final rawWp = body['waypoints'];
-    if (rawWp is! List || rawWp.length != local.waypoints.length) return null;
-    final indexed = <({int input, int visit})>[];
-    for (var i = 0; i < rawWp.length; i++) {
-      final w = rawWp[i];
-      if (w is! Map) return null;
-      final vi = w['waypoint_index'];
-      if (vi is! num) return null;
-      indexed.add((input: i, visit: vi.round()));
-    }
-    indexed.sort((a, b) => a.visit.compareTo(b.visit));
-    if (indexed.first.input != 0) return null;
-    if (pinFirstId != null &&
-        indexed.length > 1 &&
-        indexed[1].input != 1) {
-      return null;
-    }
-    final stopOrder = [for (final x in indexed.skip(1)) x.input - 1];
-    if (stopOrder.length != local.stops.length) return null;
-    var changed = false;
-    for (var i = 0; i < stopOrder.length; i++) {
-      if (stopOrder[i] != i) changed = true;
-    }
-    if (!changed) return null;
-    final stops = <DayStop>[];
-    var meters = 0;
-    var seconds = 0;
-    for (var i = 0; i < stopOrder.length; i++) {
-      final from = i == 0
-          ? origin
-          : local.stops[stopOrder[i - 1]].at;
-      final src = local.stops[stopOrder[i]];
-      final d = haversineMeters(from, src.at).round();
-      final t = (d / kUrbanSpeedMps).round();
-      meters += d;
-      seconds += t;
-      stops.add(
-        DayStop(taskIds: src.taskIds, at: src.at, meters: d, seconds: t),
-      );
-    }
-    final waypoints = [origin, ...stops.map((s) => s.at)];
-    return DayRoute(
-      points: waypoints,
-      meters: meters,
-      seconds: seconds,
-      estimated: true,
-      provider: 'osrm-trip',
-      stops: stops,
-      waypoints: waypoints,
-      highlight: [waypoints[0], waypoints[1]],
-    );
-  } catch (_) {
-    return null;
-  }
-}
-
-/// Tek çok-duraklı istek zikzak/scribble üretince her bacağı ayrı çek.
-Future<_FetchedRoad?> _fetchRoadLegs(
-  List<LatLng> waypoints, {
-  Dio? dio,
-  Duration timeout = const Duration(seconds: 6),
-}) async {
-  if (waypoints.length < 3) return null;
-  final pts = <LatLng>[];
-  final legMeters = <int>[];
-  final legSeconds = <int>[];
-  var meters = 0;
-  var seconds = 0;
-  var precision = 6;
-  for (var i = 0; i < waypoints.length - 1; i++) {
-    final leg = await _fetchRoad(
-      [waypoints[i], waypoints[i + 1]],
-      dio: dio,
-      timeout: timeout,
-    );
-    if (leg == null || leg.points.length < 2) return null;
-    precision = leg.precision;
-    if (pts.isEmpty) {
-      pts.addAll(leg.points);
-    } else {
-      pts.addAll(leg.points.skip(1));
-    }
-    legMeters.add(leg.meters);
-    legSeconds.add(leg.seconds);
-    meters += leg.meters;
-    seconds += leg.seconds;
-  }
-  return _FetchedRoad(
-    polyline: '',
-    precision: precision,
-    meters: meters,
-    seconds: seconds,
-    provider: 'osrm-legs',
-    legMeters: legMeters,
-    legSeconds: legSeconds,
-    decoded: pts,
-  );
-}
-
-String _osrmTripUrl(List<LatLng> points) {
-  final coords = points
-      .map(
-        (p) =>
-            '${p.longitude.toStringAsFixed(6)},${p.latitude.toStringAsFixed(6)}',
-      )
-      .join(';');
-  return '$kOsrmUrl/trip/v1/driving/$coords?source=first&destination=any&roundtrip=false&overview=false&geometries=polyline6';
-}
-
 DayRoute _withRoad(DayRoute local, _FetchedRoad road) {
   final legs = _splitLegs(local.waypoints, road);
   final stops = <DayStop>[
@@ -507,25 +406,31 @@ DayRoute _withRoad(DayRoute local, _FetchedRoad road) {
 }
 
 DayRoute? _demoSeedIfMatch(DayRoute local) {
-  if (local.waypoints.length != _demoSeedWaypoints.length) return null;
-  for (var i = 0; i < local.waypoints.length; i++) {
-    if (haversineMeters(local.waypoints[i], _demoSeedWaypoints[i]) >
-        kSameStopMeters) {
-      return null;
+  for (final seed in _demoSeeds) {
+    if (local.waypoints.length != seed.waypoints.length) continue;
+    var match = true;
+    for (var i = 0; i < local.waypoints.length; i++) {
+      if (haversineMeters(local.waypoints[i], seed.waypoints[i]) >
+          kSameStopMeters) {
+        match = false;
+        break;
+      }
     }
+    if (!match) continue;
+    return _withRoad(
+      local,
+      _FetchedRoad(
+        polyline: seed.polyline,
+        precision: 6,
+        meters: seed.meters.fold(0, (a, b) => a + b),
+        seconds: seed.seconds.fold(0, (a, b) => a + b),
+        provider: 'osrm-seed',
+        legMeters: seed.meters,
+        legSeconds: seed.seconds,
+      ),
+    );
   }
-  return _withRoad(
-    local,
-    _FetchedRoad(
-      polyline: _demoSeedPolyline,
-      precision: 6,
-      meters: _demoSeedMeters.fold(0, (a, b) => a + b),
-      seconds: _demoSeedSeconds.fold(0, (a, b) => a + b),
-      provider: 'osrm-seed',
-      legMeters: _demoSeedMeters,
-      legSeconds: _demoSeedSeconds,
-    ),
-  );
+  return null;
 }
 
 class _Cluster {

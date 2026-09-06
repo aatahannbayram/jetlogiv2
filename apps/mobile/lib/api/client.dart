@@ -1031,10 +1031,8 @@ Map<String, dynamic> mockPayload(String path, RequestOptions options) {
     };
   }
   if (path.contains('/v1/routes/current')) {
-    // Real osrm-routed output captured for this exact stop cluster (see
-    // apps/api/test/optimizer.test.ts) — not synthetic numbers. Faz 2 found
-    // t1-t2-t4-t3 shorter than the t1-t2-t3-t4 dispatch order: 820s/6801m
-    // vs. 1127s/9872m on the real road network.
+    // OSRM `/trip` Güney turu (kurye → Mehmet → Ahmet → Elif → Fatma).
+    // Eski t1-t2-t4-t3 sırası kasabayı çaprazlayıp 6.8 km / 14 dk üretiyordu.
     final now = DateTime.now().toUtc();
     final plan = RoutePlanDto.demo(now: now);
     return {

@@ -10,6 +10,8 @@ import 'package:latlong2/latlong.dart';
 
 import 'alerts.dart';
 import 'api/client.dart';
+import 'notif.dart';
+import 'push.dart';
 import 'api/courier_tasks.dart';
 import 'api/models.dart';
 import 'api/panel_client.dart';
@@ -179,20 +181,20 @@ class SessionController extends ChangeNotifier {
   }
 
   bool get _skipLiveRouteHttp {
+    if (const bool.fromEnvironment('FLUTTER_TEST')) return true;
     try {
       return WidgetsBinding.instance.runtimeType.toString().contains(
         'TestWidgetsFlutterBinding',
       );
     } catch (_) {
-      return false;
+      return true;
     }
   }
 
-  Future<void> ensureDayRoute() async {
+  Future<void> ensureDayRoute({String? pinFirstId}) async {
     final origin = LatLng(selfLat, selfLng);
     final stops = _openRouteStops;
-    final started = tasks.where((t) => t.status == TaskStatus.inProgress);
-    final pin = started.isEmpty ? null : started.first.id;
+    final pin = pinFirstId ?? nextStop?.id;
     final key = dayRouteCacheKey(origin, stops, pinFirstId: pin);
     if (_dayRouteKey == key && dayRoute != null && dayRoute!.fromLiveEngine) {
       return;
@@ -734,6 +736,7 @@ class SessionController extends ChangeNotifier {
     notifyEnabled = true;
     unawaited(vault?.saveNotifyEnabled(true));
     resyncAlerts();
+    unawaited(FieldPush.attach(requestOs: true).then((_) => registerPushToken()));
     notifyListeners();
     return permit;
   }
@@ -879,13 +882,8 @@ class SessionController extends ChangeNotifier {
     for (final t in tasks) {
       if (t.status == TaskStatus.inProgress) return t;
     }
-    if (dayRoute != null && dayRoute!.stopTaskIds.isNotEmpty) {
-      final ordered = orderedOpenTasks;
-      if (ordered.isNotEmpty) return ordered.first;
-    }
-    for (final t in tasks) {
-      if (t.isOpen) return t;
-    }
+    final ordered = orderedOpenTasks;
+    if (ordered.isNotEmpty) return ordered.first;
     return null;
   }
 
@@ -1071,9 +1069,19 @@ class SessionController extends ChangeNotifier {
       const Duration(hours: 5, minutes: 12),
     );
     unawaited(_persistShift());
+    dayRoute = planDayRouteLocal(
+      LatLng(selfLat, selfLng),
+      _openRouteStops,
+      pinFirstId: 't1',
+    );
+    _dayRouteKey = dayRouteCacheKey(
+      LatLng(selfLat, selfLng),
+      _openRouteStops,
+      pinFirstId: 't1',
+    );
     DgLog.i(LogLayer.session, 'skipToDemo · selfie assumed · main');
     notifyListeners();
-    unawaited(ensureDayRoute());
+    unawaited(ensureDayRoute(pinFirstId: 't1'));
     unawaited(_seedDemoTokenThenIdentity());
   }
 
@@ -1631,6 +1639,41 @@ class SessionController extends ChangeNotifier {
     } catch (_) {}
   }
 
+  static const _pullPushKinds = {
+    'SYNC_HINT',
+    'TASK_ASSIGNED',
+    'TASK_UPDATED',
+    'TASK_CANCELLED',
+    'TASK_PULLED',
+    'ROUTE_RECALCULATED',
+  };
+
+  void ingestPushData(Map<String, String> data) {
+    final nextToken = data['token'];
+    if (nextToken != null && data.length == 1) {
+      unawaited(registerPushToken(nextToken));
+      return;
+    }
+    final kind = data['kind'];
+    if (kind != null && _pullPushKinds.contains(kind)) {
+      unawaited(pullTasks());
+    }
+    if (kind == 'SYNC_HINT') return;
+    final id = data['id'];
+    if (id == null || id.isEmpty) return;
+    ingestServerNotifications([
+      InboxItemDto(
+        item: appNotificationFromInbox({
+          ...data,
+          'createdAt': DateTime.now().toUtc().toIso8601String(),
+          'subjectId': data['taskId'] ?? data['subjectId'],
+        }),
+        read: false,
+      ),
+    ]);
+    notifyListeners();
+  }
+
   Future<void> _rememberWatermark(String? value) async {
     if (value == null || value.isEmpty) return;
     taskWatermark = value;
@@ -2089,8 +2132,6 @@ List<DeliveryTask> _tasksInPlanOrder(
   ordered.addAll(tasks.where((t) => !seen.contains(t.id)));
   return ordered;
 }
-
-const _kDemoTaskIds = {'t1', 't2', 't3', 't4', 't5'};
 
 List<DeliveryTask> _buildDemoTasks() => [
   DeliveryTask(

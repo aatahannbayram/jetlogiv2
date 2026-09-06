@@ -160,9 +160,9 @@ export class OsrmRoutingProvider implements RoutingProvider {
 
   private async fetchRoute(baseUrl: string, stops: RouteWaypoint[]): Promise<ComputedRoute> {
     const coords = stops.map((s) => `${s.lng},${s.lat}`).join(';');
-    const radiuses = ['1000', ...Array(Math.max(0, stops.length - 1)).fill('250')].join(';');
+    const radiuses = ['1000', ...Array(Math.max(0, stops.length - 1)).fill('400')].join(';');
     const qs = [
-      `overview=full&geometries=polyline&steps=false&continue_straight=true&radiuses=${radiuses}`,
+      `overview=full&geometries=polyline&steps=false&radiuses=${radiuses}`,
       'overview=full&geometries=polyline&steps=false',
     ];
     let lastError: Error | undefined;

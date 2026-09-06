@@ -150,6 +150,7 @@ export const PushNotificationKind = z.enum([
   /** Silent push that tells the app to run a delta pull. */
   'SYNC_HINT',
 ]);
+export type PushNotificationKind = z.infer<typeof PushNotificationKind>;
 
 export const PushNotification = z
   .object({

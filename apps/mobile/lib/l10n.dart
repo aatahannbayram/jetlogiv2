@@ -411,6 +411,7 @@ class L10n {
       _t('Yarın 09:00 vardiyası atanmıştır.', 'A 09:00 shift is assigned tomorrow.');
   String get notifStopPulled => _t('Durak çekildi', 'Stop pulled');
   String get notifStopCancelled => _t('Durak iptal', 'Stop cancelled');
+  String get notifSlaRisk => _t('SLA riskte', 'SLA at risk');
   String get yesterday => _t('Dün', 'Yesterday');
 
   String get proof => _t('Kanıt', 'Proof');
@@ -640,6 +641,7 @@ class L10n {
     'Vardiya hatırlatması' => notifShift,
     'Durak çekildi' => notifStopPulled,
     'Durak iptal' => notifStopCancelled,
+    'SLA riskte' => notifSlaRisk,
     _ => title,
   };
 }

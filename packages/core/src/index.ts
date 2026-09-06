@@ -1,5 +1,6 @@
 export * from './courier-notify.js';
 export * from './errors.js';
+export * from './fcm.js';
 export * from './field-crypto.js';
 export * from './geofence.js';
 export * from './idempotency.js';

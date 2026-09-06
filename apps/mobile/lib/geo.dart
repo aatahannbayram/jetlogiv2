@@ -79,23 +79,59 @@ List<int> optimizeVisitOrder(
   if (n == 0) return const [];
   if (n == 1) return const [0];
 
+  // 8 durak: 8! = 40320, anlık. 2-opt Güney demosunda Ahmet→Elif→Fatma
+  // sonra Mehmet'e geri çaprazlayan bir yerel minimumda kalıyordu.
+  var order = n <= 8
+      ? _exactOpenTour(start, stops)
+      : _approxOpenTour(start, stops);
+  if (urgency != null && urgency.length == n) {
+    order = _nudgeUrgent(start, stops, order, urgency);
+  }
+  return order;
+}
+
+List<int> _exactOpenTour(LatLng start, List<LatLng> stops) {
+  final n = stops.length;
+  final idx = List.generate(n, (i) => i);
+  var best = List<int>.from(idx);
+  var bestLen = double.infinity;
+  void search(int k) {
+    if (k == n) {
+      var len = haversineMeters(start, stops[idx[0]]);
+      for (var i = 0; i < n - 1; i++) {
+        len += haversineMeters(stops[idx[i]], stops[idx[i + 1]]);
+      }
+      if (len < bestLen) {
+        bestLen = len;
+        best = List<int>.from(idx);
+      }
+      return;
+    }
+    for (var i = k; i < n; i++) {
+      final tmp = idx[k];
+      idx[k] = idx[i];
+      idx[i] = tmp;
+      search(k + 1);
+      final back = idx[k];
+      idx[k] = idx[i];
+      idx[i] = back;
+    }
+  }
+  search(0);
+  return best;
+}
+
+List<int> _approxOpenTour(LatLng start, List<LatLng> stops) {
   final pts = [start, ...stops];
   final m = pts.length;
-  // Urgency must not warp the metre matrix — that produced self-crossing
-  // tours (west through town, then back east) that looked like a scribble.
   final matrix = List.generate(m, (i) {
     return List.generate(m, (j) {
       if (i == j) return 0.0;
       return haversineMeters(pts[i], pts[j]);
     });
   });
-
   final tour = _twoOpt(_nearestNeighbor(matrix), matrix);
-  var order = [for (var i = 1; i < tour.length; i++) tour[i] - 1];
-  if (urgency != null && urgency.length == n) {
-    order = _nudgeUrgent(start, stops, order, urgency);
-  }
-  return order;
+  return [for (var i = 1; i < tour.length; i++) tour[i] - 1];
 }
 
 /// Move a nearly-due stop one slot earlier only when the detour is small.

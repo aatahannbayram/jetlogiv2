@@ -336,8 +336,10 @@ class _RouteMap extends ConsumerWidget {
     final tasks = s.orderedOpenTasks;
     final day = s.dayRoute;
     final pts = _uniquePoints(tasks);
+    final size = MediaQuery.sizeOf(context);
+    final topInset = MediaQuery.paddingOf(context).top;
     return MapStrip(
-      height: 1200,
+      height: size.height,
       clipTopOnly: false,
       rounded: false,
       interactive: true,
@@ -350,10 +352,13 @@ class _RouteMap extends ConsumerWidget {
       couriers: s.visibleFleet,
       fitEpoch: fitEpoch,
       numberStops: true,
+      fitPadding: EdgeInsets.fromLTRB(28, topInset + 64, 28, size.height * 0.42 + 12),
       fitTo: [
-        LatLng(s.selfLat, s.selfLng),
-        ...pts,
-        if (day != null) ...day.waypoints,
+        if (day != null && day.points.length > 1) ...day.points
+        else ...[
+          LatLng(s.selfLat, s.selfLng),
+          ...pts,
+        ],
       ],
     );
   }
@@ -478,6 +483,9 @@ class _RouteSheet extends ConsumerWidget {
     final day = s.dayRoute;
     final openTasks = s.orderedOpenTasks;
     final nextId = s.nextStop?.id;
+    final stopCount = day != null && day.stops.isNotEmpty
+        ? day.stops.length
+        : _uniquePoints(openTasks).length;
 
     return DraggableScrollableSheet(
       initialChildSize: 0.40,
@@ -514,7 +522,7 @@ class _RouteSheet extends ConsumerWidget {
                 ),
               ),
               Text(
-                context.l10n.remainingStopsHint(openTasks.length),
+                context.l10n.remainingStopsHint(stopCount),
                 style: Dg.ui(size: 17, weight: FontWeight.w700),
               ),
               const SizedBox(height: 14),

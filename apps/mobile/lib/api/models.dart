@@ -361,10 +361,10 @@ class RoutePlanDto {
 
   bool get hasRealGeometry => geometry != null && geometry!.isNotEmpty;
 
-  /// Demo / interceptor tohumu — OSRM’den alınmış gerçek Güney hattı
-  /// (`apps/api/test/optimizer.test.ts`). API yokken de harita çizilsin.
+  /// Demo / interceptor tohumu — OSRM `/trip` Güney turu
+  /// (kurye → Mehmet → Ahmet → Elif → Fatma). Precision 5.
   static const demoGeometry =
-      r'_kzgFybkpD\VVVPPNJNLJGFKFSB[?_@@UGWESM[SUOOIIMMQUH@TFl@DjD?@eADm@Eq@?Uv@BXHxAb@nBh@v@T^RrEnHbAfDRtD?n@i@jDFlBR|@BDTb@xAbBVd@xAhG^|Bv@zCj@nAV`Al@hECnAa@nDBnBv@hCf@~BTh@b@d@bCdArAlAvBbAdDlCfAh@rC~@x@|@|@`BJ@RJb@BzAIp@Pb@Pd@VPTLXJf@B`@L\XTRJFN@RGVK`@CZ@RDLEMASB[Ja@FWASGOSKYUM]Ca@Kg@MYQUe@Wc@Qq@Q{AHc@CSKKA}@aBy@}@sC_AgAi@eDmCwBcAsAmAcCeAc@e@Ui@g@_CWy@_@oACoB`@oDBoAm@iEWaAk@oAw@{C_@}ByAiGWe@yAcBYi@S}@GmBh@kD?o@SuDcAgDsEoH_@Sw@UoBi@yAc@YIw@CS?cEx@eCFo@RqAx@k@^g@LWCUYIIGm@V}AV_Br@}EDWGa@CS@y@EGEKa@GEEGIMOoAcBU[mAyAq@m@KKYIMJB[@GFWTu@BM^w@@YIS?QLc@@k@BYHm@JeA[PIFIDO?C?E@EBQJWHKHi@BUDWZ_@\[@c@Iw@S';
+      r'imygFejlpDo@p@Yl@Gh@Cf@G\ORmA|@WDk@@g@Fo@L{@CWNU^a@PWIOGi@@yBZ_BD_ALcAk@k@QM]Uo@KOa@MQEEAo@Oa@E_@EiAK{@WSOOM[E{BAKKYIMJB[@GFWTu@BM^w@@YIS?QLc@@k@BYHm@JeA[PIFIDO?C?E@EBQJWHKHi@BUDWZ_@\[@c@Iw@Sc@MsBm@oAYcBKQPYXa@z@b@WZCt@RlCvAv@~@Xj@Tb@BDbAhBPVr@`Al@^PBK|@Gn@GZEXAROfDMhAEr@B^XGl@HN@h@Fn@TT\j@`A@^P|@Rh@\`@Vp@\VBDRt@PlAL^HJH@BEFJVIJIPIPKPIJKLKJMVMLMNGJKLBP?HDRNTRLLTXHD\VVVPPNJNLJGFKFSB[?_@@UGWESM[SUOOIIMMQUH@v@l@Zd@d@bA|@fATJ`@p@p@v@j@j@XXf@LlAt@dAj@^PTLT`@Jj@Ln@?d@Cr@An@B~@E`AIp@Gz@Mz@En@?j@I`A[jAITKZYdAMVGVAt@Rf@Lf@P\VPVTBTA`@BZNb@P\Jh@A`@Eb@Cr@BVDd@?h@Er@?h@B\GX?f@?h@Mh@Ff@L^Bb@Gb@Mv@';
 
   factory RoutePlanDto.demo({DateTime? now}) {
     var eta = now ?? DateTime.now().toUtc();
@@ -392,10 +392,10 @@ class RoutePlanDto {
       geometry: demoGeometry,
       computedAt: (now ?? DateTime.now().toUtc()).toIso8601String(),
       stops: [
-        stop('t1', 0, null, null),
-        stop('t2', 1, 1185, 145),
-        stop('t4', 2, 2799, 383),
-        stop('t3', 3, 2817, 292),
+        stop('t3', 0, 1435, 219),
+        stop('t1', 1, 1486, 196),
+        stop('t2', 2, 1026, 281),
+        stop('t4', 3, 592, 213),
       ],
     );
   }

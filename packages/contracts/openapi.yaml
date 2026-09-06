@@ -4706,7 +4706,7 @@ components:
       properties:
         decision:
           type: string
-          enum: &a17
+          enum: &a18
             - cancel
             - extend
         newSlaTargetAt:
@@ -4731,7 +4731,7 @@ components:
           example: 9f1c2f8a-7d1e-4f6b-9a3c-2b5d4e6f7a81
         decision:
           type: string
-          enum: &a18
+          enum: &a19
             - cancel
             - extend
         appliedAt:
@@ -4751,7 +4751,7 @@ components:
           example: 9f1c2f8a-7d1e-4f6b-9a3c-2b5d4e6f7a81
         type:
           type: string
-          enum: &a19
+          enum: &a20
             - parcel
             - document
             - cash
@@ -5287,6 +5287,65 @@ components:
       required:
         - results
         - serverTime
+    CourierInboxItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 9f1c2f8a-7d1e-4f6b-9a3c-2b5d4e6f7a81
+        kind:
+          type: string
+          enum: &a17
+            - TASK_ASSIGNED
+            - TASK_UPDATED
+            - TASK_CANCELLED
+            - TASK_PULLED
+            - ROUTE_RECALCULATED
+            - SHIFT_REMINDER
+            - SUPPORT_REPLY
+            - ANNOUNCEMENT
+            - SLA_AT_RISK
+            - CUSTODY_TAKEN
+            - SYNC_HINT
+        title:
+          type: string
+          maxLength: 120
+        body:
+          type: string
+          maxLength: 300
+        route:
+          type:
+            - string
+            - "null"
+          maxLength: 200
+        subjectId:
+          type:
+            - string
+            - "null"
+          format: uuid
+          example: 9f1c2f8a-7d1e-4f6b-9a3c-2b5d4e6f7a81
+        collapseKey:
+          type:
+            - string
+            - "null"
+          maxLength: 60
+        readAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+          example: 2026-08-25T09:15:00.000Z
+        createdAt:
+          type: string
+          format: date-time
+          example: 2026-08-25T09:15:00.000Z
+      required:
+        - id
+        - kind
+        - title
+        - body
+        - createdAt
     SyncChanges:
       type: object
       properties:
@@ -5324,6 +5383,11 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/WorkflowRef"
+          default: []
+        notifications:
+          type: array
+          items:
+            $ref: "#/components/schemas/CourierInboxItem"
           default: []
         nextCursor:
           type:
@@ -5499,15 +5563,7 @@ components:
       properties:
         kind:
           type: string
-          enum:
-            - TASK_ASSIGNED
-            - TASK_UPDATED
-            - TASK_CANCELLED
-            - ROUTE_RECALCULATED
-            - SHIFT_REMINDER
-            - SUPPORT_REPLY
-            - ANNOUNCEMENT
-            - SYNC_HINT
+          enum: *a17
         title:
           type:
             - string
@@ -5541,6 +5597,70 @@ components:
       required:
         - kind
         - sentAt
+    NotificationListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CourierInboxItem"
+        nextCursor:
+          type:
+            - string
+            - "null"
+      required:
+        - items
+        - nextCursor
+    NotificationReadRequest:
+      type: object
+      properties:
+        ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+            example: 9f1c2f8a-7d1e-4f6b-9a3c-2b5d4e6f7a81
+          minItems: 1
+          maxItems: 100
+        all:
+          type: boolean
+    NotificationDispatchRequest:
+      type: object
+      properties:
+        courierId:
+          type: string
+          format: uuid
+          example: 9f1c2f8a-7d1e-4f6b-9a3c-2b5d4e6f7a81
+        kind:
+          type: string
+          enum: *a17
+        title:
+          type: string
+          maxLength: 120
+        body:
+          type: string
+          maxLength: 300
+        route:
+          type:
+            - string
+            - "null"
+          maxLength: 200
+        subjectId:
+          type:
+            - string
+            - "null"
+          format: uuid
+          example: 9f1c2f8a-7d1e-4f6b-9a3c-2b5d4e6f7a81
+        collapseKey:
+          type:
+            - string
+            - "null"
+          maxLength: 60
+      required:
+        - courierId
+        - kind
+        - title
+        - body
     ConfirmMediaResponse:
       type: object
       properties:
@@ -6467,7 +6587,7 @@ paths:
               properties:
                 decision:
                   type: string
-                  enum: *a17
+                  enum: *a18
                 newSlaTargetAt:
                   type: string
                   format: date-time
@@ -6495,7 +6615,7 @@ paths:
                     example: 9f1c2f8a-7d1e-4f6b-9a3c-2b5d4e6f7a81
                   decision:
                     type: string
-                    enum: *a18
+                    enum: *a19
                   appliedAt:
                     type: string
                     format: date-time
@@ -7474,7 +7594,7 @@ paths:
               - "null"
             items:
               type: string
-              enum: *a19
+              enum: *a20
           required: false
           name: type
           in: query
@@ -7919,6 +8039,190 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Kayit bulunamadi
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Hiz siniri asildi
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Beklenmeyen sunucu hatasi
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /v1/notifications:
+    get:
+      tags:
+        - Notifications
+      summary: Kurye bildirim kutusunu getir
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            pattern: ^dijigoo-courier\/\d+\.\d+\.\d+ \((android|ios); build \d+\)$
+            example: dijigoo-courier/1.0.0 (android; build 42)
+          required: true
+          name: x-client-info
+          in: header
+      responses:
+        "200":
+          description: Kutu
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationListResponse"
+        "400":
+          description: Gecersiz istek
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Kimlik dogrulanamadi veya token suresi doldu
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Yetkisiz, cihaz bagli degil veya vardiya acik degil
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Kayit bulunamadi
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Hiz siniri asildi
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Beklenmeyen sunucu hatasi
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /v1/notifications/read:
+    post:
+      tags:
+        - Notifications
+      summary: Bildirimleri okundu isaretle
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+            pattern: ^dijigoo-courier\/\d+\.\d+\.\d+ \((android|ios); build \d+\)$
+            example: dijigoo-courier/1.0.0 (android; build 42)
+          required: true
+          name: x-client-info
+          in: header
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NotificationReadRequest"
+      responses:
+        "204":
+          description: Kaydedildi
+        "400":
+          description: Gecersiz istek
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Kimlik dogrulanamadi veya token suresi doldu
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Yetkisiz, cihaz bagli degil veya vardiya acik degil
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Kayit bulunamadi
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Hiz siniri asildi
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Beklenmeyen sunucu hatasi
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /v1/notifications/dispatch:
+    post:
+      tags:
+        - Notifications
+      summary: Panelden kuryeye bildirim yaz ve FCM gonder
+      security:
+        - serviceAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NotificationDispatchRequest"
+      responses:
+        "201":
+          description: Yazildi
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CourierInboxItem"
+        "400":
+          description: Gecersiz istek
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Kimlik dogrulanamadi veya token suresi doldu
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Yetkisiz, cihaz bagli degil veya vardiya acik degil
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Kayit bulunamadi
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Surum catismasi veya kayit zaten sonuclandirilmis
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Is kurali ihlali veya eksik kanit
           content:
             application/problem+json:
               schema:

@@ -87,7 +87,7 @@ export async function notificationRoutes(app: FastifyInstance, { ctx }: { ctx: A
             ),
           );
       }
-      return reply.status(204).send();
+      return reply.status(204).send(null);
     },
   );
 

@@ -26,6 +26,9 @@ Future<void> openAppNotification(
   switch (notifOpenTarget(n.kind)) {
     case NotifOpenTarget.task:
       final id = n.taskId;
+      if (id != null && !s.tasks.any((t) => t.id == id) && s.liveApi) {
+        await s.pullTasks();
+      }
       if (id != null && s.tasks.any((t) => t.id == id)) {
         await nav.push(
           MaterialPageRoute<void>(builder: (_) => TaskDetailScreen(taskId: id)),

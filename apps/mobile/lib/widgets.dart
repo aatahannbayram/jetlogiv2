@@ -874,8 +874,8 @@ class _StableMapViewState extends State<_StableMapView> {
         initialCameraFit: !widget.interactive && fit.length > 1
             ? CameraFit.coordinates(
                 coordinates: fit,
-                padding: const EdgeInsets.all(40),
-                maxZoom: 15.2,
+                padding: widget.fitPadding,
+                maxZoom: 15.4,
               )
             : null,
         interactionOptions: InteractionOptions(
