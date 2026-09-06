@@ -148,9 +148,10 @@ class _ListScreenState extends ConsumerState<ListScreen> {
                       )
                     : Builder(
                         builder: (context) {
-                          final items = _groupRows(rows);
+                          final items = groupTasksByDoor(rows);
                           final visitAt = <String, int>{
-                            for (var i = 0; i < acik.length; i++) acik[i].id: i + 1,
+                            for (var i = 0; i < items.length; i++)
+                              for (final t in items[i]) t.id: i + 1,
                           };
                           return ListView.separated(
                             physics: const AlwaysScrollableScrollPhysics(),
@@ -199,29 +200,6 @@ class _ListScreenState extends ConsumerState<ListScreen> {
       ),
     );
   }
-}
-
-/// [rows]'u aynı [DeliveryTask.groupKey] değerine sahip görevler için
-/// birleştirir — her eleman ya tek bir görev (`length == 1`) ya da "aynı
-/// adres" grubu (`length >= 2`) olur. Sıra korunur, gruplar ilk görüldükleri
-/// yerde oluşur.
-List<List<DeliveryTask>> _groupRows(List<DeliveryTask> rows) {
-  final byKey = <String, List<DeliveryTask>>{};
-  for (final t in rows) {
-    final key = t.groupKey;
-    if (key != null) (byKey[key] ??= []).add(t);
-  }
-  final out = <List<DeliveryTask>>[];
-  final seenKeys = <String>{};
-  for (final t in rows) {
-    final key = t.groupKey;
-    if (key != null && byKey[key]!.length > 1) {
-      if (seenKeys.add(key)) out.add(byKey[key]!);
-    } else {
-      out.add([t]);
-    }
-  }
-  return out;
 }
 
 /// Canvas'ın "aynı adres" kartı: tek bir adres altında birden çok alıcı —

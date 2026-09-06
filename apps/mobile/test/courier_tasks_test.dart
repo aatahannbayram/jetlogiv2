@@ -1035,4 +1035,53 @@ void main() {
     expect(s.notifications.first.title, 'Zimmet alındı');
     expect(calls.any((c) => c.contains('/v1/custody/handover')), isTrue);
   });
+
+  test('destek listesi hatası canlı API bayrağını düşürmez', () async {
+    final dio = Dio();
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          handler.reject(
+            DioException(
+              requestOptions: options,
+              type: DioExceptionType.badResponse,
+              response: Response<Map<String, dynamic>>(
+                requestOptions: options,
+                statusCode: 404,
+              ),
+            ),
+          );
+        },
+      ),
+    );
+    final s = SessionController(api: MobileApi(dio: dio));
+    s.liveApi = true;
+    await s.loadTickets();
+    expect(s.liveApi, isTrue);
+  });
+
+  test('öne gelince demo oturumunda ağ çağırmaz', () async {
+    var hits = 0;
+    final dio = Dio();
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          hits++;
+          handler.reject(
+            DioException(
+              requestOptions: options,
+              type: DioExceptionType.connectionError,
+            ),
+          );
+        },
+      ),
+    );
+    final s = SessionController(
+      api: MobileApi(dio: dio),
+      initialPhase: AppPhase.main,
+    );
+    s.liveApi = false;
+    await s.onForeground();
+    expect(hits, 0);
+  });
 }

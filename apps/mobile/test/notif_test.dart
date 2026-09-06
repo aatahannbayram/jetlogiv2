@@ -15,6 +15,7 @@ void main() {
   test('sunucu push turu kutuya map edilir', () {
     expect(notifKindFromPush('TASK_CANCELLED'), NotifKind.stopCancelled);
     expect(notifKindFromPush('SLA_AT_RISK'), NotifKind.slaRisk);
+    expect(notifKindFromPush('TASK_UPDATED'), NotifKind.stopAssigned);
     expect(notifKindFromPush('CUSTODY_TAKEN'), NotifKind.custody);
     expect(notifIsAlert(NotifKind.slaRisk), isTrue);
     final n = appNotificationFromInbox({

@@ -412,6 +412,7 @@ class L10n {
   String get notifStopPulled => _t('Durak çekildi', 'Stop pulled');
   String get notifStopCancelled => _t('Durak iptal', 'Stop cancelled');
   String get notifSlaRisk => _t('SLA riskte', 'SLA at risk');
+  String get notifSlaExtended => _t('SLA uzatıldı', 'SLA extended');
   String get yesterday => _t('Dün', 'Yesterday');
 
   String get proof => _t('Kanıt', 'Proof');
@@ -642,6 +643,7 @@ class L10n {
     'Durak çekildi' => notifStopPulled,
     'Durak iptal' => notifStopCancelled,
     'SLA riskte' => notifSlaRisk,
+    'SLA uzatıldı' => notifSlaExtended,
     _ => title,
   };
 }

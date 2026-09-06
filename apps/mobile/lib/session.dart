@@ -181,13 +181,12 @@ class SessionController extends ChangeNotifier {
   }
 
   bool get _skipLiveRouteHttp {
-    if (const bool.fromEnvironment('FLUTTER_TEST')) return true;
     try {
       return WidgetsBinding.instance.runtimeType.toString().contains(
         'TestWidgetsFlutterBinding',
       );
     } catch (_) {
-      return true;
+      return false;
     }
   }
 
@@ -755,6 +754,15 @@ class SessionController extends ChangeNotifier {
       resyncAlerts();
     }
     notifyListeners();
+  }
+
+  /// Arka plandan dönüş: izin + canlı görev/destek/rota. FCM yoksa bile
+  /// dispatcher ataması bir sonraki öne gelişte görünür.
+  Future<void> onForeground() async {
+    await reconcilePushPermit();
+    if (!liveApi || phase != AppPhase.main) return;
+    unawaited(registerPushToken());
+    await refreshField();
   }
 
   void resyncAlerts() {
@@ -1750,7 +1758,7 @@ class SessionController extends ChangeNotifier {
       liveApi = client.lastWasLive;
       replaceTickets(remote);
     } catch (_) {
-      liveApi = false;
+      // Destek listesi 404/ağ hatası görev API'sini demo'ya düşürmez.
     }
     notifyListeners();
   }

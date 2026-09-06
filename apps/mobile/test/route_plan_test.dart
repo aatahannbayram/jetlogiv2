@@ -85,6 +85,37 @@ void main() {
     expect(route.meters, 1435 + 1486 + 1026 + 592);
   });
 
+  test('planDayRoute: pinli Güney kümesi Ahmet tohumunu korur', () async {
+    final dio = Dio()
+      ..interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) => handler.reject(
+            DioException(
+              requestOptions: options,
+              type: DioExceptionType.badResponse,
+            ),
+          ),
+        ),
+      );
+    final route = await planDayRoute(
+      self,
+      [
+        RouteStopInput(id: 't1', at: ahmet, urgency: 0.6),
+        RouteStopInput(id: 't2', at: elif),
+        RouteStopInput(id: 't5', at: elif),
+        RouteStopInput(id: 't3', at: mehmet, urgency: 0.34),
+        RouteStopInput(id: 't4', at: fatma, urgency: 0.45),
+      ],
+      pinFirstId: 't1',
+      dio: dio,
+      timeout: const Duration(milliseconds: 40),
+    );
+    expect(route.provider, 'osrm-seed');
+    expect(route.stops.first.taskIds, ['t1']);
+    expect(route.meters, 1472 + 1486 + 1997 + 592);
+    expect(route.legFor('t1')?.meters, 1472);
+  });
+
   test('planDayRoute: Güney demo kümesinde ağ düşünce tohum geometri kullanılır', () async {
     final dio = Dio()
       ..interceptors.add(

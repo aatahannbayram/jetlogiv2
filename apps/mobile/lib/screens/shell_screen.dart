@@ -8,7 +8,6 @@ import 'package:latlong2/latlong.dart';
 
 import '../alerts.dart';
 import '../api/models.dart';
-import '../geo.dart';
 import '../l10n.dart';
 import '../launchers.dart';
 import '../models.dart';
@@ -52,7 +51,7 @@ class _ShellScreenState extends ConsumerState<ShellScreen>
     FieldAlerts.tapId.addListener(_onAlertTap);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _onAlertTap();
-      unawaited(ref.read(sessionProvider).reconcilePushPermit());
+      unawaited(ref.read(sessionProvider).onForeground());
     });
   }
 
@@ -67,7 +66,7 @@ class _ShellScreenState extends ConsumerState<ShellScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      unawaited(ref.read(sessionProvider).reconcilePushPermit());
+      unawaited(ref.read(sessionProvider).onForeground());
     }
   }
 
@@ -354,11 +353,9 @@ class _RouteMap extends ConsumerWidget {
       numberStops: true,
       fitPadding: EdgeInsets.fromLTRB(28, topInset + 64, 28, size.height * 0.42 + 12),
       fitTo: [
-        if (day != null && day.points.length > 1) ...day.points
-        else ...[
-          LatLng(s.selfLat, s.selfLng),
-          ...pts,
-        ],
+        LatLng(s.selfLat, s.selfLng),
+        ...pts,
+        if (day != null) ...day.waypoints,
       ],
     );
   }
@@ -482,10 +479,9 @@ class _RouteSheet extends ConsumerWidget {
     final plan = s.routePlan;
     final day = s.dayRoute;
     final openTasks = s.orderedOpenTasks;
+    final doors = groupTasksByDoor(openTasks);
     final nextId = s.nextStop?.id;
-    final stopCount = day != null && day.stops.isNotEmpty
-        ? day.stops.length
-        : _uniquePoints(openTasks).length;
+    final stopCount = doors.length;
 
     return DraggableScrollableSheet(
       initialChildSize: 0.40,
@@ -528,7 +524,7 @@ class _RouteSheet extends ConsumerWidget {
               const SizedBox(height: 14),
               if (s.routeLoading && plan == null)
                 const DgSkeleton(width: double.infinity, height: 88)
-              else if (openTasks.isEmpty)
+              else if (doors.isEmpty)
                 Text(
                   context.l10n.routeFinished,
                   style: Dg.ui(size: 14, color: Dg.ink2),
@@ -540,27 +536,29 @@ class _RouteSheet extends ConsumerWidget {
                     seconds: day.stops.first.seconds,
                     fromYou: true,
                   ),
-                for (var i = 0; i < openTasks.length; i++) ...[
-                  if (i > 0 &&
-                      haversineMeters(
-                            LatLng(openTasks[i - 1].lat, openTasks[i - 1].lng),
-                            LatLng(openTasks[i].lat, openTasks[i].lng),
-                          ) >=
-                          kSameStopMeters)
+                for (var i = 0; i < doors.length; i++) ...[
+                  if (i > 0)
                     _TravelSegment(
                       meters: day == null
-                          ? _findStop(plan?.stops ?? const [], openTasks[i].id)
-                              ?.distanceMeters
-                          : _dayLeg(day, openTasks[i].id)?.meters,
+                          ? _findStop(
+                              plan?.stops ?? const [],
+                              doors[i].first.id,
+                            )?.distanceMeters
+                          : _dayLeg(day, doors[i].first.id)?.meters,
                       seconds: day == null
-                          ? _findStop(plan?.stops ?? const [], openTasks[i].id)
-                              ?.durationSeconds
-                          : _dayLeg(day, openTasks[i].id)?.seconds,
+                          ? _findStop(
+                              plan?.stops ?? const [],
+                              doors[i].first.id,
+                            )?.durationSeconds
+                          : _dayLeg(day, doors[i].first.id)?.seconds,
                     ),
                   _StopNode(
-                    task: openTasks[i],
-                    active: openTasks[i].id == nextId,
-                    last: i == openTasks.length - 1,
+                    task: doors[i].first,
+                    extras: doors[i].length > 1
+                        ? doors[i].skip(1).toList()
+                        : const [],
+                    active: doors[i].any((t) => t.id == nextId),
+                    last: i == doors.length - 1,
                   ),
                 ],
               ],
@@ -617,11 +615,15 @@ class _StopNode extends StatelessWidget {
     required this.task,
     required this.active,
     required this.last,
+    this.extras = const [],
   });
 
   final DeliveryTask task;
+  final List<DeliveryTask> extras;
   final bool active;
   final bool last;
+
+  int get _doorCount => 1 + extras.length;
 
   void _openDetail(BuildContext context) {
     Navigator.of(context).push(
@@ -656,7 +658,9 @@ class _StopNode extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    task.recipient,
+                    extras.isEmpty
+                        ? task.recipient
+                        : '${task.recipient} · ${l.sameAddressCount(_doorCount)}',
                     style: Dg.ui(
                       size: 17,
                       weight: FontWeight.w700,
@@ -674,10 +678,14 @@ class _StopNode extends StatelessWidget {
                       height: 1.3,
                     ),
                   ),
-                  if (meta.isNotEmpty) ...[
+                  if (meta.isNotEmpty || extras.isNotEmpty) ...[
                     const SizedBox(height: 8),
                     Text(
-                      meta,
+                      [
+                        if (meta.isNotEmpty) meta,
+                        if (extras.isNotEmpty)
+                          extras.map((t) => t.recipient).join(' · '),
+                      ].join(' · '),
                       style: Dg.ui(
                         size: 12,
                         weight: FontWeight.w600,
@@ -745,7 +753,9 @@ class _StopNode extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    task.recipient,
+                    extras.isEmpty
+                        ? task.recipient
+                        : '${task.recipient} · ${l.sameAddressCount(_doorCount)}',
                     style: Dg.ui(size: 15, weight: FontWeight.w600),
                   ),
                   const SizedBox(height: 2),
@@ -754,6 +764,8 @@ class _StopNode extends StatelessWidget {
                       task.address,
                       if (task.custodyCount != null)
                         l.itemsCount(task.custodyCount!),
+                      if (extras.isNotEmpty)
+                        extras.map((t) => t.recipient).join(', '),
                     ].join(' · '),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

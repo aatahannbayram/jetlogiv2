@@ -196,6 +196,34 @@ class DeliveryTask {
   };
 }
 
+/// Kapı anahtarı: açık [groupKey] yoksa ~11 m'lik koordinat hücresi.
+String doorKeyOf(DeliveryTask t) {
+  final g = t.groupKey;
+  if (g != null && g.isNotEmpty) return 'k:$g';
+  return 'g:${t.lat.toStringAsFixed(4)},${t.lng.toStringAsFixed(4)}';
+}
+
+/// Aynı kapıdaki görevleri ilk görüldükleri yerde birleştirir.
+/// Sıra korunur — rota zaman çizelgesi ve dağıtım listesi aynı grupları görür.
+List<List<DeliveryTask>> groupTasksByDoor(Iterable<DeliveryTask> rows) {
+  final list = rows.toList();
+  final byKey = <String, List<DeliveryTask>>{};
+  for (final t in list) {
+    (byKey[doorKeyOf(t)] ??= []).add(t);
+  }
+  final out = <List<DeliveryTask>>[];
+  final seen = <String>{};
+  for (final t in list) {
+    final key = doorKeyOf(t);
+    if (byKey[key]!.length > 1) {
+      if (seen.add(key)) out.add(byKey[key]!);
+    } else {
+      out.add([t]);
+    }
+  }
+  return out;
+}
+
 class WizardStep {
   const WizardStep({
     required this.keyName,

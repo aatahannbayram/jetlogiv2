@@ -319,8 +319,12 @@ DayRoute planDayRouteLocal(
   return _demoSeedIfMatch(local) ?? local;
 }
 
-/// Yerel sırayı koruyup OSRM/Mapbox yol geometrisiyle yükseltir. Motor
-/// susarsa [planDayRouteLocal] sonucu döner — sıra yine doğru, çizgi kesikli.
+/// Yerel sırayı koruyup yol geometrisiyle yükseltir.
+///
+/// Çok-duraklı tek OSRM isteği kasabada zikzak scribble üretebiliyor
+/// (durakların hepsine yakın geçip 8 km'ye şişiyor). Bacak bacak
+/// birleştirmek caddeyi takip eder. Kötü canlı cevap tohum/yerel
+/// çizginin üstüne yazılmaz.
 Future<DayRoute> planDayRoute(
   LatLng origin,
   List<RouteStopInput> input, {
@@ -328,7 +332,7 @@ Future<DayRoute> planDayRoute(
   Dio? dio,
   Duration timeout = const Duration(seconds: 6),
 }) async {
-  var local = planDayRouteLocal(origin, input, pinFirstId: pinFirstId);
+  final local = planDayRouteLocal(origin, input, pinFirstId: pinFirstId);
   if (local.waypoints.length < 2) return local;
 
   final client = dio ??
@@ -344,35 +348,35 @@ Future<DayRoute> planDayRoute(
         ),
       );
 
-  final tripped = await _applyTripOrder(
-    origin,
-    local,
-    pinFirstId: pinFirstId,
-    client: client,
-  );
-  if (tripped != null) local = tripped;
-
-  var road = await _fetchRoad(
-    local.waypoints,
-    dio: client,
-    timeout: timeout,
-  );
-  if (road != null &&
-      !lineFitsWaypoints(road.points, local.waypoints)) {
-    road = null;
-  }
-  if (road == null) {
+  _FetchedRoad? road;
+  if (local.waypoints.length >= 3) {
     road = await _fetchRoadLegs(
       local.waypoints,
       dio: client,
       timeout: timeout,
     );
   }
-  if (road != null && road.points.length > 1) {
+  road ??= await _fetchRoad(
+    local.waypoints,
+    dio: client,
+    timeout: timeout,
+  );
+  if (road != null &&
+      road.points.length > 1 &&
+      _roadIsSane(local, road)) {
     return _withRoad(local, road);
   }
-  final seeded = _demoSeedIfMatch(local);
-  return seeded ?? local;
+  return local;
+}
+
+/// Canlı çizgi duraklara oturmalı ve kuş-uçuşu / tohumdan makul sapmalı.
+bool _roadIsSane(DayRoute local, _FetchedRoad road) {
+  if (!lineFitsWaypoints(road.points, local.waypoints)) return false;
+  if (local.meters <= 0) return true;
+  final cap = !local.estimated
+      ? local.meters * 1.25
+      : (local.meters * 2.2).clamp(800, 25000);
+  return road.meters <= cap;
 }
 
 DayRoute _withRoad(DayRoute local, _FetchedRoad road) {
@@ -489,117 +493,6 @@ class _FetchedRoad {
 
   List<LatLng> get points =>
       decoded ?? decodePolyline(polyline, precision: precision);
-}
-
-DayRoute _fromStops(LatLng origin, List<DayStop> ordered) {
-  final waypoints = [origin, ...ordered.map((s) => s.at)];
-  final stops = <DayStop>[];
-  var meters = 0;
-  var seconds = 0;
-  for (var i = 0; i < ordered.length; i++) {
-    final from = i == 0 ? origin : ordered[i - 1].at;
-    final d = haversineMeters(from, ordered[i].at).round();
-    final t = (d / kUrbanSpeedMps).round();
-    meters += d;
-    seconds += t;
-    stops.add(
-      DayStop(
-        taskIds: ordered[i].taskIds,
-        at: ordered[i].at,
-        meters: d,
-        seconds: t,
-      ),
-    );
-  }
-  return DayRoute(
-    points: waypoints,
-    meters: meters,
-    seconds: seconds,
-    estimated: true,
-    provider: 'haversine',
-    stops: stops,
-    waypoints: waypoints,
-    highlight: waypoints.length > 1
-        ? [waypoints[0], waypoints[1]]
-        : const <LatLng>[],
-  );
-}
-
-Future<DayRoute?> _applyTripOrder(
-  LatLng origin,
-  DayRoute local, {
-  String? pinFirstId,
-  required Dio client,
-}) async {
-  if (local.stops.length < 2) return null;
-  final pinned =
-      pinFirstId != null && local.stops.first.taskIds.contains(pinFirstId);
-  final tripPts = pinned
-      ? [for (final s in local.stops) s.at]
-      : local.waypoints;
-  final order = await _fetchTripOrder(tripPts, client: client);
-  if (order == null || order.length != tripPts.length || order.first != 0) {
-    return null;
-  }
-  final stopOrder = pinned
-      ? order
-      : [for (var i = 1; i < order.length; i++) order[i] - 1];
-  var same = true;
-  for (var i = 0; i < stopOrder.length; i++) {
-    if (stopOrder[i] != i) {
-      same = false;
-      break;
-    }
-  }
-  if (same) return null;
-  return _fromStops(origin, [for (final i in stopOrder) local.stops[i]]);
-}
-
-Future<List<int>?> _fetchTripOrder(
-  List<LatLng> points, {
-  required Dio client,
-}) async {
-  if (points.length < 3) return null;
-  final hosts = <String>[kOsrmUrl];
-  if (_publicOsrm != kOsrmUrl) hosts.add(_publicOsrm);
-  for (final host in hosts) {
-    final coords = points
-        .map(
-          (p) =>
-              '${p.longitude.toStringAsFixed(6)},${p.latitude.toStringAsFixed(6)}',
-        )
-        .join(';');
-    final url =
-        '$host/trip/v1/driving/$coords?source=first&roundtrip=false&overview=false';
-    try {
-      final res = await client.get<Map<String, dynamic>>(
-        url,
-        options: Options(
-          headers: const {
-            'User-Agent': kRoutingUserAgent,
-            'Accept': 'application/json',
-          },
-        ),
-      );
-      final body = res.data;
-      if (body == null || body['code'] != 'Ok') continue;
-      final wps = body['waypoints'];
-      if (wps is! List || wps.length != points.length) continue;
-      final order = List<int>.filled(points.length, -1);
-      for (var i = 0; i < wps.length; i++) {
-        final wp = wps[i];
-        if (wp is! Map) continue;
-        final idx = wp['waypoint_index'];
-        if (idx is! num) continue;
-        final at = idx.round();
-        if (at < 0 || at >= order.length) continue;
-        order[at] = i;
-      }
-      if (order.contains(-1) || order.first != 0) continue;
-      return order;
-    } catch (_) {}
-  }
-  return null;
 }
 
 Future<_FetchedRoad?> _fetchRoadLegs(
