@@ -67,3 +67,10 @@ pnpm infra:down   # docker compose down
 - `docs/01-workflow-versioning.md` — workflow tanımı/versiyonlama
 - `docs/02-master-plan.md` — 16 modüllük kurye pilotu kapsamı
 - `docs/03-demo-akis.md` — demo akışı
+- `docs/04-mobile-v2-redesign.md` — mobil v2 tasarım sistemi notları
+- `docs/05-panel-entegrasyonu.md` — jetlogi-panel entegrasyon planı
+- `docs/06-eski-panel-ve-repo-analizi.md` — eski sistem (api/panel.jetlogi.net) analizi
+- `docs/07-ana-plan.md` — üç sistemi (eski/yeni panel/bizim iş) birleştiren yol haritası
+
+Not: `docs/07`'den itibaren güncel durumun asıl kaynağı Linear (JETLOG
+takımı) — bu dosyalar birer görüntü (snapshot), canlı takip değil.
