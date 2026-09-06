@@ -243,6 +243,12 @@ bool lineFitsWaypoints(
   double maxMeters = 450,
 }) {
   if (line.length < 2 || waypoints.length < 2) return false;
-  return haversineMeters(line.first, waypoints.first) <= maxMeters &&
-      haversineMeters(line.last, waypoints.last) <= maxMeters;
+  final cuts = snapAlongRoute(line, waypoints);
+  if (cuts.length != waypoints.length) return false;
+  for (var i = 0; i < waypoints.length; i++) {
+    if (haversineMeters(line[cuts[i]], waypoints[i]) > maxMeters) {
+      return false;
+    }
+  }
+  return true;
 }

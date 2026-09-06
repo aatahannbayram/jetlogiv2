@@ -651,6 +651,7 @@ class MapStrip extends StatelessWidget {
     this.showBadge = true,
     this.fitEpoch = 0,
     this.numberStops = false,
+    this.fitPadding = const EdgeInsets.all(40),
     this.onTap,
   });
 
@@ -696,6 +697,9 @@ class MapStrip extends StatelessWidget {
 
   /// Rota ekranı: durakları 1…n numaralandır. Tek-nokta şeritlerde kapalı.
   final bool numberStops;
+
+  /// Interactive fit — rota sheet altı kapalıyken alt padding büyütülür.
+  final EdgeInsets fitPadding;
   final VoidCallback? onTap;
 
   @override
@@ -715,10 +719,13 @@ class MapStrip extends StatelessWidget {
     final highlight = highlightPoints != null && highlightPoints!.length > 1
         ? highlightPoints!
         : const <LatLng>[];
+    final markers = !estimated && line.length > 1
+        ? alignStopsToRoute(points, line)
+        : points;
     final fit = [
       ...?fitTo,
       if (fitTo == null) ...line,
-      if (fitTo == null) ...points,
+      if (fitTo == null) ...markers,
       if (fitTo == null)
         for (final c in couriers.where((c) => c.self)) LatLng(c.lat, c.lng),
     ];
@@ -742,12 +749,13 @@ class MapStrip extends StatelessWidget {
                   fit: fit,
                   line: line,
                   highlight: highlight,
-                  points: points,
+                  points: markers,
                   couriers: couriers,
                   estimated: estimated,
                   interactive: interactive,
                   fitEpoch: fitEpoch,
                   numberStops: numberStops,
+                  fitPadding: fitPadding,
                 ),
               ),
             ),
@@ -804,6 +812,7 @@ class _StableMapView extends StatefulWidget {
     required this.interactive,
     required this.fitEpoch,
     required this.numberStops,
+    required this.fitPadding,
   });
 
   final LatLng center;
@@ -816,6 +825,7 @@ class _StableMapView extends StatefulWidget {
   final bool interactive;
   final int fitEpoch;
   final bool numberStops;
+  final EdgeInsets fitPadding;
 
   @override
   State<_StableMapView> createState() => _StableMapViewState();
@@ -832,7 +842,7 @@ class _StableMapViewState extends State<_StableMapView> {
   }
 
   String get _key =>
-      '${widget.line.length}|${widget.points.length}|${widget.couriers.length}|${widget.fit.length}|${widget.fitEpoch}';
+      '${widget.line.length}|${widget.points.length}|${widget.couriers.length}|${widget.fit.length}|${widget.fitEpoch}|${widget.fitPadding}';
 
   void _fitIfNeeded() {
     if (!widget.interactive || widget.fit.length < 2) return;
@@ -842,8 +852,8 @@ class _StableMapViewState extends State<_StableMapView> {
       _controller.fitCamera(
         CameraFit.coordinates(
           coordinates: widget.fit,
-          padding: const EdgeInsets.all(40),
-          maxZoom: 15.2,
+          padding: widget.fitPadding,
+          maxZoom: 15.4,
         ),
       );
     } catch (_) {}
