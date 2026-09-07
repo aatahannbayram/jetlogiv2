@@ -1190,10 +1190,11 @@ class SessionController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Yerel demo saha. Canlı API yoksa release APK da buraya düşer.
-  /// Sahte OTP / mühendis paneli [kAllowDebugBypass] ile ayrı durur.
-  void skipToDemo() {
-    demo = true;
+  /// Durak/bildirim/rota tohumlarını yazar — hem [skipToDemo]'nun anlık
+  /// tam-atlama akışında hem de aktivasyon ekranındaki demo OTP'de
+  /// (bkz. [verifyLoginOtp]) kullanılıyor. İkincisi kendi izin/vardiya
+  /// akışını normal şekilde sürdürdüğü için faz/vardiya burada değişmez.
+  void _seedDemoData() {
     if (tasks.isEmpty) {
       tasks.addAll(_buildDemoTasks());
     }
@@ -1201,13 +1202,6 @@ class SessionController extends ChangeNotifier {
       notifications.insertAll(0, _buildDemoNotifications());
     }
     routePlan = RoutePlanDto.demo();
-    phase = AppPhase.main;
-    shiftOpen = true;
-    shiftPhotoTaken = true;
-    shiftStartedAt = DateTime.now().subtract(
-      const Duration(hours: 5, minutes: 12),
-    );
-    unawaited(_persistShift());
     dayRoute = planDayRouteLocal(
       LatLng(selfLat, selfLng),
       _openRouteStops,
@@ -1218,9 +1212,23 @@ class SessionController extends ChangeNotifier {
       _openRouteStops,
       pinFirstId: 't1',
     );
+    unawaited(ensureDayRoute(pinFirstId: 't1'));
+  }
+
+  /// Yerel demo saha. Canlı API yoksa release APK da buraya düşer.
+  /// Sahte OTP / mühendis paneli [kAllowDebugBypass] ile ayrı durur.
+  void skipToDemo() {
+    demo = true;
+    _seedDemoData();
+    phase = AppPhase.main;
+    shiftOpen = true;
+    shiftPhotoTaken = true;
+    shiftStartedAt = DateTime.now().subtract(
+      const Duration(hours: 5, minutes: 12),
+    );
+    unawaited(_persistShift());
     DgLog.i(LogLayer.session, 'skipToDemo · selfie assumed · main');
     notifyListeners();
-    unawaited(ensureDayRoute(pinFirstId: 't1'));
     if (!kReleaseMode) {
       unawaited(_seedDemoTokenThenIdentity());
     }
@@ -1381,7 +1389,9 @@ class SessionController extends ChangeNotifier {
   Future<bool> verifyLoginOtp(String code) async {
     if (!kReleaseMode && code == '123456') {
       demo = true;
+      _seedDemoData();
       await _saveDemoTokens();
+      notifyListeners();
       return true;
     }
     final install = await vault?.installationId() ?? Vault.newUuid();
