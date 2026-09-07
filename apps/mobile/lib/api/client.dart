@@ -5,6 +5,7 @@ import '../data/vault.dart';
 import '../models.dart';
 import '../notif.dart';
 import '../secure.dart';
+import '../tls_pinning.dart';
 import 'courier_tasks.dart';
 import 'models.dart';
 
@@ -96,6 +97,8 @@ class MobileApi {
     if (!kReleaseMode) {
       dio.interceptors.add(DemoFallbackInterceptor());
     }
+    attachTlsPinning(dio);
+    attachTlsPinning(refreshDio);
     return MobileApi(dio: dio, vault: vault);
   }
 

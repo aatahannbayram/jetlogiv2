@@ -5,6 +5,7 @@ import 'package:latlong2/latlong.dart';
 import 'geo.dart';
 import 'map_config.dart';
 import 'secure.dart';
+import 'tls_pinning.dart';
 
 /// OSRM (OpenStreetMap, BSD) — Türkiye dahil planet grafiği. Anahtar yok,
 /// canlı trafik yok; yol geometrisi ve serbest-akış süre.
@@ -584,6 +585,7 @@ Future<_FetchedRoad?> _fetchRoad(
   Duration timeout = const Duration(seconds: 6),
 }) async {
   if (points.length < 2) return null;
+  final ownsClient = dio == null;
   final client =
       dio ??
       Dio(
@@ -597,6 +599,7 @@ Future<_FetchedRoad?> _fetchRoad(
           },
         ),
       );
+  if (ownsClient) attachTlsPinning(client);
 
   if (kMapboxToken.isNotEmpty) {
     final mapped = await _get(

@@ -5,4 +5,17 @@
             <certificates src="system" />
         </trust-anchors>
     </base-config>
+    <!-- dart:io kendi TLS yığınını kullanır; bu pin-set OkHttp / WebView / Cronet içindir. -->
+    <domain-config>
+        <domain includeSubdomains="true">dijigoo.com</domain>
+        <pin-set expiration="2029-02-20">
+            <!-- GTS WE1 / WE2 / WR1 / WR2 -->
+            <pin digest="SHA-256">kIdp6NNEd8wsugYyyIYFsi1ylMCED3hZbSR8ZFsa/A4=</pin>
+            <pin digest="SHA-256">vh78KSg1Ry4NaqGDV10w/cTb9VH3BQUZoCWNa93W/EY=</pin>
+            <pin digest="SHA-256">yDu9og255NN5GEf+Bwa9rTrqFQ0EydZ0r1FCh9TdAW4=</pin>
+            <pin digest="SHA-256">YPtHaftLw6/0vnc2BnNKGF54xiCA28WFcccjkA4ypCM=</pin>
+            <!-- Güncel yaprak, ~14 Eki 2026 -->
+            <pin digest="SHA-256">RoH/tTkvQyCBlabxTx57QdBhf05SP5K2Hb5J9zzMX6I=</pin>
+        </pin-set>
+    </domain-config>
 </network-security-config>

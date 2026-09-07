@@ -40,6 +40,33 @@
 				<true/>
 			</dict>
 		</dict>
+		<key>NSPinnedDomains</key>
+		<dict>
+			<key>dijigoo.com</key>
+			<dict>
+				<key>NSIncludesSubdomains</key>
+				<true/>
+				<key>NSPinnedCAIdentities</key>
+				<array>
+					<dict>
+						<key>SPKI-SHA256-BASE64</key>
+						<string>kIdp6NNEd8wsugYyyIYFsi1ylMCED3hZbSR8ZFsa/A4=</string>
+					</dict>
+					<dict>
+						<key>SPKI-SHA256-BASE64</key>
+						<string>vh78KSg1Ry4NaqGDV10w/cTb9VH3BQUZoCWNa93W/EY=</string>
+					</dict>
+					<dict>
+						<key>SPKI-SHA256-BASE64</key>
+						<string>yDu9og255NN5GEf+Bwa9rTrqFQ0EydZ0r1FCh9TdAW4=</string>
+					</dict>
+					<dict>
+						<key>SPKI-SHA256-BASE64</key>
+						<string>YPtHaftLw6/0vnc2BnNKGF54xiCA28WFcccjkA4ypCM=</string>
+					</dict>
+				</array>
+			</dict>
+		</dict>
 	</dict>
 	<key>UIApplicationSceneManifest</key>
 	<dict>

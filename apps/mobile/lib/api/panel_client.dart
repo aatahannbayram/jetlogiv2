@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 import '../data/vault.dart';
 import '../secure.dart';
+import '../tls_pinning.dart';
 import 'panel_models.dart';
 
 /// jetlogi-panel (`dijigoo-ops`) default local dev address per its own
@@ -49,6 +50,7 @@ class PanelApi {
       storage: VaultCookieStorage(vault),
     );
     dio.interceptors.add(CookieManager(cookieJar));
+    attachTlsPinning(dio);
     return PanelApi(dio, cookieJar);
   }
 
