@@ -1092,6 +1092,13 @@ class SessionController extends ChangeNotifier {
     await restoreLocalShift();
     await restorePanelSession();
     await restoreOpenShift();
+    final token = await vault?.accessToken;
+    final liveAuth =
+        token != null && token.isNotEmpty && token != 'demo-access';
+    if (!liveAuth && !liveApi && phase == AppPhase.splash) {
+      skipToDemo();
+      return;
+    }
     DgLog.i(
       LogLayer.boot,
       'bootstrap live=$liveApi demo=$demo phase=${phase.name}',
@@ -1183,8 +1190,9 @@ class SessionController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Yerel demo saha. Canlı API yoksa release APK da buraya düşer.
+  /// Sahte OTP / mühendis paneli [kAllowDebugBypass] ile ayrı durur.
   void skipToDemo() {
-    if (!kAllowDebugBypass) return;
     demo = true;
     if (tasks.isEmpty) {
       tasks.addAll(_buildDemoTasks());
@@ -1213,7 +1221,9 @@ class SessionController extends ChangeNotifier {
     DgLog.i(LogLayer.session, 'skipToDemo · selfie assumed · main');
     notifyListeners();
     unawaited(ensureDayRoute(pinFirstId: 't1'));
-    unawaited(_seedDemoTokenThenIdentity());
+    if (!kReleaseMode) {
+      unawaited(_seedDemoTokenThenIdentity());
+    }
   }
 
   /// Canlı giriş: sahte durak yok. Token varsa vardiya/izin, yoksa OTP.
@@ -1338,15 +1348,15 @@ class SessionController extends ChangeNotifier {
   }) async {
     lastPanelError = null;
     final id = identifier.trim();
+    if (kAllowDebugBypass &&
+        id == panelDemoIdentifier &&
+        password == panelDemoPassword) {
+      panelLoggedIn = true;
+      notifyListeners();
+      return true;
+    }
     final client = panel;
     if (client == null) {
-      if (kAllowDebugBypass &&
-          id == panelDemoIdentifier &&
-          password == panelDemoPassword) {
-        panelLoggedIn = true;
-        notifyListeners();
-        return true;
-      }
       lastPanelError = 'PANEL_UNAVAILABLE';
       notifyListeners();
       return false;
