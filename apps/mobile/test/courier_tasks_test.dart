@@ -355,6 +355,233 @@ void main() {
     expect(s.tickets.first.status, 'open');
   });
 
+  test('panel destek talebi PANEL_TICKET_CREATE yazar, Fastify kuyruğuna düşmez', () async {
+    var ticketPosts = 0;
+    var fastifyBatch = 0;
+    final dio = Dio();
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          final path = options.path;
+          if (path.contains('/courier-auth/login')) {
+            handler.resolve(
+              Response<Map<String, dynamic>>(
+                requestOptions: options,
+                statusCode: 200,
+                data: {
+                  'success': true,
+                  'data': {
+                    'courier': {
+                      'id': 'c-1',
+                      'courierCode': 'DGC-1',
+                      'fullName': 'Ayşe Kurye',
+                    },
+                  },
+                },
+              ),
+            );
+            return;
+          }
+          if (options.method == 'POST' && path.contains('/courier-tickets')) {
+            ticketPosts += 1;
+            handler.resolve(
+              Response<Map<String, dynamic>>(
+                requestOptions: options,
+                statusCode: 201,
+                data: {
+                  'success': true,
+                  'data': {
+                    'alreadyCreated': false,
+                    'ticket': {
+                      'id': 'tk-1',
+                      'reference': 'TKT-1',
+                      'category': 'ADDRESS_PROBLEM',
+                      'subject': 'Kapı yok',
+                      'body': 'Numara görünmüyor',
+                      'status': 'open',
+                      'priority': 'high',
+                      'createdAt': '2026-09-07T10:00:00.000Z',
+                      'taskId': 's-9',
+                    },
+                  },
+                },
+              ),
+            );
+            return;
+          }
+          if (path.contains('/v1/sync/batch')) {
+            fastifyBatch += 1;
+          }
+          handler.resolve(
+            Response<Map<String, dynamic>>(
+              requestOptions: options,
+              statusCode: 200,
+              data: {
+                'success': true,
+                'data': {
+                  'tasks': <dynamic>[],
+                  'items': <dynamic>[],
+                  'summary': {
+                    'total': 0,
+                    'created': 0,
+                    'planned': 0,
+                    'today': 0,
+                  },
+                },
+              },
+            ),
+          );
+        },
+      ),
+    );
+    final s = SessionController(
+      panel: PanelApi(dio),
+      api: MobileApi(dio: dio),
+    );
+    expect(await s.loginWithPanel(identifier: 'a@b.com', password: 'x'), isTrue);
+    s.createSupportTicket(
+      category: 'ADDRESS_PROBLEM',
+      subject: 'Kapı yok',
+      body: 'Numara görünmüyor',
+      taskId: 's-9',
+    );
+    await s.pushSyncQueue();
+    expect(ticketPosts, 1);
+    expect(fastifyBatch, 0);
+    expect(
+      s.outbox.events.where(
+        (e) => e.operation == SyncOperation.supportTicketCreate,
+      ),
+      isEmpty,
+    );
+    expect(s.tickets.first.id, 'tk-1');
+    expect(s.tickets.first.reference, 'TKT-1');
+  });
+
+  test('panel şube zimmeti courier-custody return çağırır', () async {
+    var returns = 0;
+    final dio = Dio();
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          if (options.path.contains('/courier-custody') &&
+              options.path.contains('/return')) {
+            returns += 1;
+            expect(options.data['warehouseId'], 'wh-1');
+            handler.resolve(
+              Response<Map<String, dynamic>>(
+                requestOptions: options,
+                statusCode: 200,
+                data: {
+                  'success': true,
+                  'data': {
+                    'alreadyReturned': false,
+                    'statusCode': 'RETURNED',
+                  },
+                },
+              ),
+            );
+            return;
+          }
+          handler.resolve(
+            Response<Map<String, dynamic>>(
+              requestOptions: options,
+              statusCode: 200,
+              data: {
+                'success': true,
+                'data': {
+                  'courier': {
+                    'id': 'c-1',
+                    'courierCode': 'DGC-1',
+                    'fullName': 'Ayşe',
+                  },
+                  'tasks': <dynamic>[],
+                  'items': <dynamic>[],
+                  'summary': {
+                    'total': 0,
+                    'created': 0,
+                    'planned': 0,
+                    'today': 0,
+                  },
+                },
+              },
+            ),
+          );
+        },
+      ),
+    );
+    final s = SessionController(
+      panel: PanelApi(dio),
+      api: MobileApi(dio: dio),
+    );
+    expect(await s.loginWithPanel(identifier: 'a@b.com', password: 'x'), isTrue);
+    s.custodyItems = const [
+      CustodyItemDto(
+        id: 'u-1',
+        type: 'parcel',
+        description: 'Koli',
+        quantity: 1,
+        acquiredAt: '2026-09-01T00:00:00.000Z',
+        barcode: 'DGO-9107',
+        warehouseId: 'wh-1',
+      ),
+    ];
+    s.zimmetMode = 'sube';
+    s.addZimmetScan('DGO-9107');
+    final ok = await s.completeZimmet();
+    expect(ok, isTrue);
+    expect(returns, 1);
+    expect(s.custodyItems, isEmpty);
+    expect(s.notifications.first.title, 'Zimmet onaylandı');
+  });
+
+  test('panel kurye zimmeti Fastify takeover çağırmaz', () async {
+    var handover = 0;
+    final dio = Dio();
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          if (options.path.contains('/v1/custody/handover')) handover += 1;
+          handler.resolve(
+            Response<Map<String, dynamic>>(
+              requestOptions: options,
+              statusCode: 200,
+              data: {
+                'success': true,
+                'data': {
+                  'courier': {
+                    'id': 'c-1',
+                    'courierCode': 'DGC-1',
+                    'fullName': 'Ayşe',
+                  },
+                  'tasks': <dynamic>[],
+                  'items': <dynamic>[],
+                  'summary': {
+                    'total': 0,
+                    'created': 0,
+                    'planned': 0,
+                    'today': 0,
+                  },
+                },
+              },
+            ),
+          );
+        },
+      ),
+    );
+    final s = SessionController(
+      panel: PanelApi(dio),
+      api: MobileApi(dio: dio),
+    );
+    expect(await s.loginWithPanel(identifier: 'a@b.com', password: 'x'), isTrue);
+    s.zimmetMode = 'kurye';
+    s.addZimmetScan('DGO-2201');
+    final ok = await s.completeZimmet();
+    expect(ok, isFalse);
+    expect(handover, 0);
+    expect(s.lastPanelError, 'PANEL_CUSTODY_TAKEOVER_UNSUPPORTED');
+  });
+
   test('Panel courier-tasks satırı DeliveryTask’a düşer', () {
     final row = PanelCourierTaskDto.fromJson({
       'id': 's-1',

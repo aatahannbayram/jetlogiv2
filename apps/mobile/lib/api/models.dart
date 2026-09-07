@@ -426,6 +426,7 @@ class CustodyItemDto {
     this.barcode,
     this.amount,
     this.taskId,
+    this.warehouseId,
   });
 
   final String id;
@@ -437,6 +438,9 @@ class CustodyItemDto {
   final String? taskId;
   final String acquiredAt;
 
+  /// Panel `GET courier-custody` — şubeye iade için `warehouseId` gerekir.
+  final String? warehouseId;
+
   factory CustodyItemDto.fromJson(Map<String, dynamic> json) => CustodyItemDto(
     id: json['id'] as String? ?? '',
     type: json['type'] as String? ?? 'parcel',
@@ -444,8 +448,9 @@ class CustodyItemDto {
     description: json['description'] as String? ?? '',
     quantity: (json['quantity'] as num?)?.toInt() ?? 1,
     amount: (json['amount'] as num?)?.toDouble(),
-    taskId: json['taskId'] as String?,
+    taskId: json['taskId'] as String? ?? json['shipmentId'] as String?,
     acquiredAt: json['acquiredAt'] as String? ?? '',
+    warehouseId: json['warehouseId'] as String?,
   );
 }
 

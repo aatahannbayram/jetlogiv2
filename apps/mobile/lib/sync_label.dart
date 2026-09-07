@@ -54,9 +54,11 @@ SyncQueueView describeOutboxEvent(
   final task = taskForSubject(tasks, event.subjectId);
   final person = switch (event.operation) {
     SyncOperation.shiftStart || SyncOperation.shiftEnd => l.shiftRecord,
-    SyncOperation.supportTicketCreate =>
+    SyncOperation.supportTicketCreate ||
+    SyncOperation.panelTicketCreate =>
       _str(event.payload, 'subject') ?? l.supportTicket,
-    SyncOperation.custodyHandover => l.custody,
+    SyncOperation.custodyHandover ||
+    SyncOperation.panelCustodyReturn => l.custody,
     _ => task?.recipient ?? l.queuedRecord,
   };
   final action = _action(event, l);
@@ -79,8 +81,10 @@ SyncEventKind _kind(OutboxEvent event) {
     case SyncOperation.shiftEnd:
       return SyncEventKind.shiftOff;
     case SyncOperation.custodyHandover:
+    case SyncOperation.panelCustodyReturn:
       return SyncEventKind.custody;
     case SyncOperation.supportTicketCreate:
+    case SyncOperation.panelTicketCreate:
       return SyncEventKind.ticket;
     case SyncOperation.stepSubmit:
       return SyncEventKind.step;
@@ -113,8 +117,10 @@ String _action(OutboxEvent event, L10n l) {
     case SyncOperation.shiftEnd:
       return l.syncShiftEnd;
     case SyncOperation.custodyHandover:
+    case SyncOperation.panelCustodyReturn:
       return l.syncCustodyHandover;
     case SyncOperation.supportTicketCreate:
+    case SyncOperation.panelTicketCreate:
       return l.syncSupportTicket;
     case SyncOperation.stepSubmit:
       return l.syncStepOf(_str(event.payload, 'stepKey') ?? '');

@@ -572,11 +572,31 @@ class SessionController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Kuryenin şu an elinde ne var (apps/api `GET /v1/custody`) — "Şube" modunda
-  /// taranan barkodu gerçek bir zimmet kalemine eşlemek için gerekiyor.
+  /// Kuryenin şu an elinde ne var. Panel oturumunda `GET courier-custody`,
+  /// aksi halde apps/api `GET /v1/custody`.
   Future<void> loadCustody() async {
+    if (custodyLoading) return;
+    if (_usesPanelTasks) {
+      final client = panel;
+      if (client == null) return;
+      custodyLoading = true;
+      notifyListeners();
+      try {
+        custodyItems = await client.fetchCustody();
+      } on PanelApiException catch (e) {
+        if (e.statusCode == 401) {
+          expirePanelSession();
+          return;
+        }
+      } catch (_) {
+      } finally {
+        custodyLoading = false;
+        notifyListeners();
+      }
+      return;
+    }
     final client = api;
-    if (client == null || custodyLoading) return;
+    if (client == null) return;
     custodyLoading = true;
     notifyListeners();
     try {
@@ -600,6 +620,7 @@ class SessionController extends ChangeNotifier {
   /// Şube: eldeki kalemleri acenteye bırakır. Kurye: barkodla tenant
   /// kalemini bulup `takeover` ile üzerine alır.
   Future<bool> completeZimmet() async {
+    if (_usesPanelTasks) return _completePanelZimmet();
     if (api == null) {
       zimmetScans.clear();
       notifyListeners();
@@ -643,6 +664,73 @@ class SessionController extends ChangeNotifier {
       return true;
     } catch (_) {
       return false;
+    } finally {
+      custodyHandoverPending = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> _completePanelZimmet() async {
+    if (zimmetMode == 'kurye') {
+      lastPanelError = 'PANEL_CUSTODY_TAKEOVER_UNSUPPORTED';
+      notifyListeners();
+      return false;
+    }
+    if (zimmetMode != 'sube') {
+      zimmetScans.clear();
+      notifyListeners();
+      return true;
+    }
+
+    final items = <CustodyItemDto>[
+      for (final scan in zimmetScans)
+        if (_custodyItemByBarcode(scan.code) case final item?) item,
+    ];
+    if (items.isEmpty) {
+      zimmetScans.clear();
+      notifyListeners();
+      return true;
+    }
+
+    final missingWarehouse = items.any(
+      (item) => item.warehouseId == null || item.warehouseId!.isEmpty,
+    );
+    if (missingWarehouse) {
+      lastPanelError = 'WAREHOUSE_ID_REQUIRED';
+      notifyListeners();
+      return false;
+    }
+
+    custodyHandoverPending = true;
+    notifyListeners();
+    try {
+      for (final item in items) {
+        if (_hasPendingPanel(item.id, SyncOperation.panelCustodyReturn)) {
+          continue;
+        }
+        outbox.enqueue(
+          operation: SyncOperation.panelCustodyReturn,
+          subjectId: item.id,
+          payload: {'warehouseId': item.warehouseId},
+        );
+      }
+
+      final returned = {for (final item in items) item.id};
+      custodyItems = [
+        for (final item in custodyItems)
+          if (!returned.contains(item.id)) item,
+      ];
+      zimmetScans.clear();
+      _prependNotification(
+        kind: NotifKind.custody,
+        title: 'Zimmet onaylandı',
+        body: 'Şube zimmetinden ${items.length} gönderi üstüne alındı.',
+        icon: LucideIcons.package,
+        tint: Dg.violetBg,
+        ink: Dg.violet,
+      );
+      await _pushPanelQueue();
+      return true;
     } finally {
       custodyHandoverPending = false;
       notifyListeners();
@@ -1030,6 +1118,7 @@ class SessionController extends ChangeNotifier {
       }
       applyPanelProfile(profile);
       await loadPanelTasks();
+      await Future.wait([loadTickets(), loadCustody()]);
     } catch (_) {
       panelLoggedIn = false;
       lastPanelError = 'PANEL_REQUEST_FAILED';
@@ -1266,6 +1355,7 @@ class SessionController extends ChangeNotifier {
       final profile = await client.login(identifier: id, password: password);
       applyPanelProfile(profile);
       await loadPanelTasks();
+      await Future.wait([loadTickets(), loadCustody()]);
       return true;
     } on PanelApiException catch (e) {
       lastPanelError = e.code;
@@ -1859,7 +1949,20 @@ class SessionController extends ChangeNotifier {
   }
 
   Future<void> loadTickets() async {
-    if (_usesPanelTasks) return;
+    if (_usesPanelTasks) {
+      final client = panel;
+      if (client == null) return;
+      try {
+        replaceTickets(await client.fetchTickets());
+      } on PanelApiException catch (e) {
+        if (e.statusCode == 401) {
+          expirePanelSession();
+          return;
+        }
+      } catch (_) {}
+      notifyListeners();
+      return;
+    }
     final client = api;
     if (client == null) return;
     try {
@@ -1876,7 +1979,9 @@ class SessionController extends ChangeNotifier {
   void replaceTickets(List<SupportTicketDto> remote) {
     final pendingIds = {
       for (final e in outbox.events)
-        if (e.pending && e.operation == SyncOperation.supportTicketCreate)
+        if (e.pending &&
+            (e.operation == SyncOperation.supportTicketCreate ||
+                e.operation == SyncOperation.panelTicketCreate))
           e.clientEventId,
     };
     final keep = [
@@ -1895,8 +2000,11 @@ class SessionController extends ChangeNotifier {
     required String body,
     String? taskId,
   }) {
+    final operation = _usesPanelTasks
+        ? SyncOperation.panelTicketCreate
+        : SyncOperation.supportTicketCreate;
     final event = outbox.enqueue(
-      operation: SyncOperation.supportTicketCreate,
+      operation: operation,
       subjectId: taskId,
       payload: {
         'category': category,
@@ -1922,7 +2030,9 @@ class SessionController extends ChangeNotifier {
       ),
     );
     if (online) {
-      if (api == null) {
+      if (_usesPanelTasks) {
+        unawaited(_pushPanelQueue());
+      } else if (api == null) {
         event.status = 'applied';
       } else {
         unawaited(_flushOutbox());
@@ -2021,13 +2131,16 @@ class SessionController extends ChangeNotifier {
 
   Future<void> _playPanelEvent(OutboxEvent event) async {
     final client = panel;
+    if (client == null) {
+      throw PanelApiException('PANEL_UNAVAILABLE');
+    }
     final id = event.subjectId;
-    if (client == null || id == null) {
+    if (id == null && event.operation != SyncOperation.panelTicketCreate) {
       throw PanelApiException('PANEL_UNAVAILABLE');
     }
     switch (event.operation) {
       case SyncOperation.panelAccept:
-        await client.acceptTask(id);
+        await client.acceptTask(id!);
       case SyncOperation.panelStart:
         var lat = _asDouble(event.payload['latitude']) ?? selfLat;
         var lng = _asDouble(event.payload['longitude']) ?? selfLng;
@@ -2043,11 +2156,11 @@ class SessionController extends ChangeNotifier {
           lng = selfLng;
         }
         final started = await client.startTask(
-          id,
+          id!,
           latitude: lat,
           longitude: lng,
         );
-        final t = _maybeTask(id);
+        final t = _maybeTask(id!);
         final state = started.workflowState;
         if (t != null && state != null && state.isNotEmpty) {
           t.wireStatus = state;
@@ -2055,7 +2168,7 @@ class SessionController extends ChangeNotifier {
         }
       case SyncOperation.panelLocation:
         await client.sendLocation(
-          id,
+          id!,
           purposeCode:
               (event.payload['purposeCode'] as String?) ?? 'ACTIVE_TASK',
           latitude: _asDouble(event.payload['latitude']) ?? selfLat,
@@ -2063,17 +2176,42 @@ class SessionController extends ChangeNotifier {
         );
       case SyncOperation.panelFinalize:
         final res = await client.finalizeTask(
-          id,
+          id!,
           outcome: (event.payload['outcome'] as String?) ?? 'DELIVERED',
           reasonCode: event.payload['reasonCode'] as String?,
           receivedBy: event.payload['receivedBy'] as String?,
         );
-        final t = _maybeTask(id);
+        final t = _maybeTask(id!);
         final state = res.currentStateCode;
         if (t != null && state != null && state.isNotEmpty) {
           t.wireStatus = state;
           t.status = taskStatusFromPanel(state);
         }
+      case SyncOperation.panelTicketCreate:
+        final created = await client.createTicket(
+          clientEventId: event.clientEventId,
+          category: (event.payload['category'] as String?) ?? 'OTHER',
+          subject: (event.payload['subject'] as String?) ?? '',
+          body: (event.payload['body'] as String?) ?? '',
+          taskId:
+              event.subjectId ?? event.payload['taskId'] as String?,
+        );
+        final idx = tickets.indexWhere((t) => t.id == event.clientEventId);
+        if (idx >= 0) {
+          tickets[idx] = created;
+        } else if (!tickets.any((t) => t.id == created.id)) {
+          tickets.insert(0, created);
+        }
+      case SyncOperation.panelCustodyReturn:
+        final warehouseId = event.payload['warehouseId'] as String?;
+        if (warehouseId == null || warehouseId.isEmpty) {
+          throw PanelApiException('WAREHOUSE_ID_REQUIRED');
+        }
+        await client.returnCustodyUnit(
+          id!,
+          warehouseId: warehouseId,
+          note: event.payload['note'] as String?,
+        );
       default:
         throw ArgumentError('panel drain: ${event.operation.wire}');
     }
@@ -2314,7 +2452,9 @@ class SessionController extends ChangeNotifier {
       for (final e in outbox.events)
         if (e.pending &&
             !e.operation.isPanel &&
-            !(_usesPanelTasks && e.operation.isFastifyTaskWrite))
+            !(_usesPanelTasks &&
+                (e.operation.isFastifyTaskWrite ||
+                    e.operation == SyncOperation.supportTicketCreate)))
           e,
     ];
     if (pending.isEmpty) {

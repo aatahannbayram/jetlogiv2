@@ -4,6 +4,7 @@ import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 import '../data/vault.dart';
 import '../secure.dart';
 import '../tls_pinning.dart';
+import 'models.dart';
 import 'panel_models.dart';
 
 /// jetlogi-panel (`dijigoo-ops`) default local dev address per its own
@@ -23,8 +24,8 @@ const kPanelApiBase = String.fromEnvironment(
 /// `src/infrastructure/auth/courier-auth.ts` in the panel repo) rather than
 /// our own bearer-token model, so it needs its own `Dio` instance with a
 /// persisted cookie jar instead of the `Authorization` header interceptor.
-/// Custody/config/sync/activation stay on [MobileApi] against our own
-/// `apps/api` until those are migrated too (docs/05-panel-entegrasyonu.md).
+/// Config/activation/vardiya hâlâ [MobileApi] (`apps/api`). Zimmet ve
+/// kurye destek ticket'ı panel oturumunda bu istemciden gider.
 class PanelApi {
   /// Plain constructor for tests — inject a `Dio` with a mock interceptor
   /// (see `test/panel_client_test.dart`) and skip the cookie jar entirely,
@@ -208,6 +209,107 @@ class PanelApi {
     );
   }
 
+  Future<List<CustodyItemDto>> fetchCustody() async {
+    final res = await _get('/courier-custody');
+    final raw = (res.data?['data'] as Map?)?['items'] as List? ?? const [];
+    return [
+      for (final row in raw)
+        if (row is Map)
+          CustodyItemDto.fromJson(Map<String, dynamic>.from(row)),
+    ];
+  }
+
+  Future<PanelCustodyActionResultDto> returnCustodyUnit(
+    String unitId, {
+    required String warehouseId,
+    String? note,
+  }) async {
+    final res = await _post('/courier-custody/$unitId/return', {
+      'warehouseId': warehouseId,
+      if (note != null) 'note': note,
+    });
+    return PanelCustodyActionResultDto.fromJson(
+      Map<String, dynamic>.from(res.data?['data'] as Map? ?? const {}),
+    );
+  }
+
+  Future<PanelCustodyActionResultDto> reportCustodyIssue(
+    String unitId, {
+    required String kind,
+    String? note,
+  }) async {
+    final res = await _post('/courier-custody/$unitId/report-issue', {
+      'kind': kind,
+      if (note != null) 'note': note,
+    });
+    return PanelCustodyActionResultDto.fromJson(
+      Map<String, dynamic>.from(res.data?['data'] as Map? ?? const {}),
+    );
+  }
+
+  Future<List<SupportTicketDto>> fetchTickets() async {
+    final items = <SupportTicketDto>[];
+    var page = 1;
+    while (page <= 20) {
+      final res = await _get(
+        '/courier-tickets',
+        queryParameters: {'page': '$page', 'pageSize': '50'},
+      );
+      final data = Map<String, dynamic>.from(
+        res.data?['data'] as Map? ?? const {},
+      );
+      final raw = data['items'] as List? ?? const [];
+      for (final row in raw) {
+        if (row is Map) {
+          items.add(
+            SupportTicketDto.fromJson(Map<String, dynamic>.from(row)),
+          );
+        }
+      }
+      final total = (data['total'] as num?)?.toInt();
+      if (raw.length < 50 || (total != null && items.length >= total)) {
+        break;
+      }
+      page += 1;
+    }
+    return items;
+  }
+
+  Future<SupportTicketDto> createTicket({
+    required String clientEventId,
+    required String category,
+    required String subject,
+    required String body,
+    String? taskId,
+  }) async {
+    final res = await _post('/courier-tickets', {
+      'clientEventId': clientEventId,
+      'category': category,
+      'subject': subject,
+      'body': body,
+      if (taskId != null) 'taskId': taskId,
+    });
+    final data = Map<String, dynamic>.from(
+      res.data?['data'] as Map? ?? const {},
+    );
+    final ticket = data['ticket'] as Map? ?? data;
+    return SupportTicketDto.fromJson(Map<String, dynamic>.from(ticket));
+  }
+
+  Future<Response<Map<String, dynamic>>> _get(
+    String path, {
+    Map<String, dynamic>? queryParameters,
+  }) async {
+    try {
+      return await dio.get<Map<String, dynamic>>(
+        path,
+        queryParameters: queryParameters,
+      );
+    } on DioException catch (e) {
+      throw _panelException(e);
+    }
+  }
+
   Future<Response<Map<String, dynamic>>> _post(
     String path,
     Map<String, Object?> data,
@@ -215,19 +317,23 @@ class PanelApi {
     try {
       return await dio.post<Map<String, dynamic>>(path, data: data);
     } on DioException catch (e) {
-      final code =
-          (e.response?.data is Map
-              ? (e.response?.data as Map)['error']
-              : null)
-          is Map
-          ? ((e.response?.data as Map)['error'] as Map)['code'] as String?
-          : null;
-      throw PanelApiException(
-        code ?? 'PANEL_REQUEST_FAILED',
-        statusCode: e.response?.statusCode,
-        message: e.message,
-      );
+      throw _panelException(e);
     }
+  }
+
+  PanelApiException _panelException(DioException e) {
+    final code =
+        (e.response?.data is Map
+            ? (e.response?.data as Map)['error']
+            : null)
+        is Map
+        ? ((e.response?.data as Map)['error'] as Map)['code'] as String?
+        : null;
+    return PanelApiException(
+      code ?? 'PANEL_REQUEST_FAILED',
+      statusCode: e.response?.statusCode,
+      message: e.message,
+    );
   }
 }
 

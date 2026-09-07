@@ -280,5 +280,92 @@ void main() {
       final api = PanelApi(Dio());
       expect(await api.hasStoredSession, isFalse);
     });
+
+    test('fetchCustody GET courier-custody items okur', () async {
+      late Uri seen;
+      final dio = _mockDio((options) {
+        seen = options.uri;
+        return {
+          'success': true,
+          'data': {
+            'items': [
+              {
+                'id': 'u-1',
+                'shipmentId': 's-1',
+                'barcode': 'SN-1',
+                'description': 'Koli',
+                'quantity': 1,
+                'warehouseId': 'wh-1',
+                'acquiredAt': '2026-09-07T10:00:00.000Z',
+              },
+            ],
+          },
+        };
+      });
+      final items = await PanelApi(dio).fetchCustody();
+      expect(seen.path, '/courier-custody');
+      expect(items.single.id, 'u-1');
+      expect(items.single.barcode, 'SN-1');
+      expect(items.single.taskId, 's-1');
+      expect(items.single.warehouseId, 'wh-1');
+    });
+
+    test('returnCustodyUnit warehouseId gönderir', () async {
+      String? seenPath;
+      Map<String, dynamic>? seenBody;
+      final dio = _mockDio((options) {
+        seenPath = options.path;
+        seenBody = Map<String, dynamic>.from(options.data as Map);
+        return {
+          'success': true,
+          'data': {'alreadyReturned': false, 'statusCode': 'RETURNED'},
+        };
+      });
+      final result = await PanelApi(dio).returnCustodyUnit(
+        'u-1',
+        warehouseId: 'wh-1',
+        note: 'şube',
+      );
+      expect(seenPath, '/courier-custody/u-1/return');
+      expect(seenBody!['warehouseId'], 'wh-1');
+      expect(result.already, isFalse);
+      expect(result.statusCode, 'RETURNED');
+    });
+
+    test('createTicket clientEventId ve body gönderir', () async {
+      Map<String, dynamic>? seenBody;
+      final dio = _mockDio((options) {
+        seenBody = Map<String, dynamic>.from(options.data as Map);
+        return {
+          'success': true,
+          'data': {
+            'alreadyCreated': false,
+            'ticket': {
+              'id': 'tk-1',
+              'reference': 'TKT-260907-ABC',
+              'category': 'ADDRESS_PROBLEM',
+              'subject': 'Kapı yok',
+              'body': 'Numara yok',
+              'status': 'open',
+              'priority': 'high',
+              'createdAt': '2026-09-07T10:00:00.000Z',
+              'taskId': 's-1',
+            },
+          },
+        };
+      });
+      final ticket = await PanelApi(dio).createTicket(
+        clientEventId: 'evt-1',
+        category: 'ADDRESS_PROBLEM',
+        subject: 'Kapı yok',
+        body: 'Numara yok',
+        taskId: 's-1',
+      );
+      expect(seenBody!['clientEventId'], 'evt-1');
+      expect(seenBody!['category'], 'ADDRESS_PROBLEM');
+      expect(seenBody!['taskId'], 's-1');
+      expect(ticket.reference, 'TKT-260907-ABC');
+      expect(ticket.status, 'open');
+    });
   });
 }

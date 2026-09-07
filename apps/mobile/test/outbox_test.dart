@@ -40,10 +40,21 @@ void main() {
       SyncOperationWire.fromWire('PANEL_LOCATION'),
       SyncOperation.panelLocation,
     );
+      expect(
+        SyncOperationWire.fromWire('PANEL_FINALIZE'),
+        SyncOperation.panelFinalize,
+      );
     expect(
-      SyncOperationWire.fromWire('PANEL_FINALIZE'),
-      SyncOperation.panelFinalize,
+      SyncOperationWire.fromWire('PANEL_TICKET_CREATE'),
+      SyncOperation.panelTicketCreate,
     );
+    expect(
+      SyncOperationWire.fromWire('PANEL_CUSTODY_RETURN'),
+      SyncOperation.panelCustodyReturn,
+    );
+    expect(SyncOperation.panelTicketCreate.isPanel, isTrue);
+    expect(SyncOperation.panelCustodyReturn.isPanel, isTrue);
+    expect(SyncOperation.supportTicketCreate.isPanel, isFalse);
     expect(SyncOperation.panelAccept.wire, 'PANEL_ACCEPT');
     expect(SyncOperation.panelAccept.isPanel, isTrue);
     expect(SyncOperation.taskTransition.isPanel, isFalse);

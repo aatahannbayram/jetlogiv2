@@ -205,6 +205,26 @@ class PanelFinalizeResultDto {
       );
 }
 
+class PanelCustodyActionResultDto {
+  const PanelCustodyActionResultDto({
+    required this.already,
+    this.statusCode,
+    this.warehouseId,
+  });
+
+  final bool already;
+  final String? statusCode;
+  final String? warehouseId;
+
+  factory PanelCustodyActionResultDto.fromJson(Map<String, dynamic> json) =>
+      PanelCustodyActionResultDto(
+        already:
+            json['alreadyReturned'] == true || json['alreadyReported'] == true,
+        statusCode: json['statusCode'] as String?,
+        warehouseId: json['warehouseId'] as String?,
+      );
+}
+
 class PanelCourierProfileDto {
   const PanelCourierProfileDto({
     required this.courierId,

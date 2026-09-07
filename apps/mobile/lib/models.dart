@@ -254,6 +254,8 @@ enum SyncOperation {
   panelStart,
   panelLocation,
   panelFinalize,
+  panelTicketCreate,
+  panelCustodyReturn,
 }
 
 extension SyncOperationWire on SyncOperation {
@@ -269,13 +271,17 @@ extension SyncOperationWire on SyncOperation {
     SyncOperation.panelStart => 'PANEL_START',
     SyncOperation.panelLocation => 'PANEL_LOCATION',
     SyncOperation.panelFinalize => 'PANEL_FINALIZE',
+    SyncOperation.panelTicketCreate => 'PANEL_TICKET_CREATE',
+    SyncOperation.panelCustodyReturn => 'PANEL_CUSTODY_RETURN',
   };
 
   bool get isPanel => switch (this) {
     SyncOperation.panelAccept ||
     SyncOperation.panelStart ||
     SyncOperation.panelLocation ||
-    SyncOperation.panelFinalize => true,
+    SyncOperation.panelFinalize ||
+    SyncOperation.panelTicketCreate ||
+    SyncOperation.panelCustodyReturn => true,
     _ => false,
   };
 
@@ -301,6 +307,8 @@ extension SyncOperationWire on SyncOperation {
     'PANEL_START' => SyncOperation.panelStart,
     'PANEL_LOCATION' => SyncOperation.panelLocation,
     'PANEL_FINALIZE' => SyncOperation.panelFinalize,
+    'PANEL_TICKET_CREATE' => SyncOperation.panelTicketCreate,
+    'PANEL_CUSTODY_RETURN' => SyncOperation.panelCustodyReturn,
     _ => throw ArgumentError('Bilinmeyen sync operation: $wire'),
   };
 }
