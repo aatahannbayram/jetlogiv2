@@ -86,6 +86,14 @@ SyncEventKind _kind(OutboxEvent event) {
       return SyncEventKind.step;
     case SyncOperation.taskFinalize:
       return _isFailure(event) ? SyncEventKind.fail : SyncEventKind.deliver;
+    case SyncOperation.panelAccept:
+      return SyncEventKind.accept;
+    case SyncOperation.panelStart:
+      return SyncEventKind.start;
+    case SyncOperation.panelLocation:
+      return SyncEventKind.enRoute;
+    case SyncOperation.panelFinalize:
+      return _isFailure(event) ? SyncEventKind.fail : SyncEventKind.deliver;
     case SyncOperation.taskTransition:
       return switch (_to(event)) {
         'ACCEPTED' => SyncEventKind.accept,
@@ -116,6 +124,18 @@ String _action(OutboxEvent event, L10n l) {
             _str(event.payload, 'reason') ??
             '',
       );
+    case SyncOperation.panelAccept:
+      return l.syncTransitionOf('ACCEPTED');
+    case SyncOperation.panelStart:
+      return l.syncTransitionOf('IN_PROGRESS');
+    case SyncOperation.panelLocation:
+      return l.syncTransitionOf('EN_ROUTE');
+    case SyncOperation.panelFinalize:
+      return l.syncOutcomeOf(
+        _str(event.payload, 'outcome') ??
+            _str(event.payload, 'reasonCode') ??
+            '',
+      );
     case SyncOperation.taskTransition:
       final reason =
           _str(event.payload, 'reason') ??
@@ -138,6 +158,7 @@ bool _isFailure(OutboxEvent event) {
   final code =
       _str(event.payload, 'outcomeCode') ??
       _str(event.payload, 'outcome') ??
+      _str(event.payload, 'reasonCode') ??
       _str(event.payload, 'reason') ??
       '';
   return const {

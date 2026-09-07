@@ -8,6 +8,158 @@ import 'package:dijigoo_kurye/session.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+Dio _panelActionDio({
+  required List<String> hits,
+  int acceptStatus = 200,
+  int startStatus = 200,
+  int locationStatus = 200,
+  int finalizeStatus = 200,
+}) {
+  final dio = Dio();
+  dio.interceptors.add(
+    InterceptorsWrapper(
+      onRequest: (options, handler) {
+        final path = options.path;
+        if (path.contains('/courier-auth/login')) {
+          hits.add('login');
+          handler.resolve(
+            Response<Map<String, dynamic>>(
+              requestOptions: options,
+              statusCode: 200,
+              data: {
+                'success': true,
+                'data': {
+                  'courier': {
+                    'id': 'c-1',
+                    'courierCode': 'DGC-1',
+                    'fullName': 'Ayşe Kurye',
+                  },
+                },
+              },
+            ),
+          );
+          return;
+        }
+        if (options.method == 'GET' && path.contains('/courier-tasks')) {
+          hits.add('list');
+          handler.resolve(
+            Response<Map<String, dynamic>>(
+              requestOptions: options,
+              statusCode: 200,
+              data: {
+                'success': true,
+                'data': {
+                  'tasks': [
+                    {
+                      'id': 's-9',
+                      'shipmentNumber': 'JLG-9',
+                      'statusCode': 'COURIER_ASSIGNED',
+                      'recipientName': 'Bora Kaya',
+                      'destination': {
+                        'address': 'İstiklal 8',
+                        'latitude': '38.1481',
+                        'longitude': '29.0558',
+                      },
+                    },
+                  ],
+                  'summary': {
+                    'total': 1,
+                    'created': 0,
+                    'planned': 1,
+                    'today': 1,
+                  },
+                },
+              },
+            ),
+          );
+          return;
+        }
+        if (path.contains('/accept')) {
+          hits.add('accept');
+          _panelRespond(
+            handler,
+            options,
+            acceptStatus,
+            const {'alreadyAccepted': false},
+          );
+          return;
+        }
+        if (path.endsWith('/start') || path.contains('/start')) {
+          hits.add('start');
+          _panelRespond(handler, options, startStatus, const {
+            'alreadyStarted': false,
+            'workflowState': 'OUT_FOR_DELIVERY',
+          });
+          return;
+        }
+        if (path.contains('/location')) {
+          hits.add('location');
+          _panelRespond(handler, options, locationStatus, const {});
+          return;
+        }
+        if (path.contains('/finalize')) {
+          hits.add('finalize');
+          _panelRespond(handler, options, finalizeStatus, const {
+            'alreadyFinalized': false,
+            'currentStateCode': 'DELIVERED',
+          });
+          return;
+        }
+        if (path.contains('/v1/sync/batch')) {
+          hits.add('fastify-batch');
+          handler.resolve(
+            Response<Map<String, dynamic>>(
+              requestOptions: options,
+              statusCode: 200,
+              data: const {'results': <dynamic>[]},
+            ),
+          );
+          return;
+        }
+        handler.resolve(
+          Response<Map<String, dynamic>>(
+            requestOptions: options,
+            statusCode: 200,
+            data: const {'success': true, 'data': <String, dynamic>{}},
+          ),
+        );
+      },
+    ),
+  );
+  return dio;
+}
+
+void _panelRespond(
+  RequestInterceptorHandler handler,
+  RequestOptions options,
+  int status,
+  Map<String, Object?> data,
+) {
+  if (status >= 400) {
+    handler.reject(
+      DioException(
+        requestOptions: options,
+        response: Response<Map<String, dynamic>>(
+          requestOptions: options,
+          statusCode: status,
+          data: {
+            'error': {'code': status == 401 ? 'UNAUTHORIZED' : 'PANEL_DOWN'},
+          },
+        ),
+        type: DioExceptionType.badResponse,
+      ),
+    );
+    return;
+  }
+  handler.resolve(
+    Response<Map<String, dynamic>>(
+      requestOptions: options,
+      statusCode: status,
+      data: {'success': true, 'data': data},
+    ),
+  );
+}
+
 void main() {
   test('TaskSummary → DeliveryTask (isim, adres, cancelled, rowVersion)', () {
     final task = deliveryTaskFromSummary({
@@ -704,13 +856,124 @@ void main() {
     expect(s.taskById('s-9').status, TaskStatus.inProgress);
     expect(accepts, 1);
     expect(starts, 1);
-    expect(s.outbox.events.length, before);
+    final panelForTask = s.outbox.events.where((e) => e.subjectId == 's-9');
+    expect(panelForTask.every((e) => e.operation.isPanel), isTrue);
+    expect(
+      panelForTask.where((e) => e.pending),
+      isEmpty,
+      reason: 'online drain accept→start→location applied olmalı',
+    );
+    expect(
+      s.outbox.events.where((e) => e.subjectId == 's-9' && e.operation.isFastifyTaskWrite),
+      isEmpty,
+    );
+    expect(s.outbox.events.length, greaterThan(before));
 
     await s.deliverTask('s-9', receivedBy: 'Bora');
     expect(s.taskById('s-9').status, TaskStatus.delivered);
     expect(finals, 1);
-    expect(s.outbox.events.length, before);
+    expect(
+      s.outbox.events.where(
+        (e) =>
+            e.subjectId == 's-9' &&
+            e.operation == SyncOperation.panelFinalize &&
+            e.pending,
+      ),
+      isEmpty,
+    );
     expect(fastifyTasks, 0);
+  });
+
+  test('panel çevrimdışı start kuyruğa yazar, hat gelince accept→start sırası', () async {
+    final hits = <String>[];
+    final dio = _panelActionDio(hits: hits);
+    final s = SessionController(
+      panel: PanelApi(dio),
+      api: MobileApi(dio: dio),
+    );
+    expect(await s.loginWithPanel(identifier: 'a@b.com', password: 'x'), isTrue);
+    s.online = false;
+    await s.startTask('s-9');
+    expect(hits.where((h) => h == 'accept' || h == 'start'), isEmpty);
+    expect(
+      [
+        for (final e in s.outbox.events)
+          if (e.pending && e.subjectId == 's-9') e.operation,
+      ],
+      [
+        SyncOperation.panelAccept,
+        SyncOperation.panelStart,
+        SyncOperation.panelLocation,
+      ],
+    );
+
+    s.online = true;
+    await s.pushSyncQueue();
+    expect(hits.where((h) => h != 'login' && h != 'list'), [
+      'accept',
+      'start',
+      'location',
+    ]);
+    expect(
+      s.outbox.events.where((e) => e.subjectId == 's-9' && e.pending),
+      isEmpty,
+    );
+    expect(hits.contains('fastify-batch'), isFalse);
+  });
+
+  test('panel accept 503 olursa start çağrılmaz, kuyruk pending kalır', () async {
+    final hits = <String>[];
+    final dio = _panelActionDio(hits: hits, acceptStatus: 503);
+    final s = SessionController(
+      panel: PanelApi(dio),
+      api: MobileApi(dio: dio),
+    );
+    expect(await s.loginWithPanel(identifier: 'a@b.com', password: 'x'), isTrue);
+    await s.startTask('s-9');
+    expect(hits.where((h) => h == 'accept'), ['accept']);
+    expect(hits.where((h) => h == 'start'), isEmpty);
+    expect(
+      s.outbox.events.any(
+        (e) =>
+            e.pending &&
+            e.subjectId == 's-9' &&
+            e.operation == SyncOperation.panelAccept,
+      ),
+      isTrue,
+    );
+    expect(
+      s.outbox.events.any(
+        (e) =>
+            e.pending &&
+            e.subjectId == 's-9' &&
+            e.operation == SyncOperation.panelStart,
+      ),
+      isTrue,
+    );
+    expect(s.lastPanelError, isNotNull);
+  });
+
+  test('panel 401 drain oturumu kapatır, kuyruk silinmez', () async {
+    final hits = <String>[];
+    final dio = _panelActionDio(hits: hits, acceptStatus: 401);
+    final s = SessionController(
+      panel: PanelApi(dio),
+      api: MobileApi(dio: dio),
+    );
+    expect(await s.loginWithPanel(identifier: 'a@b.com', password: 'x'), isTrue);
+    await s.startTask('s-9');
+    expect(s.panelLoggedIn, isFalse);
+    expect(s.lastPanelError, SessionController.panelSessionExpired);
+    expect(
+      s.outbox.events.any(
+        (e) =>
+            e.pending &&
+            e.subjectId == 's-9' &&
+            e.operation == SyncOperation.panelAccept,
+      ),
+      isTrue,
+    );
+    expect(hits.contains('start'), isFalse);
   });
 
   test('loginWithPanel panel yokken yalnız demo çiftle açılır', () async {

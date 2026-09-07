@@ -32,4 +32,22 @@ void main() {
     expect(s.outbox.events.last.status, 'pending');
     expect(s.pendingSync, 2);
   });
+
+  test('PANEL_* wire hydrate edilir, Fastify TASK_* ile karışmaz', () {
+    expect(SyncOperationWire.fromWire('PANEL_ACCEPT'), SyncOperation.panelAccept);
+    expect(SyncOperationWire.fromWire('PANEL_START'), SyncOperation.panelStart);
+    expect(
+      SyncOperationWire.fromWire('PANEL_LOCATION'),
+      SyncOperation.panelLocation,
+    );
+    expect(
+      SyncOperationWire.fromWire('PANEL_FINALIZE'),
+      SyncOperation.panelFinalize,
+    );
+    expect(SyncOperation.panelAccept.wire, 'PANEL_ACCEPT');
+    expect(SyncOperation.panelAccept.isPanel, isTrue);
+    expect(SyncOperation.taskTransition.isPanel, isFalse);
+    expect(SyncOperation.taskTransition.isFastifyTaskWrite, isTrue);
+    expect(SyncOperation.panelStart.isFastifyTaskWrite, isFalse);
+  });
 }

@@ -234,6 +234,15 @@ class PanelApiException implements Exception {
   final int? statusCode;
   final String? message;
 
+  /// Ağ, zaman aşımı, 408/429 ve 5xx — kuyrukta bırakıp tekrar dene.
+  /// 401 ayrı ele alınır (oturum düşer); diğer 4xx kalıcı reddir.
+  bool get isRetryable {
+    final s = statusCode;
+    if (s == null) return true;
+    if (s == 408 || s == 429) return true;
+    return s >= 500;
+  }
+
   @override
   String toString() => 'PanelApiException($code, status: $statusCode)';
 }

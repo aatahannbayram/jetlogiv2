@@ -955,6 +955,13 @@ class SessionController extends ChangeNotifier {
 
   DeliveryTask taskById(String id) => tasks.firstWhere((t) => t.id == id);
 
+  DeliveryTask? _maybeTask(String id) {
+    for (final t in tasks) {
+      if (t.id == id) return t;
+    }
+    return null;
+  }
+
   String _taskName(String? id) {
     if (id == null) return 'Kayıt';
     for (final t in tasks) {
@@ -1896,68 +1903,173 @@ class SessionController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _syncPanelStart(String id) async {
-    final client = panel;
-    if (client == null) return;
-    try {
-      await client.acceptTask(id);
-      final started = await client.startTask(
-        id,
-        latitude: selfLat,
-        longitude: selfLng,
+  bool _hasPendingPanel(String id, SyncOperation op) => outbox.events.any(
+    (e) => e.pending && e.subjectId == id && e.operation == op,
+  );
+
+  void _enqueuePanelStart(String id) {
+    if (!_hasPendingPanel(id, SyncOperation.panelAccept)) {
+      outbox.enqueue(operation: SyncOperation.panelAccept, subjectId: id);
+    }
+    if (!_hasPendingPanel(id, SyncOperation.panelStart)) {
+      outbox.enqueue(
+        operation: SyncOperation.panelStart,
+        subjectId: id,
+        payload: {
+          'latitude': selfLat,
+          'longitude': selfLng,
+          'capturedAt': DateTime.now().toUtc().toIso8601String(),
+        },
       );
-      unawaited(
-        client.sendLocation(
-          id,
-          purposeCode: 'ACTIVE_TASK',
-          latitude: selfLat,
-          longitude: selfLng,
-        ),
+    }
+    if (!_hasPendingPanel(id, SyncOperation.panelLocation)) {
+      outbox.enqueue(
+        operation: SyncOperation.panelLocation,
+        subjectId: id,
+        payload: {
+          'purposeCode': 'ACTIVE_TASK',
+          'latitude': selfLat,
+          'longitude': selfLng,
+        },
       );
-      final t = taskById(id);
-      final state = started.workflowState;
-      if (state != null && state.isNotEmpty) {
-        t.wireStatus = state;
-        t.status = taskStatusFromPanel(state);
-      }
-      notifyListeners();
-    } on PanelApiException catch (e) {
-      lastPanelError = e.code;
-      notifyListeners();
-    } catch (_) {
-      lastPanelError = 'PANEL_REQUEST_FAILED';
-      notifyListeners();
     }
   }
 
-  Future<void> _syncPanelFinalize(
+  void _enqueuePanelFinalize(
     String id, {
     required String outcome,
     String? reasonCode,
     String? receivedBy,
-  }) async {
+  }) {
+    if (_hasPendingPanel(id, SyncOperation.panelFinalize)) return;
+    outbox.enqueue(
+      operation: SyncOperation.panelFinalize,
+      subjectId: id,
+      payload: {
+        'outcome': outcome,
+        if (reasonCode != null) 'reasonCode': reasonCode,
+        if (receivedBy != null) 'receivedBy': receivedBy,
+      },
+    );
+  }
+
+  Future<void> _pushPanelQueue() async {
+    await outbox.waitForPersistence();
+    if (online) await _flushOutbox();
+  }
+
+  double? _asDouble(Object? v) {
+    if (v is num) return v.toDouble();
+    if (v is String) return double.tryParse(v);
+    return null;
+  }
+
+  Future<void> _playPanelEvent(OutboxEvent event) async {
+    final client = panel;
+    final id = event.subjectId;
+    if (client == null || id == null) {
+      throw PanelApiException('PANEL_UNAVAILABLE');
+    }
+    switch (event.operation) {
+      case SyncOperation.panelAccept:
+        await client.acceptTask(id);
+      case SyncOperation.panelStart:
+        var lat = _asDouble(event.payload['latitude']) ?? selfLat;
+        var lng = _asDouble(event.payload['longitude']) ?? selfLng;
+        final raw =
+            event.payload['capturedAt'] ?? event.payload['occurredAt'];
+        final captured = raw is String ? DateTime.tryParse(raw) : null;
+        final stale =
+            captured == null ||
+            DateTime.now().toUtc().difference(captured.toUtc()) >
+                const Duration(minutes: 4);
+        if (stale) {
+          lat = selfLat;
+          lng = selfLng;
+        }
+        final started = await client.startTask(
+          id,
+          latitude: lat,
+          longitude: lng,
+        );
+        final t = _maybeTask(id);
+        final state = started.workflowState;
+        if (t != null && state != null && state.isNotEmpty) {
+          t.wireStatus = state;
+          t.status = taskStatusFromPanel(state);
+        }
+      case SyncOperation.panelLocation:
+        await client.sendLocation(
+          id,
+          purposeCode:
+              (event.payload['purposeCode'] as String?) ?? 'ACTIVE_TASK',
+          latitude: _asDouble(event.payload['latitude']) ?? selfLat,
+          longitude: _asDouble(event.payload['longitude']) ?? selfLng,
+        );
+      case SyncOperation.panelFinalize:
+        final res = await client.finalizeTask(
+          id,
+          outcome: (event.payload['outcome'] as String?) ?? 'DELIVERED',
+          reasonCode: event.payload['reasonCode'] as String?,
+          receivedBy: event.payload['receivedBy'] as String?,
+        );
+        final t = _maybeTask(id);
+        final state = res.currentStateCode;
+        if (t != null && state != null && state.isNotEmpty) {
+          t.wireStatus = state;
+          t.status = taskStatusFromPanel(state);
+        }
+      default:
+        throw ArgumentError('panel drain: ${event.operation.wire}');
+    }
+  }
+
+  Future<void> _flushPanelOutbox() async {
+    if (!storageOk || !online || !_usesPanelTasks) return;
     final client = panel;
     if (client == null) return;
-    try {
-      final res = await client.finalizeTask(
-        id,
-        outcome: outcome,
-        reasonCode: reasonCode,
-        receivedBy: receivedBy,
-      );
-      final t = taskById(id);
-      final state = res.currentStateCode;
-      if (state != null && state.isNotEmpty) {
-        t.wireStatus = state;
-        t.status = taskStatusFromPanel(state);
+    final pending = [
+      for (final e in outbox.events)
+        if (e.pending && e.operation.isPanel) e,
+    ]..sort((a, b) => a.sequence.compareTo(b.sequence));
+    if (pending.isEmpty) return;
+
+    final hardBlock = <String>{};
+    for (final event in pending) {
+      final id = event.subjectId ?? '';
+      if (hardBlock.contains(id)) continue;
+      try {
+        await _playPanelEvent(event);
+        await outbox.applyResults([
+          (id: event.clientEventId, status: 'applied'),
+        ]);
+      } on PanelApiException catch (e) {
+        if (e.statusCode == 401) {
+          expirePanelSession();
+          return;
+        }
+        lastPanelError = e.code;
+        if (e.isRetryable) {
+          if (event.operation == SyncOperation.panelAccept ||
+              event.operation == SyncOperation.panelStart) {
+            hardBlock.add(id);
+          }
+          continue;
+        }
+        await outbox.applyResults([
+          (id: event.clientEventId, status: 'rejected'),
+        ]);
+        if (event.operation == SyncOperation.panelAccept ||
+            event.operation == SyncOperation.panelStart) {
+          hardBlock.add(id);
+        }
+      } catch (_) {
+        lastPanelError = 'PANEL_REQUEST_FAILED';
+        if (event.operation == SyncOperation.panelAccept ||
+            event.operation == SyncOperation.panelStart) {
+          hardBlock.add(id);
+        }
       }
-      notifyListeners();
-    } on PanelApiException catch (e) {
-      lastPanelError = e.code;
-      notifyListeners();
-    } catch (_) {
-      lastPanelError = 'PANEL_REQUEST_FAILED';
-      notifyListeners();
     }
   }
 
@@ -1968,7 +2080,8 @@ class SessionController extends ChangeNotifier {
       t.wireStatus = 'OUT_FOR_DELIVERY';
       notifyListeners();
       unawaited(ensureDayRoute());
-      await _syncPanelStart(id);
+      _enqueuePanelStart(id);
+      await _pushPanelQueue();
       return;
     }
     final steps = startTransitions(
@@ -2027,11 +2140,12 @@ class SessionController extends ChangeNotifier {
     if (_usesPanelTasks) {
       notifyListeners();
       unawaited(ensureDayRoute());
-      await _syncPanelFinalize(
+      _enqueuePanelFinalize(
         id,
         outcome: 'DELIVERED',
         receivedBy: receivedBy,
       );
+      await _pushPanelQueue();
       return;
     }
     final event = outbox.enqueue(
@@ -2083,12 +2197,13 @@ class SessionController extends ChangeNotifier {
     if (_usesPanelTasks) {
       notifyListeners();
       unawaited(ensureDayRoute());
-      await _syncPanelFinalize(
+      _enqueuePanelFinalize(
         id,
         outcome: 'FAILED',
         reasonCode: code,
         receivedBy: detail,
       );
+      await _pushPanelQueue();
       return;
     }
     final event = outbox.enqueue(
@@ -2139,11 +2254,23 @@ class SessionController extends ChangeNotifier {
 
   Future<void> _flushOutbox() async {
     if (!storageOk) return;
-    final pending = outbox.events.where((e) => e.pending).toList();
-    if (pending.isEmpty) return;
+    await _flushPanelOutbox();
+    final pending = [
+      for (final e in outbox.events)
+        if (e.pending &&
+            !e.operation.isPanel &&
+            !(_usesPanelTasks && e.operation.isFastifyTaskWrite))
+          e,
+    ];
+    if (pending.isEmpty) {
+      notifyListeners();
+      return;
+    }
     final client = api;
     if (client == null) {
-      outbox.drain();
+      await outbox.applyResults([
+        for (final e in pending) (id: e.clientEventId, status: 'applied'),
+      ]);
       notifyListeners();
       return;
     }
@@ -2208,6 +2335,10 @@ class SessionController extends ChangeNotifier {
     final list = stepAnswers.putIfAbsent(taskId, () => []);
     list.removeWhere((a) => a['stepKey'] == stepKey);
     list.add(answer);
+    if (_usesPanelTasks) {
+      notifyListeners();
+      return;
+    }
     final event = outbox.enqueue(
       operation: SyncOperation.stepSubmit,
       subjectId: taskId,

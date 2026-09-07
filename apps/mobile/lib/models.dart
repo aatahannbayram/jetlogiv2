@@ -246,6 +246,10 @@ enum SyncOperation {
   taskFinalize,
   custodyHandover,
   supportTicketCreate,
+  panelAccept,
+  panelStart,
+  panelLocation,
+  panelFinalize,
 }
 
 extension SyncOperationWire on SyncOperation {
@@ -257,6 +261,28 @@ extension SyncOperationWire on SyncOperation {
     SyncOperation.taskFinalize => 'TASK_FINALIZE',
     SyncOperation.custodyHandover => 'CUSTODY_HANDOVER',
     SyncOperation.supportTicketCreate => 'SUPPORT_TICKET_CREATE',
+    SyncOperation.panelAccept => 'PANEL_ACCEPT',
+    SyncOperation.panelStart => 'PANEL_START',
+    SyncOperation.panelLocation => 'PANEL_LOCATION',
+    SyncOperation.panelFinalize => 'PANEL_FINALIZE',
+  };
+
+  bool get isPanel => switch (this) {
+    SyncOperation.panelAccept ||
+    SyncOperation.panelStart ||
+    SyncOperation.panelLocation ||
+    SyncOperation.panelFinalize => true,
+    _ => false,
+  };
+
+  /// Fastify `/v1/sync/batch` görev yazmaları. Panel oturumunda bunlar
+  /// panele gitmeli, eski API'ye değil (demo tohum TASK_TRANSITION dahil).
+  bool get isFastifyTaskWrite => switch (this) {
+    SyncOperation.taskTransition ||
+    SyncOperation.stepSubmit ||
+    SyncOperation.taskFinalize ||
+    SyncOperation.custodyHandover => true,
+    _ => false,
   };
 
   static SyncOperation fromWire(String wire) => switch (wire) {
@@ -267,6 +293,10 @@ extension SyncOperationWire on SyncOperation {
     'TASK_FINALIZE' => SyncOperation.taskFinalize,
     'CUSTODY_HANDOVER' => SyncOperation.custodyHandover,
     'SUPPORT_TICKET_CREATE' => SyncOperation.supportTicketCreate,
+    'PANEL_ACCEPT' => SyncOperation.panelAccept,
+    'PANEL_START' => SyncOperation.panelStart,
+    'PANEL_LOCATION' => SyncOperation.panelLocation,
+    'PANEL_FINALIZE' => SyncOperation.panelFinalize,
     _ => throw ArgumentError('Bilinmeyen sync operation: $wire'),
   };
 }
