@@ -101,7 +101,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                     Row(
                       children: [
                         Appear(
-                          child: DijigooWordmark(height: 24, onDark: Dg.dark),
+                          child: DijigooWordmark(height: 28, onDark: Dg.dark),
                         ),
                         const Spacer(),
                         if (s.panelLoggedIn)
@@ -113,7 +113,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                        if (s.demo && !kReleaseMode) ...[
+                        if (s.demo) ...[
                           const SizedBox(width: 8),
                           DemoPill(
                             onLongPress: () {
@@ -262,18 +262,16 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                                 onPressed: () =>
                                     ref.read(sessionProvider).finishSplash(),
                               ),
-                              if (!kReleaseMode) ...[
-                                const SizedBox(height: 8),
-                                TextButton(
-                                  key: const Key('open-demo'),
-                                  onPressed: () =>
-                                      ref.read(sessionProvider).skipToDemo(),
-                                  child: Text(
-                                    l.openDemo,
-                                    style: TextStyle(color: muted),
-                                  ),
+                              const SizedBox(height: 8),
+                              TextButton(
+                                key: const Key('open-demo'),
+                                onPressed: () =>
+                                    ref.read(sessionProvider).skipToDemo(),
+                                child: Text(
+                                  l.openDemo,
+                                  style: TextStyle(color: muted),
                                 ),
-                              ],
+                              ),
                             ],
                           ),
                         )

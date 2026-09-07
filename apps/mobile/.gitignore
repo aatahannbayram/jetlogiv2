@@ -37,6 +37,10 @@ migrate_working_dir/
 /android/.kotlin/
 **/xcshareddata/swiftpm/
 
+# Firebase config — proje bazlı, gerçek prod projesine geçilince değişecek
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+
 # Symbolication related
 app.*.symbols
 

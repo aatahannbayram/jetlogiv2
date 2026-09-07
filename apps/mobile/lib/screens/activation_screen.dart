@@ -110,7 +110,7 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     const Appear(
-                      child: DijigooWordmark(height: 36, onDark: true),
+                      child: DijigooWordmark(height: 52, onDark: true),
                     ),
                     const SizedBox(height: 28),
                     Text(

@@ -5,6 +5,9 @@ plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+    // google-services.json var olduğu için gerekli — yoksa firebase_core/messaging
+    // derlenir ama google_app_id kaynağı hiç üretilmez, FCM sessizce çalışmaz.
+    id("com.google.gms.google-services")
 }
 
 val keystorePropertiesFile = rootProject.file("key.properties")

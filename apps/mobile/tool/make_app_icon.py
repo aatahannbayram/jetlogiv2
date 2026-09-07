@@ -1,64 +1,51 @@
-"""Rasterize the in-app Dijigoo mark (lib/brand.dart) to launcher PNGs."""
+"""Launcher icons from the JetLogi J-arrow in jetlogi_logo_white.png."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from PIL import Image, ImageDraw
+from PIL import Image
+import numpy as np
 
 
-def cubic(p0, p1, p2, p3, steps=28):
-    pts = []
-    for i in range(steps + 1):
-        t = i / steps
-        u = 1 - t
-        pts.append(
-            (
-                u**3 * p0[0] + 3 * u**2 * t * p1[0] + 3 * u * t**2 * p2[0] + t**3 * p3[0],
-                u**3 * p0[1] + 3 * u**2 * t * p1[1] + 3 * u * t**2 * p2[1] + t**3 * p3[1],
-            )
-        )
-    return pts
+def j_glyph(logo: Image.Image) -> Image.Image:
+    arr = np.array(logo.convert("RGBA"))
+    alpha = arr[:, :, 3]
+    col_ink = (alpha > 160).sum(axis=0)
+    row_ink = (alpha > 160).sum(axis=1)
+    cols = np.where(col_ink > 8)[0]
+    rows = np.where(row_ink > 8)[0]
+    minx, maxx = int(cols[0]), int(cols[-1])
+    miny, maxy = int(rows[0]), int(rows[-1])
+    jw = int((maxx - minx + 1) * 0.155)
+    slice_im = logo.crop((minx, miny, minx + jw, maxy + 1))
+    sa = np.array(slice_im)[:, :, 3]
+    cys, cxs = np.where(sa > 80)
+    return slice_im.crop(
+        (int(cxs.min()), int(cys.min()), int(cxs.max()) + 1, int(cys.max()) + 1)
+    )
 
 
-def mark_paths(s: float, ox: float, oy: float):
-    def p(x, y):
-        return (ox + x * s, oy + y * s)
-
-    pin = []
-    pin += cubic(p(0.50, 0.96), p(0.18, 0.68), p(0.08, 0.46), p(0.08, 0.38))
-    pin += cubic(p(0.08, 0.38), p(0.08, 0.16), p(0.26, 0.04), p(0.50, 0.04))
-    pin += cubic(p(0.50, 0.04), p(0.74, 0.04), p(0.92, 0.16), p(0.92, 0.38))
-    pin += cubic(p(0.92, 0.38), p(0.92, 0.46), p(0.82, 0.68), p(0.50, 0.96))
-
-    d = []
-    d.append(p(0.38, 0.22))
-    d.append(p(0.38, 0.54))
-    d.append(p(0.50, 0.54))
-    d += cubic(p(0.50, 0.54), p(0.64, 0.54), p(0.72, 0.48), p(0.72, 0.38))
-    d += cubic(p(0.72, 0.38), p(0.72, 0.28), p(0.64, 0.22), p(0.50, 0.22))
-    return pin, d
-
-
-def render(size: int, *, pad: float, bg: tuple[int, int, int]) -> Image.Image:
-    img = Image.new("RGB", (size, size), bg)
-    draw = ImageDraw.Draw(img)
-    inner = size * (1 - 2 * pad)
-    ox = oy = size * pad
-    pin, d = mark_paths(inner, ox, oy)
-    draw.polygon(pin, fill=(255, 255, 255))
-    draw.polygon(d, fill=bg)
-    return img
+def make_square(glyph: Image.Image, size: int, pad: float) -> Image.Image:
+    canvas = Image.new("RGBA", (size, size), (0, 0, 0, 255))
+    inner = int(size * (1 - 2 * pad))
+    g = glyph.copy()
+    g.thumbnail((inner, inner), Image.Resampling.LANCZOS)
+    x = (size - g.width) // 2
+    y = (size - g.height) // 2
+    canvas.paste(g, (x, y), g)
+    return canvas.convert("RGB")
 
 
 def main() -> None:
     root = Path(__file__).resolve().parents[1]
     assets = root / "assets" / "images"
-    assets.mkdir(parents=True, exist_ok=True)
+    logo = Image.open(assets / "jetlogi_logo_white.png")
+    glyph = j_glyph(logo)
 
-    full = render(1024, pad=0.18, bg=(0, 0, 0))
+    full = make_square(glyph, 1024, 0.18)
+    fg = make_square(glyph, 1024, 0.24)
     full.save(assets / "app_icon.png")
-    fg = render(1024, pad=0.22, bg=(0, 0, 0))
     fg.save(assets / "app_icon_fg.png")
 
     android = {
@@ -99,7 +86,7 @@ def main() -> None:
 
     launch = root / "ios" / "Runner" / "Assets.xcassets" / "LaunchImage.imageset"
     if launch.exists():
-        mark = render(512, pad=0.22, bg=(0, 0, 0))
+        mark = make_square(glyph, 512, 0.22)
         mark.save(launch / "LaunchImage.png")
         mark.resize((256, 256), Image.Resampling.LANCZOS).save(
             launch / "LaunchImage@2x.png"
@@ -121,7 +108,7 @@ def main() -> None:
         }.items():
             full.resize((px, px), Image.Resampling.LANCZOS).save(macos / name)
 
-    print("wrote app icons")
+    print("wrote JetLogi app icons")
 
 
 if __name__ == "__main__":

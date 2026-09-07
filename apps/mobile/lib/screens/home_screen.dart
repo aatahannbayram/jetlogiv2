@@ -64,24 +64,7 @@ class HomeScreen extends ConsumerWidget {
                     children: [
                       Row(
                         children: [
-                          Container(
-                            width: 34,
-                            height: 34,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              gradient: Dg.primaryGradient,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const DijigooMark(size: 18, onDark: true),
-                          ),
-                          const SizedBox(width: 10),
-                          Text(
-                            'Dijigoo',
-                            style: Dg.ui(
-                              size: 18,
-                              weight: FontWeight.w700,
-                            ).copyWith(letterSpacing: -0.5),
-                          ),
+                          const DijigooWordmark(height: 26, onDark: false),
                           const Spacer(),
                           DgOnlineChip(
                             online: s.online && s.shiftOpen,

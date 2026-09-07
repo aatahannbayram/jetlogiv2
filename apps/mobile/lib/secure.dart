@@ -1,7 +1,8 @@
 import 'package:flutter/foundation.dart';
 
-/// Release derlemesinde demo OTP, mühendis paneli, public OSRM ve
-/// düz-metin disk günlüğü kapalıdır. Debug / widget testleri etkilenmez.
+/// Release'de sahte OTP (123456), mühendis paneli ve panel demo şifresi
+/// kapalıdır. Yerel demo saha (skipToDemo) ayrıdır — canlı API yoksa aynı
+/// APK yine açılır; bu bayrak onu kilitlemez.
 bool get kAllowDebugBypass => !kReleaseMode;
 
 bool isHttpsUrl(String url) {

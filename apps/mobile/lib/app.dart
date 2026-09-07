@@ -27,7 +27,7 @@ class DijigooApp extends ConsumerWidget {
       return L10nScope(
         l10n: l10n,
         child: MaterialApp(
-          title: 'Dijigoo',
+          title: 'JetLogi',
           debugShowCheckedModeBanner: false,
           locale: Locale(session.localeCode),
           theme: Dg.theme(),
@@ -46,7 +46,7 @@ class DijigooApp extends ConsumerWidget {
     return L10nScope(
       l10n: l10n,
       child: MaterialApp(
-        title: 'Dijigoo',
+        title: 'JetLogi',
         debugShowCheckedModeBanner: false,
         locale: Locale(session.localeCode),
         supportedLocales: const [Locale('tr'), Locale('en')],

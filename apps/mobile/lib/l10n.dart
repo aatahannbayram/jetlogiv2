@@ -453,7 +453,7 @@ class L10n {
   String get password => _t('Şifre', 'Password');
   String get openProfile => _t('Profili aç', 'Open profile');
   String get fieldAppVersion =>
-      _t('v1.0.0 · Dijigoo Saha', 'v1.0.0 · Dijigoo Field');
+      _t('v1.0.0 · JetLogi Saha', 'v1.0.0 · JetLogi Field');
   String get demoCodesHint =>
       _t('Giriş 123456  ·  Teslim 482913', 'Login 123456  ·  Delivery 482913');
   String get storageLockedTitle =>

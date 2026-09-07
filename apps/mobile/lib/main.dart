@@ -60,13 +60,13 @@ Future<void> _bootstrap() async {
   } catch (_) {
     db = AppDatabase.memory();
     cipherOn = false;
-    if (kReleaseMode) storageOk = false;
+    // Şifreli depo açılmazsa kilit ekranı yerine bellek DB: aynı APK
+    // yine sahaya düşer. Canlı yazmalar storageOk ile ayrı korunur.
   }
   late final MobileApi api;
   try {
     api = MobileApi.create(vault: vault);
   } catch (_) {
-    storageOk = false;
     api = MobileApi(
       dio: Dio(
         BaseOptions(
