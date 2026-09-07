@@ -1360,6 +1360,8 @@ class SessionController extends ChangeNotifier {
         id == panelDemoIdentifier &&
         password == panelDemoPassword) {
       panelLoggedIn = true;
+      demo = true;
+      _seedDemoData();
       notifyListeners();
       return true;
     }
