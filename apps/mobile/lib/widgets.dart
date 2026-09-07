@@ -1959,6 +1959,61 @@ String taskStatusTone(TaskStatus s) => switch (s) {
   _ => 'accent',
 };
 
+String taskRefLine(DeliveryTask task, {int? visit}) {
+  final n = visit ?? task.sequence;
+  if (n <= 0) return task.ref;
+  return '#$n  ·  ${task.ref}';
+}
+
+String taskBadgeNumber(DeliveryTask task, {int? visit}) {
+  final n = visit ?? task.sequence;
+  return n <= 0 ? '·' : '$n';
+}
+
+class DgRetryBanner extends StatelessWidget {
+  const DgRetryBanner({
+    super.key,
+    required this.message,
+    required this.onRetry,
+    required this.retryLabel,
+  });
+
+  final String message;
+  final VoidCallback onRetry;
+  final String retryLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Dg.redBg,
+      borderRadius: BorderRadius.circular(Dg.radius),
+      child: InkWell(
+        onTap: onRetry,
+        borderRadius: BorderRadius.circular(Dg.radius),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+          child: Row(
+            children: [
+              Icon(LucideIcons.circleAlert, size: 16, color: Dg.red),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  message,
+                  style: Dg.ui(size: 13, weight: FontWeight.w600, color: Dg.red),
+                ),
+              ),
+              Text(
+                retryLabel,
+                style: Dg.ui(size: 13, weight: FontWeight.w700, color: Dg.red),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class TaskListTile extends StatelessWidget {
   const TaskListTile({super.key, required this.task, required this.onTap});
 
@@ -1976,7 +2031,7 @@ class TaskListTile extends StatelessWidget {
           children: [
             Row(
               children: [
-                Mono('#${task.sequence}  ${task.ref}'),
+                Mono(taskRefLine(task)),
                 const Spacer(),
                 StatusChip(
                   label: taskStatusLabel(task.status, L10n.of(context)),

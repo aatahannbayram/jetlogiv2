@@ -557,6 +557,7 @@ class _RouteSheet extends ConsumerWidget {
                     extras: doors[i].length > 1
                         ? doors[i].skip(1).toList()
                         : const [],
+                    visitIndex: i + 1,
                     active: doors[i].any((t) => t.id == nextId),
                     last: i == doors.length - 1,
                   ),
@@ -585,6 +586,7 @@ List<LatLng> _uniquePoints(Iterable<DeliveryTask> tasks) {
   final out = <LatLng>[];
   final seen = <String>{};
   for (final t in tasks) {
+    if (!t.hasCoordinates) continue;
     final key = '${t.lat.toStringAsFixed(4)},${t.lng.toStringAsFixed(4)}';
     if (seen.add(key)) out.add(LatLng(t.lat, t.lng));
   }
@@ -616,12 +618,14 @@ class _StopNode extends StatelessWidget {
     required this.active,
     required this.last,
     this.extras = const [],
+    this.visitIndex,
   });
 
   final DeliveryTask task;
   final List<DeliveryTask> extras;
   final bool active;
   final bool last;
+  final int? visitIndex;
 
   int get _doorCount => 1 + extras.length;
 
@@ -739,7 +743,7 @@ class _StopNode extends StatelessWidget {
               child: last
                   ? Icon(LucideIcons.flag, size: 11, color: Dg.purpleActive)
                   : Text(
-                      '${task.sequence}',
+                      '${visitIndex ?? taskBadgeNumber(task)}',
                       style: Dg.ui(
                         size: 11,
                         weight: FontWeight.w700,

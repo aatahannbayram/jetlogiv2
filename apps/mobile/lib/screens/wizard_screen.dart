@@ -189,9 +189,14 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
   @override
   Widget build(BuildContext context) {
     final s = ref.watch(sessionProvider);
-    final task = s.taskById(widget.taskId);
-
     final l = context.l10n;
+    final task = s.taskOrNull(widget.taskId);
+    if (task == null) {
+      return Scaffold(
+        appBar: AppBar(),
+        body: Center(child: Text(l.stopGone)),
+      );
+    }
 
     if (done) {
       return DeliveryResultScreen(

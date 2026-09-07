@@ -114,6 +114,15 @@ class HomeScreen extends ConsumerWidget {
                         ],
                       ),
                       const SizedBox(height: 14),
+                      if (s.showPanelFieldError)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: DgRetryBanner(
+                            message: l.panelTasksFailed,
+                            retryLabel: l.retryNow,
+                            onRetry: () => unawaited(s.loadPanelTasks()),
+                          ),
+                        ),
                       Row(
                         children: [
                           InitialsAvatar(
@@ -660,9 +669,9 @@ class _HeroStopState extends ConsumerState<_HeroStop> {
                         _detailBlock(
                           title: context.l10n.queue,
                           rows: [
-                            (
+                              (
                               context.l10n.order,
-                              '${task.sequence} / ${s.tasks.length}',
+                              '${s.visitNumber(task.id)} / ${s.tasks.length}',
                             ),
                             (context.l10n.openStop, '${s.openCount}'),
                             (context.l10n.next, nextLabel),

@@ -379,6 +379,10 @@ void main() {
     expect(task.custodyCount, 2);
     expect(task.lat, closeTo(38.1, 0.0001));
     expect(task.wireStatus, 'OUT_FOR_DELIVERY');
+    expect(task.hasCoordinates, isTrue);
+    expect(task.groupKey, contains('cumhuriyet'));
+    expect(task.window, isNot('—'));
+    expect(task.otpRequired, isFalse);
     expect(taskStatusFromPanel('DELIVERED'), TaskStatus.delivered);
     expect(taskStatusFromPanel('FAILED'), TaskStatus.failed);
     expect(taskStatusFromPanel('REDELIVERY'), TaskStatus.assigned);
@@ -387,6 +391,39 @@ void main() {
       startTransitions(wireStatus: task.wireStatus, rowVersion: 0),
       isEmpty,
     );
+    expect(
+      taskStatusFromPanel(
+        'COURIER_ASSIGNED',
+        assignmentStatusCode: 'IN_PROGRESS',
+      ),
+      TaskStatus.inProgress,
+    );
+
+    final noFix = deliveryTaskFromPanel(
+      PanelCourierTaskDto.fromJson({
+        'id': 's-x',
+        'shipmentNumber': '',
+        'externalReference': 'EXT-9',
+        'statusCode': 'COURIER_ASSIGNED',
+        'recipientName': 'Bora Kaya',
+        'destination': {'address': 'İstiklal 8'},
+      }),
+    );
+    expect(noFix.ref, 'EXT-9');
+    expect(noFix.hasCoordinates, isFalse);
+    expect(noFix.lat, 0);
+    expect(noFix.lng, 0);
+    final sameDoor = deliveryTaskFromPanel(
+      PanelCourierTaskDto.fromJson({
+        'id': 's-y',
+        'shipmentNumber': 'JLG-2',
+        'statusCode': 'COURIER_ASSIGNED',
+        'recipientName': 'Elif Koç',
+        'destination': {'address': 'İstiklal 8'},
+      }),
+    );
+    expect(noFix.groupKey, sameDoor.groupKey);
+    expect(groupTasksByDoor([noFix, sameDoor]).length, 1);
   });
 
   test('GET /v1/tasks cursor sayfalarını birleştirir', () async {
@@ -697,12 +734,14 @@ void main() {
       panel: PanelApi(dio),
       api: MobileApi(dio: dio),
     );
-    final before = s.outbox.events.length;
     final ok = await s.loginWithPanel(identifier: 'a@b.com', password: 'x');
     expect(ok, isTrue);
     expect(s.panelLoggedIn, isTrue);
     expect(s.courier.fullName, 'Ayşe Kurye');
-    expect(s.outbox.events.length, before);
+    expect(
+      s.outbox.events.any((e) => e.clientEventId.startsWith('demo-seed')),
+      isFalse,
+    );
     expect(taskGets, 0);
     expect(s.phase, AppPhase.onboard);
   });
@@ -919,6 +958,22 @@ void main() {
       isEmpty,
     );
     expect(hits.contains('fastify-batch'), isFalse);
+  });
+
+  test('panel yenileme bekleyen yerel teslim durumunu ezmez', () async {
+    final hits = <String>[];
+    final dio = _panelActionDio(hits: hits);
+    final s = SessionController(
+      panel: PanelApi(dio),
+      api: MobileApi(dio: dio),
+    );
+    expect(await s.loginWithPanel(identifier: 'a@b.com', password: 'x'), isTrue);
+    s.online = false;
+    await s.startTask('s-9');
+    expect(s.taskById('s-9').status, TaskStatus.inProgress);
+    await s.loadPanelTasks();
+    expect(s.taskById('s-9').status, TaskStatus.inProgress);
+    expect(s.taskById('s-9').wireStatus, 'OUT_FOR_DELIVERY');
   });
 
   test('panel accept 503 olursa start çağrılmaz, kuyruk pending kalır', () async {

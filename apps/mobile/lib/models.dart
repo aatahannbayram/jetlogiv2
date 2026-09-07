@@ -169,6 +169,10 @@ class DeliveryTask {
   /// Fastify `TaskStatus` teli. Dart [status] ACCEPTED/EN_ROUTE'u sıkıştırır.
   String wireStatus;
 
+  /// Panel satırında koordinat yoksa (0,0) — rota/haritaya konmaz, kapı
+  /// grubu adresten gelir.
+  bool get hasCoordinates => lat.abs() > 1 || lng.abs() > 1;
+
   bool get isOpen =>
       status == TaskStatus.assigned ||
       status == TaskStatus.inProgress ||

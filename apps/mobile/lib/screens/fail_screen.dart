@@ -54,7 +54,13 @@ class _FailScreenState extends ConsumerState<FailScreen> {
   Widget build(BuildContext context) {
     final l = context.l10n;
     final s = ref.watch(sessionProvider);
-    final task = s.taskById(widget.taskId);
+    final task = s.taskOrNull(widget.taskId);
+    if (task == null) {
+      return Scaffold(
+        appBar: AppBar(),
+        body: Center(child: Text(l.stopGone)),
+      );
+    }
 
     if (closed) {
       return DeliveryResultScreen(

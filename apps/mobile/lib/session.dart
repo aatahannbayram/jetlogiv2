@@ -125,7 +125,7 @@ class SessionController extends ChangeNotifier {
   RoadLeg? roadBetween(List<LatLng> points) => _roadLegs[roadCacheKey(points)];
 
   List<RouteStopInput> get _openRouteStops => [
-    for (final t in tasks.where((t) => t.isOpen))
+    for (final t in tasks.where((t) => t.isOpen && t.hasCoordinates))
       RouteStopInput(id: t.id, at: LatLng(t.lat, t.lng), urgency: _urgencyOf(t)),
   ];
 
@@ -955,12 +955,28 @@ class SessionController extends ChangeNotifier {
 
   DeliveryTask taskById(String id) => tasks.firstWhere((t) => t.id == id);
 
-  DeliveryTask? _maybeTask(String id) {
+  DeliveryTask? taskOrNull(String id) {
     for (final t in tasks) {
       if (t.id == id) return t;
     }
     return null;
   }
+
+  DeliveryTask? _maybeTask(String id) => taskOrNull(id);
+
+  /// Dağıtım listesi / rota rozeti — panel satırlarında sequence 0 gelir.
+  int visitNumber(String id) {
+    final i = orderedOpenTasks.indexWhere((t) => t.id == id);
+    if (i >= 0) return i + 1;
+    final t = taskOrNull(id);
+    if (t != null && t.sequence > 0) return t.sequence;
+    return 0;
+  }
+
+  bool get showPanelFieldError =>
+      panelLoggedIn &&
+      lastPanelError != null &&
+      lastPanelError != panelSessionExpired;
 
   String _taskName(String? id) {
     if (id == null) return 'Kayıt';
@@ -1031,6 +1047,7 @@ class SessionController extends ChangeNotifier {
     panelLoggedIn = true;
     lastPanelError = null;
     demo = false;
+    _dropDemoInbox();
     courier = courier.copyWith(
       fullName: profile.fullName.isNotEmpty ? profile.fullName : null,
       code: profile.courierCode.isNotEmpty ? profile.courierCode : null,
@@ -1469,6 +1486,7 @@ class SessionController extends ChangeNotifier {
   /// Failures are silent by design — [ensureDayRoute] already has a local
   /// order + road line; this only overlays the server plan when it exists.
   Future<void> loadRoute() async {
+    if (_usesPanelTasks) return;
     final client = api;
     if (client == null || routeLoading) return;
     routeLoading = true;
@@ -1505,9 +1523,37 @@ class SessionController extends ChangeNotifier {
     if (client == null || !panelLoggedIn) return;
     try {
       final list = await client.fetchTasks(pageSize: 50);
+      lastPanelError = null;
+      final pendingIds = {
+        for (final e in outbox.events)
+          if (e.pending && e.operation.isPanel && e.subjectId != null)
+            e.subjectId!,
+      };
+      final previous = {for (final t in tasks) t.id: t};
+      final mapped = [
+        for (final row in list.tasks) deliveryTaskFromPanel(row),
+      ];
+      for (final incoming in mapped) {
+        final old = previous[incoming.id];
+        if (old == null) continue;
+        if (pendingIds.contains(incoming.id) ||
+            _keepLocalPanelTask(old, incoming)) {
+          incoming.status = old.status;
+          incoming.wireStatus = old.wireStatus;
+          incoming.receivedBy = old.receivedBy;
+          incoming.signed = old.signed;
+        }
+      }
+      final extras = [
+        for (final t in previous.values)
+          if (pendingIds.contains(t.id) &&
+              !mapped.any((m) => m.id == t.id))
+            t,
+      ];
       tasks
         ..clear()
-        ..addAll([for (final row in list.tasks) deliveryTaskFromPanel(row)]);
+        ..addAll(mapped)
+        ..addAll(extras);
       demo = false;
       liveApi = true;
       _dropDemoInbox();
@@ -1646,8 +1692,16 @@ class SessionController extends ChangeNotifier {
     }
   }
 
+  bool _keepLocalPanelTask(DeliveryTask local, DeliveryTask incoming) {
+    if (local.status == incoming.status) return false;
+    if (local.status == TaskStatus.inProgress && incoming.isOpen) return true;
+    if (local.isClosed && incoming.isOpen) return true;
+    return false;
+  }
+
   void _dropDemoInbox() {
     notifications.removeWhere((n) => n.id.startsWith('demo-'));
+    outbox.events.removeWhere((e) => e.clientEventId.startsWith('demo-seed-'));
   }
 
   void ingestServerNotifications(List<InboxItemDto> rows) {
@@ -1805,6 +1859,7 @@ class SessionController extends ChangeNotifier {
   }
 
   Future<void> loadTickets() async {
+    if (_usesPanelTasks) return;
     final client = api;
     if (client == null) return;
     try {

@@ -95,14 +95,25 @@ TaskStatus taskStatusFromWire(String? raw) => switch (raw) {
 
 /// Panel `ShipmentStatusDefinition.code` → ekran enum.
 /// `startTransitions` Fastify zinciridir; panel `wireStatus` ile çağrılmaz.
-TaskStatus taskStatusFromPanel(String? raw) => switch (raw) {
-  'DELIVERED' => TaskStatus.delivered,
-  'FAILED' || 'RETURN_PROCESS' || 'RETURNED' => TaskStatus.failed,
-  'CANCELLED' => TaskStatus.cancelled,
-  'OUT_FOR_DELIVERY' || 'IN_PROGRESS' || 'EN_ROUTE' || 'ARRIVED' =>
-    TaskStatus.inProgress,
-  _ => TaskStatus.assigned,
-};
+TaskStatus taskStatusFromPanel(
+  String? raw, {
+  String? assignmentStatusCode,
+}) {
+  final fromShipment = switch (raw) {
+    'DELIVERED' => TaskStatus.delivered,
+    'FAILED' || 'RETURN_PROCESS' || 'RETURNED' => TaskStatus.failed,
+    'CANCELLED' => TaskStatus.cancelled,
+    'OUT_FOR_DELIVERY' || 'IN_PROGRESS' || 'EN_ROUTE' || 'ARRIVED' =>
+      TaskStatus.inProgress,
+    'REDELIVERY' => TaskStatus.assigned,
+    _ => TaskStatus.assigned,
+  };
+  if (fromShipment != TaskStatus.assigned) return fromShipment;
+  return switch (assignmentStatusCode) {
+    'IN_PROGRESS' || 'ACCEPTED' || 'OUT_FOR_DELIVERY' => TaskStatus.inProgress,
+    _ => fromShipment,
+  };
+}
 
 TaskKind taskKindFromWire(String? raw) => switch (raw) {
   'PICKUP' => TaskKind.pickup,
@@ -191,20 +202,31 @@ DeliveryTask deliveryTaskFromSummary(Map<String, dynamic> json) {
 /// Panel oturumu açıkken [SessionController] bu eşlemeyi kullanır.
 DeliveryTask deliveryTaskFromPanel(PanelCourierTaskDto row) {
   final dest = row.destination;
+  final ref = row.shipmentNumber.isNotEmpty
+      ? row.shipmentNumber
+      : (row.externalReference ?? '');
+  final address = dest.address?.trim() ?? '';
+  final status = taskStatusFromPanel(
+    row.statusCode,
+    assignmentStatusCode: row.assignmentStatusCode,
+  );
   return DeliveryTask(
     id: row.id,
-    ref: row.shipmentNumber,
+    ref: ref,
     recipient: row.recipientName ?? '',
     phone: row.recipientPhone,
-    address: dest.address ?? '',
+    address: address,
     window: _slotWindow(row.plannedDeliveryAt, null),
     kind: TaskKind.delivery,
-    status: taskStatusFromPanel(row.statusCode),
+    status: status,
     note: row.statusReasonCode,
     sequence: 0,
-    lat: dest.latitude ?? 38.1512,
-    lng: dest.longitude ?? 29.0614,
+    etaMinutes: _etaMinutes(row.plannedDeliveryAt),
+    slaMinutesLeft: _etaMinutes(row.plannedDeliveryAt),
+    lat: dest.latitude ?? 0,
+    lng: dest.longitude ?? 0,
     custodyCount: row.packageCount,
+    groupKey: address.isNotEmpty ? address.toLowerCase() : 'id:${row.id}',
     wireStatus: row.statusCode,
   );
 }

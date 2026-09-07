@@ -1,4 +1,6 @@
 import 'package:dijigoo_kurye/alerts.dart';
+import 'package:dijigoo_kurye/api/courier_tasks.dart';
+import 'package:dijigoo_kurye/api/panel_models.dart';
 import 'package:dijigoo_kurye/app.dart';
 import 'package:dijigoo_kurye/l10n.dart';
 import 'package:dijigoo_kurye/screens/sync_screen.dart';
@@ -142,6 +144,46 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Ahmet Yılmaz'), findsWidgets);
     expect(find.textContaining('Açık '), findsWidgets);
+  });
+
+  testWidgets('panel görevi listede ve detayda gönderi no gösterir', (tester) async {
+    await bindPhone(tester);
+    final session = SessionController();
+    session.skipToDemo();
+    session.tasks
+      ..clear()
+      ..add(
+        deliveryTaskFromPanel(
+          PanelCourierTaskDto.fromJson({
+            'id': 's-9',
+            'shipmentNumber': 'JLG-9',
+            'statusCode': 'COURIER_ASSIGNED',
+            'recipientName': 'Bora Kaya',
+            'destination': {
+              'address': 'İstiklal 8',
+              'latitude': '38.1481',
+              'longitude': '29.0558',
+            },
+            'packageCount': 2,
+          }),
+        ),
+      );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [sessionProvider.overrideWith((ref) => session)],
+        child: const DijigooApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Rota'));
+    await tester.pumpAndSettle();
+    expect(find.text('Bora Kaya'), findsWidgets);
+    expect(find.textContaining('#0'), findsNothing);
+    await tester.tap(find.text('Bora Kaya').first);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('JLG-9'), findsWidgets);
+    expect(find.textContaining('#0'), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('zimmet taraması kodu listeye yazar', (tester) async {

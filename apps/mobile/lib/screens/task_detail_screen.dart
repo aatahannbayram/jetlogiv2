@@ -44,12 +44,35 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
   Widget build(BuildContext context) {
     final l = context.l10n;
     final session = ref.watch(sessionProvider);
-    final t = session.taskById(widget.taskId);
+    final t = session.taskOrNull(widget.taskId);
+    if (t == null) {
+      return Scaffold(
+        backgroundColor: Dg.night,
+        body: SafeArea(
+          child: Column(
+            children: [
+              Align(
+                alignment: Alignment.centerLeft,
+                child: _SheetBack(onTap: () => Navigator.of(context).pop()),
+              ),
+              Expanded(
+                child: Center(
+                  child: Text(
+                    l.stopGone,
+                    style: Dg.ui(size: 15, color: Colors.white70),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     final done = t.status == TaskStatus.delivered;
     final canAct = !t.isClosed;
     final self = LatLng(session.selfLat, session.selfLng);
     final dest = LatLng(t.lat, t.lng);
-    final slice = session.roadToTask(t.id);
+    final slice = t.hasCoordinates ? session.roadToTask(t.id) : null;
     final meters = slice?.meters ?? haversineMeters(self, dest).round();
     final minutes = slice != null
         ? slice.minutes
@@ -77,7 +100,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                   height: double.infinity,
                   rounded: false,
                   interactive: true,
-                  points: [dest],
+                  points: t.hasCoordinates ? [dest] : [self],
                   roadPoints: slice != null && slice.points.length > 1
                       ? slice.points
                       : null,
@@ -86,7 +109,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                   couriers: session.visibleFleet
                       .where((c) => c.self)
                       .toList(),
-                  fitTo: [self, dest],
+                  fitTo: t.hasCoordinates ? [self, dest] : [self],
                   showBadge: false,
                 ),
                 SafeArea(
@@ -150,7 +173,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                       children: [
                         Expanded(
                           child: Mono(
-                            '#${t.sequence}  ·  ${t.ref}',
+                            taskRefLine(t, visit: session.visitNumber(t.id)),
                             color: Dg.ink3,
                           ),
                         ),

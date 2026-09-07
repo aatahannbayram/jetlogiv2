@@ -65,6 +65,10 @@ class L10n {
       _t('$n açık · sırada $name', '$n open · next $name');
   String get panelSessionOn => _t('Panel oturumu açık', 'Panel session is on');
   String get panelSessionOff => _t('Panel oturumu kapandı', 'Panel session ended');
+  String get retryNow => _t('Yeniden dene', 'Try again');
+  String get panelTasksFailed =>
+      _t('Görevler alınamadı.', 'Could not load tasks.');
+  String get stopGone => _t('Bu durak artık listede yok.', 'This stop is no longer on the list.');
 
   String get welcomeShift => _t('Vardiyana hoş geldin', 'Welcome to your shift');
   String get welcomeBody => _t(

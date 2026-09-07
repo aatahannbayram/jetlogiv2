@@ -113,6 +113,15 @@ class _ListScreenState extends ConsumerState<ListScreen> {
               ),
             ),
             DgDivider(),
+            if (s.showPanelFieldError)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(Dg.pagePad, 8, Dg.pagePad, 0),
+                child: DgRetryBanner(
+                  message: l.panelTasksFailed,
+                  retryLabel: l.retryNow,
+                  onRetry: () => unawaited(s.loadPanelTasks()),
+                ),
+              ),
             Expanded(
               child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 280),
@@ -324,7 +333,7 @@ class _RotaTaskCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
-                '${visitIndex ?? task.sequence}',
+                '${visitIndex ?? taskBadgeNumber(task)}',
                 style: Dg.ui(
                   size: 12,
                   weight: FontWeight.w700,
