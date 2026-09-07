@@ -113,7 +113,7 @@ Af8EBTADAQH/MAoGCCqGSM49BAMCA0gAMEUCIG5OrGenFRfYhE8df+f6U3sNUmLR
     expect(isFirstPartyHost('api.mapbox.com'), isFalse);
     expect(
       tlsHostAllowed(
-        host: 'basemaps.cartocdn.com',
+        host: 'server.arcgisonline.com',
         issuer: 'CN=Let\'s Encrypt',
         spkiBase64: 'nope',
         release: true,

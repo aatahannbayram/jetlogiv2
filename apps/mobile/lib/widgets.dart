@@ -890,10 +890,6 @@ class _StableMapViewState extends State<_StableMapView> {
           userAgentPackageName: 'com.dijigoo.dijigooKurye',
           tileDimension: useMapboxTiles ? 512 : 256,
           zoomOffset: useMapboxTiles ? -1 : 0,
-          subdomains: useMapboxTiles
-              ? const []
-              : const ['a', 'b', 'c', 'd'],
-          retinaMode: !useMapboxTiles,
         ),
         if (widget.line.length > 1)
           PolylineLayer(
@@ -967,9 +963,7 @@ class _StableMapViewState extends State<_StableMapView> {
           showFlutterMapAttribution: false,
           attributions: [
             TextSourceAttribution(
-              useMapboxTiles
-                  ? '© Mapbox © OpenStreetMap'
-                  : '© OpenStreetMap contributors © CARTO',
+              useMapboxTiles ? '© Mapbox © OpenStreetMap' : '© Esri',
             ),
           ],
         ),
