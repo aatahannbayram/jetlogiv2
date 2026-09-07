@@ -26,6 +26,7 @@ import 'log.dart';
 import 'media_upload.dart';
 import 'models.dart';
 import 'road.dart';
+import 'secure.dart';
 import 'theme.dart';
 
 final sessionProvider = ChangeNotifierProvider<SessionController>((ref) {
@@ -266,6 +267,8 @@ class SessionController extends ChangeNotifier {
 
   bool routeLoading = false;
   bool cipherOn = false;
+  /// False when SQLCipher açılamaz; üretimde saha verisi yazılmaz.
+  bool storageOk = true;
   String? challengeId;
   String? deliveryChallengeId;
   String? deliveryOtpToken;
@@ -312,6 +315,7 @@ class SessionController extends ChangeNotifier {
   }
 
   Future<void> restoreLocalShift() async {
+    if (!storageOk) return;
     if (bypassShiftGate) {
       prepareTestLaunch();
       return;
@@ -1062,6 +1066,7 @@ class SessionController extends ChangeNotifier {
   }
 
   void skipToDemo() {
+    if (!kAllowDebugBypass) return;
     demo = true;
     if (tasks.isEmpty) {
       tasks.addAll(_buildDemoTasks());
@@ -1217,7 +1222,9 @@ class SessionController extends ChangeNotifier {
     final id = identifier.trim();
     final client = panel;
     if (client == null) {
-      if (id == panelDemoIdentifier && password == panelDemoPassword) {
+      if (kAllowDebugBypass &&
+          id == panelDemoIdentifier &&
+          password == panelDemoPassword) {
         panelLoggedIn = true;
         notifyListeners();
         return true;
@@ -1410,6 +1417,7 @@ class SessionController extends ChangeNotifier {
   }
 
   Future<void> _saveDemoTokens() async {
+    if (!kAllowDebugBypass) return;
     final store = vault;
     if (store == null) return;
     final existing = await store.accessToken;
@@ -1509,6 +1517,7 @@ class SessionController extends ChangeNotifier {
   /// Watermark varsa `GET /v1/sync/changes` (çıkarılan id'ler dahil).
   /// Yoksa veya `resyncRequired` ise tam [loadTasks].
   Future<void> pullTasks() async {
+    if (!storageOk) return;
     final client = api;
     if (client == null) return;
     final since = taskWatermark;
@@ -1633,6 +1642,7 @@ class SessionController extends ChangeNotifier {
   }
 
   Future<void> registerPushToken([String? token]) async {
+    if (!storageOk) return;
     if (!notifyEnabled || notifyOsBlocked || !liveApi) return;
     final client = api;
     final store = vault;
@@ -1659,6 +1669,7 @@ class SessionController extends ChangeNotifier {
   };
 
   void ingestPushData(Map<String, String> data) {
+    if (!storageOk) return;
     final nextToken = data['token'];
     if (nextToken != null && data.length == 1) {
       unawaited(registerPushToken(nextToken));
@@ -1825,6 +1836,7 @@ class SessionController extends ChangeNotifier {
   }
 
   void cyclePricingVisibility() {
+    if (!kAllowDebugBypass) return;
     final c = courier;
     if (c.affiliation == CourierAffiliation.independent &&
         c.compensationType == CompensationType.pieceRate) {
@@ -1999,6 +2011,7 @@ class SessionController extends ChangeNotifier {
   }
 
   Future<void> _flushOutbox() async {
+    if (!storageOk) return;
     final pending = outbox.events.where((e) => e.pending).toList();
     if (pending.isEmpty) return;
     final client = api;
@@ -2087,6 +2100,7 @@ class SessionController extends ChangeNotifier {
 
   Future<bool> sendDeliveryOtp(String taskId) async {
     if (!liveApi) {
+      if (!kAllowDebugBypass) return false;
       deliveryChallengeId = 'demo-challenge';
       return true;
     }
@@ -2108,7 +2122,7 @@ class SessionController extends ChangeNotifier {
   }
 
   Future<bool> verifyDeliveryOtp(String taskId, String code) async {
-    if ((!liveApi || !kReleaseMode) && code == '482913') {
+    if (kAllowDebugBypass && code == '482913') {
       deliveryOtpToken = 'demo-otp-token';
       return true;
     }

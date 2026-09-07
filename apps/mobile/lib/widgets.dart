@@ -1293,6 +1293,8 @@ class OtpPin extends StatelessWidget {
     return Pinput(
       controller: controller,
       length: 6,
+      obscureText: true,
+      obscuringCharacter: '•',
       defaultPinTheme: base,
       focusedPinTheme: base.copyDecorationWith(
         border: Border.all(color: Dg.accent, width: 2),

@@ -1,8 +1,8 @@
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
-import 'package:path_provider/path_provider.dart';
-
+import '../data/vault.dart';
+import '../secure.dart';
 import 'panel_models.dart';
 
 /// jetlogi-panel (`dijigoo-ops`) default local dev address per its own
@@ -31,12 +31,12 @@ class PanelApi {
   PanelApi(this.dio, [this._cookieJar]);
 
   final Dio dio;
-  final PersistCookieJar? _cookieJar;
+  final CookieJar? _cookieJar;
 
-  /// Production factory — real cookie jar persisted to disk so the courier
-  /// stays logged in across app restarts (session cookie itself expires
-  /// server-side after 8h either way, see `courier-auth.ts`).
-  static Future<PanelApi> create() async {
+  /// Production factory — session cookie Keychain/Keystore'da.
+  /// Release'de `PANEL_API_BASE` HTTPS olmak zorunda.
+  static Future<PanelApi> create({required Vault vault}) async {
+    assertHttpsInRelease(kPanelApiBase, 'PANEL_API_BASE');
     final dio = Dio(
       BaseOptions(
         baseUrl: kPanelApiBase,
@@ -45,9 +45,8 @@ class PanelApi {
         headers: const {'accept': 'application/json'},
       ),
     );
-    final supportDir = await getApplicationSupportDirectory();
     final cookieJar = PersistCookieJar(
-      storage: FileStorage('${supportDir.path}/.panel_cookies'),
+      storage: VaultCookieStorage(vault),
     );
     dio.interceptors.add(CookieManager(cookieJar));
     return PanelApi(dio, cookieJar);
@@ -227,5 +226,53 @@ class PanelApi {
         message: e.message,
       );
     }
+  }
+}
+
+/// Panel oturum çerezi düz dosya yerine Keychain / Keystore'da.
+class VaultCookieStorage implements Storage {
+  VaultCookieStorage(this._vault);
+
+  final Vault _vault;
+  static const _prefix = 'dg.panel.ck.';
+  static const _index = 'dg.panel.ck.index';
+
+  @override
+  Future<void> init(bool persistSession, bool ignoreExpires) async {}
+
+  @override
+  Future<String?> read(String key) => _vault.readSecret('$_prefix$key');
+
+  @override
+  Future<void> write(String key, String value) async {
+    await _vault.writeSecret('$_prefix$key', value);
+    final keys = await _keys();
+    if (keys.add(key)) {
+      await _vault.writeSecret(_index, keys.join('\n'));
+    }
+  }
+
+  @override
+  Future<void> delete(String key) async {
+    await _vault.deleteSecret('$_prefix$key');
+    final keys = await _keys();
+    if (keys.remove(key)) {
+      await _vault.writeSecret(_index, keys.join('\n'));
+    }
+  }
+
+  @override
+  Future<void> deleteAll(List<String> keys) async {
+    final known = keys.isEmpty ? await _keys() : keys.toSet();
+    for (final key in known) {
+      await _vault.deleteSecret('$_prefix$key');
+    }
+    await _vault.deleteSecret(_index);
+  }
+
+  Future<Set<String>> _keys() async {
+    final raw = await _vault.readSecret(_index);
+    if (raw == null || raw.isEmpty) return {};
+    return {for (final line in raw.split('\n')) if (line.isNotEmpty) line};
   }
 }

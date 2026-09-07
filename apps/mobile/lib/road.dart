@@ -1,8 +1,10 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'geo.dart';
 import 'map_config.dart';
+import 'secure.dart';
 
 /// OSRM (OpenStreetMap, BSD) — Türkiye dahil planet grafiği. Anahtar yok,
 /// canlı trafik yok; yol geometrisi ve serbest-akış süre.
@@ -28,7 +30,23 @@ const kOsrmUrl = String.fromEnvironment(
   defaultValue: 'https://router.project-osrm.org',
 );
 
-const _publicOsrm = 'https://router.project-osrm.org';
+const kPublicOsrm = 'https://router.project-osrm.org';
+const _publicOsrm = kPublicOsrm;
+
+/// Public demo OSRM yalnızca debug'da. Üretimde konum sızmasın diye
+/// `OSRM_URL` kendi ucumuz veya Mapbox olmalı.
+List<String> osrmHosts({bool? release}) {
+  final prod = release ?? kReleaseMode;
+  final hosts = <String>[];
+  if (kOsrmUrl != _publicOsrm || !prod) {
+    hosts.add(kOsrmUrl);
+  }
+  if (!prod && _publicOsrm != kOsrmUrl) {
+    hosts.add(_publicOsrm);
+  }
+  if (prod) return hosts.where(isHttpsUrl).toList();
+  return hosts;
+}
 
 /// Public OSRM / OSM tile politikası bir tanımlı UA ister; Dio'nun varsayılan
 /// `dart:io` başlığı bazı edge'lerde 403/boş cevap üretip düz çizgiye düşürüyordu.
@@ -591,8 +609,7 @@ Future<_FetchedRoad?> _fetchRoad(
     if (mapped != null) return mapped;
   }
 
-  final hosts = <String>[kOsrmUrl];
-  if (_publicOsrm != kOsrmUrl) hosts.add(_publicOsrm);
+  final hosts = osrmHosts();
   final attempts = <({String url, int precision})>[
     for (final host in hosts) (url: _osrmUrl(host, points, rich: true), precision: 6),
     for (final host in hosts) (url: _osrmUrl(host, points, rich: false), precision: 6),

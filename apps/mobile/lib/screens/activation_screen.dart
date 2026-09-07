@@ -6,6 +6,7 @@ import '../l10n.dart';
 import '../session.dart';
 import '../brand.dart';
 import '../motion.dart';
+import '../privacy.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
@@ -20,7 +21,7 @@ class ActivationScreen extends ConsumerStatefulWidget {
 }
 
 class _ActivationScreenState extends ConsumerState<ActivationScreen> {
-  final _phone = TextEditingController(text: '532 •• •• 26');
+  final _phone = TextEditingController();
   final _otp = TextEditingController();
   final _identifier = TextEditingController();
   final _password = TextEditingController();
@@ -97,7 +98,9 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
     final session = ref.watch(sessionProvider);
     final onHero = Dg.onHero;
     final muted = Dg.onHeroMuted;
-    return Scaffold(
+    return PrivacyGate(
+      active: _sent || _panelMode,
+      child: Scaffold(
       body: HeroBackground(
         child: SafeArea(
           child: Column(
@@ -333,7 +336,10 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
                           controller: _phone,
                           keyboardType: TextInputType.phone,
                           style: TextStyle(color: onHero),
-                          decoration: _fieldDecoration(),
+                          decoration: _fieldDecoration().copyWith(
+                            hintText: '5xx xxx xx xx',
+                            hintStyle: TextStyle(color: muted),
+                          ),
                         ),
                         const SizedBox(height: 14),
                         GestureDetector(
@@ -504,6 +510,7 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
             ],
           ),
         ),
+      ),
       ),
     );
   }

@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -22,6 +24,7 @@ void main() async {
   };
   final vault = Vault();
   var cipherOn = false;
+  var storageOk = true;
   AppDatabase? db;
   try {
     db = await AppDatabase.openEncrypted(vault);
@@ -30,11 +33,26 @@ void main() async {
   } catch (_) {
     db = AppDatabase.memory();
     cipherOn = false;
+    if (kReleaseMode) storageOk = false;
   }
-  final api = MobileApi.create(vault: vault);
+  late final MobileApi api;
+  try {
+    api = MobileApi.create(vault: vault);
+  } catch (_) {
+    storageOk = false;
+    api = MobileApi(
+      dio: Dio(
+        BaseOptions(
+          baseUrl: kApiBase,
+          connectTimeout: const Duration(seconds: 2),
+        ),
+      ),
+      vault: vault,
+    );
+  }
   PanelApi? panel;
   try {
-    panel = await PanelApi.create();
+    panel = await PanelApi.create(vault: vault);
   } catch (_) {
     panel = null;
   }
@@ -48,11 +66,13 @@ void main() async {
     vault: vault,
     waitForConfig: true,
     initialPhase: seen ? AppPhase.splash : AppPhase.onboard,
-  )..cipherOn = cipherOn;
+  )
+    ..cipherOn = cipherOn
+    ..storageOk = storageOk;
   await session.restoreUiPrefs();
   await session.restoreLocalShift();
   await DgLog.attach();
-  DgLog.i(LogLayer.boot, 'app start cipher=$cipherOn seen=$seen');
+  DgLog.i(LogLayer.boot, 'app start cipher=$cipherOn storage=$storageOk seen=$seen');
 
   runApp(
     ProviderScope(
@@ -60,10 +80,12 @@ void main() async {
       child: const DijigooApp(),
     ),
   );
-  unawaited(FieldAlerts.attach().then((_) => session.resyncAlerts()));
-  FieldPush.incoming.addListener(() {
-    final data = FieldPush.incoming.value;
-    if (data != null) session.ingestPushData(data);
-  });
-  unawaited(FieldPush.attach().then((_) => session.registerPushToken()));
+  if (storageOk) {
+    unawaited(FieldAlerts.attach().then((_) => session.resyncAlerts()));
+    FieldPush.incoming.addListener(() {
+      final data = FieldPush.incoming.value;
+      if (data != null) session.ingestPushData(data);
+    });
+    unawaited(FieldPush.attach().then((_) => session.registerPushToken()));
+  }
 }

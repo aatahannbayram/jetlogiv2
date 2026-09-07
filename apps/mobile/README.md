@@ -20,7 +20,7 @@ lib/
 ├── models.dart               # DeliveryTask, AppNotification, OutboxEvent, vb. domain modelleri
 ├── widgets.dart               # Paylaşılan UI (DgCard, DgButton, StatusChip, MapStrip, ...)
 ├── l10n.dart                   # L10n — TR/EN string tablosu (Localizations değil, kendi sınıfımız)
-├── road.dart                    # OSRM entegrasyonu (bkz. §1.4)
+├── road.dart                    # OSRM entegrasyonu (bkz. §1.7)
 ├── geo.dart                      # Google-algoritması polyline decode + haversine
 ├── map_config.dart                # Harita karo URL'i (Mapbox/CartoDB), her zaman açık tema
 ├── scan.dart                       # Barkod/QR tarama (kamera + manuel kod fallback)
@@ -43,12 +43,95 @@ lib/
 │   └── panel_models.dart                             # Panel DTO'ları
 ├── data/
 │   ├── database.dart                                  # Drift (SQLite, şifreli) şeması
-│   ├── outbox.dart                                     # Offline-first yazma kuyruğu (bkz. §1.3)
+│   ├── outbox.dart                                     # Offline-first yazma kuyruğu (bkz. §1.6)
 │   └── vault.dart                                       # Keychain/Keystore — token, DB anahtarı, installationId
-└── screens/                                              # 22 ekran, bkz. §2
+└── screens/                                              # 23 ekran, bkz. §2
 ```
 
-### 1.2 State yönetimi
+### 1.2 Bileşen diyagramı
+
+```mermaid
+flowchart TB
+    subgraph UI["23 Ekran (lib/screens/)"]
+        Home[home_screen] --> Session
+        List[list_screen] --> Session
+        Route[shell_screen · RouteScreen] --> Session
+        Wizard[wizard_screen] --> Session
+        Zimmet[zimmet_screen] --> Session
+        Sync[sync_screen] --> Session
+        Notif[notif_screen] --> Session
+    end
+
+    Session[["SessionController\n(tek ChangeNotifier)"]]
+
+    Session --> Outbox[(OutboxStore\nDrift/SQLite)]
+    Session --> Vault[(Vault\nKeychain/Keystore)]
+    Session --> MobileApi[MobileApi\napps/api istemcisi]
+    Session --> PanelApi[PanelApi\njetlogi-panel istemcisi]
+    Session --> Road[road.dart\ncanlı OSRM sorgusu]
+    Session --> Alerts[FieldAlerts\nyerel bildirim]
+    Session --> Push[FieldPush\nFCM, opsiyonel]
+
+    Outbox -->|"POST /v1/sync/batch"| MobileApi
+    MobileApi -->|"bearer + OTP"| API[(apps/api\nFastify)]
+    PanelApi -->|"cookie-session"| Panel[(jetlogi-panel)]
+    Road -->|"GET /route/v1/driving/..."| OSRM[(OSRM\nkendi barındırılan/demo)]
+    API --> OSRM
+
+    classDef store fill:#2a2a2a,color:#fff,stroke:#666;
+    class Outbox,Vault,API,Panel,OSRM store;
+```
+
+### 1.3 Rota/harita akışı özeti (ayrıntı: §1.7)
+
+```mermaid
+flowchart LR
+    Start([RouteScreen açılır]) --> Ensure["ensureRoad(points)\ncanlı konumdan kalan duraklara"]
+    Ensure --> OsrmCall{"OSRM'den\nyanıt geldi mi?"}
+    OsrmCall -->|"evet"| DayRoad["dayRoad: gerçek yol-izleyen çizgi\n(kesiksiz, koyu renk)"]
+    OsrmCall -->|"hayır / henüz dönmedi"| PlanGeom{"plan.geometry\nvar mı?"}
+    PlanGeom -->|"evet"| StaticGeom["sunucunun bilinen-iyi\nstatik geometrisi\n(kesiksiz)"]
+    PlanGeom -->|"hayır"| Straight["tekilleştirilmiş noktalar\ndüz çizgiyle bağlanır\n(kesikli, 'estimated')"]
+    DayRoad --> Draw([Polyline çizilir])
+    StaticGeom --> Draw
+    Straight --> Draw
+```
+
+**Neden bu sıra önemli:** aynı-adres grup özelliği yüzünden iki görev aynı
+koordinatı paylaşabiliyor — tekilleştirme olmadan son-çare düz çizgi bir
+durağa gidip aynı noktaya "geri sıçrıyormuş" gibi görünen bir zikzak
+çiziyordu (bu oturumda bulunup düzeltildi, bkz. §1.7).
+
+### 1.4 Offline-first yazma kuyruğu
+
+```mermaid
+sequenceDiagram
+    participant UI as Ekran (ör. wizard_screen)
+    participant S as SessionController
+    participant O as OutboxStore (Drift)
+    participant A as MobileApi
+    participant B as apps/api
+
+    UI->>S: deliverTask() / returnTask() / completeZimmet()
+    S->>O: enqueue(OutboxEvent) — hem bellek hem disk
+    O-->>S: event (status: pending)
+    S->>S: notifyListeners() — Senkron ekranı anında günceller
+    alt ağ var
+        S->>A: syncBatch(installationId, pendingEvents)
+        A->>B: POST /v1/sync/batch
+        B-->>A: her olay için applied/rejected
+        A-->>S: sonuçlar
+        S->>O: applyResults() — durumu güncelle
+        opt rejected
+            S->>S: gerçek "Gönderim başarısız" bildirimi (bkz. §1.8)
+        end
+    else ağ yok
+        Note over S,O: olaylar pending kalır,<br/>drain() ÇAĞRILMAZ — hiçbir şey<br/>sessizce "gönderildi" sayılmaz
+    end
+    Note over UI,B: Uygulama kapanıp açılsa bile<br/>hydrateFromDb() kuyruğu geri yükler
+```
+
+### 1.5 State yönetimi
 
 Tek `ChangeNotifier`: `SessionController` (`session.dart`, ~1600 satır).
 Riverpod bunu `sessionProvider` ile expose eder; `main.dart` gerçek
@@ -60,7 +143,7 @@ kurar (`SessionController(api: MobileApi(dio: mockDio))`).
 `app.dart`'ta hangi ekranın gösterileceğini belirler — navigasyon bu tek
 alan üzerinden yürür, ayrı bir router yok.
 
-### 1.3 Offline-first yazma kuyruğu (outbox)
+### 1.6 Offline-first yazma kuyruğu (outbox) — ayrıntı
 
 Teslim/iade/zimmet/destek-talebi gibi her kuryenin yaptığı aksiyon önce
 **yerel** `OutboxStore`'a (`data/outbox.dart`) bir `OutboxEvent` olarak
@@ -80,7 +163,7 @@ gösterir: bekleyen sayısı, başarısız sayısı (`status == 'rejected'`), he
 olay için insan-okur etiket (`sync_label.dart`), "Verileri gönder" butonu
 `pushSyncQueue()`'yu tetikler. Statik değil — gerçek kuyruk durumu.
 
-### 1.4 Rota / harita sistemi
+### 1.7 Rota / harita sistemi — ayrıntı
 
 İki ayrı rota kaynağı var, bilerek:
 
@@ -117,7 +200,7 @@ olay için insan-okur etiket (`sync_label.dart`), "Verileri gönder" butonu
    `Dg.ink` gibi temaya uyan bir renk **değil** — aksi halde koyu temada
    çizgi neredeyse görünmez oluyordu (bu oturumda bulunup düzeltildi).
 
-### 1.5 Bildirimler
+### 1.8 Bildirimler
 
 `SessionController.notifications` artık **gerçek olaylardan** besleniyor,
 statik bir demo listesi değil:
@@ -132,7 +215,7 @@ Okundu/kapatıldı durumu id-bazlı, `Vault`'ta kalıcı
 (`readNotificationIds`/`dismissedNotificationIds`) — ekran yeniden
 açılınca ya da uygulama kapanıp açılınca sıfırlanmaz.
 
-### 1.6 Kimlik doğrulama / veri kaynağı
+### 1.9 Kimlik doğrulama / veri kaynağı
 
 İki ayrı istemci bilerek bir arada:
 

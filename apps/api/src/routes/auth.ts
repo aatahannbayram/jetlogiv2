@@ -257,7 +257,7 @@ export async function authRoutes(app: FastifyInstance, { ctx }: { ctx: AppContex
         await ctx.tokens.revokeFamily(courier.familyId, 'user_logout');
       }
 
-      return reply.status(204).send();
+      return reply.status(204).send(null);
     },
   );
 
@@ -293,7 +293,7 @@ export async function authRoutes(app: FastifyInstance, { ctx }: { ctx: AppContex
         .set({ pushToken: request.body.token })
         .where(eq(devices.id, courier.deviceId));
 
-      return reply.status(204).send();
+      return reply.status(204).send(null);
     },
   );
 }

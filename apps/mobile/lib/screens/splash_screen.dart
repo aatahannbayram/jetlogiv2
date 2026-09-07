@@ -113,7 +113,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                        if (s.demo) ...[
+                        if (s.demo && !kReleaseMode) ...[
                           const SizedBox(width: 8),
                           DemoPill(
                             onLongPress: () {

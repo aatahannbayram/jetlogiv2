@@ -7,6 +7,7 @@ import '../media_upload.dart';
 import '../motion.dart';
 import '../session.dart';
 import '../signature.dart';
+import '../privacy.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'fail_screen.dart';
@@ -213,7 +214,9 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
     }
 
     final titles = [l.recipient, l.proof, l.deliveryCode];
-    return Scaffold(
+    return PrivacyGate(
+      active: otpSent,
+      child: Scaffold(
       appBar: AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -573,6 +576,7 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
             ),
           ),
         ],
+      ),
       ),
     );
   }

@@ -43,6 +43,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   void _onSecretTap() {
+    if (kReleaseMode) return;
     final now = DateTime.now();
     if (_lastTap == null ||
         now.difference(_lastTap!) > const Duration(seconds: 2)) {

@@ -5,6 +5,8 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
+import 'secure.dart';
+
 /// Performanslı çok katmanlı saha günlüğü.
 ///
 /// Sıcak yol O(1): halka tampon (800 kayıt). Disk I/O her satırda değil,
@@ -55,7 +57,7 @@ class DgLog {
   }
 
   static Future<void> attach() async {
-    if (kIsWeb) return;
+    if (kIsWeb || kReleaseMode) return;
     try {
       final dir = await getApplicationSupportDirectory();
       _file = File('${dir.path}/dijigoo.log');
@@ -68,7 +70,7 @@ class DgLog {
       at: DateTime.now(),
       level: level,
       layer: layer,
-      message: message,
+      message: redactForLog(message),
     );
     if (_ring.length == _cap) _ring.removeFirst();
     _ring.addLast(rec);

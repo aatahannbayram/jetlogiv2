@@ -452,6 +452,12 @@ class L10n {
       _t('v1.0.0 · Dijigoo Saha', 'v1.0.0 · Dijigoo Field');
   String get demoCodesHint =>
       _t('Giriş 123456  ·  Teslim 482913', 'Login 123456  ·  Delivery 482913');
+  String get storageLockedTitle =>
+      _t('Güvenli depo açılamadı', 'Secure storage could not be opened');
+  String get storageLockedBody => _t(
+    'Saha verisi bu cihazda şifrelenemiyor. Cihazı yeniden başlatıp tekrar deneyin. Sorun sürerse operasyona bildirin.',
+    'Field data cannot be encrypted on this device. Restart the device and try again. If it continues, contact operations.',
+  );
   String get otpMismatchAsk =>
       _t('Kod eşleşmedi. Alıcıya yeniden sorun.', 'Code did not match. Ask the recipient again.');
   String get noNotifBody =>

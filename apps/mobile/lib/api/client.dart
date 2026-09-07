@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import '../data/vault.dart';
 import '../models.dart';
 import '../notif.dart';
+import '../secure.dart';
 import 'courier_tasks.dart';
 import 'models.dart';
 
@@ -65,6 +66,7 @@ class MobileApi {
   String? lastSyncedAt;
 
   factory MobileApi.create({Vault? vault}) {
+    assertHttpsInRelease(kApiBase, 'API_BASE');
     final dio = Dio(
       BaseOptions(
         baseUrl: kApiBase,
@@ -279,9 +281,19 @@ class MobileApi {
     final tokens = Map<String, dynamic>.from(
       res.data?['tokens'] as Map? ?? const {},
     );
+    final access = tokens['accessToken'] as String?;
+    final refresh = tokens['refreshToken'] as String?;
+    if (access == null ||
+        access.isEmpty ||
+        refresh == null ||
+        refresh.isEmpty) {
+      if (kReleaseMode) {
+        throw StateError('TOKEN_MISSING');
+      }
+    }
     return TokenPair(
-      accessToken: tokens['accessToken'] as String? ?? 'demo-access',
-      refreshToken: tokens['refreshToken'] as String? ?? 'demo-refresh',
+      accessToken: access ?? 'demo-access',
+      refreshToken: refresh ?? 'demo-refresh',
       accessExpiresAt:
           DateTime.tryParse(tokens['accessTokenExpiresAt'] as String? ?? '') ??
           DateTime.now().toUtc().add(const Duration(minutes: 15)),

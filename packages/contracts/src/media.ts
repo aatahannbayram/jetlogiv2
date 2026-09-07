@@ -1,6 +1,7 @@
 import { GeoPoint, Timestamp, Uuid, z } from './common.js';
 
 export const MediaKind = z.enum(['photo', 'document_page', 'document_pdf', 'signature', 'audio']);
+export type MediaKind = z.infer<typeof MediaKind>;
 
 /**
  * Media never travels through the API. The client asks for a presigned PUT,

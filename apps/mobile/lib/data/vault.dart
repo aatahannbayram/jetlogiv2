@@ -5,7 +5,14 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 /// Keychain / Keystore. Access JWT, refresh, DB passphrase, installationId.
 class Vault {
   Vault({FlutterSecureStorage? storage})
-    : _storage = storage ?? const FlutterSecureStorage();
+    : _storage =
+          storage ??
+          const FlutterSecureStorage(
+            aOptions: AndroidOptions(resetOnError: false),
+            iOptions: IOSOptions(
+              accessibility: KeychainAccessibility.first_unlock,
+            ),
+          );
 
   final FlutterSecureStorage _storage;
 
@@ -133,6 +140,13 @@ class Vault {
 
   Future<Set<String>> get dismissedNotificationIds async =>
       _idSet(await _storage.read(key: _notifGone));
+
+  Future<String?> readSecret(String key) => _storage.read(key: key);
+
+  Future<void> writeSecret(String key, String value) =>
+      _storage.write(key: key, value: value);
+
+  Future<void> deleteSecret(String key) => _storage.delete(key: key);
 
   Future<void> saveNotificationState({
     required Set<String> readIds,
