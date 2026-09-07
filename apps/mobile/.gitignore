@@ -33,6 +33,10 @@ migrate_working_dir/
 /build/
 /coverage/
 
+# Kotlin/Xcode local build caches
+/android/.kotlin/
+**/xcshareddata/swiftpm/
+
 # Symbolication related
 app.*.symbols
 
