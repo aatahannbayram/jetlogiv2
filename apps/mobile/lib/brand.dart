@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 
 import 'theme.dart';
 
-/// Dijigoo markası — JetLogi varlıklarının yerine. Harita iğnesi + D kesiti;
-/// renk temadan gelir, PNG'ye bağlı değil.
+/// Harita iğnesi + D kesiti — yalnızca tekil ikon (metinsiz, küçük) yuvaları
+/// için; JetLogi'nin kare bir ikon-mark'ı henüz yok (elimizdeki tek varlıklar
+/// geniş logo lockup'ları, bkz. [DijigooWordmark]). Kare mark gelince bu da
+/// onunla değişir.
 class DijigooMark extends StatelessWidget {
   const DijigooMark({super.key, this.size = 28, this.onDark = false});
 
@@ -22,6 +24,10 @@ class DijigooMark extends StatelessWidget {
   }
 }
 
+/// Gerçek JetLogi lockup'ı (mark + isim, tek PNG). [onDark] arka plana göre
+/// beyaz/renkli varyantı seçer. [showName] artık geçerli değil — lockup
+/// isimle birlikte tek görsel, ayrı metin eklenmiyor (yanlışlıkla "Dijigoo"
+/// yazmasın diye).
 class DijigooWordmark extends StatelessWidget {
   const DijigooWordmark({
     super.key,
@@ -36,26 +42,14 @@ class DijigooWordmark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ink = onDark ? Colors.white : Dg.ink;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        DijigooMark(size: height, onDark: onDark),
-        if (showName) ...[
-          SizedBox(width: height * 0.28),
-          Text(
-            'Dijigoo',
-            style: TextStyle(
-              fontFamily: Dg.sans,
-              fontSize: height * 0.72,
-              fontWeight: FontWeight.w700,
-              letterSpacing: -0.6,
-              height: 1,
-              color: ink,
-            ),
-          ),
-        ],
-      ],
+    return Image.asset(
+      onDark
+          ? 'assets/images/jetlogi_logo_white.png'
+          : 'assets/images/jetlogi_logo_color.png',
+      height: height,
+      fit: BoxFit.contain,
+      alignment: Alignment.centerLeft,
+      filterQuality: FilterQuality.high,
     );
   }
 }
