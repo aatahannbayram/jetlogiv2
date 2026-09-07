@@ -555,6 +555,164 @@ void main() {
     expect(s.phase, AppPhase.onboard);
   });
 
+  test('panel oturumu görevleri courier-tasks’tan alır, Fastify kuyruğuna yazmaz', () async {
+    var fastifyTasks = 0;
+    var panelLists = 0;
+    var accepts = 0;
+    var starts = 0;
+    var finals = 0;
+    final dio = Dio();
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          final path = options.path;
+          if (path.contains('/v1/tasks')) fastifyTasks += 1;
+          if (path.contains('/courier-auth/login')) {
+            handler.resolve(
+              Response<Map<String, dynamic>>(
+                requestOptions: options,
+                statusCode: 200,
+                data: {
+                  'success': true,
+                  'data': {
+                    'courier': {
+                      'id': 'c-1',
+                      'courierCode': 'DGC-1',
+                      'fullName': 'Ayşe Kurye',
+                    },
+                  },
+                },
+              ),
+            );
+            return;
+          }
+          if (options.method == 'GET' && path.contains('/courier-tasks')) {
+            panelLists += 1;
+            handler.resolve(
+              Response<Map<String, dynamic>>(
+                requestOptions: options,
+                statusCode: 200,
+                data: {
+                  'success': true,
+                  'data': {
+                    'tasks': [
+                      {
+                        'id': 's-9',
+                        'shipmentNumber': 'JLG-9',
+                        'statusCode': 'COURIER_ASSIGNED',
+                        'recipientName': 'Bora Kaya',
+                        'destination': {
+                          'address': 'İstiklal 8',
+                          'latitude': '38.1481',
+                          'longitude': '29.0558',
+                        },
+                      },
+                    ],
+                    'summary': {
+                      'total': 1,
+                      'created': 0,
+                      'planned': 1,
+                      'today': 1,
+                    },
+                  },
+                },
+              ),
+            );
+            return;
+          }
+          if (path.contains('/accept')) {
+            accepts += 1;
+            handler.resolve(
+              Response<Map<String, dynamic>>(
+                requestOptions: options,
+                statusCode: 200,
+                data: {
+                  'success': true,
+                  'data': {'alreadyAccepted': false},
+                },
+              ),
+            );
+            return;
+          }
+          if (path.endsWith('/start') || path.contains('/start')) {
+            starts += 1;
+            handler.resolve(
+              Response<Map<String, dynamic>>(
+                requestOptions: options,
+                statusCode: 200,
+                data: {
+                  'success': true,
+                  'data': {
+                    'alreadyStarted': false,
+                    'workflowState': 'OUT_FOR_DELIVERY',
+                  },
+                },
+              ),
+            );
+            return;
+          }
+          if (path.contains('/location')) {
+            handler.resolve(
+              Response<Map<String, dynamic>>(
+                requestOptions: options,
+                statusCode: 200,
+                data: const {'success': true},
+              ),
+            );
+            return;
+          }
+          if (path.contains('/finalize')) {
+            finals += 1;
+            handler.resolve(
+              Response<Map<String, dynamic>>(
+                requestOptions: options,
+                statusCode: 200,
+                data: {
+                  'success': true,
+                  'data': {
+                    'alreadyFinalized': false,
+                    'currentStateCode': 'DELIVERED',
+                  },
+                },
+              ),
+            );
+            return;
+          }
+          handler.resolve(
+            Response<Map<String, dynamic>>(
+              requestOptions: options,
+              statusCode: 200,
+              data: const {'success': true, 'data': <String, dynamic>{}},
+            ),
+          );
+        },
+      ),
+    );
+    final s = SessionController(
+      panel: PanelApi(dio),
+      api: MobileApi(dio: dio),
+    );
+    final before = s.outbox.events.length;
+    expect(await s.loginWithPanel(identifier: 'a@b.com', password: 'x'), isTrue);
+    expect(s.tasks.map((t) => t.id), ['s-9']);
+    expect(s.tasks.single.recipient, 'Bora Kaya');
+    expect(s.demo, isFalse);
+    expect(panelLists, 1);
+    expect(fastifyTasks, 0);
+
+    await s.startTask('s-9');
+    expect(s.taskById('s-9').status, TaskStatus.inProgress);
+    expect(accepts, 1);
+    expect(starts, 1);
+    expect(s.outbox.events.length, before);
+
+    await s.deliverTask('s-9', receivedBy: 'Bora');
+    expect(s.taskById('s-9').status, TaskStatus.delivered);
+    expect(finals, 1);
+    expect(s.outbox.events.length, before);
+    expect(fastifyTasks, 0);
+  });
+
   test('loginWithPanel panel yokken yalnız demo çiftle açılır', () async {
     final s = SessionController();
     expect(await s.loginWithPanel(identifier: 'x', password: 'y'), isFalse);

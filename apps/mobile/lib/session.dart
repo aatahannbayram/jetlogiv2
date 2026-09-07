@@ -86,8 +86,10 @@ class SessionController extends ChangeNotifier {
   final Future<PushPermit> Function() requestPush;
   final Future<PushPermit> Function() readPush;
 
-  /// Panel cookie-session opened via [loginWithPanel]. Does not switch
-  /// task/finalize/outbox off [api] (Fastify).
+  bool get _usesPanelTasks => panelLoggedIn && panel != null;
+
+  /// Panel cookie-session opened via [loginWithPanel]. When true, görev
+  /// listesi ve teslim yazmaları [PanelApi] üzerindendir (Fastify değil).
   bool panelLoggedIn = false;
   String? lastPanelError;
   String? lastActivationError;
@@ -986,7 +988,7 @@ class SessionController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Cookie jar’da panel oturumu varsa profili geri yükle. Görev çekmez.
+  /// Cookie jar’da panel oturumu varsa profili ve görev listesini yükle.
   Future<void> restorePanelSession() async {
     final client = panel;
     if (client == null) return;
@@ -1004,6 +1006,7 @@ class SessionController extends ChangeNotifier {
         return;
       }
       applyPanelProfile(profile);
+      await loadPanelTasks();
     } catch (_) {
       panelLoggedIn = false;
       lastPanelError = 'PANEL_REQUEST_FAILED';
@@ -1020,9 +1023,11 @@ class SessionController extends ChangeNotifier {
   void applyPanelProfile(PanelCourierProfileDto profile) {
     panelLoggedIn = true;
     lastPanelError = null;
-    if (profile.fullName.isNotEmpty) {
-      courier = courier.copyWith(fullName: profile.fullName);
-    }
+    demo = false;
+    courier = courier.copyWith(
+      fullName: profile.fullName.isNotEmpty ? profile.fullName : null,
+      code: profile.courierCode.isNotEmpty ? profile.courierCode : null,
+    );
     notifyListeners();
   }
 
@@ -1212,8 +1217,8 @@ class SessionController extends ChangeNotifier {
     }
   }
 
-  /// Panel `courier-auth/login` (cookie). Never writes Fastify JWT / vault
-  /// tokens and never calls `fetchTasks` / `finalize`.
+  /// Panel `courier-auth/login` (cookie). Fastify JWT yazmaz; görevler
+  /// [loadPanelTasks] ile `GET courier-tasks` üzerinden gelir.
   Future<bool> loginWithPanel({
     required String identifier,
     required String password,
@@ -1235,11 +1240,8 @@ class SessionController extends ChangeNotifier {
     }
     try {
       final profile = await client.login(identifier: id, password: password);
-      panelLoggedIn = true;
-      if (profile.fullName.isNotEmpty) {
-        courier = courier.copyWith(fullName: profile.fullName);
-      }
-      notifyListeners();
+      applyPanelProfile(profile);
+      await loadPanelTasks();
       return true;
     } on PanelApiException catch (e) {
       lastPanelError = e.code;
@@ -1487,11 +1489,39 @@ class SessionController extends ChangeNotifier {
     }
   }
 
-  /// Live `GET /v1/tasks`. Demo interceptor aynı tohumu TaskSummary olarak
-  /// döner; live boş/401'de mevcut liste kalır (test + offline).
+  /// Live `GET /v1/tasks` veya panel `GET courier-tasks`.
   String? taskWatermark;
 
+  Future<void> loadPanelTasks() async {
+    if (!storageOk) return;
+    final client = panel;
+    if (client == null || !panelLoggedIn) return;
+    try {
+      final list = await client.fetchTasks(pageSize: 50);
+      tasks
+        ..clear()
+        ..addAll([for (final row in list.tasks) deliveryTaskFromPanel(row)]);
+      demo = false;
+      liveApi = true;
+      _dropDemoInbox();
+      unawaited(ensureDayRoute());
+    } on PanelApiException catch (e) {
+      if (e.statusCode == 401) {
+        expirePanelSession();
+        return;
+      }
+      lastPanelError = e.code;
+    } catch (_) {
+      lastPanelError = 'PANEL_REQUEST_FAILED';
+    }
+    notifyListeners();
+  }
+
   Future<void> loadTasks() async {
+    if (_usesPanelTasks) {
+      await loadPanelTasks();
+      return;
+    }
     final client = api;
     if (client == null) return;
     try {
@@ -1518,6 +1548,10 @@ class SessionController extends ChangeNotifier {
   /// Yoksa veya `resyncRequired` ise tam [loadTasks].
   Future<void> pullTasks() async {
     if (!storageOk) return;
+    if (_usesPanelTasks) {
+      await loadPanelTasks();
+      return;
+    }
     final client = api;
     if (client == null) return;
     final since = taskWatermark;
@@ -1862,9 +1896,81 @@ class SessionController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void startTask(String id) {
+  Future<void> _syncPanelStart(String id) async {
+    final client = panel;
+    if (client == null) return;
+    try {
+      await client.acceptTask(id);
+      final started = await client.startTask(
+        id,
+        latitude: selfLat,
+        longitude: selfLng,
+      );
+      unawaited(
+        client.sendLocation(
+          id,
+          purposeCode: 'ACTIVE_TASK',
+          latitude: selfLat,
+          longitude: selfLng,
+        ),
+      );
+      final t = taskById(id);
+      final state = started.workflowState;
+      if (state != null && state.isNotEmpty) {
+        t.wireStatus = state;
+        t.status = taskStatusFromPanel(state);
+      }
+      notifyListeners();
+    } on PanelApiException catch (e) {
+      lastPanelError = e.code;
+      notifyListeners();
+    } catch (_) {
+      lastPanelError = 'PANEL_REQUEST_FAILED';
+      notifyListeners();
+    }
+  }
+
+  Future<void> _syncPanelFinalize(
+    String id, {
+    required String outcome,
+    String? reasonCode,
+    String? receivedBy,
+  }) async {
+    final client = panel;
+    if (client == null) return;
+    try {
+      final res = await client.finalizeTask(
+        id,
+        outcome: outcome,
+        reasonCode: reasonCode,
+        receivedBy: receivedBy,
+      );
+      final t = taskById(id);
+      final state = res.currentStateCode;
+      if (state != null && state.isNotEmpty) {
+        t.wireStatus = state;
+        t.status = taskStatusFromPanel(state);
+      }
+      notifyListeners();
+    } on PanelApiException catch (e) {
+      lastPanelError = e.code;
+      notifyListeners();
+    } catch (_) {
+      lastPanelError = 'PANEL_REQUEST_FAILED';
+      notifyListeners();
+    }
+  }
+
+  Future<void> startTask(String id) async {
     final t = taskById(id);
     t.status = TaskStatus.inProgress;
+    if (_usesPanelTasks) {
+      t.wireStatus = 'OUT_FOR_DELIVERY';
+      notifyListeners();
+      unawaited(ensureDayRoute());
+      await _syncPanelStart(id);
+      return;
+    }
     final steps = startTransitions(
       wireStatus: t.wireStatus,
       rowVersion: t.rowVersion,
@@ -1909,15 +2015,25 @@ class SessionController extends ChangeNotifier {
     };
   }
 
-  void deliverTask(
+  Future<void> deliverTask(
     String id, {
     String? receivedBy,
     Map<String, Object?>? proof,
-  }) {
+  }) async {
     final t = taskById(id);
     t.status = TaskStatus.delivered;
     t.receivedBy = receivedBy;
     t.signed = proof?['type'] == 'RECIPIENT_SIGNATURE';
+    if (_usesPanelTasks) {
+      notifyListeners();
+      unawaited(ensureDayRoute());
+      await _syncPanelFinalize(
+        id,
+        outcome: 'DELIVERED',
+        receivedBy: receivedBy,
+      );
+      return;
+    }
     final event = outbox.enqueue(
       operation: SyncOperation.taskFinalize,
       subjectId: id,
@@ -1939,7 +2055,7 @@ class SessionController extends ChangeNotifier {
     unawaited(ensureDayRoute());
   }
 
-  void returnTask(String id, {required String reason, String? note, String? photoMediaId}) {
+  Future<void> returnTask(String id, {required String reason, String? note, String? photoMediaId}) async {
     final t = taskById(id);
     t.status = TaskStatus.failed;
     final code = failureOutcomeCode(reason);
@@ -1963,6 +2079,17 @@ class SessionController extends ChangeNotifier {
         stepKey: 'ret_nedeni',
         value: {'neden': 'other', 'aciklama': detail},
       );
+    }
+    if (_usesPanelTasks) {
+      notifyListeners();
+      unawaited(ensureDayRoute());
+      await _syncPanelFinalize(
+        id,
+        outcome: 'FAILED',
+        reasonCode: code,
+        receivedBy: detail,
+      );
+      return;
     }
     final event = outbox.enqueue(
       operation: SyncOperation.taskFinalize,

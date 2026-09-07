@@ -188,7 +188,7 @@ DeliveryTask deliveryTaskFromSummary(Map<String, dynamic> json) {
 }
 
 /// Panel `GET courier-tasks` satırı → aynı ekran DTO.
-/// Session hâlâ Fastify [CourierTaskClient] kullanır; cookie login yok (karar 1).
+/// Panel oturumu açıkken [SessionController] bu eşlemeyi kullanır.
 DeliveryTask deliveryTaskFromPanel(PanelCourierTaskDto row) {
   final dest = row.destination;
   return DeliveryTask(
