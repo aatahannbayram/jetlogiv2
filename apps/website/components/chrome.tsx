@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
@@ -12,9 +13,20 @@ export function Header() {
   return (
     <header className="site-header">
       <div className="wrap header-inner">
-        <Link href="/" className="brand" onClick={() => setOpen(false)}>
-          <span className="brand-mark" aria-hidden />
-          {brand.name}
+        <Link
+          href="/"
+          className="brand"
+          aria-label={brand.name}
+          onClick={() => setOpen(false)}
+        >
+          <Image
+            src="/jetlogi_logo_color.png"
+            alt={brand.name}
+            width={85}
+            height={32}
+            className="brand-logo"
+            priority
+          />
         </Link>
         <button
           type="button"
@@ -60,8 +72,13 @@ export function Footer() {
         <div className="footer-grid">
           <div>
             <div className="brand" style={{ marginBottom: 10 }}>
-              <span className="brand-mark" aria-hidden />
-              {brand.name}
+              <Image
+                src="/jetlogi_logo_color.png"
+                alt={brand.name}
+                width={85}
+                height={32}
+                className="brand-logo"
+              />
             </div>
             <p className="muted">{brand.tagline}. {brand.blurb}</p>
           </div>

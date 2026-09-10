@@ -12,6 +12,7 @@ import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 
 import type { AppContext } from '../context.js';
+import { serviceRouteRateLimit } from '../rate-limits.js';
 import { enqueueCourierNotification, toInboxItem } from '../services/notify.js';
 
 const problem = {
@@ -94,6 +95,7 @@ export async function notificationRoutes(app: FastifyInstance, { ctx }: { ctx: A
   route.post(
     '/v1/notifications/dispatch',
     {
+      config: { rateLimit: serviceRouteRateLimit },
       schema: {
         tags: ['Notifications'],
         body: NotificationDispatchRequest,

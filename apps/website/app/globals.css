@@ -73,18 +73,10 @@ img {
 .brand {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  font-size: 1.15rem;
 }
 
-.brand-mark {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  background: linear-gradient(135deg, #6b46d4, #3f1f8c);
-  box-shadow: 0 6px 16px color-mix(in srgb, var(--accent) 40%, transparent);
+.brand-logo {
+  display: block;
 }
 
 .nav {
@@ -136,6 +128,11 @@ img {
   grid-template-columns: 1.2fr 0.8fr;
   gap: 40px;
   padding-bottom: 56px;
+}
+
+.hero-logo {
+  display: block;
+  margin-bottom: 8px;
 }
 
 .kicker {

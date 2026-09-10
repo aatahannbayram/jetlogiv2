@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 
 import type { AppContext } from '../context.js';
+import { serviceRouteRateLimit } from '../rate-limits.js';
 import { buildOptimizedRoute } from '../services/routing-optimize.js';
 
 /**
@@ -19,6 +20,7 @@ export async function routingServiceRoutes(app: FastifyInstance, { ctx }: { ctx:
   route.post(
     '/v1/routing/optimize',
     {
+      config: { rateLimit: serviceRouteRateLimit },
       schema: {
         tags: ['Routing'],
         summary: 'Verilen duraklar icin en iyi sirayi hesapla (servisler-arasi)',

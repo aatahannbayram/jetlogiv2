@@ -237,10 +237,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             onTap: () => isEditing ? _saveField(key) : _startEditing(key),
             child: Padding(
               padding: const EdgeInsets.only(left: 8),
-              child: Icon(
+              child: DgIcon(
                 isEditing ? LucideIcons.circleCheck : LucideIcons.pencil,
                 size: 20,
-                color: isEditing ? Dg.purple : Dg.ink3,
+                color: isEditing ? Dg.brand : Dg.ink3,
+                weight: 600,
               ),
             ),
           ),
@@ -371,10 +372,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                     : Dg.ink,
                                 borderRadius: BorderRadius.circular(20),
                               ),
-                              child: Icon(
+                              child: DgIcon(
                                 LucideIcons.sun,
                                 size: 17,
                                 color: s.darkModeUi ? Dg.ink : Colors.white,
+                                weight: 600,
                               ),
                             ),
                             Container(
@@ -387,10 +389,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                     : Colors.transparent,
                                 borderRadius: BorderRadius.circular(20),
                               ),
-                              child: Icon(
+                              child: DgIcon(
                                 LucideIcons.moon,
                                 size: 17,
                                 color: s.darkModeUi ? Colors.white : Dg.ink,
+                                weight: 600,
                               ),
                             ),
                           ],
@@ -639,7 +642,7 @@ class _BackButton extends StatelessWidget {
         child: SizedBox(
           width: 36,
           height: 36,
-          child: Icon(LucideIcons.arrowLeft, size: 20, color: Dg.ink),
+          child: DgIcon(LucideIcons.arrowLeft, size: 20, color: Dg.ink),
         ),
       ),
     );

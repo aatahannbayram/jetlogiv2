@@ -30,22 +30,45 @@ class EarningsScreen extends ConsumerWidget {
                 children: [
                   Mono(l.todayCaps, size: 11, color: Dg.ink3),
                   const SizedBox(height: 8),
-                  Text(SessionController.todayEarn, style: Dg.stat(size: 34)),
-                  const SizedBox(height: 6),
+                  Text('${s.deliveredCount}', style: Dg.stat(size: 34)),
+                  const SizedBox(height: 2),
                   Text(
-                    SessionController.earnDelta,
-                    style: Dg.ui(size: 13, color: Dg.purpleDeep),
+                    l.packagesDeliveredToday,
+                    style: Dg.ui(size: 13, color: Dg.ink2),
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      StatTile(
+                        label: l.dispatchToday,
+                        value: '${s.dispatchCount}',
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 14),
                   const DgDivider(),
                   const SizedBox(height: 14),
                   Row(
                     children: [
-                      Text(l.thisWeek, style: Dg.ui(size: 14, color: Dg.ink2)),
+                      Text(
+                        l.todaysEarningsLabel,
+                        style: Dg.ui(size: 13, color: Dg.ink3),
+                      ),
+                      const Spacer(),
+                      Text(
+                        SessionController.todayEarn,
+                        style: Dg.ui(size: 14, weight: FontWeight.w700),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Text(l.thisWeek, style: Dg.ui(size: 13, color: Dg.ink3)),
                       const Spacer(),
                       Text(
                         SessionController.weekEarn,
-                        style: Dg.ui(size: 16, weight: FontWeight.w700),
+                        style: Dg.ui(size: 14, weight: FontWeight.w700),
                       ),
                     ],
                   ),

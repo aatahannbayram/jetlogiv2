@@ -13,3 +13,4 @@ export * from './quality.js';
 export * from './return.js';
 export * from './sla.js';
 export * from './system.js';
+export * from './training.js';

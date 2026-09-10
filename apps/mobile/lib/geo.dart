@@ -288,3 +288,29 @@ bool lineFitsWaypoints(
   }
   return true;
 }
+
+String encodePolyline(List<LatLng> points, {int precision = 5}) {
+  if (points.isEmpty) return '';
+  final factor = pow(10, precision).toDouble();
+  final out = StringBuffer();
+  var prevLat = 0;
+  var prevLng = 0;
+  for (final p in points) {
+    final lat = (p.latitude * factor).round();
+    final lng = (p.longitude * factor).round();
+    _encodePolylineValue(out, lat - prevLat);
+    _encodePolylineValue(out, lng - prevLng);
+    prevLat = lat;
+    prevLng = lng;
+  }
+  return out.toString();
+}
+
+void _encodePolylineValue(StringBuffer out, int value) {
+  var v = value < 0 ? ~(value << 1) : value << 1;
+  while (v >= 0x20) {
+    out.writeCharCode((0x20 | (v & 0x1f)) + 63);
+    v >>= 5;
+  }
+  out.writeCharCode(v + 63);
+}

@@ -14,6 +14,8 @@ import 'notif.dart';
 import 'push.dart';
 import 'api/courier_tasks.dart';
 import 'api/models.dart';
+import 'api/agency_client.dart';
+import 'api/agency_models.dart';
 import 'api/panel_client.dart';
 import 'api/panel_models.dart';
 import 'data/outbox.dart';
@@ -33,13 +35,14 @@ final sessionProvider = ChangeNotifierProvider<SessionController>((ref) {
   return SessionController();
 });
 
-enum AppPhase { onboard, splash, activation, permissions, shift, main }
+enum AppPhase { onboard, splash, activation, permissions, shift, main, subeMain }
 
 class SessionController extends ChangeNotifier {
   SessionController({
     OutboxStore? outbox,
     this.api,
     this.panel,
+    this.agency,
     this.vault,
     this.waitForConfig = false,
     AppPhase? initialPhase,
@@ -53,6 +56,7 @@ class SessionController extends ChangeNotifier {
     if (!kReleaseMode && !waitForConfig) {
       tasks.addAll(_buildDemoTasks());
       notifications.addAll(_buildDemoNotifications());
+      custodyItems = _buildDemoCustodyItems();
     } else {
       demo = false;
       routePlan = null;
@@ -81,6 +85,7 @@ class SessionController extends ChangeNotifier {
   final OutboxStore outbox;
   final MobileApi? api;
   final PanelApi? panel;
+  final AgencyPortalApi? agency;
   final Vault? vault;
   final bool waitForConfig;
   final Future<PushPermit> Function() requestPush;
@@ -100,12 +105,27 @@ class SessionController extends ChangeNotifier {
   static const panelDemoPassword = 'demo';
   static const panelSessionExpired = 'PANEL_SESSION_EXPIRED';
 
+  /// Şube/Acente rolü — dijigoo-ops'un acente portalı üzerinden ayrı bir
+  /// cookie-session (bkz. docs/08-sube-acente-entegrasyonu.md). Kurye
+  /// oturumundan tamamen bağımsız: aynı cihazda ikisi bir arada tutulabilir.
+  AgencyPortalUserDto? agencyUser;
+  AgencyOverviewDto? agencyOverview;
+  String? lastAgencyError;
+  bool agencyLoginBusy = false;
+  List<AgencyDto> agencySelectionOptions = const [];
+
+  static const agencyDemoEmail = 'sube@dijigoo.test';
+  static const agencyDemoPassword = 'demo';
+
   AppConfig config = AppConfig.demo;
   bool configReady = true;
   bool liveApi = false;
   RoutePlanDto? routePlan = RoutePlanDto.demo();
   double selfLat = 38.1476;
   double selfLng = 29.0702;
+
+  /// Cihazdan en az bir kez fix alındı. Yoksa kart enroute + “Vardım”.
+  bool selfLocated = false;
   bool showFleet = false;
 
   /// OSRM bacakları — görünen durak için yol çizgisi. Tam gün geometrisi
@@ -282,6 +302,8 @@ class SessionController extends ChangeNotifier {
   bool online = true;
   bool shiftOpen = true;
   bool shiftPhotoTaken = true;
+  bool tipsSeen = true;
+  bool subeOnboardSeen = true;
   DateTime? shiftStartedAt = DateTime.now();
   String? currentShiftId;
 
@@ -617,6 +639,41 @@ class SessionController extends ChangeNotifier {
     return null;
   }
 
+  CustodyItemDto? custodyItemForTask(String taskId) {
+    for (final item in custodyItems) {
+      if (item.taskId == taskId) return item;
+    }
+    return null;
+  }
+
+  /// İade / Geri Teslim ekranının "Geri Teslim" sekmesi — teslim edilemeyen
+  /// bu durağın zimmetteki kalemini doğrudan şubeye bırakır. Barkod okutmaya
+  /// gerek yok: kalem zaten `taskId` ile eşleşmiş durumda, kurye sadece
+  /// onaylıyor.
+  Future<bool> returnTaskToBranch(String taskId, {String branchName = 'Şube'}) async {
+    if (custodyItems.isEmpty && !custodyLoading) await loadCustody();
+    final item = custodyItemForTask(taskId);
+    if (item == null) return false;
+    final client = api;
+    if (client == null) {
+      custodyItems = custodyItems.where((c) => c.id != item.id).toList();
+      notifyListeners();
+      return true;
+    }
+    custodyHandoverPending = true;
+    notifyListeners();
+    try {
+      await client.handoverToBranch(itemIds: [item.id], branchName: branchName);
+      custodyItems = custodyItems.where((c) => c.id != item.id).toList();
+      return true;
+    } catch (_) {
+      return false;
+    } finally {
+      custodyHandoverPending = false;
+      notifyListeners();
+    }
+  }
+
   /// Şube: eldeki kalemleri acenteye bırakır. Kurye: barkodla tenant
   /// kalemini bulup `takeover` ile üzerine alır.
   Future<bool> completeZimmet() async {
@@ -899,6 +956,8 @@ class SessionController extends ChangeNotifier {
     );
     final notify = await vault?.notifyEnabled;
     if (notify != null) notifyEnabled = notify;
+    tipsSeen = await vault?.tipsSeen ?? false;
+    subeOnboardSeen = await vault?.subeOnboardSeen ?? false;
   }
 
   static const todayEarn = '₺842';
@@ -913,7 +972,7 @@ class SessionController extends ChangeNotifier {
     WeeklyBar(label: 'Cmt', value: 0.62),
     WeeklyBar(label: 'Paz', value: 0.18),
   ];
-  final bonuses = const [
+  final bonuses = [
     BonusProgress(
       label: 'Haftalık 40 teslim',
       amount: '₺750',
@@ -937,15 +996,14 @@ class SessionController extends ChangeNotifier {
     ),
   ];
 
+  // Toplantı kararı: kurye ekranında eski kimlik/pasaport/yabancı kimlik
+  // seçenekleri olmayacak — sadece yeni TC kimlik kabul ediliyor.
   final kycDocs = const [
     KycDocOption(label: 'Yeni kimlik ön yüz', icon: LucideIcons.idCard),
     KycDocOption(
       label: 'Yeni kimlik arka yüz',
       icon: LucideIcons.rectangleEllipsis,
     ),
-    KycDocOption(label: 'Eski kimlik', icon: LucideIcons.contact),
-    KycDocOption(label: 'Pasaport', icon: LucideIcons.bookOpen),
-    KycDocOption(label: 'Yabancı kimlik', icon: LucideIcons.globe),
   ];
   bool nfcRead = false;
   String mrzDoc = 'T12345678';
@@ -1018,6 +1076,59 @@ class SessionController extends ChangeNotifier {
 
   final tickets = <SupportTicketDto>[];
 
+  final trainingModules = <TrainingModuleDto>[];
+  bool trainingBusy = false;
+
+  Future<void> loadTrainingModules() async {
+    final client = api;
+    if (client == null) {
+      if (trainingModules.isEmpty) {
+        trainingModules.addAll(_demoTrainingModulesSeed());
+        notifyListeners();
+      }
+      return;
+    }
+    trainingBusy = true;
+    notifyListeners();
+    try {
+      final remote = await client.fetchTrainingModules();
+      trainingModules
+        ..clear()
+        ..addAll(remote);
+    } catch (_) {
+      // Ağ hatası: mevcut liste (varsa demo tohumu) korunur.
+      if (trainingModules.isEmpty) {
+        trainingModules.addAll(_demoTrainingModulesSeed());
+      }
+    }
+    trainingBusy = false;
+    notifyListeners();
+  }
+
+  Future<void> completeTrainingModule(String moduleId) async {
+    final i = trainingModules.indexWhere((m) => m.id == moduleId);
+    if (i == -1 || trainingModules[i].completed) return;
+    final now = DateTime.now().toUtc().toIso8601String();
+    trainingModules[i] = TrainingModuleDto(
+      id: trainingModules[i].id,
+      title: trainingModules[i].title,
+      summary: trainingModules[i].summary,
+      body: trainingModules[i].body,
+      sortOrder: trainingModules[i].sortOrder,
+      completed: true,
+      completedAt: now,
+    );
+    notifyListeners();
+    final client = api;
+    if (client == null) return;
+    try {
+      await client.completeTrainingModule(moduleId);
+    } catch (_) {
+      // Optimistik güncelleme kalır; bir sonraki loadTrainingModules() gerçek
+      // durumu geri getirir.
+    }
+  }
+
   String get documentsSummary =>
       documents.items.isEmpty ? 'Kimlik ve ehliyet tamam' : documents.summary;
 
@@ -1034,6 +1145,19 @@ class SessionController extends ChangeNotifier {
 
   int get deliveredCount =>
       tasks.where((t) => t.status == TaskStatus.delivered).length;
+
+  int get remainingCount => remainingStops.length;
+
+  int get appointmentCount => tasks
+      .where((t) => t.isOpen && t.window.isNotEmpty && t.window != '—')
+      .length;
+
+  int get slaRiskCount =>
+      tasks.where((t) => t.isOpen && (t.slaMinutesLeft ?? 60) < 45).length;
+
+  /// Bugün üzerine atanan toplam durak sayısı — Kazanç ekranında para
+  /// biriminin yerini alan "dağıtım adedi" metriği bunu kullanır.
+  int get dispatchCount => tasks.length;
   int get returnCount => tasks
       .where(
         (t) =>
@@ -1095,7 +1219,10 @@ class SessionController extends ChangeNotifier {
     final token = await vault?.accessToken;
     final liveAuth =
         token != null && token.isNotEmpty && token != 'demo-access';
-    if (!liveAuth && !liveApi && phase == AppPhase.splash) {
+    if (!liveAuth &&
+        !liveApi &&
+        phase == AppPhase.splash &&
+        demoFieldAllowed()) {
       skipToDemo();
       return;
     }
@@ -1163,6 +1290,7 @@ class SessionController extends ChangeNotifier {
       unawaited(loadIdentity());
       unawaited(loadTasks());
       unawaited(loadTickets());
+      unawaited(loadTrainingModules());
       unawaited(loadRoute());
     } catch (_) {
       liveApi = false;
@@ -1187,6 +1315,18 @@ class SessionController extends ChangeNotifier {
   void finishOnboard() {
     unawaited(vault?.markOnboardSeen());
     phase = AppPhase.splash;
+    notifyListeners();
+  }
+
+  void markTipsSeen() {
+    tipsSeen = true;
+    unawaited(vault?.markTipsSeen());
+    notifyListeners();
+  }
+
+  void finishSubeOnboard() {
+    subeOnboardSeen = true;
+    unawaited(vault?.markSubeOnboardSeen());
     notifyListeners();
   }
 
@@ -1215,9 +1355,10 @@ class SessionController extends ChangeNotifier {
     unawaited(ensureDayRoute(pinFirstId: 't1'));
   }
 
-  /// Yerel demo saha. Canlı API yoksa release APK da buraya düşer.
+  /// Yerel demo saha. Release'te yalnız `--dart-define=ALLOW_DEMO=true`.
   /// Sahte OTP / mühendis paneli [kAllowDebugBypass] ile ayrı durur.
-  void skipToDemo() {
+  void skipToDemo({bool? allow}) {
+    if (!(allow ?? demoFieldAllowed())) return;
     demo = true;
     _seedDemoData();
     phase = AppPhase.main;
@@ -1388,6 +1529,93 @@ class SessionController extends ChangeNotifier {
     }
   }
 
+  /// Şube/Acente girişi. Kullanıcı birden fazla acenteye bağlıysa
+  /// [AgencyApiException]'ın `AGENCY_SELECTION_REQUIRED` kodu ile geri
+  /// döner ve [agencySelectionOptions] doldurulur — arayan taraf bir seçim
+  /// aldıktan sonra `agencyId` ile tekrar çağırmalı.
+  Future<bool> loginAsAgency({
+    required String email,
+    required String password,
+    String? agencyId,
+  }) async {
+    lastAgencyError = null;
+    agencySelectionOptions = const [];
+    agencyLoginBusy = true;
+    notifyListeners();
+    final trimmed = email.trim();
+    if (kAllowDebugBypass &&
+        trimmed == agencyDemoEmail &&
+        password == agencyDemoPassword) {
+      agencyUser = AgencyPortalUserDto(
+        id: 'demo-agency-user',
+        email: agencyDemoEmail,
+        fullName: 'Acente Demo',
+        agency: const AgencyDto(id: 'demo-agency', name: 'Güney Acente'),
+      );
+      agencyOverview = const AgencyOverviewDto(
+        agency: AgencyDto(id: 'demo-agency', name: 'Güney Acente'),
+        courierLinks: 12,
+        regionLinks: 3,
+        nodeLinks: 1,
+        currentShipments: 186,
+      );
+      agencyLoginBusy = false;
+      phase = AppPhase.subeMain;
+      notifyListeners();
+      return true;
+    }
+    final client = agency;
+    if (client == null) {
+      agencyLoginBusy = false;
+      lastAgencyError = 'AGENCY_PORTAL_UNAVAILABLE';
+      notifyListeners();
+      return false;
+    }
+    try {
+      agencyUser = await client.login(
+        email: trimmed,
+        password: password,
+        agencyId: agencyId,
+      );
+      await loadAgencyOverview();
+      agencyLoginBusy = false;
+      phase = AppPhase.subeMain;
+      notifyListeners();
+      return true;
+    } on AgencyApiException catch (e) {
+      agencyLoginBusy = false;
+      lastAgencyError = e.code;
+      agencySelectionOptions = e.agencies;
+      notifyListeners();
+      return false;
+    } catch (_) {
+      agencyLoginBusy = false;
+      lastAgencyError = 'AGENCY_REQUEST_FAILED';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<void> loadAgencyOverview() async {
+    final client = agency;
+    if (client == null || agencyUser == null) return;
+    try {
+      agencyOverview = await client.fetchOverview();
+      notifyListeners();
+    } on AgencyApiException {
+      // Genel bakış olmadan da Ana Sayfa gösterilebilir; sessizce yut.
+    }
+  }
+
+  Future<void> logoutAgency() async {
+    await agency?.logout();
+    agencyUser = null;
+    agencyOverview = null;
+    lastAgencyError = null;
+    phase = AppPhase.activation;
+    notifyListeners();
+  }
+
   Future<bool> verifyLoginOtp(String code) async {
     if (!kReleaseMode && code == '123456') {
       demo = true;
@@ -1428,14 +1656,9 @@ class SessionController extends ChangeNotifier {
 
   void completePermissions() {
     unawaited(refreshSelfPosition());
-    if (bypassShiftGate) {
-      shiftPhotoTaken = true;
-      DgLog.i(LogLayer.shift, 'permissions done · selfie skipped');
-      openShift();
-      return;
-    }
-    phase = AppPhase.shift;
-    notifyListeners();
+    shiftPhotoTaken = true;
+    DgLog.i(LogLayer.shift, 'permissions done · auto available');
+    openShift();
   }
 
   Future<void> takeShiftPhoto([String? path]) async {
@@ -1469,7 +1692,8 @@ class SessionController extends ChangeNotifier {
   }
 
   void openShift() {
-    if (!shiftPhotoTaken && !bypassShiftGate) return;
+    shiftPhotoTaken = true;
+    online = true;
     shiftOpen = true;
     shiftStartedAt = DateTime.now();
     phase = AppPhase.main;
@@ -1481,6 +1705,7 @@ class SessionController extends ChangeNotifier {
     unawaited(loadRoute());
     unawaited(loadTasks());
     unawaited(loadTickets());
+    unawaited(loadTrainingModules());
   }
 
   Map<String, Object?> _shiftFix() {
@@ -1502,6 +1727,7 @@ class SessionController extends ChangeNotifier {
     );
     selfLat = here.lat;
     selfLng = here.lng;
+    selfLocated = true;
     notifyListeners();
     if (moved > 40) unawaited(ensureDayRoute());
   }
@@ -2632,6 +2858,49 @@ List<DeliveryTask> _tasksInPlanOrder(
   return ordered;
 }
 
+List<CustodyItemDto> _buildDemoCustodyItems() => const [
+  CustodyItemDto(
+    id: 'demo-custody-t4',
+    type: 'parcel',
+    barcode: 'DGO-8844',
+    description: 'Fatma Şahin — Yeni Mah.',
+    quantity: 1,
+    acquiredAt: '2026-08-25T07:00:00.000Z',
+    taskId: 't4',
+  ),
+];
+
+List<TrainingModuleDto> _demoTrainingModulesSeed() => const [
+  TrainingModuleDto(
+    id: 'demo-training-1',
+    title: 'Trafik güvenliği',
+    summary: 'Motosikletle güvenli sürüş için 5 temel kural.',
+    body:
+        '1. Kask her zaman takılı.\n2. Hız sınırlarına uy.\n3. Yaya geçitlerinde dur.\n4. Gece reflektörlü ekipman kullan.\n5. Yorgunken sürme.',
+    sortOrder: 1,
+    completed: false,
+  ),
+  TrainingModuleDto(
+    id: 'demo-training-2',
+    title: 'KVKK ve müşteri verisi',
+    summary: 'Teslimat sırasında müşteri bilgilerini nasıl koruruz.',
+    body:
+        'Alıcı adı, adresi ve telefonu sadece teslimat için kullanılır. Bu bilgileri paylaşmak, fotoğraflamak veya not almak yasaktır.',
+    sortOrder: 2,
+    completed: false,
+  ),
+  TrainingModuleDto(
+    id: 'demo-training-3',
+    title: 'Zimmet ve barkod okutma',
+    summary: 'Doğru zimmet akışı neden önemli.',
+    body:
+        'Her paket teslim alınırken ve teslim edilirken barkodu okutulmalı. Okutulmayan paket zimmetinde görünmeye devam eder.',
+    sortOrder: 3,
+    completed: true,
+    completedAt: '2026-09-01T09:00:00.000Z',
+  ),
+];
+
 List<DeliveryTask> _buildDemoTasks() => [
   DeliveryTask(
     id: 't1',
@@ -2650,6 +2919,7 @@ List<DeliveryTask> _buildDemoTasks() => [
     custodyCount: 2,
     custodyRef: 'PRD-11207',
     slaMinutesLeft: 72,
+    merchantName: 'ALİ BAŞEL – PLUXEE',
   ),
   DeliveryTask(
     id: 't2',
@@ -2690,13 +2960,13 @@ List<DeliveryTask> _buildDemoTasks() => [
     window: '15:45–16:15',
     kind: TaskKind.delivery,
     status: TaskStatus.assigned,
-    cod: 185,
     sequence: 3,
     etaMinutes: 18,
     lat: 38.1554,
     lng: 29.0692,
     custodyCount: 1,
     slaMinutesLeft: 118,
+    merchantName: 'ALİ BAŞEL – ASSİST',
   ),
   DeliveryTask(
     id: 't4',

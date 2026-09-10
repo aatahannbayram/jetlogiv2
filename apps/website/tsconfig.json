@@ -11,6 +11,6 @@
     "incremental": true,
     "module": "esnext"
   },
-  "include": ["app", "components", "lib", "next-env.d.ts", ".next/types/**/*.ts"],
+  "include": ["app", "components", "lib", "test", "next-env.d.ts", ".next/types/**/*.ts"],
   "exclude": ["node_modules"]
 }

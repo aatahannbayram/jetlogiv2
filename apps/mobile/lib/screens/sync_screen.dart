@@ -65,7 +65,7 @@ class SyncScreen extends ConsumerWidget {
               child: DgCard(
                 child: Row(
                   children: [
-                    Icon(LucideIcons.circleCheck, color: Dg.sage, size: 22),
+                    DgIcon(LucideIcons.circleCheck, color: Dg.ok, size: 22, weight: 600),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(

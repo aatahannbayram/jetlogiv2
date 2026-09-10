@@ -12,6 +12,7 @@ import 'geo.dart';
 import 'l10n.dart';
 import 'map_config.dart';
 import 'models.dart';
+import 'motion.dart';
 import 'notif.dart';
 import 'scan.dart';
 import 'theme.dart';
@@ -20,6 +21,19 @@ import 'theme.dart';
 /// a screen has no specific task coordinates to show (e.g. onboarding
 /// previews).
 const _dgDefaultMapCenter = LatLng(38.1512, 29.0614);
+
+/// Alt rota sheet (~%42) çizgiyi örtmesin diye kamera payı.
+///
+/// Sol/sağ payı bilinçli olarak geniş: `fit`'e kendi konumu (self) da dahil
+/// ediliyor ve o nokta sık sık durakların en doğusunda/batısında kalıyor —
+/// dar bir pay bırakılınca kurye pin'i (36px) ekranın kenarına, neredeyse
+/// dışına itiliyor ve "haritada yokmuş" gibi görünüyordu.
+EdgeInsets mapRouteFitPadding({
+  required double height,
+  required double topInset,
+}) {
+  return EdgeInsets.fromLTRB(44, topInset + 64, 44, height * 0.42 + 12);
+}
 
 class Display extends StatelessWidget {
   const Display(
@@ -59,6 +73,142 @@ class Display extends StatelessWidget {
 /// [dot] rengi tona göre otomatik seçilir (sage/sand/clay), [fg] ile
 /// override edilebilir (metin her zaman [Dg.ink2], nötr kalır — vurgu
 /// sadece noktada).
+class DgIcon extends StatelessWidget {
+  const DgIcon(
+    this.icon, {
+    super.key,
+    this.size = 20,
+    this.color,
+    this.weight = 500,
+  });
+
+  final IconData icon;
+  final double size;
+  final Color? color;
+  final int weight;
+
+  @override
+  Widget build(BuildContext context) {
+    final ink = color ?? Dg.text1;
+    if (icon.fontPackage != 'lucide_icons_flutter') {
+      return Icon(icon, size: size, color: ink);
+    }
+    return SizedBox(
+      width: size,
+      height: size,
+      child: FittedBox(
+        fit: BoxFit.contain,
+        child: Text(
+          String.fromCharCode(icon.codePoint),
+          textAlign: TextAlign.center,
+          style: Dg.lucideStyle(size: size, color: ink, weight: weight),
+        ),
+      ),
+    );
+  }
+}
+
+class DgIconChip extends StatelessWidget {
+  const DgIconChip({
+    super.key,
+    required this.icon,
+    this.accent = false,
+    this.size = 40,
+    this.color,
+    this.background,
+  });
+
+  final IconData icon;
+  final bool accent;
+  final double size;
+  final Color? color;
+  final Color? background;
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = color ?? (accent ? Dg.warn : Dg.text2);
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: background ?? (accent ? Dg.warnSoft : Dg.muteSoft),
+        borderRadius: BorderRadius.circular(Dg.rSm),
+      ),
+      child: DgIcon(icon, size: size * 0.46, color: fg, weight: 600),
+    );
+  }
+}
+
+class DgProgressRing extends StatelessWidget {
+  const DgProgressRing({
+    super.key,
+    required this.progress,
+    this.size = 76,
+    this.stroke = 7,
+    this.child,
+  });
+
+  final double progress;
+  final double size;
+  final double stroke;
+  final Widget? child;
+
+  @override
+  Widget build(BuildContext context) {
+    final target = progress.clamp(0.0, 1.0);
+    return SizedBox(
+      width: size,
+      height: size,
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0, end: target),
+        duration: const Duration(milliseconds: 720),
+        curve: Curves.easeOutCubic,
+        builder: (_, value, inner) => CustomPaint(
+          painter: _RingPainter(value, stroke),
+          child: inner,
+        ),
+        child: child == null ? null : Center(child: child),
+      ),
+    );
+  }
+}
+
+class _RingPainter extends CustomPainter {
+  _RingPainter(this.progress, this.stroke);
+
+  final double progress;
+  final double stroke;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final c = Offset(size.width / 2, size.height / 2);
+    final r = (size.shortestSide - stroke) / 2;
+    final track = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.round
+      ..color = Dg.stroke;
+    canvas.drawCircle(c, r, track);
+    if (progress <= 0) return;
+    final rect = Rect.fromCircle(center: c, radius: r);
+    final sweep = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.round
+      ..shader = const SweepGradient(
+        startAngle: -pi / 2,
+        endAngle: 3 * pi / 2,
+        colors: [Color(0xFF7B61FF), Color(0xFFFF7A2F), Color(0xFF7B61FF)],
+      ).createShader(rect);
+    canvas.drawArc(rect, -pi / 2, 2 * pi * progress, false, sweep);
+  }
+
+  @override
+  bool shouldRepaint(covariant _RingPainter old) =>
+      old.progress != progress || old.stroke != stroke;
+}
+
 class StatusChip extends StatelessWidget {
   const StatusChip({
     super.key,
@@ -70,45 +220,31 @@ class StatusChip extends StatelessWidget {
 
   final String label;
   final String tone;
-
-  /// Eski API'den kalan override'lar — artık dolgu/kenarlık değil, nokta
-  /// rengini belirlemek için kullanılıyor. [bg] artık okunmuyor (dolgu yok).
   final Color? bg;
   final Color? fg;
 
   @override
   Widget build(BuildContext context) {
-    final dot =
+    final ink =
         fg ??
         switch (tone) {
-          'hi' => Dg.clay,
-          'mid' => Dg.sand,
-          'lo' => Dg.sage,
-          'lime' => Dg.primaryGradientStart,
-          _ => Dg.ink3,
+          'hi' => Dg.bad,
+          'mid' => Dg.warn,
+          'lo' => Dg.ok,
+          'lime' => Dg.brand,
+          _ => Dg.text2,
         };
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 6,
-          height: 6,
-          decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 6),
-        Flexible(
-          child: Text(
-            label,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontFamily: Dg.mono,
-              color: Dg.ink2,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-      ],
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: Dg.s8, vertical: 4),
+      decoration: BoxDecoration(
+        color: bg ?? ink.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(Dg.rSm),
+      ),
+      child: Text(
+        label,
+        overflow: TextOverflow.ellipsis,
+        style: Dg.typeCaption(color: ink).copyWith(fontWeight: FontWeight.w600),
+      ),
     );
   }
 }
@@ -120,7 +256,7 @@ class DgDivider extends StatelessWidget {
   const DgDivider({super.key});
 
   @override
-  Widget build(BuildContext context) => Container(height: 1, color: Dg.rule);
+  Widget build(BuildContext context) => Container(height: 0.5, color: Dg.stroke);
 }
 
 /// Seçili satır: 2px marka gradyanı çerçeve.
@@ -168,23 +304,24 @@ class DgSelectMark extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!selected) {
-      return Icon(LucideIcons.circle, color: Dg.ink3, size: size);
+      return DgIcon(LucideIcons.circle, color: Dg.ink3, size: size);
     }
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(shape: BoxShape.circle, color: Dg.ink),
       alignment: Alignment.center,
-      child: Icon(
+      child: DgIcon(
         LucideIcons.check,
         size: size * 0.58,
         color: Dg.dark ? Dg.night : Colors.white,
+        weight: 600,
       ),
     );
   }
 }
 
-enum DgButtonTone { primary, secondary, onDark, danger, brand }
+enum DgButtonTone { primary, secondary, onDark, danger, brand, ember, success }
 
 /// Ana aksiyon dili: gradyanlı birincil, dolu ikincil, koyu zemin, kare ikon.
 /// Basınca hafif küçülür; [FilledButton] + şeffaf gradyan sarmalayıcısının
@@ -242,11 +379,13 @@ class _DgButtonState extends State<DgButton> {
     final enabled = widget.onPressed != null && !widget.busy;
     final primary = widget.tone == DgButtonTone.primary;
     final brand = widget.tone == DgButtonTone.brand;
+    final ember = widget.tone == DgButtonTone.ember;
     final onDark = widget.tone == DgButtonTone.onDark;
     final danger = widget.tone == DgButtonTone.danger;
+    final success = widget.tone == DgButtonTone.success;
     final ink =
         widget.iconColor ??
-        (brand || onDark || danger
+        (brand || onDark || danger || ember || success
             ? Colors.white
             : primary
             ? (Dg.dark ? Dg.night : Colors.white)
@@ -255,6 +394,8 @@ class _DgButtonState extends State<DgButton> {
         widget.fillColor ??
         (danger
             ? Dg.red
+            : success
+            ? Dg.green
             : onDark
             ? Colors.white.withValues(alpha: 0.1)
             : widget.iconOnly
@@ -268,13 +409,13 @@ class _DgButtonState extends State<DgButton> {
             child: CircularProgressIndicator(strokeWidth: 2.3, color: ink),
           )
         : widget.iconOnly
-        ? Icon(widget.icon, size: 20, color: ink)
+        ? DgIcon(widget.icon!, size: 20, color: ink, weight: 600)
         : Row(
             mainAxisAlignment: MainAxisAlignment.center,
             mainAxisSize: widget.expand ? MainAxisSize.max : MainAxisSize.min,
             children: [
               if (widget.icon != null) ...[
-                Icon(widget.icon, size: 18, color: ink),
+                DgIcon(widget.icon!, size: 18, color: ink),
                 const SizedBox(width: 8),
               ],
               Flexible(
@@ -293,7 +434,7 @@ class _DgButtonState extends State<DgButton> {
               ),
               if (widget.trailing != null) ...[
                 const SizedBox(width: 8),
-                Icon(widget.trailing, size: 18, color: ink),
+                DgIcon(widget.trailing!, size: 18, color: ink),
               ],
             ],
           );
@@ -307,20 +448,33 @@ class _DgButtonState extends State<DgButton> {
         opacity: enabled ? 1 : 0.42,
         child: DecoratedBox(
           decoration: BoxDecoration(
-            gradient: brand && enabled ? Dg.primaryGradient : null,
-            color: brand
+            gradient: ember && enabled
+                ? Dg.emberGradient
+                : brand && enabled
+                ? Dg.primaryGradient
+                : null,
+            color: ember || brand
                 ? null
                 : primary && enabled
                 ? Dg.ink
                 : fill,
-            borderRadius: BorderRadius.circular(Dg.radiusPill),
-            border: primary || danger || brand
+            borderRadius: BorderRadius.circular(ember ? 16 : Dg.radiusPill),
+            border: primary || danger || brand || ember || success
                 ? null
                 : Border.all(
                     color: onDark
                         ? Colors.white.withValues(alpha: 0.18)
                         : Dg.rule,
                   ),
+            boxShadow: ember && enabled
+                ? const [
+                    BoxShadow(
+                      color: Color(0x99F08A24),
+                      blurRadius: 28,
+                      offset: Offset(0, 10),
+                    ),
+                  ]
+                : null,
           ),
           child: ConstrainedBox(
             constraints: BoxConstraints(
@@ -468,20 +622,14 @@ class DgCard extends StatelessWidget {
   Widget build(BuildContext context) {
     // Card radius is unified at Dg.radiusHero across the whole app now —
     // [hero] only still switches shadow weight/fill below, not shape.
-    const radius = Dg.radiusHero;
+    const radius = Dg.rLg;
     final body = Container(
       width: double.infinity,
-      padding: padding ?? const EdgeInsets.all(18),
+      padding: padding ?? const EdgeInsets.all(Dg.s16),
       decoration: BoxDecoration(
-        color: dark ? Dg.night : (lime ? Dg.ink : Dg.surface),
+        color: dark ? Dg.night : (lime ? Dg.ink : Dg.surface1),
         borderRadius: BorderRadius.circular(radius),
-        border: Border.all(
-          color: dark
-              ? Colors.white.withValues(alpha: 0.12)
-              : lime
-              ? Colors.transparent
-              : Dg.rule,
-        ),
+        border: Border(top: BorderSide(color: Dg.hairline, width: 0.5)),
       ),
       child: child,
     );
@@ -542,7 +690,7 @@ class NotifCard extends StatelessWidget {
               color: n.tint,
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(n.icon, size: compact ? 16 : 18, color: n.ink),
+            child: DgIcon(n.icon, size: compact ? 16 : 18, color: n.ink),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -577,8 +725,8 @@ class NotifCard extends StatelessWidget {
                 Container(
                   width: 7,
                   height: 7,
-                  decoration: const BoxDecoration(
-                    color: Dg.red,
+                  decoration: BoxDecoration(
+                    color: Dg.bad,
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -589,7 +737,7 @@ class NotifCard extends StatelessWidget {
             const SizedBox(width: 6),
             Padding(
               padding: const EdgeInsets.only(top: 2),
-              child: Icon(LucideIcons.chevronRight, size: 16, color: Dg.ink3),
+              child: DgIcon(LucideIcons.chevronRight, size: 16, color: Dg.ink3),
             ),
           ],
         ],
@@ -993,7 +1141,7 @@ class _DestinationPin extends StatelessWidget {
         ],
       ),
       alignment: Alignment.center,
-      child: const Icon(LucideIcons.mapPin, color: Colors.white, size: 15),
+      child: DgIcon(LucideIcons.mapPin, color: Colors.white, size: 15, weight: 600),
     );
   }
 }
@@ -1090,10 +1238,11 @@ class _CourierPin extends StatelessWidget {
                 height: courier.self ? 28 : 22,
               ),
             )
-          : Icon(
+          : DgIcon(
               courier.self ? LucideIcons.navigation : LucideIcons.user,
               size: courier.self ? 15 : 13,
               color: Colors.white,
+              weight: 600,
             ),
     );
   }
@@ -1161,11 +1310,12 @@ class _ViewfinderState extends State<Viewfinder> {
                   ),
                 CustomPaint(painter: _CornerBrackets()),
                 if (widget.captured)
-                  const Center(
-                    child: Icon(
+                  Center(
+                    child: DgIcon(
                       LucideIcons.doorOpen,
-                      color: Color(0xFF3FB3A8),
+                      color: const Color(0xFF3FB3A8),
                       size: 48,
+                      weight: 600,
                     ),
                   ),
                 Positioned(
@@ -1210,10 +1360,11 @@ class _ViewfinderState extends State<Viewfinder> {
                 ),
               ],
             ),
-            child: Icon(
+            child: DgIcon(
               widget.captured ? LucideIcons.check : LucideIcons.circle,
               color: Colors.white,
               size: widget.captured ? 28 : 22,
+              weight: 600,
             ),
           ),
         ),
@@ -1324,7 +1475,7 @@ class SquareAction extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: Dg.ink, size: 20),
+              DgIcon(icon, color: Dg.ink, size: 20),
               const SizedBox(height: 6),
               Text(label, style: Dg.ui(size: 12, weight: FontWeight.w600)),
             ],
@@ -1444,7 +1595,9 @@ class _SlideToActState extends State<SlideToAct>
         return Container(
           height: 58,
           decoration: BoxDecoration(
-            color: Dg.ink,
+            // Teslim onayı — bilinçli olarak yeşil (toplantı maddesi 9:
+            // "teslim etmek için kaydır aksiyonu yeşil renkte olacak").
+            color: Dg.green,
             borderRadius: BorderRadius.circular(Dg.radiusPill),
           ),
           child: Stack(
@@ -1456,7 +1609,7 @@ class _SlideToActState extends State<SlideToAct>
                   style: Dg.ui(
                     size: 15,
                     weight: FontWeight.w600,
-                    color: Dg.dark ? Dg.night : Colors.white,
+                    color: Colors.white,
                   ),
                 ),
               ),
@@ -1485,11 +1638,11 @@ class _SlideToActState extends State<SlideToAct>
                   child: Container(
                     width: thumb,
                     height: thumb,
-                    decoration: BoxDecoration(
-                      color: Dg.dark ? Colors.white : Dg.ground,
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(LucideIcons.chevronsRight, color: Dg.ink),
+                    child: DgIcon(LucideIcons.chevronsRight, color: Dg.ok, weight: 600),
                   ),
                 ),
               ),
@@ -1519,8 +1672,8 @@ class DgPillNav extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Dg.ground,
-        border: Border(top: BorderSide(color: Dg.rule, width: 0.5)),
+        color: Dg.bg,
+        border: Border(top: BorderSide(color: Dg.stroke, width: 0.5)),
       ),
       child: SafeArea(
         top: false,
@@ -1532,10 +1685,13 @@ class DgPillNav extends StatelessWidget {
                 Expanded(
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
-                    onTap: () => onChanged(i),
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      onChanged(i);
+                    },
                     child: AnimatedScale(
-                      scale: index == i ? 1.0 : 0.96,
-                      duration: const Duration(milliseconds: 220),
+                      scale: index == i ? 1.0 : 0.94,
+                      duration: const Duration(milliseconds: 250),
                       curve: Curves.easeOutBack,
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -1547,16 +1703,11 @@ class DgPillNav extends StatelessWidget {
                               clipBehavior: Clip.none,
                               children: [
                                 Center(
-                                  child: AnimatedSwitcher(
-                                    duration: const Duration(milliseconds: 180),
-                                    child: Icon(
-                                      index == i ? items[i].$2 : items[i].$1,
-                                      key: ValueKey('${i}_$index'),
-                                      color: index == i
-                                          ? Dg.purpleActive
-                                          : Dg.ink3,
-                                      size: 22,
-                                    ),
+                                  child: DgIcon(
+                                    index == i ? items[i].$2 : items[i].$1,
+                                    color: index == i ? Dg.brand : Dg.text3,
+                                    size: 22,
+                                    weight: index == i ? 600 : 400,
                                   ),
                                 ),
                                 if (i < badges.length && badges[i] > 0)
@@ -1573,14 +1724,9 @@ class DgPillNav extends StatelessWidget {
                             items[i].$3,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontFamily: Dg.sans,
-                              fontSize: 10,
-                              fontWeight: index == i
-                                  ? FontWeight.w700
-                                  : FontWeight.w500,
-                              color: index == i ? Dg.purpleActive : Dg.ink3,
-                            ),
+                            style: Dg.typeOverline(
+                              color: index == i ? Dg.brand : Dg.text3,
+                            ).copyWith(fontSize: 10, letterSpacing: 0),
                           ),
                         ],
                       ),
@@ -1607,9 +1753,9 @@ class _NavBadge extends StatelessWidget {
       constraints: const BoxConstraints(minWidth: 14, minHeight: 14),
       padding: const EdgeInsets.symmetric(horizontal: 3),
       alignment: Alignment.center,
-      decoration: const BoxDecoration(
-        color: Dg.red,
-        borderRadius: BorderRadius.all(Radius.circular(7)),
+      decoration: BoxDecoration(
+        color: Dg.warn,
+        borderRadius: const BorderRadius.all(Radius.circular(7)),
       ),
       child: Text(
         label,
@@ -1639,14 +1785,7 @@ class DgOnlineChip extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 7,
-              height: 7,
-              decoration: BoxDecoration(
-                color: online ? Dg.green : Dg.amber,
-                shape: BoxShape.circle,
-              ),
-            ),
+            PulseDot(color: online ? Dg.ok : Dg.warn),
             const SizedBox(width: 6),
             Text(
               online ? L10n.of(context).fieldOn : L10n.of(context).onBreak,
@@ -1682,7 +1821,7 @@ class DgEmptyState extends StatelessWidget {
             height: 64,
             alignment: Alignment.center,
             decoration: BoxDecoration(color: Dg.elev, shape: BoxShape.circle),
-            child: Icon(icon, size: 26, color: Dg.ink3),
+            child: DgIcon(icon, size: 26, color: Dg.ink3),
           ),
           const SizedBox(height: 16),
           Text(
@@ -1933,10 +2072,15 @@ class IconTintBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
+    return Container(
       width: size,
       height: size,
-      child: Icon(icon, color: ink, size: size * 0.52),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: tint,
+        borderRadius: BorderRadius.circular(Dg.rSm),
+      ),
+      child: DgIcon(icon, color: ink, size: size * 0.46, weight: 600),
     );
   }
 }
@@ -1952,6 +2096,14 @@ String taskStatusTone(TaskStatus s) => switch (s) {
   TaskStatus.cancelled => 'mid',
   _ => 'accent',
 };
+
+/// Durak rozeti — SLA'sı kaçmış açık duraklarda normal durum yerine
+/// "Gecikti" gösterir (toplantı maddesi 7: gecikme görünür olsun).
+String taskChipLabel(DeliveryTask task, [L10n? l10n]) =>
+    task.isLate ? (l10n ?? const L10n('tr')).lateStop : taskStatusLabel(task.status, l10n);
+
+String taskChipTone(DeliveryTask task) =>
+    task.isLate ? 'hi' : taskStatusTone(task.status);
 
 String taskRefLine(DeliveryTask task, {int? visit}) {
   final n = visit ?? task.sequence;
@@ -1988,7 +2140,7 @@ class DgRetryBanner extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
           child: Row(
             children: [
-              Icon(LucideIcons.circleAlert, size: 16, color: Dg.red),
+              DgIcon(LucideIcons.circleAlert, size: 16, color: Dg.bad),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -2028,8 +2180,8 @@ class TaskListTile extends StatelessWidget {
                 Mono(taskRefLine(task)),
                 const Spacer(),
                 StatusChip(
-                  label: taskStatusLabel(task.status, L10n.of(context)),
-                  tone: taskStatusTone(task.status),
+                  label: taskChipLabel(task, L10n.of(context)),
+                  tone: taskChipTone(task),
                 ),
               ],
             ),
@@ -2175,7 +2327,7 @@ class _ShiftSelfieSheetState extends State<_ShiftSelfieSheet> {
                     color: Dg.elev,
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(LucideIcons.x, size: 18, color: Dg.ink),
+                  child: DgIcon(LucideIcons.x, size: 18, color: Dg.ink),
                 ),
               ),
             ],
@@ -2205,10 +2357,11 @@ class _ShiftSelfieSheetState extends State<_ShiftSelfieSheet> {
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
-                      Icon(
+                      DgIcon(
                         _shot ? LucideIcons.circleCheck : LucideIcons.scanFace,
                         size: _shot ? 52 : 46,
-                        color: _shot ? Dg.purpleDeep : Dg.ink3,
+                        color: _shot ? Dg.brand : Dg.ink3,
+                        weight: 600,
                       ),
                       IgnorePointer(
                         child: ColoredBox(
@@ -2230,10 +2383,11 @@ class _ShiftSelfieSheetState extends State<_ShiftSelfieSheet> {
             ),
             child: Row(
               children: [
-                const Icon(
+                DgIcon(
                   LucideIcons.badgeCheck,
                   size: 17,
-                  color: Dg.purpleDeep,
+                  color: Dg.brand,
+                  weight: 600,
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -2297,18 +2451,175 @@ class PhoneShell extends StatelessWidget {
   }
 }
 
-/// Giriş ve tören ekranları için düz marka zemini — ızgara, parçacık veya
-/// pulse yok.
+/// Giriş ve tören ekranları için marka zemini.
+/// [vivid] giriş ekranında ızgara, parıltı ve flare ekler.
 class HeroBackground extends StatelessWidget {
-  const HeroBackground({super.key, required this.child});
+  const HeroBackground({super.key, this.vivid = false, required this.child});
 
+  final bool vivid;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
+    if (vivid) return _VividHero(child: child);
     return DecoratedBox(
       decoration: BoxDecoration(gradient: Dg.heroGradient),
       child: child,
     );
   }
+}
+
+class _VividHero extends StatefulWidget {
+  const _VividHero({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_VividHero> createState() => _VividHeroState();
+}
+
+class _VividHeroState extends State<_VividHero>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulse;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulse = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 7),
+    )..value = 0.65;
+    var start = kReleaseMode;
+    assert(() {
+      start = !WidgetsBinding.instance.runtimeType.toString().contains('Test');
+      return true;
+    }());
+    if (start) _pulse.repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        const DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFF6A32D4),
+                Color(0xFF3A1488),
+                Color(0xFF1A0848),
+                Color(0xFF0B041C),
+              ],
+              stops: [0, 0.32, 0.68, 1],
+            ),
+          ),
+        ),
+        AnimatedBuilder(
+          animation: _pulse,
+          builder: (context, _) => CustomPaint(
+            painter: _VividMeshPainter(t: _pulse.value),
+            child: const SizedBox.expand(),
+          ),
+        ),
+        widget.child,
+      ],
+    );
+  }
+}
+
+class _VividMeshPainter extends CustomPainter {
+  const _VividMeshPainter({required this.t});
+
+  final double t;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    final glow = 0.72 + 0.28 * t;
+
+    final flare = Offset(w * 0.12, h * 0.02);
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()
+        ..shader = RadialGradient(
+          colors: [
+            Color.fromRGBO(255, 255, 255, 0.42 * glow),
+            Color.fromRGBO(180, 120, 255, 0.22 * glow),
+            const Color(0x00000000),
+          ],
+          stops: const [0, 0.18, 1],
+        ).createShader(Rect.fromCircle(center: flare, radius: w * 0.95)),
+    );
+
+    canvas.drawCircle(
+      Offset(w * 0.82, h * 0.18),
+      w * 0.42,
+      Paint()
+        ..shader = RadialGradient(
+          colors: [
+            Color.fromRGBO(240, 138, 36, 0.18 * glow),
+            const Color(0x00000000),
+          ],
+        ).createShader(
+          Rect.fromCircle(
+            center: Offset(w * 0.82, h * 0.18),
+            radius: w * 0.42,
+          ),
+        ),
+    );
+
+    final horizon = h * 0.52;
+    final vp = Offset(w * 0.5, horizon);
+    final grid = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1
+      ..color = Color.fromRGBO(180, 130, 255, 0.16 + 0.1 * t);
+
+    for (var i = 1; i <= 14; i++) {
+      final p = i / 14;
+      final y = horizon + (h - horizon) * p * p;
+      canvas.drawLine(Offset(0, y), Offset(w, y), grid);
+    }
+    for (var i = -8; i <= 8; i++) {
+      final x = w * 0.5 + i * (w * 0.22);
+      canvas.drawLine(Offset(x, h), vp, grid);
+    }
+
+    final rng = Random(11);
+    final nodePaint = Paint()..style = PaintingStyle.fill;
+    final link = Paint()
+      ..strokeWidth = 0.8
+      ..color = Color.fromRGBO(255, 170, 70, 0.14 + 0.1 * t);
+    final nodes = <Offset>[];
+    for (var i = 0; i < 46; i++) {
+      nodes.add(Offset(rng.nextDouble() * w, rng.nextDouble() * h));
+    }
+    for (var i = 0; i < nodes.length; i++) {
+      for (var j = i + 1; j < nodes.length; j++) {
+        if ((nodes[i] - nodes[j]).distance < w * 0.18) {
+          canvas.drawLine(nodes[i], nodes[j], link);
+        }
+      }
+    }
+    for (final n in nodes) {
+      final hot = rng.nextDouble() > 0.72;
+      nodePaint.color = hot
+          ? Color.fromRGBO(255, 170, 70, 0.35 + 0.45 * glow)
+          : Color.fromRGBO(210, 170, 255, 0.22 + 0.28 * glow);
+      canvas.drawCircle(n, hot ? 2.4 : 1.6, nodePaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _VividMeshPainter old) => old.t != t;
 }

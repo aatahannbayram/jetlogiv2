@@ -23,6 +23,7 @@ export const metadata: Metadata = {
     template: `%s · ${brand.name}`,
   },
   description: brand.blurb,
+  icons: { icon: '/favicon.png' },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

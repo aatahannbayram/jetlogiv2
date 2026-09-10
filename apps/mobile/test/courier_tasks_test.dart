@@ -258,11 +258,10 @@ void main() {
     expect(call.dialNumber, '+905321110026');
   });
 
-  test('FailScreen gerekçesi kanonik outcomeCode’a düşer', () {
+  test('ReturnScreen gerekçesi kanonik outcomeCode’a düşer', () {
     expect(failureOutcomeCode('Alıcı adreste yok'), 'RECIPIENT_ABSENT');
     expect(failureOutcomeCode('Adres bulunamadı'), 'ADDRESS_NOT_FOUND');
     expect(failureOutcomeCode('Alıcı teslim almadı'), 'REFUSED');
-    expect(failureOutcomeCode('Ödeme alınamadı'), 'REFUSED');
     expect(photoRequiredForFailure('Alıcı adreste yok'), isTrue);
     expect(photoRequiredForFailure('Adres bulunamadı'), isTrue);
     expect(photoRequiredForFailure('Alıcı teslim almadı'), isFalse);
@@ -899,6 +898,54 @@ void main() {
     expect(delta.tasks.first.status, TaskStatus.cancelled);
     expect(delta.removedTaskIds, ['gone']);
     expect(delta.syncedAt, '2026-09-06T18:00:00.000Z');
+  });
+
+  test('sync removedTaskIds tavanı aşmaz', () async {
+    final flood = List<String>.generate(kRemovedTaskIdsCap + 40, (i) => 'gone-$i');
+    final dio = Dio(BaseOptions(baseUrl: 'http://sync.test'));
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          handler.resolve(
+            Response<Map<String, dynamic>>(
+              requestOptions: options,
+              statusCode: 200,
+              data: {
+                'tasks': <Map<String, dynamic>>[],
+                'removedTaskIds': flood,
+                'nextCursor': null,
+                'syncedAt': '2026-09-06T18:00:00.000Z',
+                'resyncRequired': false,
+              },
+            ),
+          );
+        },
+      ),
+    );
+    final delta = await MobileApi(dio: dio).fetchChanges();
+    expect(delta.removedTaskIds.length, kRemovedTaskIdsCap);
+    expect(delta.removedTaskIds.first, 'gone-0');
+  });
+
+  test('izin sonrası kurye otomatik müsait', () {
+    final s = SessionController();
+    s.phase = AppPhase.permissions;
+    s.shiftOpen = false;
+    s.online = false;
+    s.completePermissions();
+    expect(s.shiftOpen, isTrue);
+    expect(s.online, isTrue);
+    expect(s.phase, AppPhase.main);
+  });
+
+  test('filo kapalıyken harita diğer kuryeleri kadraja almaz', () {
+    final s = SessionController();
+    expect(s.showFleet, isFalse);
+    expect(s.visibleFleet, isNotEmpty);
+    expect(s.visibleFleet.every((c) => c.self), isTrue);
+    s.toggleFleet();
+    expect(s.visibleFleet.length, greaterThan(1));
+    expect(s.visibleFleet.any((c) => !c.self), isTrue);
   });
 
   test('yeni atanan durak bildirim açar', () {

@@ -1,6 +1,8 @@
 import {
   CustodyHandoverRequest,
   CustodyHandoverResponse,
+  CustodyIntakeRequest,
+  CustodyIntakeResponse,
   CustodyIssueReportRequest,
   CustodyIssueReportResponse,
   CustodyItem,
@@ -22,9 +24,14 @@ import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 
 import type { AppContext } from '../context.js';
+import { serviceRouteRateLimit } from '../rate-limits.js';
 import { decodeCursor, encodeCursor } from './task.js';
 import type { AuthenticatedCourier } from '../plugins/authenticate.js';
-import { productStatusForHandover, transitionCustodyItem } from '../services/custody-status.js';
+import {
+  intakeCustodyItem,
+  productStatusForHandover,
+  transitionCustodyItem,
+} from '../services/custody-status.js';
 import { PostgresIdempotencyStore } from '../services/idempotency-store.js';
 import { enqueueCourierNotification } from '../services/notify.js';
 import { closeReturnOnBranchHandover } from '../services/return-status.js';
@@ -248,6 +255,59 @@ export async function custodyRoutes(app: FastifyInstance, { ctx }: { ctx: AppCon
             appliedAt: new Date().toISOString(),
           },
         };
+      });
+    },
+  );
+
+  /**
+   * Depot/branch intake: the first row for a barcode that has never been in
+   * custody before. Closes the long-standing gap noted in
+   * `services/custody-status.ts` (PRD-010..070 had no producer) — without
+   * this, "Kurye" custody takeover mode has nothing to take over. Guarded by
+   * `authenticateService` rather than `app.authenticate` because no
+   * branch-staff identity exists in this codebase yet; once one does, this
+   * should move to that auth instead of the shared service token.
+   */
+  route.post(
+    '/v1/custody/intake',
+    {
+      config: { rateLimit: serviceRouteRateLimit },
+      schema: {
+        tags: ['Custody'],
+        body: CustodyIntakeRequest,
+        response: {
+          200: CustodyIntakeResponse,
+          201: CustodyIntakeResponse,
+          400: ErrorResponse,
+          401: ErrorResponse,
+        },
+      },
+    },
+    async (request, reply) => {
+      await app.authenticateService(request);
+      const body = request.body;
+      const occurredAt = clampOccurredAt(new Date(body.occurredAt), new Date());
+
+      const result = await ctx.db.transaction((tx) =>
+        intakeCustodyItem(
+          tx,
+          { tenantId: body.tenantId, correlationId: body.clientEventId },
+          {
+            barcode: body.barcode,
+            type: body.type,
+            description: body.description,
+            quantity: body.quantity,
+            amount: body.amount ?? null,
+            taskId: body.taskId ?? null,
+            occurredAt,
+          },
+        ),
+      );
+
+      return reply.status(result.created ? 201 : 200).send({
+        item: toCustodyItem(result.item),
+        created: result.created,
+        appliedAt: new Date().toISOString(),
       });
     },
   );

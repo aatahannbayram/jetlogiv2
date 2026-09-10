@@ -20,6 +20,19 @@ void main() {
     expect(cut, isNot(contains('kurye@dijigoo.test')));
   });
 
+  test('redactForLog JWT, Bearer ve telefonu kırpar', () {
+    const raw =
+        'auth Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.abc '
+        'phone +905321110026 or 05321110026';
+    expect(redactForLog(raw, release: false), raw);
+    final cut = redactForLog(raw, release: true);
+    expect(cut, isNot(contains('eyJ')));
+    expect(cut, isNot(contains('eyJhbGci')));
+    expect(cut, contains('Bearer ***'));
+    expect(cut, isNot(contains('+905321110026')));
+    expect(cut, isNot(contains('05321110026')));
+  });
+
   test('isHttpsUrl yalnız https kabul eder', () {
     expect(isHttpsUrl('https://kurye.dijigoo.com/api/mobile'), isTrue);
     expect(isHttpsUrl('http://localhost:3000/api'), isFalse);
@@ -36,6 +49,30 @@ void main() {
     } else {
       expect(prod, isNot(contains(kPublicOsrm)));
     }
+  });
+
+  test('demoFieldAllowed release’te yalnız ALLOW_DEMO ile açık', () {
+    expect(demoFieldAllowed(release: false), isTrue);
+    expect(demoFieldAllowed(release: true), kAllowDemo);
+  });
+
+  test('skipToDemo allow:false iken saha açılmaz', () {
+    final s = SessionController();
+    s.tasks.clear();
+    s.demo = false;
+    s.phase = AppPhase.splash;
+    s.skipToDemo(allow: false);
+    expect(s.demo, isFalse);
+    expect(s.phase, AppPhase.splash);
+    s.skipToDemo(allow: true);
+    expect(s.demo, isTrue);
+    expect(s.phase, AppPhase.main);
+  });
+
+  test('MobileApi.tryCreate pinning interceptor’lı istemci döner', () {
+    final api = MobileApi.tryCreate();
+    expect(api, isNotNull);
+    expect(api!.dio.interceptors, isNotEmpty);
   });
 
   test('depo kilitliyken pull ve push yutulur', () async {

@@ -104,7 +104,7 @@ class _NotifScreenState extends ConsumerState<NotifScreen> {
                         onTap: () => Navigator.of(context).pop(),
                         child: Padding(
                           padding: const EdgeInsets.only(right: 8, top: 4),
-                          child: Icon(
+                          child: DgIcon(
                             LucideIcons.chevronLeft,
                             size: 22,
                             color: Dg.ink,
@@ -329,13 +329,13 @@ class _SwipeCue extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (start) ...[
-            Icon(icon, size: 16, color: ink),
+            DgIcon(icon, size: 16, color: ink),
             const SizedBox(width: 6),
             Text(label, style: Dg.ui(size: 13, weight: FontWeight.w600, color: ink)),
           ] else ...[
             Text(label, style: Dg.ui(size: 13, weight: FontWeight.w600, color: ink)),
             const SizedBox(width: 6),
-            Icon(icon, size: 16, color: ink),
+            DgIcon(icon, size: 16, color: ink),
           ],
         ],
       ),

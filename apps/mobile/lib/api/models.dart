@@ -527,6 +527,37 @@ class SupportTicketDto {
       );
 }
 
+class TrainingModuleDto {
+  const TrainingModuleDto({
+    required this.id,
+    required this.title,
+    required this.body,
+    required this.sortOrder,
+    required this.completed,
+    this.summary,
+    this.completedAt,
+  });
+
+  final String id;
+  final String title;
+  final String? summary;
+  final String body;
+  final int sortOrder;
+  final bool completed;
+  final String? completedAt;
+
+  factory TrainingModuleDto.fromJson(Map<String, dynamic> json) =>
+      TrainingModuleDto(
+        id: json['id'] as String? ?? '',
+        title: json['title'] as String? ?? '',
+        summary: json['summary'] as String?,
+        body: json['body'] as String? ?? '',
+        sortOrder: (json['sortOrder'] as num?)?.toInt() ?? 0,
+        completed: json['completed'] as bool? ?? false,
+        completedAt: json['completedAt'] as String?,
+      );
+}
+
 String supportCategoryLabel(String category) => switch (category) {
   'APP_ISSUE' => 'Uygulama',
   'ADDRESS_PROBLEM' => 'Adres',

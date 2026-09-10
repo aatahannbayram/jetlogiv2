@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import { TrackForm } from '@/components/track-form';
 import { brand, modules, services, stats } from '@/lib/content';
@@ -8,7 +9,14 @@ export default function HomePage() {
       <section className="hero">
         <div className="wrap hero-grid">
           <div>
-            <p className="kicker">{brand.name}</p>
+            <Image
+              src="/jetlogi_logo_white.png"
+              alt={brand.name}
+              width={117}
+              height={44}
+              className="hero-logo"
+              priority
+            />
             <h1>{brand.tagline}</h1>
             <p className="lede">{brand.blurb}</p>
             <Link href="/hizmetler" className="btn btn-ghost">

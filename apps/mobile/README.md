@@ -1,9 +1,10 @@
 # JetLogi Kurye (dijigoo_kurye)
 
-Kurye saha uygulaması — Flutter. Kuryenin vardiya açması, dağıtım
-listesini/rotayı görmesi, teslimat/iade akışını yürütmesi, zimmet (custody)
-devretmesi, destek talebi açması ve bildirimleri takip etmesi için tek
-uygulama. iOS + Android, tek kod tabanı.
+Kurye ve şube/acente saha uygulaması — Flutter. Kuryenin vardiya açması,
+sıradaki durağa gitmesi, teslimat/iade akışını yürütmesi, zimmet (custody)
+devretmesi, gün sonu ve eğitimi tamamlaması; şube personelinin gönderi /
+kurye / stok / sayım / sevk kabuğunu kullanması için tek uygulama.
+iOS + Android, tek kod tabanı.
 
 ---
 
@@ -21,8 +22,10 @@ lib/
 ├── widgets.dart               # Paylaşılan UI (DgCard, DgButton, StatusChip, MapStrip, ...)
 ├── l10n.dart                   # L10n — TR/EN string tablosu (Localizations değil, kendi sınıfımız)
 ├── road.dart                    # OSRM entegrasyonu (bkz. §1.7)
-├── geo.dart                      # Google-algoritması polyline decode + haversine
-├── map_config.dart                # Harita karo URL'i (Mapbox/CartoDB), her zaman açık tema
+├── next_stop.dart                  # Sıradaki durak: faz, adres/randevu parse, 150 m eşik, statik harita URL
+├── coach.dart                       # İlk-giriş tooltip / koç bayrakları
+├── geo.dart                          # Polyline decode/encode + haversine
+├── map_config.dart                    # Harita karo URL'i (Mapbox light-v11 / Esri World Street)
 ├── scan.dart                       # Barkod/QR tarama (kamera + manuel kod fallback)
 ├── signature.dart                   # İmza yakalama
 ├── locate.dart                       # Tek seferlik GPS okuma + izin istekleri (sürekli takip yok)
@@ -32,7 +35,7 @@ lib/
 ├── push.dart                             # FieldPush — FCM (yalnız dart-define + attach() ile açılır)
 ├── notif.dart                             # Bildirim filtreleme/gruplama yardımcıları
 ├── sync_label.dart                         # OutboxEvent → kuryeye gösterilecek insan-okur metin
-├── brand.dart                               # Marka logosu (PNG değil, kod ile çizilen iğne+D)
+├── brand.dart                               # JetLogi lockup (beyaz/renkli PNG)
 ├── shell_nav.dart                            # Alt sekme navigasyon yardımcıları
 ├── log.dart                                   # DgLog — halka tampon + dosyaya yazan yerel logger
 ├── api/
@@ -40,29 +43,34 @@ lib/
 │   ├── courier_tasks.dart                         # DeliveryTask ⇄ wire format dönüşümleri
 │   ├── models.dart                                 # API DTO'ları (RoutePlanDto, CustodyItemDto, ...)
 │   ├── panel_client.dart                            # PanelApi — jetlogi-panel'e cookie-session istemcisi
-│   └── panel_models.dart                             # Panel DTO'ları
+│   ├── panel_models.dart                             # Panel DTO'ları
+│   ├── agency_client.dart                            # AgencyPortalApi — acente cookie-session
+│   └── agency_models.dart                             # Acente DTO'ları
 ├── data/
 │   ├── database.dart                                  # Drift (SQLite, şifreli) şeması
 │   ├── outbox.dart                                     # Offline-first yazma kuyruğu (bkz. §1.6)
 │   └── vault.dart                                       # Keychain/Keystore — token, DB anahtarı, installationId
-└── screens/                                              # 23 ekran, bkz. §2
+└── screens/                                              # kurye + şube ekranları, bkz. §2
 ```
 
 ### 1.2 Bileşen diyagramı
 
 ```mermaid
 flowchart TB
-    subgraph UI["23 Ekran (lib/screens/)"]
-        Home[home_screen] --> Session
+    subgraph UI["lib/screens/"]
+        Home[home_screen + next_stop_card] --> Session
         List[list_screen] --> Session
         Route[shell_screen · RouteScreen] --> Session
         Wizard[wizard_screen] --> Session
+        Return[return_screen] --> Session
         Zimmet[zimmet_screen] --> Session
         Sync[sync_screen] --> Session
         Notif[notif_screen] --> Session
+        Sube[sube_* kabuğu] --> Agency
     end
 
     Session[["SessionController\n(tek ChangeNotifier)"]]
+    Agency[AgencyPortalApi]
 
     Session --> Outbox[(OutboxStore\nDrift/SQLite)]
     Session --> Vault[(Vault\nKeychain/Keystore)]
@@ -71,15 +79,17 @@ flowchart TB
     Session --> Road[road.dart\ncanlı OSRM sorgusu]
     Session --> Alerts[FieldAlerts\nyerel bildirim]
     Session --> Push[FieldPush\nFCM, opsiyonel]
+    Agency --> Vault
 
     Outbox -->|"POST /v1/sync/batch"| MobileApi
     MobileApi -->|"bearer + OTP"| API[(apps/api\nFastify)]
     PanelApi -->|"cookie-session"| Panel[(jetlogi-panel)]
+    Agency -->|"cookie-session"| Portal[(acente portal)]
     Road -->|"GET /route/v1/driving/..."| OSRM[(OSRM\nkendi barındırılan/demo)]
     API --> OSRM
 
     classDef store fill:#2a2a2a,color:#fff,stroke:#666;
-    class Outbox,Vault,API,Panel,OSRM store;
+    class Outbox,Vault,API,Panel,Portal,OSRM store;
 ```
 
 ### 1.3 Rota/harita akışı özeti (ayrıntı: §1.7)
@@ -193,12 +203,15 @@ olay için insan-okur etiket (`sync_label.dart`), "Verileri gönder" butonu
    yol ASLA gerçek bir polyline'ın yerine geçmez, sadece geçici bir "tahmin"
    göstergesidir (`estimated: true`, kesikli çizgi, farklı renk).
 
-   Harita karoları (`map_config.dart`) **her zaman açık tema** — koyu/açık
-   uygulama temasından bağımsız, çünkü koyu karo denendiğinde (bir önceki
-   oturumda) pin/overlay kontrastı bozulduğu için bilinçli olarak geri
-   alındı. Rota çizgisinin rengi de aynı sebeple sabit koyu (`Dg.night`),
-   `Dg.ink` gibi temaya uyan bir renk **değil** — aksi halde koyu temada
-   çizgi neredeyse görünmez oluyordu (bu oturumda bulunup düzeltildi).
+   Harita karoları (`map_config.dart`) **her zaman açık tema** (Mapbox
+   `light-v11` veya anahtarsız Esri World Street). CartoDB anonim erişimi
+   kapandığı için fallback Esri’dir. Rota çizgisi sabit koyu (`Dg.night`) —
+   temaya uyan `Dg.ink` koyu temada kayboluyordu.
+
+   Ana sayfa **Sıradaki durak** kartı canlı `FlutterMap` kullanmaz: Mapbox
+   token varsa `dark-v11` statik snapshot, yoksa placeholder. Dokununca
+   mevcut `RouteScreen` açılır. Varış eşiği 150 m; GPS yoksa kurye **Vardım**
+   der, CTA **Teslime başla** olur ve sihirbaz açılır.
 
 ### 1.8 Bildirimler
 
@@ -231,7 +244,7 @@ açılınca ya da uygulama kapanıp açılınca sıfırlanmaz.
 
 ## 2. Ekranlar
 
-23 ekran, `lib/screens/`:
+`lib/screens/` — kurye kabuğu + şube/acente kabuğu.
 
 | Ekran | Ne işe yarar |
 |---|---|
@@ -241,13 +254,16 @@ açılınca ya da uygulama kapanıp açılınca sıfırlanmaz.
 | `permissions_screen.dart` | Konum/kamera/bildirim izinleri kapısı |
 | `shift_screen.dart` | Vardiya açılış selfie'si |
 | `kyc_screen.dart` | Kimlik doğrulama (MRZ/NFC okuma) |
-| `home_screen.dart` | Ana sayfa — vardiya kartı, sıradaki durak, senkron/bildirim özeti |
+| `home_screen.dart` | Ana sayfa — sıradaki durak kartı üstte, vardiya özeti, senkron/bildirim |
+| `next_stop_card.dart` | Sıradaki durak: snap pager, statik harita, Vardım / Yol tarifi / Teslime başla |
 | `list_screen.dart` | Dağıtım listesi (Rota sekmesi) — aynı-adres gruplama dahil |
 | `shell_screen.dart` | Alt sekme iskeleti + `RouteScreen` (dikey zaman çizelgeli harita) |
 | `task_detail_screen.dart` | Tek görev detayı |
 | `wizard_screen.dart` | Teslimat adımları (kim aldı → kapı foto → kod/imza) |
 | `result_screen.dart` | Teslimat sonucu (başarılı/başarısız) |
-| `fail_screen.dart` | İade/teslim-edilemedi gerekçe seçimi |
+| `return_screen.dart` | İade / teslim-edilemedi (`fail_screen` yerine) |
+| `eod_screen.dart` | Kurye gün sonu |
+| `training_screen.dart` / `training_detail_screen.dart` | Saha eğitim modülleri |
 | `zimmet_screen.dart` | Kurye/Şube zimmet tarama ve devir |
 | `envanter_screen.dart` | Kod ile envanter/koli girişi |
 | `depo_screen.dart` | Depodan alım |
@@ -258,6 +274,15 @@ açılınca ya da uygulama kapanıp açılınca sıfırlanmaz.
 | `earnings_screen.dart` | Performans/prim özeti |
 | `profile_screen.dart` | Kurye profili + (5 dokunuşla) gizli mühendis/debug paneli |
 | `menu_screen.dart` | Ayarlar, tema/dil, oturum kapatma, diğer ekranlara giriş |
+| `sube_login_screen.dart` | Acente portal girişi |
+| `sube_shell_screen.dart` | Şube alt sekme kabuğu |
+| `sube_home_screen.dart` | Şube ana sayfa sayaçları |
+| `sube_shipments_screen.dart` | Gönderiler |
+| `sube_couriers_screen.dart` | Kuryeler |
+| `sube_stock_screen.dart` | Stok & zimmet |
+| `sube_count_screen.dart` | Sayım |
+| `sube_dispatch_screen.dart` | Merkeze sevk |
+| `sube_eod_screen.dart` | Şube gün sonu |
 
 ---
 
@@ -270,7 +295,8 @@ flutter run \
   --dart-define=OSRM_URL=http://localhost:5001
 ```
 
-- `MAPBOX_TOKEN` yoksa harita CartoDB'nin ücretsiz karolarına düşer.
+- `MAPBOX_TOKEN` yoksa rota haritası Esri World Street karolarına düşer.
+  Sıradaki durak kartı token yoksa snapshot yerine placeholder gösterir.
 - `OSRM_URL` yoksa herkese açık demo OSRM'e düşer — yerelde
   `docker compose up -d osrm` ile kendi OSRM'imizi ayağa kaldırıp ona
   işaret etmek tercih edilmeli (§1.4).
@@ -300,9 +326,11 @@ regresyonların sinyalini boğar; ayrı bir formatlama geçişiyle eklenmeli).
   (8+ dk asılı kaldı). Firebase Messaging'in de aynı sınıf native
   bağımlılığı var (`firebase-ios-sdk`) — build'i gerçek cihazda/CI'da
   doğrulamak gerek, bu ortamda doğrulanamadı.
-- **`notif`/`sync`/`zimmet`/`fail` ekranlarının** elle, canvas-referanslı
+- **`notif`/`sync`/`zimmet`/`return` ekranlarının** elle, canvas-referanslı
   tasarım geçişi hâlâ yapılmadı — yalnız ortak token'lardan (DgCard/
   StatusChip/Dg.*) otomatik pay aldılar.
+- **Şube 5 modül** kabuk olarak duruyor; acente portalda çoğu liste/detay
+  ucu henüz yok (`docs/08-sube-acente-entegrasyonu.md`).
 - **Açık tema** yeni canlı doğrulandı, kapsamlı bir ekran-ekran denetim
   değil.
 

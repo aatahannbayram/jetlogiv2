@@ -100,7 +100,7 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen> {
               value: granted.length / items.length,
               minHeight: 6,
               backgroundColor: Dg.elev,
-              valueColor: const AlwaysStoppedAnimation(Dg.primaryGradientStart),
+              valueColor: AlwaysStoppedAnimation(Dg.primaryGradientStart),
             ),
           ),
           const SizedBox(height: 18),

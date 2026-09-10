@@ -4,6 +4,7 @@ import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 
 import type { AppContext } from '../context.js';
+import { serviceRouteRateLimit } from '../rate-limits.js';
 import { enqueueCourierNotification } from '../services/notify.js';
 import { assignTask } from '../services/task-assign.js';
 
@@ -20,6 +21,7 @@ export async function taskAssignRoutes(app: FastifyInstance, { ctx }: { ctx: App
   route.post(
     '/v1/tasks/:taskId/assign',
     {
+      config: { rateLimit: serviceRouteRateLimit },
       schema: {
         tags: ['Task'],
         summary: 'Gorevi kuryeye ata / baska kuryeye cek',

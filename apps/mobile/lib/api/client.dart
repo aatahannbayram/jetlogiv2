@@ -17,6 +17,9 @@ const kApiBase = String.fromEnvironment(
 const kAppVersion = '1.0.0';
 const kAppBuild = 42;
 
+/// Sync pull: sunucu da bu tavanı uygular; istemci şişmiş diziyi yutmaz.
+const kRemovedTaskIdsCap = 200;
+
 String clientInfoHeader() {
   final os = defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android';
   return 'dijigoo-courier/$kAppVersion ($os; build $kAppBuild)';
@@ -102,6 +105,15 @@ class MobileApi {
     return MobileApi(dio: dio, vault: vault);
   }
 
+  /// Pinning veya HTTPS assert patlarsa çıplak Dio yok — `null`.
+  static MobileApi? tryCreate({Vault? vault}) {
+    try {
+      return MobileApi.create(vault: vault);
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<List<DeliveryTask>> fetchTasks({String? updatedSince}) async {
     final items = <DeliveryTask>[];
     String? cursor;
@@ -150,6 +162,7 @@ class MobileApi {
       }
       final gone = (res.data?['removedTaskIds'] as List?) ?? const [];
       for (final id in gone) {
+        if (removed.length >= kRemovedTaskIdsCap) break;
         if (id is String && id.isNotEmpty) removed.add(id);
       }
       if (res.data?['resyncRequired'] == true) resyncRequired = true;
@@ -235,6 +248,20 @@ class MobileApi {
       pages += 1;
     } while (cursor != null && pages < 20);
     return items;
+  }
+
+  Future<List<TrainingModuleDto>> fetchTrainingModules() async {
+    final res = await dio.get<Map<String, dynamic>>('/v1/training/modules');
+    lastWasLive = res.extra['demo'] != true;
+    final raw = (res.data?['items'] as List?) ?? const [];
+    return [
+      for (final row in raw)
+        if (row is Map) TrainingModuleDto.fromJson(Map<String, dynamic>.from(row)),
+    ];
+  }
+
+  Future<void> completeTrainingModule(String moduleId) async {
+    await dio.post<void>('/v1/training/modules/$moduleId/complete');
   }
 
   Future<CourierAvailabilityDto> fetchAvailability() async {
@@ -659,6 +686,7 @@ class DemoFallbackInterceptor extends Interceptor {
         path.contains('/v1/routes/current') ||
         path.contains('/v1/tasks') ||
         path.contains('/v1/support/tickets') ||
+        path.contains('/v1/training/modules') ||
         path.contains('/v1/sync/changes') ||
         path.contains('/v1/notifications') ||
         path.contains('/v1/shifts');
@@ -675,6 +703,37 @@ class DemoFallbackInterceptor extends Interceptor {
 
 /// Demo parcels held for branch handover (Madde 9). Barcodes match what
 /// [ZimmetScreen]'s "Şube" mode expects a courier to scan.
+final _demoTrainingModules = [
+  {
+    'id': '30000000-0000-4000-a000-000000000001',
+    'title': 'Trafik güvenliği',
+    'summary': 'Motosikletle güvenli sürüş için 5 temel kural.',
+    'body':
+        '1. Kask her zaman takılı.\n2. Hız sınırlarına uy.\n3. Yaya geçitlerinde dur.\n4. Gece reflektörlü ekipman kullan.\n5. Yorgunken sürme.',
+    'sortOrder': 1,
+    'completed': false,
+  },
+  {
+    'id': '30000000-0000-4000-a000-000000000002',
+    'title': 'KVKK ve müşteri verisi',
+    'summary': 'Teslimat sırasında müşteri bilgilerini nasıl koruruz.',
+    'body':
+        'Alıcı adı, adresi ve telefonu sadece teslimat için kullanılır. Bu bilgileri paylaşmak, fotoğraflamak veya not almak yasaktır.',
+    'sortOrder': 2,
+    'completed': false,
+  },
+  {
+    'id': '30000000-0000-4000-a000-000000000003',
+    'title': 'Zimmet ve barkod okutma',
+    'summary': 'Doğru zimmet akışı neden önemli.',
+    'body':
+        'Her paket teslim alınırken ve teslim edilirken barkodu okutulmalı. Okutulmayan paket zimmetinde görünmeye devam eder.',
+    'sortOrder': 3,
+    'completed': true,
+    'completedAt': '2026-09-01T09:00:00.000Z',
+  },
+];
+
 final _demoCustodyItems = [
   {
     'id': '10000000-0000-4000-a000-000000000001',
@@ -797,7 +856,6 @@ final _demoTaskSummaries = [
     lat: 38.1554,
     lng: 29.0692,
     itemCount: 1,
-    codAmount: 185,
     slotHour: 15.75,
   ),
   _demoTask(
@@ -986,6 +1044,15 @@ Map<String, dynamic> mockPayload(String path, RequestOptions options) {
       'nextCursor': null,
       'syncedAt': DateTime.now().toUtc().toIso8601String(),
     };
+  }
+  if (path.contains('/training/modules') && path.endsWith('/complete')) {
+    return {
+      'moduleId': path.split('/').reversed.skip(1).first,
+      'completedAt': DateTime.now().toUtc().toIso8601String(),
+    };
+  }
+  if (path.contains('/v1/training/modules')) {
+    return {'items': _demoTrainingModules};
   }
   if (path.contains('/media/presign')) {
     return {

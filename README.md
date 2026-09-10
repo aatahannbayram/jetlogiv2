@@ -10,7 +10,7 @@ Detaylı mimari kararlar ve durum notları `docs/` altında; canlı takip Linear
 | Yol | Ne | Stack |
 |---|---|---|
 | `apps/api` | Kurye BFF / Fastify API | Fastify, Drizzle ORM, Zod |
-| `apps/mobile` | Kurye mobil uygulaması | Flutter |
+| `apps/mobile` | Kurye + şube/acente saha uygulaması | Flutter |
 | `apps/panel` | Kurye BFF web iskeleti (`/api/mobile/v1`) — operasyon paneli **değil** | Next.js |
 | `apps/website` | Kurumsal site — mevcut `jetlogi.com` yeniden yapımı | Next.js 15 |
 | `apps/worker` | Arka plan iş kuyruğu | *(iskelet, henüz boş)* |
@@ -96,6 +96,12 @@ pnpm infra:down   # docker compose down
 - `docs/05-panel-entegrasyonu.md` — jetlogi-panel entegrasyon planı
 - `docs/06-eski-panel-ve-repo-analizi.md` — eski sistem (api/panel.jetlogi.net) analizi
 - `docs/07-ana-plan.md` — üç sistemi (eski/yeni panel/bizim iş) birleştiren yol haritası
+- `docs/08-sube-acente-entegrasyonu.md` — acente portal auth’u ve şube mobil kabuğu
+
+Ana sayfadaki **Sıradaki durak** kartı (`apps/mobile/lib/screens/next_stop_card.dart`):
+konum yoksa **Vardım** → **Teslime başla** (mevcut sihirbaz); **Olmadı** iade
+ekranına gider. Canlı harita bu kartta yok — Mapbox token varsa statik koyu
+snapshot, yoksa placeholder.
 
 Not: `docs/07`'den itibaren güncel durumun asıl kaynağı Linear (JETLOG
 takımı) — bu dosyalar birer görüntü (snapshot), canlı takip değil.

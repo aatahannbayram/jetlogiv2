@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../l10n.dart';
+import '../motion.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'zimmet_screen.dart';
@@ -38,40 +39,49 @@ class TaraScreen extends StatelessWidget {
                       color: Dg.elev,
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(LucideIcons.arrowLeft, size: 17, color: Dg.ink),
+                    child: DgIcon(LucideIcons.arrowLeft, size: 17, color: Dg.ink),
                   ),
                 ),
                 const SizedBox(height: 14),
               ],
-              Display(l.scan, size: 26),
+              Appear(child: Display(l.scan, size: 26)),
               const SizedBox(height: 4),
-              Text(
-                l.scanHint,
-                style: Dg.ui(size: 14, color: Dg.ink2),
+              Appear(
+                delay: const Duration(milliseconds: 40),
+                child: Text(
+                  l.scanHint,
+                  style: Dg.ui(size: 14, color: Dg.ink2),
+                ),
               ),
               const SizedBox(height: 24),
-              _ScanOption(
-                icon: LucideIcons.qrCode,
-                title: l.courierCustody,
-                subtitle: l.courierCustodyHint,
-                tint: Dg.redBg,
-                ink: Dg.red,
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const ZimmetScreen(mode: 'kurye'),
+              StaggerIn(
+                index: 0,
+                child: _ScanOption(
+                  icon: LucideIcons.qrCode,
+                  title: l.courierCustody,
+                  subtitle: l.courierCustodyHint,
+                  tint: Dg.warnSoft,
+                  ink: Dg.warn,
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const ZimmetScreen(mode: 'kurye'),
+                    ),
                   ),
                 ),
               ),
               const SizedBox(height: 12),
-              _ScanOption(
-                icon: LucideIcons.qrCode,
-                title: l.branchCustody,
-                subtitle: l.branchCustodyHint,
-                tint: Dg.greenBg,
-                ink: Dg.green,
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const ZimmetScreen(mode: 'sube'),
+              StaggerIn(
+                index: 1,
+                child: _ScanOption(
+                  icon: LucideIcons.qrCode,
+                  title: l.branchCustody,
+                  subtitle: l.branchCustodyHint,
+                  tint: Dg.ok.withValues(alpha: 0.12),
+                  ink: Dg.ok,
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const ZimmetScreen(mode: 'sube'),
+                    ),
                   ),
                 ),
               ),
@@ -118,7 +128,7 @@ class _ScanOption extends StatelessWidget {
               ],
             ),
           ),
-          Icon(LucideIcons.chevronRight, color: Dg.ink3),
+          DgIcon(LucideIcons.chevronRight, color: Dg.ink3),
         ],
       ),
     );

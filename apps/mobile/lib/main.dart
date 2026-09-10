@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +8,7 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import 'alerts.dart';
 import 'api/client.dart';
 import 'push.dart';
+import 'api/agency_client.dart';
 import 'api/panel_client.dart';
 import 'app.dart';
 import 'data/database.dart';
@@ -22,6 +22,15 @@ import 'session.dart';
 /// Sahada bir kuryenin uygulaması çökünce bugüne kadar bunu görmenin tek
 /// yolu kuryenin kendi bildirmesiydi.
 const _sentryDsn = String.fromEnvironment('SENTRY_DSN', defaultValue: '');
+
+/// Sunum/demo çekimi için: onboarding'i ve splash'teki "Demoyu Aç" dokunuşunu
+/// atlayıp uygulamayı doğrudan dolu demo ekranıyla açar. `skipToDemo()` ile
+/// birebir aynı yolu kullanır — release'te asla true olmaz, sadece
+/// `--dart-define=DEMO_AUTOSTART=true` verilince devreye girer.
+const _demoAutostart = bool.fromEnvironment(
+  'DEMO_AUTOSTART',
+  defaultValue: false,
+);
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -57,31 +66,29 @@ Future<void> _bootstrap() async {
     db = await AppDatabase.openEncrypted(vault);
     await db.ping();
     cipherOn = true;
-  } catch (_) {
+  } catch (e) {
+    DgLog.e(LogLayer.boot, 'encrypted db failed · $e');
     db = AppDatabase.memory();
     cipherOn = false;
-    // Şifreli depo açılmazsa kilit ekranı yerine bellek DB: aynı APK
-    // yine sahaya düşer. Canlı yazmalar storageOk ile ayrı korunur.
+    // Release kilitler; debug/simülatörde SQLCipher veya keychain
+    // takılırsa demo saha yine açılsın.
+    storageOk = !kReleaseMode;
   }
-  late final MobileApi api;
-  try {
-    api = MobileApi.create(vault: vault);
-  } catch (_) {
-    api = MobileApi(
-      dio: Dio(
-        BaseOptions(
-          baseUrl: kApiBase,
-          connectTimeout: const Duration(seconds: 2),
-        ),
-      ),
-      vault: vault,
-    );
+  final api = MobileApi.tryCreate(vault: vault);
+  if (api == null) {
+    storageOk = !kReleaseMode;
   }
   PanelApi? panel;
   try {
     panel = await PanelApi.create(vault: vault);
   } catch (_) {
     panel = null;
+  }
+  AgencyPortalApi? agency;
+  try {
+    agency = await AgencyPortalApi.create(vault: vault);
+  } catch (_) {
+    agency = null;
   }
   final seen = await vault.onboardSeen;
   final outbox = OutboxStore(db: db);
@@ -91,6 +98,7 @@ Future<void> _bootstrap() async {
           outbox: outbox,
           api: api,
           panel: panel,
+          agency: agency,
           vault: vault,
           waitForConfig: true,
           initialPhase: seen ? AppPhase.splash : AppPhase.onboard,
@@ -99,6 +107,9 @@ Future<void> _bootstrap() async {
         ..storageOk = storageOk;
   await session.restoreUiPrefs();
   await session.restoreLocalShift();
+  if (_demoAutostart && !kReleaseMode) {
+    session.skipToDemo();
+  }
   await DgLog.attach();
   DgLog.i(
     LogLayer.boot,

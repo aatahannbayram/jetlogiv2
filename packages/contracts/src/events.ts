@@ -37,6 +37,7 @@ export const EventKey = z.enum([
   'evidence.uploaded',
   'evidence.rejected',
   // custody
+  'custody.item_intake',
   'custody.item_taken',
   'custody.item_handed_over',
   'custody.discrepancy_reported',

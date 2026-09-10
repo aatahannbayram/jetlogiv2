@@ -14,7 +14,7 @@ import '../models.dart';
 import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
-import 'fail_screen.dart';
+import 'return_screen.dart';
 import 'wizard_screen.dart';
 
 /// Canvas'ın "1d Görev detayı" tasarımı — tam ekran harita + kaydırmalı
@@ -116,26 +116,29 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                   bottom: false,
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-                    child: Row(
-                      children: [
-                        _SheetBack(
-                          onTap: () => Navigator.of(context).pop(),
-                        ),
-                        const SizedBox(width: 8),
-                        Flexible(
-                          child: _RouteChip(
-                            text: slice != null && !slice.estimated
-                                ? l.routeKmMin(km, minutes)
-                                : '${l.routeKmMin(km, minutes)}  ·  ${l.approxRoute}',
+                    child: Appear(
+                      slide: -0.15,
+                      child: Row(
+                        children: [
+                          _SheetBack(
+                            onTap: () => Navigator.of(context).pop(),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        _FleetToggle(
-                          on: session.showFleet,
-                          label: l.fleetOnMap,
-                          onTap: session.toggleFleet,
-                        ),
-                      ],
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: _RouteChip(
+                              text: slice != null && !slice.estimated
+                                  ? l.routeKmMin(km, minutes)
+                                  : '${l.routeKmMin(km, minutes)}  ·  ${l.approxRoute}',
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          _FleetToggle(
+                            on: session.showFleet,
+                            label: l.fleetOnMap,
+                            onTap: session.toggleFleet,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -178,8 +181,8 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                           ),
                         ),
                         StatusChip(
-                          label: taskStatusLabel(t.status, l),
-                          tone: taskStatusTone(t.status),
+                          label: taskChipLabel(t, l),
+                          tone: taskChipTone(t),
                         ),
                       ],
                     ),
@@ -212,6 +215,28 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                         height: 1.3,
                       ),
                     ),
+                    if (t.merchantName != null &&
+                        t.merchantName!.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Dg.violetBg,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          t.merchantName!,
+                          style: Dg.ui(
+                            size: 12,
+                            weight: FontWeight.w600,
+                            color: Dg.violet,
+                          ),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 8),
                     const DgDivider(),
                     _InfoCard(
@@ -311,7 +336,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                             final failed = await Navigator.of(context)
                                 .push<bool>(
                                   MaterialPageRoute<bool>(
-                                    builder: (_) => FailScreen(taskId: t.id),
+                                    builder: (_) => ReturnScreen(taskId: t.id),
                                   ),
                                 );
                             if (failed == true && context.mounted)
@@ -320,8 +345,8 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                           child: Text(
                             l.couldNotDeliverShort,
                             style: TextStyle(
-                              color: Dg.hi,
-                              fontWeight: FontWeight.w600,
+                              color: Dg.red,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
                         ),
@@ -381,6 +406,9 @@ class _InfoCard extends StatelessWidget {
   }
 }
 
+/// Mesafe/süre rozeti — dolu gradyan dolgu, ince mor çerçeve YOK: kısmen
+/// saydam koyu zemin + tek renkli kenarlık "hesaplanmamış/yükleniyor" gibi
+/// okunuyordu. Dolu dolgu + gölge "kesin, hesaplanmış" bir değeri iletiyor.
 class _RouteChip extends StatelessWidget {
   const _RouteChip({required this.text});
 
@@ -389,22 +417,37 @@ class _RouteChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: Dg.night,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Dg.purple.withValues(alpha: 0.7)),
+        gradient: Dg.primaryGradient,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x4D5B3FBF),
+            blurRadius: 14,
+            offset: Offset(0, 4),
+          ),
+        ],
       ),
-      child: Text(
-        text,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(
-          fontFamily: Dg.mono,
-          color: Colors.white,
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          DgIcon(LucideIcons.navigation, size: 13, color: Colors.white, weight: 600),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontFamily: Dg.mono,
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -426,6 +469,8 @@ class _FleetToggle extends StatelessWidget {
     return Material(
       color: on ? Dg.night : Dg.surface,
       borderRadius: BorderRadius.circular(16),
+      elevation: 3,
+      shadowColor: Colors.black.withValues(alpha: 0.35),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
@@ -486,7 +531,7 @@ class _SheetBack extends StatelessWidget {
             child: SizedBox(
               width: 36,
               height: 36,
-              child: Icon(LucideIcons.arrowLeft, size: 17, color: Dg.ink),
+              child: DgIcon(LucideIcons.arrowLeft, size: 17, color: Dg.ink),
             ),
           ),
         ),

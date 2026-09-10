@@ -3,7 +3,7 @@ import { test } from 'node:test';
 
 import { decryptField, encryptField, fieldKeyFromEnv } from '@dijigoo/core';
 
-import { plaintextPhone } from '../src/services/masked-call.js';
+import { plaintextPhone, proxyDialNumber } from '../src/services/masked-call.js';
 import { signOtpProof, verifyOtpProof } from '../src/services/otp-token.js';
 
 test('alan sifreleme yuvarlak trip ve eski duz metin', () => {
@@ -13,6 +13,7 @@ test('alan sifreleme yuvarlak trip ve eski duz metin', () => {
   assert.equal(decryptField(enc, key), '+905321110026');
   assert.equal(decryptField('+905321110026', key), '+905321110026');
   assert.equal(plaintextPhone(enc, key), '+905321110026');
+  assert.notEqual(proxyDialNumber('+905321110026'), '+905321110026');
 });
 
 test('OTP kanit tokeni dogrular ve suresi dolani reddeder', () => {

@@ -76,14 +76,15 @@ class _EnvanterScreenState extends ConsumerState<EnvanterScreen> {
                   child: Container(
                     width: 36,
                     height: 36,
-                    decoration: const BoxDecoration(
-                      color: Dg.purple,
+                    decoration: BoxDecoration(
+                      color: Dg.brand,
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(
+                    child: DgIcon(
                       LucideIcons.plus,
                       size: 20,
                       color: Colors.white,
+                      weight: 600,
                     ),
                   ),
                 ),

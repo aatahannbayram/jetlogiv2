@@ -121,7 +121,8 @@ TaskKind taskKindFromWire(String? raw) => switch (raw) {
   _ => TaskKind.delivery,
 };
 
-/// FailScreen Türkçe etiket → workflow outcome (standart-teslimat.v3).
+/// ReturnScreen'in "Teslim Edilemedi" sekmesindeki Türkçe etiket → workflow
+/// outcome (standart-teslimat.v3).
 /// Yeni kod uydurma; listede yoksa en yakın mevcut failure.
 String failureOutcomeCode(String reason) => switch (reason) {
   'Adres bulunamadı' ||
@@ -134,13 +135,8 @@ String failureOutcomeCode(String reason) => switch (reason) {
   'Wrong address' ||
   'No site access' =>
     'ADDRESS_NOT_FOUND',
-  'Alıcı teslim almadı' ||
-  'Ödeme alınamadı' ||
-  'refused' ||
-  'no_payment' ||
-  'Recipient refused' ||
-  'Payment not collected' =>
-    'REFUSED',
+  // "Ödeme alınamadı"/"no_payment" kasıtlı olarak yok — COD tamamen kaldırıldı.
+  'Alıcı teslim almadı' || 'refused' || 'Recipient refused' => 'REFUSED',
   'Alıcı adreste yok' ||
   'recipient_absent' ||
   'Recipient not home' =>
@@ -156,6 +152,7 @@ bool photoRequiredForFailure(String reason) {
 DeliveryTask deliveryTaskFromSummary(Map<String, dynamic> json) {
   final address = Map<String, dynamic>.from(json['address'] as Map? ?? const {});
   final contact = Map<String, dynamic>.from(json['contact'] as Map? ?? const {});
+  final attributes = Map<String, dynamic>.from(json['attributes'] as Map? ?? const {});
   final coords = address['coordinates'] is Map
       ? Map<String, dynamic>.from(address['coordinates'] as Map)
       : const <String, dynamic>{};
@@ -195,6 +192,7 @@ DeliveryTask deliveryTaskFromSummary(Map<String, dynamic> json) {
     rowVersion: (json['rowVersion'] as num?)?.toInt() ?? 0,
     workflowVersion: (workflow['version'] as num?)?.toInt() ?? 1,
     wireStatus: json['status'] as String? ?? 'ASSIGNED',
+    merchantName: attributes['merchantName'] as String?,
   );
 }
 
@@ -228,6 +226,7 @@ DeliveryTask deliveryTaskFromPanel(PanelCourierTaskDto row) {
     custodyCount: row.packageCount,
     groupKey: address.isNotEmpty ? address.toLowerCase() : 'id:${row.id}',
     wireStatus: row.statusCode,
+    merchantName: row.customerDisplayName,
   );
 }
 

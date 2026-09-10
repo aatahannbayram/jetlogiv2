@@ -12,7 +12,9 @@ import '../theme.dart';
 import '../widgets.dart';
 
 class OnboardScreen extends ConsumerStatefulWidget {
-  const OnboardScreen({super.key});
+  const OnboardScreen({super.key, this.forBranch = false});
+
+  final bool forBranch;
 
   @override
   ConsumerState<OnboardScreen> createState() => _OnboardScreenState();
@@ -22,15 +24,31 @@ class _OnboardScreenState extends ConsumerState<OnboardScreen> {
   final _pages = PageController();
   int _index = 0;
 
-  List<(String, String, String)> _slides(L10n l) => [
-    (l.onboard1Kicker, l.onboard1Title, l.onboard1Body),
-    (l.onboard2Kicker, l.onboard2Title, l.onboard2Body),
-    (l.onboard3Kicker, l.onboard3Title, l.onboard3Body),
-  ];
+  List<(String, String, String)> _slides(L10n l) {
+    if (widget.forBranch) {
+      return [
+        (l.subeOnboard1Kicker, l.subeOnboard1Title, l.subeOnboard1Body),
+        (l.subeOnboard2Kicker, l.subeOnboard2Title, l.subeOnboard2Body),
+        (l.subeOnboard3Kicker, l.subeOnboard3Title, l.subeOnboard3Body),
+      ];
+    }
+    return [
+      (l.onboard1Kicker, l.onboard1Title, l.onboard1Body),
+      (l.onboard2Kicker, l.onboard2Title, l.onboard2Body),
+      (l.onboard4Kicker, l.onboard4Title, l.onboard4Body),
+      (l.onboard3Kicker, l.onboard3Title, l.onboard3Body),
+      (l.onboard5Kicker, l.onboard5Title, l.onboard5Body),
+    ];
+  }
 
   void _next() {
-    if (_index >= 2) {
-      ref.read(sessionProvider).finishOnboard();
+    final last = _index >= _slides(context.l10n).length - 1;
+    if (last) {
+      if (widget.forBranch) {
+        ref.read(sessionProvider).finishSubeOnboard();
+      } else {
+        ref.read(sessionProvider).finishOnboard();
+      }
       return;
     }
     _pages.nextPage(
@@ -65,7 +83,13 @@ class _OnboardScreenState extends ConsumerState<OnboardScreen> {
                   ),
                   const Spacer(),
                   TextButton(
-                    onPressed: () => ref.read(sessionProvider).finishOnboard(),
+                    onPressed: () {
+                      if (widget.forBranch) {
+                        ref.read(sessionProvider).finishSubeOnboard();
+                      } else {
+                        ref.read(sessionProvider).finishOnboard();
+                      }
+                    },
                     child: Text(l.skip),
                   ),
                 ],
@@ -283,7 +307,7 @@ class _Art extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         children: [
-          Icon(icon, size: 20, color: Dg.ink),
+          DgIcon(icon, size: 20, color: Dg.ink),
           const SizedBox(width: 10),
           Text(
             t,

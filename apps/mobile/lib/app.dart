@@ -10,6 +10,7 @@ import 'screens/permissions_screen.dart';
 import 'screens/shell_screen.dart';
 import 'screens/shift_screen.dart';
 import 'screens/splash_screen.dart';
+import 'screens/sube_shell_screen.dart';
 import 'session.dart';
 import 'theme.dart';
 import 'widgets.dart';
@@ -42,6 +43,7 @@ class DijigooApp extends ConsumerWidget {
       AppPhase.permissions => const PermissionsScreen(),
       AppPhase.shift => const ShiftScreen(),
       AppPhase.main => const ShellScreen(),
+      AppPhase.subeMain => const SubeShellScreen(),
     };
     return L10nScope(
       l10n: l10n,

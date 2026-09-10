@@ -15,6 +15,7 @@ import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 
 import type { AppContext } from '../context.js';
+import { REMOVED_TASK_IDS_LIMIT } from '../rate-limits.js';
 import { toCustodyItem } from './custody.js';
 import { toInboxItem } from '../services/notify.js';
 import { decodeCursor, encodeCursor, toSummary } from './task.js';
@@ -248,6 +249,7 @@ export async function syncRoutes(app: FastifyInstance, { ctx }: { ctx: AppContex
                 sql`${tasks.courierId} is distinct from ${courier.courierId}`,
               ),
             )
+            .limit(REMOVED_TASK_IDS_LIMIT)
         : [];
 
       const workflowRefs = await loadWorkflowRefs(ctx, courier.tenantId, page);

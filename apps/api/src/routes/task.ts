@@ -35,6 +35,7 @@ import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 
 import type { AppContext } from '../context.js';
+import { taskOtpRateLimit } from '../rate-limits.js';
 import type { AuthenticatedCourier } from '../plugins/authenticate.js';
 import {
   documentStatusForStepType,
@@ -43,7 +44,7 @@ import {
   transitionDocument,
 } from '../services/document-status.js';
 import { PostgresIdempotencyStore } from '../services/idempotency-store.js';
-import { plaintextPhone } from '../services/masked-call.js';
+import { plaintextPhone, proxyDialNumber } from '../services/masked-call.js';
 import { signOtpProof, verifyOtpProof } from '../services/otp-token.js';
 import { openReturnsForFailedTask } from '../services/return-status.js';
 import { resolveSlaInstance, startSlaInstance } from '../services/sla.js';
@@ -152,13 +153,16 @@ export async function taskRoutes(app: FastifyInstance, { ctx }: { ctx: AppContex
         });
       }
 
-      const dialNumber = plaintextPhone(stored, fieldKeyFromEnv(ctx.env.FIELD_ENCRYPTION_KEY));
-      if (!dialNumber) {
+      const recipient = plaintextPhone(stored, fieldKeyFromEnv(ctx.env.FIELD_ENCRYPTION_KEY));
+      if (!recipient) {
         throw new AppError('BUSINESS_RULE_VIOLATION', {
           message: 'Alici telefonu kayitli degil.',
           userVisible: true,
         });
       }
+
+      const dialNumber =
+        target === 'recipient' ? proxyDialNumber(recipient) : recipient;
 
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
       const [session] = await ctx.db
@@ -184,6 +188,7 @@ export async function taskRoutes(app: FastifyInstance, { ctx }: { ctx: AppContex
   route.post(
     '/v1/tasks/:taskId/otp/send',
     {
+      config: { rateLimit: taskOtpRateLimit },
       schema: {
         tags: ['Task'],
         params: z.object({ taskId: Uuid }),
@@ -241,6 +246,7 @@ export async function taskRoutes(app: FastifyInstance, { ctx }: { ctx: AppContex
   route.post(
     '/v1/tasks/:taskId/otp/verify',
     {
+      config: { rateLimit: taskOtpRateLimit },
       schema: {
         tags: ['Task'],
         params: z.object({ taskId: Uuid }),

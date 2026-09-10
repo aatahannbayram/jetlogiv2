@@ -3,12 +3,14 @@ import 'package:dijigoo_kurye/api/courier_tasks.dart';
 import 'package:dijigoo_kurye/api/panel_models.dart';
 import 'package:dijigoo_kurye/app.dart';
 import 'package:dijigoo_kurye/l10n.dart';
+import 'package:dijigoo_kurye/screens/return_screen.dart';
 import 'package:dijigoo_kurye/screens/sync_screen.dart';
 import 'package:dijigoo_kurye/session.dart';
 import 'package:dijigoo_kurye/theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 void main() {
   Future<void> bindPhone(WidgetTester tester) async {
@@ -25,6 +27,23 @@ void main() {
     await tester.pumpAndSettle();
     await tester.pump(const Duration(milliseconds: 600));
     await tester.tap(find.text('Demoyu aç'));
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> tapHomeKey(WidgetTester tester, Key key) async {
+    final finder = find.byKey(key);
+    final list = find.byType(ListView);
+    for (var i = 0; i < 8; i++) {
+      if (finder.hitTestable().evaluate().isNotEmpty) {
+        await tester.tap(finder.hitTestable());
+        await tester.pumpAndSettle();
+        return;
+      }
+      if (list.evaluate().isEmpty) break;
+      await tester.drag(list.first, const Offset(0, -72));
+      await tester.pumpAndSettle();
+    }
+    await tester.tap(finder);
     await tester.pumpAndSettle();
   }
 
@@ -50,16 +69,16 @@ void main() {
     await tester.pump(const Duration(milliseconds: 600));
     await tester.tap(find.text('Aktivasyonu göster'));
     await tester.pumpAndSettle();
-    expect(find.text('Doğrulama kodu gönder'), findsOneWidget);
-    await tester.tap(find.text('Şifre ile gir'));
+    expect(find.text('Giriş Yap'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('login-method-password')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('panel-identifier')), findsOneWidget);
     expect(find.byKey(const Key('panel-password')), findsOneWidget);
-    expect(find.text('Panele gir'), findsOneWidget);
-    expect(find.text('Doğrulama kodu gönder'), findsNothing);
-    await tester.tap(find.text('SMS kodu ile gir'));
+    expect(find.byKey(const Key('panel-login')), findsOneWidget);
+    expect(find.byKey(const Key('sms-login')), findsNothing);
+    await tester.tap(find.byKey(const Key('login-method-sms')));
     await tester.pumpAndSettle();
-    expect(find.text('Doğrulama kodu gönder'), findsOneWidget);
+    expect(find.byKey(const Key('sms-login')), findsOneWidget);
   });
 
   testWidgets('görüşme demosu teslimatı bitirir', (tester) async {
@@ -68,8 +87,8 @@ void main() {
     expect(find.text('Ahmet Yılmaz'), findsWidgets);
     expect(find.text('Güney / Denizli'), findsOneWidget);
 
-    await tester.tap(find.text('Teslime başla'));
-    await tester.pumpAndSettle();
+    await tapHomeKey(tester, const Key('next-stop-arrived'));
+    await tapHomeKey(tester, const Key('next-stop-cta'));
     expect(find.text('Teslim alan'), findsWidgets);
 
     await tester.tap(find.text('Alıcının kendisi'));
@@ -97,14 +116,17 @@ void main() {
   testWidgets('sıradaki durak kartı gönderi ve kuyruğu açar', (tester) async {
     await bindPhone(tester);
     await openDemo(tester);
-    expect(find.text('Gönderi ve kuyruk'), findsOneWidget);
-    expect(find.text('Gönderi'), findsNothing);
-    await tester.tap(find.text('Gönderi ve kuyruk'));
+    expect(find.text('Gönderi ve kuyruk'), findsNothing);
+    expect(find.textContaining('Cumhuriyet Cd.'), findsWidgets);
+    expect(find.text('Yol tarifi'), findsWidgets);
+    expect(find.text('Teslime başla'), findsNothing);
+    await tester.tap(find.text('2 kalem').first);
     await tester.pumpAndSettle();
-    expect(find.text('Gönderi'), findsOneWidget);
-    expect(find.text('Kuyruk'), findsOneWidget);
+    expect(find.text('Kalemler'), findsOneWidget);
+    Navigator.of(tester.element(find.text('Kalemler'))).pop();
+    await tester.pumpAndSettle();
+    await tapHomeKey(tester, const Key('next-stop-arrived'));
     expect(find.text('Teslime başla'), findsOneWidget);
-    expect(find.text('Yol tarifi'), findsOneWidget);
   });
 
   testWidgets('rota zaman çizelgesi durakları gösterir', (tester) async {
@@ -334,7 +356,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
       find.text('Kimlik doğrulama'),
-      240,
+      400,
       scrollable: find.byType(Scrollable).first,
     );
     await tester.tap(find.text('Kimlik doğrulama'));
@@ -479,8 +501,94 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('Menu'), findsOneWidget);
-    expect(find.text('Start delivery'), findsOneWidget);
+    expect(find.text('Directions'), findsWidgets);
     expect(find.text('Next stop'), findsOneWidget);
     expect(Dg.dark, isFalse);
   });
+
+  testWidgets('şube demo girişi acente ana sayfasını açar', (tester) async {
+    await bindPhone(tester);
+    await tester.pumpWidget(const ProviderScope(child: DijigooApp()));
+    await tester.pump();
+    await tester.tap(find.text('Atla'));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.tap(find.text('Aktivasyonu göster'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('sube-login-link')));
+    await tester.pumpAndSettle();
+    expect(find.text('Şube Girişi'), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const Key('sube-email')),
+      SessionController.agencyDemoEmail,
+    );
+    await tester.enterText(
+      find.byKey(const Key('sube-password')),
+      SessionController.agencyDemoPassword,
+    );
+    await tester.tap(find.byKey(const Key('sube-login')));
+    await tester.pumpAndSettle();
+    expect(find.text('Güney Acente'), findsOneWidget);
+    expect(find.text('Merkeze Sevk'), findsOneWidget);
+  });
+
+  testWidgets('menüde gün sonu açılır', (tester) async {
+    await bindPhone(tester);
+    await openDemo(tester);
+
+    await tester.tap(find.text('Menü'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Gün sonu'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Gün sonu'));
+    await tester.pumpAndSettle();
+    expect(find.text('Vardiyayı bitir'), findsOneWidget);
+  });
+
+  testWidgets('eğitim modülü açılır ve tamamlandı işaretlenir', (tester) async {
+    await bindPhone(tester);
+    await openDemo(tester);
+
+    await tester.tap(find.text('Menü'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Eğitim'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Eğitim'));
+    await tester.pumpAndSettle();
+    expect(find.text('Trafik güvenliği'), findsOneWidget);
+    await tester.tap(find.text('Trafik güvenliği'));
+    await tester.pumpAndSettle();
+    expect(find.text('Tamamlandı olarak işaretle'), findsOneWidget);
+    await tester.tap(find.text('Tamamlandı olarak işaretle'));
+    await tester.pumpAndSettle();
+    expect(find.text('Tamamlandı'), findsOneWidget);
+    expect(find.text('Tamamlandı olarak işaretle'), findsNothing);
+  });
+
+  testWidgets(
+    'İade/Geri Teslim: sekmeler arası geçer ve şubeye teslimi onaylar',
+    (tester) async {
+      await bindPhone(tester);
+      final session = SessionController();
+      session.skipToDemo();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [sessionProvider.overrideWith((ref) => session)],
+          child: const L10nScope(
+            l10n: L10n('tr'),
+            child: MaterialApp(home: ReturnScreen(taskId: 't4')),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Neden teslim edilemedi?'), findsOneWidget);
+      await tester.tap(find.text('Geri Teslim'));
+      await tester.pumpAndSettle();
+      expect(find.text('Fatma Şahin — Yeni Mah.'), findsOneWidget);
+      await tester.tap(find.text('Şubeye teslim ettim'));
+      await tester.pumpAndSettle();
+      expect(find.byIcon(LucideIcons.checkCircle2), findsOneWidget);
+      expect(find.text('Şubeye teslim ettim'), findsNothing);
+    },
+  );
 }

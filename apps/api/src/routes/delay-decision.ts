@@ -7,6 +7,7 @@ import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 
 import type { AppContext } from '../context.js';
+import { serviceRouteRateLimit } from '../rate-limits.js';
 import { enqueueCourierNotification } from '../services/notify.js';
 import { extendSlaInstance } from '../services/sla.js';
 import { cancelTask } from '../services/task-cancellation.js';
@@ -30,6 +31,7 @@ export async function delayDecisionRoutes(app: FastifyInstance, { ctx }: { ctx: 
   route.post(
     '/v1/tasks/:taskId/delay-decision',
     {
+      config: { rateLimit: serviceRouteRateLimit },
       schema: {
         tags: ['Task'],
         params: z.object({ taskId: Uuid }),

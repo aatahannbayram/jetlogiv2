@@ -16,4 +16,5 @@ export * from './return.js';
 export * from './sync.js';
 export * from './events.js';
 export * from './notifications.js';
+export * from './training.js';
 export { buildOpenApiDocument, registry } from './openapi.js';

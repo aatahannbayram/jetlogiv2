@@ -97,18 +97,28 @@ class _KycScreenState extends ConsumerState<KycScreen> {
                       const SizedBox(height: 14),
                       Row(
                         children: [
-                          _StepChip(n: '1', label: l.kycDocsKicker, on: true),
-                          const SizedBox(width: 8),
-                          _StepChip(
-                            n: '2',
-                            label: l.kycPhotoKicker,
-                            on: _hasPhoto,
+                          Expanded(
+                            child: _StepChip(
+                              n: '1',
+                              label: l.kycDocsKicker,
+                              on: true,
+                            ),
                           ),
                           const SizedBox(width: 8),
-                          _StepChip(
-                            n: '3',
-                            label: l.kycChipKicker,
-                            on: s.nfcRead,
+                          Expanded(
+                            child: _StepChip(
+                              n: '2',
+                              label: l.kycPhotoKicker,
+                              on: _hasPhoto,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _StepChip(
+                              n: '3',
+                              label: l.kycChipKicker,
+                              on: s.nfcRead,
+                            ),
                           ),
                         ],
                       ),
@@ -242,7 +252,6 @@ class _StepChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
           Text(
             n,
@@ -253,13 +262,17 @@ class _StepChip extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 6),
-          Text(
-            label,
-            style: Dg.ui(
-              size: 11,
-              weight: FontWeight.w700,
-              color: on ? (Dg.dark ? Dg.night : Colors.white) : Dg.ink2,
-              letterSpacing: 0.6,
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Dg.ui(
+                size: 11,
+                weight: FontWeight.w700,
+                color: on ? (Dg.dark ? Dg.night : Colors.white) : Dg.ink2,
+                letterSpacing: 0.6,
+              ),
             ),
           ),
         ],
@@ -290,7 +303,7 @@ class _DocChip extends StatelessWidget {
         duration: const Duration(milliseconds: 180),
         curve: Curves.easeOutCubic,
         constraints: const BoxConstraints(minHeight: 44),
-        padding: const EdgeInsets.fromLTRB(12, 10, 14, 10),
+        padding: const EdgeInsets.fromLTRB(10, 10, 12, 10),
         decoration: BoxDecoration(
           color: selected ? Dg.ink : Dg.elev,
           borderRadius: BorderRadius.circular(12),
@@ -298,8 +311,8 @@ class _DocChip extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 16, color: selected ? onInk : Dg.ink),
-            const SizedBox(width: 8),
+            DgIcon(icon, size: 16, color: selected ? onInk : Dg.ink),
+            const SizedBox(width: 6),
             Text(
               label,
               style: Dg.ui(
@@ -357,10 +370,11 @@ class _PhotoSlot extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
+                DgIcon(
                   taken ? LucideIcons.circleCheck : LucideIcons.camera,
                   size: 28,
-                  color: taken ? Dg.green : Dg.ink,
+                  color: taken ? Dg.ok : Dg.ink,
+                  weight: 600,
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -416,10 +430,11 @@ class _NfcCard extends StatelessWidget {
                       color: Dg.ink,
                     ),
                   )
-                : Icon(
+                : DgIcon(
                     read ? LucideIcons.circleCheck : LucideIcons.nfc,
                     size: 24,
-                    color: read ? Dg.green : Dg.ink,
+                    color: read ? Dg.ok : Dg.ink,
+                    weight: 600,
                   ),
           ),
           const SizedBox(width: 14),

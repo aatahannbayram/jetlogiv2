@@ -24,24 +24,13 @@ class Dg {
   /// #1C1C1E; saf siyah/beyaz parlamayı ve okunaksız griyi keser.
   /// https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html
   /// https://m3.material.io/styles/color/system/overview
-  static Color get ground =>
-      dark ? const Color(0xFF121212) : const Color(0xFFF4F4F5);
-  static Color get surface =>
-      dark ? const Color(0xFF1C1C1E) : const Color(0xFFFFFFFF);
-
-  /// İkinci kademe yüzey (surface üstünde surface — skeleton, track, vb.)
-  static Color get elev =>
-      dark ? const Color(0xFF2C2C2E) : const Color(0xFFEEEEEE);
-
-  // ---- Metin ----
-  static Color get ink =>
-      dark ? const Color(0xFFF5F5F7) : const Color(0xFF111111);
-  static Color get ink2 =>
-      dark ? const Color(0xFFC7C7CC) : const Color(0xFF5C5C5C);
-  static Color get ink3 =>
-      dark ? const Color(0xFFA1A1AA) : const Color(0xFF6B6B6B);
-  static Color get rule =>
-      dark ? const Color(0xFF3A3A3C) : const Color(0xFFE4E4E7);
+  static Color get ground => bg;
+  static Color get surface => surface1;
+  static Color get elev => surface2;
+  static Color get ink => text1;
+  static Color get ink2 => text2;
+  static Color get ink3 => text3;
+  static Color get rule => stroke;
 
   /// Koşulsuz koyu — temadan bağımsız gerçek siyah/gece yüzeyler için
   /// (giriş/tören ekranı gradyanının tabanı, PhoneShell çerçevesi).
@@ -50,16 +39,15 @@ class Dg {
   // ---- Marka moru ----
   /// Birincil eylem gradyanı — buton/CTA ve seçili halka.
   /// Pastel lila yerine doygun, koyu zeminle uyumlu marka moru.
-  static const primaryGradientStart = Color(0xFF6B46D4);
-  static const primaryGradientEnd = Color(0xFF3F1F8C);
+  static Color get primaryGradientStart => brand;
+  static Color get primaryGradientEnd => warn;
   static const primaryGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [primaryGradientStart, primaryGradientEnd],
+    colors: [Color(0xFF7B61FF), Color(0xFFFF7A2F)],
   );
 
-  /// Aktif/seçili durum vurgusu (sekme, adım noktası, seçili kart kenarı).
-  static const purpleActive = Color(0xFF8B6AE8);
+  static Color get purpleActive => brand;
 
   /// Giriş/tören ekranı zemin gradyanı (üstten alta).
   static LinearGradient get heroGradient => LinearGradient(
@@ -70,6 +58,11 @@ class Dg {
         : const [Color(0xFFEDE4FF), Color(0xFFF7F4FF), Color(0xFFF4F3F0)],
   );
   static const heroAccentOrange = Color(0xFFF08A24);
+  static const emberGradient = LinearGradient(
+    begin: Alignment.centerLeft,
+    end: Alignment.centerRight,
+    colors: [Color(0xFFFFC15A), Color(0xFFF08A24), Color(0xFFE07010)],
+  );
 
   static Color get onHero => dark ? Colors.white : ink;
   static Color get onHeroMuted =>
@@ -82,53 +75,41 @@ class Dg {
   // Legacy brand-purple isimleri — hâlâ referans veren yerler (menü ikon
   // rozetleri, harita polyline'ı, hero kart zemini gibi "marka moru" ama
   // "birincil eylem gradyanı" olmayan kullanımlar) için korunuyor.
-  static const purple = Color(0xFF7C5CE0);
-  static const purpleDeep = Color(0xFF4E2CB8);
-  static const purpleBright = Color(0xFFB8A0F0);
-  static const accent = primaryGradientStart;
+  static Color get purple => brand;
+  static Color get purpleDeep => brand;
+  static Color get purpleBright => brand;
+  static Color get accent => brand;
   static const accentSoft = Color(0xFFEAF6B8);
 
   // ---- Durum vurguları: 6px nokta + nötr metin, dolgulu rozet yok ----
   /// Olumlu / tamamlandı (ör. teslim edildi, doğrulandı).
-  static const sage = Color(0xFF7FB097);
-
-  /// Bekleyen / nötr-uyarı (ör. sırada, SLA yaklaşıyor).
-  static const sand = Color(0xFFD2AE78);
-
-  /// Olumsuz / başarısız (ör. teslim edilemedi, kod doğrulanamadı).
-  static const clay = Color(0xFFC57C71);
+  static Color get sage => ok;
+  static Color get sand => warn;
+  static Color get clay => bad;
 
   // Eski hi/mid/lo isimleri — status olmayan (hata metni, ikon tint'i gibi)
   // kullanım yerleri için korunuyor; yeni status göstergeleri sage/sand/clay
   // kullanmalı.
-  static Color get hi => clay;
-  static Color get hiBg =>
-      dark ? const Color(0x1AC57C71) : const Color(0xFFF8E4E1);
-  static Color get mid => sand;
-  static Color get midBg =>
-      dark ? const Color(0x1AD2AE78) : const Color(0xFFF6EBD2);
-  static Color get lo => sage;
-  static Color get loBg =>
-      dark ? const Color(0x1A7FB097) : const Color(0xFFDCEFD8);
-  static const glow = primaryGradientStart;
+  static Color get hi => bad;
+  static Color get hiBg => bad.withValues(alpha: 0.12);
+  static Color get mid => warn;
+  static Color get midBg => warnSoft;
+  static Color get lo => ok;
+  static Color get loBg => ok.withValues(alpha: 0.12);
+  static Color get glow => brand;
 
   // Design-token tints for menu/notification icon badges — koyu temada
   // tint arka planı %10 alpha'ya düşer, ink rengi olduğu gibi kalır.
-  static const violet = Color(0xFFB794F6);
-  static Color get violetBg =>
-      dark ? const Color(0x2EB794F6) : const Color(0xFFF3F0FB);
-  static const blue = Color(0xFF4A7FD8);
-  static Color get blueBg =>
-      dark ? const Color(0x1A4A7FD8) : const Color(0xFFEEF4FF);
-  static const amber = Color(0xFFE8A33D);
-  static Color get amberBg =>
-      dark ? const Color(0x1AE8A33D) : const Color(0xFFFFF6E6);
-  static const green = Color(0xFF4E9B4E);
-  static Color get greenBg =>
-      dark ? const Color(0x1A4E9B4E) : const Color(0xFFEDF6EC);
-  static const red = Color(0xFFD8543C);
-  static Color get redBg =>
-      dark ? const Color(0x1AD8543C) : const Color(0xFFFDEEEA);
+  static Color get violet => brand;
+  static Color get violetBg => brandSoft;
+  static Color get blue => brand;
+  static Color get blueBg => brandSoft;
+  static Color get amber => warn;
+  static Color get amberBg => warnSoft;
+  static Color get green => ok;
+  static Color get greenBg => ok.withValues(alpha: 0.12);
+  static Color get red => bad;
+  static Color get redBg => bad.withValues(alpha: 0.12);
 
   // ---- Tipografi ----
   static const display = 'Geist';
@@ -138,12 +119,10 @@ class Dg {
 
   // ---- Radius: Uber/IG — küçük köşe, yüzen “AI kartı” yok ----
   static const radiusPhone = 46.0;
-  static const radiusHero = 14.0;
-  static const radius = 8.0;
-  static const radiusPill = 10.0;
-
-  /// Yatay içerik — 16px (Material / iOS grouped inset); 20px satırları daraltıyordu.
-  static const pagePad = 16.0;
+  static const radiusHero = 20.0;
+  static const radius = 14.0;
+  static const radiusPill = 14.0;
+  static const pagePad = 20.0;
 
   /// Saha dokunma hedefi. Apple HIG 44pt, Material 48dp; eldiven/araç için 56.
   static const rowMin = 56.0;
@@ -161,6 +140,76 @@ class Dg {
   /// `Container`'ın `foregroundDecoration`'ında bir üst-kenar `Border` ile
   /// simüle eder (Flutter'ın `BoxShadow`'u gerçek inset desteklemiyor).
   static const insetHighlight = Color(0x1FFFFFFF);
+
+  // ---- Yeni görsel sistem (önce menü; diğer ekranlar sonra) ----
+  static Color get bg =>
+      dark ? const Color(0xFF0B0B0F) : const Color(0xFFF7F7F9);
+  static Color get surface1 =>
+      dark ? const Color(0xFF141419) : const Color(0xFFFFFFFF);
+  static Color get surface2 =>
+      dark ? const Color(0xFF1C1C23) : const Color(0xFFF1F1F4);
+  static Color get stroke =>
+      dark ? const Color(0xFF26262E) : const Color(0x14000000);
+  static Color get text1 =>
+      dark ? const Color(0xFFF5F5F7) : const Color(0xFF0B0B0F);
+  static Color get text2 =>
+      dark ? const Color(0xFFA1A1AA) : const Color(0xFF52525B);
+  static Color get text3 =>
+      dark ? const Color(0xFF6B6B76) : const Color(0xFF8A8A94);
+  static Color get brand =>
+      dark ? const Color(0xFF7B61FF) : const Color(0xFF7159EB);
+  static Color get warn =>
+      dark ? const Color(0xFFFF7A2F) : const Color(0xFFEA702B);
+  static Color get ok =>
+      dark ? const Color(0xFF22C55E) : const Color(0xFF1FB556);
+  static Color get bad =>
+      dark ? const Color(0xFFEF4444) : const Color(0xFFDC3E3E);
+  static Color get hairline =>
+      dark ? const Color(0x0FFFFFFF) : const Color(0x0F000000);
+  static Color get warnSoft => warn.withValues(alpha: 0.12);
+  static Color get brandSoft => brand.withValues(alpha: 0.12);
+  static Color get muteSoft =>
+      dark ? const Color(0xFF1C1C23) : const Color(0xFFF1F1F4);
+
+  static const rSm = 10.0;
+  static const rMd = 14.0;
+  static const rLg = 20.0;
+  static const s4 = 4.0;
+  static const s8 = 8.0;
+  static const s12 = 12.0;
+  static const s16 = 16.0;
+  static const s20 = 20.0;
+  static const s24 = 24.0;
+  static const s28 = 28.0;
+  static const s32 = 32.0;
+  static const menuRow = 64.0;
+
+  static TextStyle typeH2({Color? color}) => ui(
+    size: 20,
+    weight: FontWeight.w600,
+    color: color ?? text1,
+    height: 1.2,
+    letterSpacing: 20 * -0.01,
+  );
+  static TextStyle typeBody({Color? color, FontWeight weight = FontWeight.w500}) =>
+      ui(size: 16, weight: weight, color: color ?? text1);
+  static TextStyle typeLabel({Color? color}) =>
+      ui(size: 14, weight: FontWeight.w500, color: color ?? text2);
+  static TextStyle typeCaption({Color? color}) =>
+      ui(size: 13, weight: FontWeight.w400, color: color ?? text3);
+  static TextStyle typeOverline({Color? color}) => ui(
+    size: 11,
+    weight: FontWeight.w600,
+    color: color ?? text3,
+    letterSpacing: 11 * 0.08,
+    height: 1.2,
+  );
+  static TextStyle typeNum({
+    double size = 16,
+    FontWeight weight = FontWeight.w500,
+    Color? color,
+  }) =>
+      stat(size: size, weight: weight, color: color ?? text1, letterSpacing: 0);
 
   static TextStyle serif({
     double size = 34,
@@ -234,6 +283,29 @@ class Dg {
   }
 
   static double _wght(FontWeight w) => w.value.toDouble();
+
+  static String lucideFamily({int weight = 500}) => switch (weight) {
+        100 => 'Lucide100',
+        200 => 'Lucide200',
+        300 => 'Lucide300',
+        400 => 'Lucide400',
+        600 => 'Lucide600',
+        _ => 'Lucide500',
+      };
+
+  static TextStyle lucideStyle({
+    required double size,
+    Color? color,
+    int weight = 500,
+  }) =>
+      TextStyle(
+        fontFamily: lucideFamily(weight: weight),
+        package: 'lucide_icons_flutter',
+        fontSize: size,
+        color: color,
+        height: 1,
+        leadingDistribution: TextLeadingDistribution.even,
+      );
 
   static ThemeData theme() {
     final text = TextTheme(

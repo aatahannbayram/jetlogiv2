@@ -8,6 +8,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../l10n.dart';
 import '../session.dart';
+import '../secure.dart';
 import '../brand.dart';
 import '../motion.dart';
 import '../theme.dart';
@@ -262,16 +263,18 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                                 onPressed: () =>
                                     ref.read(sessionProvider).finishSplash(),
                               ),
-                              const SizedBox(height: 8),
-                              TextButton(
-                                key: const Key('open-demo'),
-                                onPressed: () =>
-                                    ref.read(sessionProvider).skipToDemo(),
-                                child: Text(
-                                  l.openDemo,
-                                  style: TextStyle(color: muted),
+                              if (demoFieldAllowed()) ...[
+                                const SizedBox(height: 8),
+                                TextButton(
+                                  key: const Key('open-demo'),
+                                  onPressed: () =>
+                                      ref.read(sessionProvider).skipToDemo(),
+                                  child: Text(
+                                    l.openDemo,
+                                    style: TextStyle(color: muted),
+                                  ),
                                 ),
-                              ),
+                              ],
                             ],
                           ),
                         )

@@ -1,5 +1,17 @@
 import { decryptField } from '@dijigoo/core';
 
+/** Placeholder DID the handset dials. Never the recipient MSISDN. */
+export const MOCK_PROXY_MSISDN = '+908500000026';
+
+/** Proxy the courier dials — must not equal the stored recipient number. */
+export function proxyDialNumber(recipientMsisdn: string): string {
+  const recipient = dialableFromStored(recipientMsisdn) ?? recipientMsisdn;
+  if (recipient === MOCK_PROXY_MSISDN) {
+    return '+908500000027';
+  }
+  return MOCK_PROXY_MSISDN;
+}
+
 /** Decrypt if needed, then normalise to E.164. Legacy plaintext still works. */
 export function plaintextPhone(
   stored: string | null | undefined,

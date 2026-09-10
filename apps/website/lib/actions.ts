@@ -1,48 +1,45 @@
 'use server';
 
-export type InquiryKind = 'contact' | 'career' | 'partner';
+import {
+  type InquiryKind,
+  INQUIRY_LIMITS,
+  isSafeOutboundUrl,
+  readInquiry,
+  validateInquiry,
+  validateTrackQuery,
+} from './inquiry';
+
+export type { InquiryKind };
 
 export type InquiryResult =
   | { ok: true; queued: boolean }
   | { ok: false; error: string };
 
-function str(form: FormData, key: string): string {
-  const v = form.get(key);
-  return typeof v === 'string' ? v.trim() : '';
-}
-
 export async function submitInquiry(
   kind: InquiryKind,
   form: FormData,
 ): Promise<InquiryResult> {
-  const firstName = str(form, 'firstName');
-  const lastName = str(form, 'lastName');
-  const phone = str(form, 'phone');
-  const message = str(form, 'message');
-  if (!firstName || !lastName || !phone || !message) {
-    return { ok: false, error: 'Ad, soyad, telefon ve mesaj zorunlu.' };
-  }
-  if (kind === 'career' && !str(form, 'role')) {
-    return { ok: false, error: 'Pozisyon seçin.' };
-  }
-  if (kind === 'partner' && (!str(form, 'partnerType') || !str(form, 'city'))) {
-    return { ok: false, error: 'Başvuru tipi ve şehir zorunlu.' };
-  }
+  const fields = readInquiry(form);
+  const error = validateInquiry(kind, fields);
+  if (error) return { ok: false, error };
 
   const payload = {
     kind,
-    firstName,
-    lastName,
-    phone,
-    message,
-    role: str(form, 'role') || undefined,
-    partnerType: str(form, 'partnerType') || undefined,
-    transport: str(form, 'transport') || undefined,
-    city: str(form, 'city') || undefined,
+    firstName: fields.firstName,
+    lastName: fields.lastName,
+    phone: fields.phone,
+    message: fields.message,
+    role: fields.role || undefined,
+    partnerType: fields.partnerType || undefined,
+    transport: fields.transport || undefined,
+    city: fields.city || undefined,
     at: new Date().toISOString(),
   };
 
   const hook = process.env.INQUIRY_WEBHOOK_URL;
+  if (hook && !isSafeOutboundUrl(hook)) {
+    return { ok: false, error: 'Gönderilemedi, biraz sonra yeniden deneyin.' };
+  }
   if (hook) {
     const res = await fetch(hook, {
       method: 'POST',
@@ -66,11 +63,18 @@ export type TrackLookup =
 
 export async function lookupShipment(query: string): Promise<TrackLookup> {
   const q = query.trim();
-  if (!q) return { state: 'empty' };
+  const invalid = validateTrackQuery(q);
+  if (invalid === 'empty') return { state: 'empty' };
+  if (invalid) {
+    return { state: 'error', query: q.slice(0, INQUIRY_LIMITS.query), message: invalid };
+  }
 
   const base = process.env.TRACKING_API_URL;
   if (!base) {
     return { state: 'unconfigured', query: q };
+  }
+  if (!isSafeOutboundUrl(base)) {
+    return { state: 'error', query: q, message: 'Takip servisi yanıt vermedi.' };
   }
 
   try {

@@ -114,6 +114,7 @@ class DeliveryTask {
     this.workflowVersion = 1,
     this.photoUrl,
     this.phone,
+    this.merchantName,
     String? wireStatus,
   }) : wireStatus = wireStatus ??
             switch (status) {
@@ -129,6 +130,9 @@ class DeliveryTask {
   final String recipient;
   final String? photoUrl;
   final String? phone;
+  /// Gönderiyi gönderen firma/marka — teslimat ekranında rozet olarak
+  /// gösterilir (ör. "ALİ BAŞEL – ASSİST"). Kaynak sistemde yoksa null.
+  final String? merchantName;
   final String address;
   final String window;
   final TaskKind kind;
@@ -186,10 +190,15 @@ class DeliveryTask {
   String get slaLabel {
     final m = slaMinutesLeft;
     if (m == null) return '';
-    final h = m ~/ 60;
-    final mm = m % 60;
+    final left = m < 0 ? -m : m;
+    final h = left ~/ 60;
+    final mm = left % 60;
     return '${h.toString().padLeft(2, '0')}:${mm.toString().padLeft(2, '0')}';
   }
+
+  /// Teslim penceresi kaçırılmış, hâlâ açık bir durak — listede "Gecikti"
+  /// rozetiyle görünür olması gereken durum (toplantı maddesi 7).
+  bool get isLate => isOpen && (slaMinutesLeft ?? 0) < 0;
 
   String? get personPhoto => photoUrl ?? personPhotoAsset(recipient);
 

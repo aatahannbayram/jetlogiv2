@@ -252,7 +252,7 @@ class _ArrivalBanner extends StatelessWidget {
                 IconButton(
                   visualDensity: VisualDensity.compact,
                   onPressed: onClose,
-                  icon: Icon(LucideIcons.x, size: 16, color: Dg.ink3),
+                  icon: DgIcon(LucideIcons.x, size: 16, color: Dg.ink3),
                 ),
               ],
             ),
@@ -301,7 +301,7 @@ class _RouteScreenState extends ConsumerState<RouteScreen> {
               onTap: () => setState(() => _fitEpoch++),
               child: Tooltip(
                 message: context.l10n.recenterRoute,
-                child: Icon(LucideIcons.locate, size: 18, color: Dg.ink),
+                child: DgIcon(LucideIcons.locate, size: 18, color: Dg.ink, weight: 600),
               ),
             ),
           ),
@@ -351,7 +351,7 @@ class _RouteMap extends ConsumerWidget {
       couriers: s.visibleFleet,
       fitEpoch: fitEpoch,
       numberStops: true,
-      fitPadding: EdgeInsets.fromLTRB(28, topInset + 64, 28, size.height * 0.42 + 12),
+      fitPadding: mapRouteFitPadding(height: size.height, topInset: topInset),
       fitTo: [
         LatLng(s.selfLat, s.selfLng),
         ...pts,
@@ -392,7 +392,7 @@ class _RouteTopBar extends ConsumerWidget {
                   Navigator.of(context).pop();
                 }
               },
-              child: Icon(LucideIcons.arrowLeft, size: 18, color: Dg.ink),
+              child: DgIcon(LucideIcons.arrowLeft, size: 18, color: Dg.ink),
             ),
             const SizedBox(width: 8),
             Flexible(
@@ -713,7 +713,7 @@ class _StopNode extends StatelessWidget {
                   ),
                 ),
                 onPressed: () => openDirections(context, task),
-                icon: const Icon(LucideIcons.navigation, size: 16),
+                icon: DgIcon(LucideIcons.navigation, size: 16, weight: 600),
                 label: Text(
                   l.goToThisStop,
                   style: const TextStyle(fontWeight: FontWeight.w700),
@@ -741,7 +741,7 @@ class _StopNode extends StatelessWidget {
                 border: Border.all(color: last ? Dg.purpleActive : Dg.rule),
               ),
               child: last
-                  ? Icon(LucideIcons.flag, size: 11, color: Dg.purpleActive)
+                  ? DgIcon(LucideIcons.flag, size: 11, color: Dg.brand)
                   : Text(
                       '${visitIndex ?? taskBadgeNumber(task)}',
                       style: Dg.ui(
@@ -778,7 +778,7 @@ class _StopNode extends StatelessWidget {
                 ],
               ),
             ),
-            Icon(LucideIcons.chevronRight, size: 16, color: Dg.ink3),
+            DgIcon(LucideIcons.chevronRight, size: 16, color: Dg.ink3),
           ],
         ),
       ),

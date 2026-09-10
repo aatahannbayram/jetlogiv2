@@ -6,6 +6,7 @@ import { MediaRef } from './media.js';
  * ------------------------------------------------------------------ */
 
 export const CustodyItemType = z.enum(['parcel', 'document', 'cash', 'equipment']);
+export type CustodyItemType = z.infer<typeof CustodyItemType>;
 
 /**
  * Canonical Ürün/Stok/Zimmet (PRD) codes — permanent, see
@@ -116,6 +117,38 @@ export const CustodyIssueReportResponse = z
     appliedAt: Timestamp,
   })
   .openapi('CustodyIssueReportResponse');
+
+/**
+ * Depot/branch-side intake: creates the very first row for a barcode that
+ * has never been in custody before (PRD-010, "Ürün Bekleniyor"). Not called
+ * by the mobile app — this is what a branch/depot actor scans a new parcel
+ * with, before any courier can take it over via `POST /v1/custody/handover`
+ * (direction: takeover). See `authenticateService` for why this is a service
+ * token rather than a courier bearer token: no branch-staff identity exists
+ * in this codebase yet.
+ */
+export const CustodyIntakeRequest = z
+  .object({
+    tenantId: Uuid,
+    clientEventId: Uuid,
+    barcode: z.string().min(1).max(80),
+    type: CustodyItemType.default('parcel'),
+    description: z.string().min(1).max(300),
+    quantity: z.number().int().positive().default(1),
+    amount: z.number().nonnegative().nullish(),
+    taskId: Uuid.nullish(),
+    occurredAt: Timestamp,
+  })
+  .openapi('CustodyIntakeRequest');
+
+export const CustodyIntakeResponse = z
+  .object({
+    item: CustodyItem,
+    /** false = bu barkod icin zaten acik bir kalem vardi, o dondu. */
+    created: z.boolean(),
+    appliedAt: Timestamp,
+  })
+  .openapi('CustodyIntakeResponse');
 
 /* ------------------------------------------------------------------ *
  * Support

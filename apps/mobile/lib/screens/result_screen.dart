@@ -8,7 +8,7 @@ import '../theme.dart';
 import '../widgets.dart';
 
 /// Shown after a delivery is closed, either successfully or as a return
-/// ("İade"). Reused by [WizardScreen]'s success path and [FailScreen].
+/// ("İade"). Reused by [WizardScreen]'s success path and [ReturnScreen].
 class DeliveryResultScreen extends StatelessWidget {
   const DeliveryResultScreen({
     super.key,
@@ -86,11 +86,12 @@ class DeliveryResultScreen extends StatelessWidget {
                             color: Dg.night,
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: Icon(
+                          child: DgIcon(
                             success ? LucideIcons.doorOpen : LucideIcons.undo2,
                             color: success
                                 ? const Color(0xFF3FB3A8)
-                                : Dg.purpleBright,
+                                : Dg.brand,
+                            weight: 600,
                           ),
                         ),
                         const SizedBox(width: 12),

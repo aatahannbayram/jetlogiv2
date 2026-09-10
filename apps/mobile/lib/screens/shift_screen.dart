@@ -30,7 +30,7 @@ class ShiftScreen extends ConsumerWidget {
                     color: Dg.violetBg,
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(LucideIcons.camera, size: 20, color: Dg.violet),
+                  child: DgIcon(LucideIcons.camera, size: 20, color: Dg.brand, weight: 600),
                 ),
                 const SizedBox(width: 12),
                 Expanded(

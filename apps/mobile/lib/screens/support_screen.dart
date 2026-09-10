@@ -4,6 +4,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../api/models.dart';
 import '../l10n.dart';
+import '../launchers.dart';
 import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -66,6 +67,26 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
           children: [
+            DgCard(
+              onTap: () => dialNumber(context, '112'),
+              child: Row(
+                children: [
+                  DgIcon(LucideIcons.siren, color: Dg.bad, weight: 600),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(l.sos, style: Dg.ui(size: 16, weight: FontWeight.w700)),
+                        Text(l.sosHint, style: Dg.ui(size: 13, color: Dg.ink2)),
+                      ],
+                    ),
+                  ),
+                  Text(l.sosCall, style: Dg.ui(size: 13, weight: FontWeight.w700, color: Dg.red)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
             Display(l.openTicket, size: 22),
             const SizedBox(height: 12),
             DgCard(

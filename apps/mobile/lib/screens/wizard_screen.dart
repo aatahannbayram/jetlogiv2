@@ -10,7 +10,7 @@ import '../signature.dart';
 import '../privacy.dart';
 import '../theme.dart';
 import '../widgets.dart';
-import 'fail_screen.dart';
+import 'return_screen.dart';
 import 'kyc_screen.dart';
 import 'result_screen.dart';
 
@@ -179,7 +179,7 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
   Future<void> _goFail() async {
     final failed = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
-        builder: (_) => FailScreen(taskId: widget.taskId),
+        builder: (_) => ReturnScreen(taskId: widget.taskId),
       ),
     );
     if (failed == true && mounted)
@@ -455,10 +455,11 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
                             color: Colors.white.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(14),
                           ),
-                          child: const Icon(
+                          child: DgIcon(
                             LucideIcons.key,
                             size: 20,
                             color: Colors.white,
+                            weight: 600,
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -521,7 +522,7 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
                               style: Dg.ui(size: 14, color: Dg.ink2),
                             ),
                           ),
-                          Icon(
+                          DgIcon(
                             LucideIcons.chevronRight,
                             size: 16,
                             color: Dg.ink3,

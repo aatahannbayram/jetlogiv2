@@ -337,13 +337,16 @@ class PanelApi {
   }
 }
 
-/// Panel oturum çerezi düz dosya yerine Keychain / Keystore'da.
+/// Panel/acente oturum çerezi düz dosya yerine Keychain / Keystore'da.
+/// `prefix` her portal için ayrı bir anahtar alanı verir — [PanelApi] ve
+/// `AgencyPortalApi` (bkz. `agency_client.dart`) aynı cihazda aynı anda oturum
+/// tutabilir, çerezleri karışmaz.
 class VaultCookieStorage implements Storage {
-  VaultCookieStorage(this._vault);
+  VaultCookieStorage(this._vault, {this._prefix = 'dg.panel.ck.'});
 
   final Vault _vault;
-  static const _prefix = 'dg.panel.ck.';
-  static const _index = 'dg.panel.ck.index';
+  final String _prefix;
+  String get _index => '${_prefix}index';
 
   @override
   Future<void> init(bool persistSession, bool ignoreExpires) async {}
