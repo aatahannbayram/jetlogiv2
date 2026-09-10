@@ -106,38 +106,48 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                       : null,
                   polylinePrecision: slice?.precision ?? 6,
                   estimated: slice?.estimated ?? true,
-                  couriers: session.visibleFleet
-                      .where((c) => c.self)
-                      .toList(),
+                  couriers: session.visibleFleet.where((c) => c.self).toList(),
                   fitTo: t.hasCoordinates ? [self, dest] : [self],
                   showBadge: false,
                 ),
-                SafeArea(
-                  bottom: false,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-                    child: Appear(
-                      slide: -0.15,
-                      child: Row(
-                        children: [
-                          _SheetBack(
-                            onTap: () => Navigator.of(context).pop(),
-                          ),
-                          const SizedBox(width: 8),
-                          Flexible(
-                            child: _RouteChip(
-                              text: slice != null && !slice.estimated
-                                  ? l.routeKmMin(km, minutes)
-                                  : '${l.routeKmMin(km, minutes)}  ·  ${l.approxRoute}',
+                // `Positioned` şart: bu Stack `StackFit.expand` kullanıyor,
+                // konumlanmamış (non-positioned) bir çocuk (SafeArea gibi)
+                // Stack'in TAMAMI kadar gerilir. O zaman içindeki Row da
+                // gerilen kutunun tamamını kaplar ve varsayılan
+                // `crossAxisAlignment: center` yüzünden geri/mesafe/Kuryeler
+                // şeridi ekranın üstü yerine ortasına düşer. `Positioned` bu
+                // şeridi sadece kendi doğal yüksekliğine sabitler.
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: SafeArea(
+                    bottom: false,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                      child: Appear(
+                        slide: -0.15,
+                        child: Row(
+                          children: [
+                            _SheetBack(
+                              onTap: () => Navigator.of(context).pop(),
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          _FleetToggle(
-                            on: session.showFleet,
-                            label: l.fleetOnMap,
-                            onTap: session.toggleFleet,
-                          ),
-                        ],
+                            const SizedBox(width: 8),
+                            Flexible(
+                              child: _RouteChip(
+                                text: slice != null && !slice.estimated
+                                    ? l.routeKmMin(km, minutes)
+                                    : '${l.routeKmMin(km, minutes)}  ·  ${l.approxRoute}',
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            _FleetToggle(
+                              on: session.showFleet,
+                              label: l.fleetOnMap,
+                              onTap: session.toggleFleet,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -145,215 +155,233 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
               ],
             ),
           ),
-          Container(
-            decoration: BoxDecoration(
-              color: Dg.surface,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(Dg.radiusHero),
-              ),
-              border: Border(top: BorderSide(color: Dg.rule, width: 0.5)),
+          // Sabit yükseklikli bir Column, uzun içerikte (adres iki satır +
+          // zimmet + pencere + 3 ikon + kaydırma çubuğu + iade linki) haritayı
+          // ekranın küçük bir kısmına sıkıştırıyordu — üstteki geri/mesafe/
+          // Kuryeler şeridi o zaman "ortada" gibi görünüyordu. Yükseklik payı
+          // artık ekranın en fazla %48'i; taşan içerik kaydırılır.
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(context).height * 0.48,
             ),
-            child: SafeArea(
-              top: false,
-              child: Appear(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(Dg.pagePad, 16, Dg.pagePad, 22),
-                  child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 36,
-                        height: 4,
-                        margin: const EdgeInsets.only(bottom: 16),
-                        decoration: BoxDecoration(
-                          color: Dg.rule,
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                      ),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Dg.surface,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(Dg.radiusHero),
+                ),
+                border: Border(top: BorderSide(color: Dg.rule, width: 0.5)),
+              ),
+              child: SafeArea(
+                top: false,
+                child: Appear(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(
+                      Dg.pagePad,
+                      16,
+                      Dg.pagePad,
+                      22,
                     ),
-                    Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: Mono(
-                            taskRefLine(t, visit: session.visitNumber(t.id)),
-                            color: Dg.ink3,
-                          ),
-                        ),
-                        StatusChip(
-                          label: taskChipLabel(t, l),
-                          tone: taskChipTone(t),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Hero(
-                      tag: 'recipient-${t.id}',
-                      child: Material(
-                        color: Colors.transparent,
-                        child: Row(
-                          children: [
-                            InitialsAvatar(
-                              name: t.recipient,
-                              photoUrl: t.personPhoto,
-                              size: 40,
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(child: Display(t.recipient, size: 22)),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      t.address,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: Dg.ink2,
-                        fontSize: 13,
-                        height: 1.3,
-                      ),
-                    ),
-                    if (t.merchantName != null &&
-                        t.merchantName!.isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Dg.violetBg,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          t.merchantName!,
-                          style: Dg.ui(
-                            size: 12,
-                            weight: FontWeight.w600,
-                            color: Dg.violet,
-                          ),
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 8),
-                    const DgDivider(),
-                    _InfoCard(
-                      icon: LucideIcons.layers,
-                      label: l.custody,
-                      value: t.custodyCount == null
-                          ? '—'
-                          : l.itemsWithRef(t.custodyCount!, t.custodyRef),
-                    ),
-                    const DgDivider(),
-                    _InfoCard(
-                      icon: LucideIcons.clock,
-                      label: l.deliveryWindowLeft,
-                      value: t.slaMinutesLeft == null
-                          ? t.window
-                          : l.slaLeft(t.slaLabel),
-                    ),
-                    if (t.otpRequired) ...[
-                      const DgDivider(),
-                      _InfoCard(
-                        icon: LucideIcons.key,
-                        label: l.deliveryCode,
-                        value: l.askRecipient,
-                        dot: true,
-                      ),
-                    ],
-                    const SizedBox(height: 14),
-                    Row(
-                      children: [
-                        SquareAction(
-                          icon: LucideIcons.phone,
-                          label: l.callShort,
-                          onTap: () => session.callTask(context, t),
-                        ),
-                        const SizedBox(width: 10),
-                        SquareAction(
-                          icon: LucideIcons.navigation,
-                          label: l.routeShort,
-                          onTap: () => openDirections(context, t),
-                        ),
-                        const SizedBox(width: 10),
-                        SquareAction(
-                          icon: LucideIcons.camera,
-                          label: l.photo,
-                          onTap: () {},
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    if (done)
-                      Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
+                        Center(
+                          child: Container(
+                            width: 36,
+                            height: 4,
+                            margin: const EdgeInsets.only(bottom: 16),
                             decoration: BoxDecoration(
-                              color: Dg.loBg,
-                              borderRadius: BorderRadius.circular(
-                                Dg.radiusPill,
+                              color: Dg.rule,
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                          ),
+                        ),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Mono(
+                                taskRefLine(
+                                  t,
+                                  visit: session.visitNumber(t.id),
+                                ),
+                                color: Dg.ink3,
                               ),
                             ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  LucideIcons.circleCheck,
-                                  size: 20,
-                                  color: Dg.lo,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  l.deliveredOk,
-                                  style: Dg.ui(
-                                    size: 16,
-                                    weight: FontWeight.w700,
-                                    color: Dg.lo,
-                                  ),
-                                ),
-                              ],
+                            StatusChip(
+                              label: taskChipLabel(t, l),
+                              tone: taskChipTone(t),
                             ),
-                          )
-                          .animate()
-                          .scale(
-                            begin: const Offset(0.96, 0.96),
-                            duration: 220.ms,
-                            curve: Curves.easeOutBack,
-                          )
-                          .fadeIn(duration: 180.ms)
-                    else if (canAct)
-                      SlideToAct(
-                        label: l.slideToDeliver,
-                        onConfirm: start,
-                      ),
-                    if (canAct) ...[
-                      const SizedBox(height: 8),
-                      Center(
-                        child: TextButton(
-                          onPressed: () async {
-                            final failed = await Navigator.of(context)
-                                .push<bool>(
-                                  MaterialPageRoute<bool>(
-                                    builder: (_) => ReturnScreen(taskId: t.id),
-                                  ),
-                                );
-                            if (failed == true && context.mounted)
-                              Navigator.of(context).pop();
-                          },
-                          child: Text(
-                            l.couldNotDeliverShort,
-                            style: TextStyle(
-                              color: Dg.red,
-                              fontWeight: FontWeight.w700,
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Hero(
+                          tag: 'recipient-${t.id}',
+                          child: Material(
+                            color: Colors.transparent,
+                            child: Row(
+                              children: [
+                                InitialsAvatar(
+                                  name: t.recipient,
+                                  photoUrl: t.personPhoto,
+                                  size: 40,
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(child: Display(t.recipient, size: 22)),
+                              ],
                             ),
                           ),
                         ),
-                      ),
-                    ],
-                  ],
-                ),
+                        const SizedBox(height: 4),
+                        Text(
+                          t.address,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Dg.ink2,
+                            fontSize: 13,
+                            height: 1.3,
+                          ),
+                        ),
+                        if (t.merchantName != null &&
+                            t.merchantName!.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Dg.violetBg,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              t.merchantName!,
+                              style: Dg.ui(
+                                size: 12,
+                                weight: FontWeight.w600,
+                                color: Dg.violet,
+                              ),
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 8),
+                        const DgDivider(),
+                        _InfoCard(
+                          icon: LucideIcons.layers,
+                          label: l.custody,
+                          value: t.custodyCount == null
+                              ? '—'
+                              : l.itemsWithRef(t.custodyCount!, t.custodyRef),
+                        ),
+                        const DgDivider(),
+                        _InfoCard(
+                          icon: LucideIcons.clock,
+                          label: l.deliveryWindowLeft,
+                          value: t.slaMinutesLeft == null
+                              ? t.window
+                              : l.slaLeft(t.slaLabel),
+                        ),
+                        if (t.otpRequired) ...[
+                          const DgDivider(),
+                          _InfoCard(
+                            icon: LucideIcons.key,
+                            label: l.deliveryCode,
+                            value: l.askRecipient,
+                            dot: true,
+                          ),
+                        ],
+                        const SizedBox(height: 14),
+                        Row(
+                          children: [
+                            SquareAction(
+                              icon: LucideIcons.phone,
+                              label: l.callShort,
+                              onTap: () => session.callTask(context, t),
+                            ),
+                            const SizedBox(width: 10),
+                            SquareAction(
+                              icon: LucideIcons.navigation,
+                              label: l.routeShort,
+                              onTap: () => openDirections(context, t),
+                            ),
+                            const SizedBox(width: 10),
+                            SquareAction(
+                              icon: LucideIcons.camera,
+                              label: l.photo,
+                              onTap: () {},
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        if (done)
+                          Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Dg.loBg,
+                                  borderRadius: BorderRadius.circular(
+                                    Dg.radiusPill,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      LucideIcons.circleCheck,
+                                      size: 20,
+                                      color: Dg.lo,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      l.deliveredOk,
+                                      style: Dg.ui(
+                                        size: 16,
+                                        weight: FontWeight.w700,
+                                        color: Dg.lo,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                              .animate()
+                              .scale(
+                                begin: const Offset(0.96, 0.96),
+                                duration: 220.ms,
+                                curve: Curves.easeOutBack,
+                              )
+                              .fadeIn(duration: 180.ms)
+                        else if (canAct)
+                          SlideToAct(label: l.slideToDeliver, onConfirm: start),
+                        if (canAct) ...[
+                          const SizedBox(height: 8),
+                          Center(
+                            child: TextButton(
+                              onPressed: () async {
+                                final failed = await Navigator.of(context)
+                                    .push<bool>(
+                                      MaterialPageRoute<bool>(
+                                        builder: (_) =>
+                                            ReturnScreen(taskId: t.id),
+                                      ),
+                                    );
+                                if (failed == true && context.mounted)
+                                  Navigator.of(context).pop();
+                              },
+                              child: Text(
+                                l.couldNotDeliverShort,
+                                style: TextStyle(
+                                  color: Dg.red,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -432,7 +460,12 @@ class _RouteChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          DgIcon(LucideIcons.navigation, size: 13, color: Colors.white, weight: 600),
+          DgIcon(
+            LucideIcons.navigation,
+            size: 13,
+            color: Colors.white,
+            weight: 600,
+          ),
           const SizedBox(width: 6),
           Flexible(
             child: Text(
