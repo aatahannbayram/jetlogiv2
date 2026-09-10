@@ -7,6 +7,8 @@ import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 
 import type { AppContext } from '../context.js';
+import { serviceRouteRateLimit } from '../rate-limits.js';
+import { enqueueCourierNotification } from '../services/notify.js';
 import { extendSlaInstance } from '../services/sla.js';
 import { cancelTask } from '../services/task-cancellation.js';
 
@@ -29,6 +31,7 @@ export async function delayDecisionRoutes(app: FastifyInstance, { ctx }: { ctx: 
   route.post(
     '/v1/tasks/:taskId/delay-decision',
     {
+      config: { rateLimit: serviceRouteRateLimit },
       schema: {
         tags: ['Task'],
         params: z.object({ taskId: Uuid }),
@@ -66,6 +69,30 @@ export async function delayDecisionRoutes(app: FastifyInstance, { ctx }: { ctx: 
           });
         }
       });
+
+      if (task.courierId) {
+        if (body.decision === 'cancel') {
+          await enqueueCourierNotification(ctx.db, ctx.env, {
+            courierId: task.courierId,
+            kind: 'TASK_CANCELLED',
+            title: 'Durak iptal',
+            body: `${task.reference} · ${body.reason ?? 'operasyon iptal etti.'}`,
+            subjectId: task.id,
+            collapseKey: `task-cancel:${task.id}`,
+            route: `task:${task.id}`,
+          });
+        } else {
+          await enqueueCourierNotification(ctx.db, ctx.env, {
+            courierId: task.courierId,
+            kind: 'TASK_UPDATED',
+            title: 'SLA uzatıldı',
+            body: `${task.reference} · teslim penceresi uzatıldı.`,
+            subjectId: task.id,
+            collapseKey: `sla-extend:${task.id}`,
+            route: `task:${task.id}`,
+          });
+        }
+      }
 
       return {
         taskId: task.id,

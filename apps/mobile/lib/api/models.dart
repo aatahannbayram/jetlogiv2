@@ -98,10 +98,78 @@ class AppConfig {
   }
 }
 
+class PresignResult {
+  const PresignResult({
+    required this.mediaId,
+    required this.uploadUrl,
+    required this.headers,
+    required this.alreadyUploaded,
+  });
+
+  final String mediaId;
+  final String uploadUrl;
+  final Map<String, String> headers;
+  final bool alreadyUploaded;
+
+  factory PresignResult.fromJson(Map<String, dynamic> json) => PresignResult(
+    mediaId: json['mediaId'] as String? ?? '',
+    uploadUrl: json['uploadUrl'] as String? ?? '',
+    headers: {
+      for (final e in (json['headers'] as Map? ?? const {}).entries)
+        '${e.key}': '${e.value}',
+    },
+    alreadyUploaded: json['alreadyUploaded'] == true,
+  );
+}
+
+class MaskedCallDto {
+  const MaskedCallDto({
+    required this.dialNumber,
+    required this.sessionId,
+    required this.expiresAt,
+  });
+
+  final String dialNumber;
+  final String sessionId;
+  final String expiresAt;
+
+  factory MaskedCallDto.fromJson(Map<String, dynamic> json) => MaskedCallDto(
+    dialNumber: json['dialNumber'] as String? ?? '',
+    sessionId: json['sessionId'] as String? ?? '',
+    expiresAt: json['expiresAt'] as String? ?? '',
+  );
+}
+
 class SyncBatchResult {
   const SyncBatchResult({required this.clientEventId, required this.status});
   final String clientEventId;
   final String status;
+}
+
+class ShiftDto {
+  const ShiftDto({
+    required this.id,
+    required this.status,
+    required this.startedAt,
+    this.vehiclePlate,
+    this.endedAt,
+  });
+
+  final String id;
+  final String status;
+  final String startedAt;
+  final String? vehiclePlate;
+  final String? endedAt;
+
+  bool get isOpen => status == 'active' || status == 'paused';
+
+  factory ShiftDto.fromJson(Map<String, dynamic> json) => ShiftDto(
+    id: json['id'] as String? ?? '',
+    status: json['status'] as String? ?? 'closed',
+    startedAt: json['startedAt'] as String? ?? '',
+    vehiclePlate: json['vehiclePlate'] as String?,
+    endedAt: json['endedAt'] as String?,
+  );
 }
 
 class TokenPair {
@@ -293,6 +361,45 @@ class RoutePlanDto {
 
   bool get hasRealGeometry => geometry != null && geometry!.isNotEmpty;
 
+  /// Demo / interceptor tohumu — OSRM `/trip` Güney turu
+  /// (kurye → Mehmet → Ahmet → Elif → Fatma). Precision 5.
+  static const demoGeometry =
+      r'imygFejlpDo@p@Yl@Gh@Cf@G\ORmA|@WDk@@g@Fo@L{@CWNU^a@PWIOGi@@yBZ_BD_ALcAk@k@QM]Uo@KOa@MQEEAo@Oa@E_@EiAK{@WSOOM[E{BAKKYIMJB[@GFWTu@BM^w@@YIS?QLc@@k@BYHm@JeA[PIFIDO?C?E@EBQJWHKHi@BUDWZ_@\[@c@Iw@Sc@MsBm@oAYcBKQPYXa@z@b@WZCt@RlCvAv@~@Xj@Tb@BDbAhBPVr@`Al@^PBK|@Gn@GZEXAROfDMhAEr@B^XGl@HN@h@Fn@TT\j@`A@^P|@Rh@\`@Vp@\VBDRt@PlAL^HJH@BEFJVIJIPIPKPIJKLKJMVMLMNGJKLBP?HDRNTRLLTXHD\VVVPPNJNLJGFKFSB[?_@@UGWESM[SUOOIIMMQUH@v@l@Zd@d@bA|@fATJ`@p@p@v@j@j@XXf@LlAt@dAj@^PTLT`@Jj@Ln@?d@Cr@An@B~@E`AIp@Gz@Mz@En@?j@I`A[jAITKZYdAMVGVAt@Rf@Lf@P\VPVTBTA`@BZNb@P\Jh@A`@Eb@Cr@BVDd@?h@Er@?h@B\GX?f@?h@Mh@Ff@L^Bb@Gb@Mv@';
+
+  factory RoutePlanDto.demo({DateTime? now}) {
+    var eta = now ?? DateTime.now().toUtc();
+    RouteStopDto stop(
+      String taskId,
+      int sequence,
+      int? distanceMeters,
+      int? durationSeconds,
+    ) {
+      if (durationSeconds != null) {
+        eta = eta.add(Duration(seconds: durationSeconds));
+      }
+      return RouteStopDto(
+        taskId: taskId,
+        sequence: sequence,
+        etaAt: eta.toIso8601String(),
+        distanceMeters: distanceMeters,
+        durationSeconds: durationSeconds,
+      );
+    }
+
+    return RoutePlanDto(
+      id: 'demo-route',
+      mode: 'distance_optimized',
+      geometry: demoGeometry,
+      computedAt: (now ?? DateTime.now().toUtc()).toIso8601String(),
+      stops: [
+        stop('t3', 0, 1435, 219),
+        stop('t1', 1, 1486, 196),
+        stop('t2', 2, 1026, 281),
+        stop('t4', 3, 592, 213),
+      ],
+    );
+  }
+
   factory RoutePlanDto.fromJson(Map<String, dynamic> json) {
     final raw = json['stops'] as List? ?? const [];
     return RoutePlanDto(
@@ -319,6 +426,7 @@ class CustodyItemDto {
     this.barcode,
     this.amount,
     this.taskId,
+    this.warehouseId,
   });
 
   final String id;
@@ -330,6 +438,9 @@ class CustodyItemDto {
   final String? taskId;
   final String acquiredAt;
 
+  /// Panel `GET courier-custody` — şubeye iade için `warehouseId` gerekir.
+  final String? warehouseId;
+
   factory CustodyItemDto.fromJson(Map<String, dynamic> json) => CustodyItemDto(
     id: json['id'] as String? ?? '',
     type: json['type'] as String? ?? 'parcel',
@@ -337,8 +448,9 @@ class CustodyItemDto {
     description: json['description'] as String? ?? '',
     quantity: (json['quantity'] as num?)?.toInt() ?? 1,
     amount: (json['amount'] as num?)?.toDouble(),
-    taskId: json['taskId'] as String?,
+    taskId: json['taskId'] as String? ?? json['shipmentId'] as String?,
     acquiredAt: json['acquiredAt'] as String? ?? '',
+    warehouseId: json['warehouseId'] as String?,
   );
 }
 
@@ -367,6 +479,107 @@ class CustodyHandoverResultDto {
     );
   }
 }
+
+class SupportTicketDto {
+  const SupportTicketDto({
+    required this.id,
+    required this.reference,
+    required this.category,
+    required this.subject,
+    required this.body,
+    required this.status,
+    required this.priority,
+    required this.createdAt,
+    this.taskId,
+  });
+
+  final String id;
+  final String reference;
+  final String category;
+  final String subject;
+  final String body;
+  final String status;
+  final String priority;
+  final String createdAt;
+  final String? taskId;
+
+  String get statusLabel => switch (status) {
+    'open' => 'Açık',
+    'in_progress' => 'İşlemde',
+    'resolved' => 'Çözüldü',
+    'closed' => 'Kapalı',
+    _ => status,
+  };
+
+  String get categoryLabel => supportCategoryLabel(category);
+
+  factory SupportTicketDto.fromJson(Map<String, dynamic> json) =>
+      SupportTicketDto(
+        id: json['id'] as String? ?? '',
+        reference: json['reference'] as String? ?? '',
+        category: json['category'] as String? ?? 'OTHER',
+        subject: json['subject'] as String? ?? '',
+        body: json['body'] as String? ?? '',
+        status: json['status'] as String? ?? 'open',
+        priority: json['priority'] as String? ?? 'normal',
+        createdAt: json['createdAt'] as String? ?? '',
+        taskId: json['taskId'] as String?,
+      );
+}
+
+class TrainingModuleDto {
+  const TrainingModuleDto({
+    required this.id,
+    required this.title,
+    required this.body,
+    required this.sortOrder,
+    required this.completed,
+    this.summary,
+    this.completedAt,
+  });
+
+  final String id;
+  final String title;
+  final String? summary;
+  final String body;
+  final int sortOrder;
+  final bool completed;
+  final String? completedAt;
+
+  factory TrainingModuleDto.fromJson(Map<String, dynamic> json) =>
+      TrainingModuleDto(
+        id: json['id'] as String? ?? '',
+        title: json['title'] as String? ?? '',
+        summary: json['summary'] as String?,
+        body: json['body'] as String? ?? '',
+        sortOrder: (json['sortOrder'] as num?)?.toInt() ?? 0,
+        completed: json['completed'] as bool? ?? false,
+        completedAt: json['completedAt'] as String?,
+      );
+}
+
+String supportCategoryLabel(String category) => switch (category) {
+  'APP_ISSUE' => 'Uygulama',
+  'ADDRESS_PROBLEM' => 'Adres',
+  'RECIPIENT_UNREACHABLE' => 'Alıcıya ulaşılamıyor',
+  'VEHICLE' => 'Araç',
+  'ACCIDENT' => 'Kaza',
+  'SECURITY' => 'Güvenlik',
+  'PAYMENT' => 'Ödeme',
+  'OTHER' => 'Diğer',
+  _ => category,
+};
+
+const supportCategories = [
+  'APP_ISSUE',
+  'ADDRESS_PROBLEM',
+  'RECIPIENT_UNREACHABLE',
+  'VEHICLE',
+  'ACCIDENT',
+  'SECURITY',
+  'PAYMENT',
+  'OTHER',
+];
 
 class CourierDocumentListDto {
   const CourierDocumentListDto({

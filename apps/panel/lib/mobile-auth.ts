@@ -22,7 +22,10 @@ export async function readMobileAuth(
 
   const secret = process.env.JWT_ACCESS_SECRET;
   if (!secret) {
-    return { ok: true };
+    return {
+      ok: false,
+      response: problem('UNAUTHENTICATED', 'Kimlik sunucusu yapılandırılmadı', 401),
+    };
   }
 
   try {

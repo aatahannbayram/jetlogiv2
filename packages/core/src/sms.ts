@@ -57,13 +57,57 @@ export interface SmsProviderEnv {
   SMS_PROVIDER: 'mock' | 'netgsm' | 'verimor' | 'iletimerkezi';
 }
 
-export function createSmsProvider(env: SmsProviderEnv, log: (msg: string) => void): SmsProvider {
+export interface NetgsmSmsEnv {
+  SMS_API_KEY?: string;
+  SMS_SENDER_ID?: string;
+}
+
+/** Netgsm GET SMS. `SMS_API_KEY` = `usercode:password`. */
+export class NetgsmSmsProvider implements SmsProvider {
+  readonly name = 'netgsm';
+
+  constructor(
+    private readonly env: NetgsmSmsEnv,
+    private readonly log: (msg: string) => void = console.log,
+    private readonly fetchImpl: typeof fetch = fetch,
+  ) {}
+
+  async send(message: SmsMessage): Promise<SmsResult> {
+    const key = this.env.SMS_API_KEY ?? '';
+    const colon = key.indexOf(':');
+    if (colon < 1) {
+      throw new Error('SMS_API_KEY usercode:password biciminde olmali.');
+    }
+    const usercode = key.slice(0, colon);
+    const password = key.slice(colon + 1);
+    const gsmno = message.to.replace(/\D/g, '');
+    const url = new URL('https://api.netgsm.com.tr/sms/send/get');
+    url.searchParams.set('usercode', usercode);
+    url.searchParams.set('password', password);
+    url.searchParams.set('gsmno', gsmno);
+    url.searchParams.set('message', message.body);
+    url.searchParams.set('msgheader', message.sender ?? this.env.SMS_SENDER_ID ?? 'DIJIGOO');
+
+    const res = await this.fetchImpl(url);
+    const text = (await res.text()).trim();
+    if (!res.ok || text.startsWith('20') || text.startsWith('30') || text.startsWith('40') || text.startsWith('50') || text.startsWith('70')) {
+      this.log(`[sms:netgsm] fail ${text}`);
+      throw new Error(`Netgsm SMS gonderilemedi: ${text || res.status}`);
+    }
+    return { providerMessageId: text || `netgsm-${Date.now()}`, acceptedAt: new Date() };
+  }
+}
+
+export function createSmsProvider(
+  env: SmsProviderEnv & NetgsmSmsEnv,
+  log: (msg: string) => void,
+): SmsProvider {
   switch (env.SMS_PROVIDER) {
     case 'mock':
       return new MockSmsProvider(log);
+    case 'netgsm':
+      return new NetgsmSmsProvider(env, log);
     default:
-      // Real adapters land once the operator contract is signed; failing loudly
-      // is better than silently falling back to mock in production.
       throw new Error(
         `SMS saglayicisi "${env.SMS_PROVIDER}" henuz uygulanmadi. ` +
           'Bkz. docs/02-saglayici-degerlendirme.md',

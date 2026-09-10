@@ -13,7 +13,9 @@
     "JWT_REFRESH_SECRET",
     "JWT_ISSUER",
     "IDENTITY_UPSTREAM",
-    "IDENTITY_INTERNAL_TOKEN"
+    "IDENTITY_INTERNAL_TOKEN",
+    "TRACKING_API_URL",
+    "INQUIRY_WEBHOOK_URL"
   ],
   "tasks": {
     "build": {

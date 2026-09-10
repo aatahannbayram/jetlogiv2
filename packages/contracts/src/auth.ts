@@ -5,6 +5,7 @@ import { PhoneNumber, Timestamp, Uuid, z } from './common.js';
  * ------------------------------------------------------------------ */
 
 export const Platform = z.enum(['android', 'ios']);
+export type Platform = z.infer<typeof Platform>;
 
 /**
  * Everything we need to bind one courier account to exactly one handset.
@@ -43,6 +44,7 @@ export const IntegrityAssertion = z
     nonce: z.string().min(16).max(128),
   })
   .openapi('IntegrityAssertion');
+export type IntegrityAssertion = z.infer<typeof IntegrityAssertion>;
 
 export const IntegrityVerdict = z
   .object({
@@ -63,6 +65,7 @@ export const IntegrityVerdict = z
     evaluatedAt: Timestamp,
   })
   .openapi('IntegrityVerdict');
+export type IntegrityVerdict = z.infer<typeof IntegrityVerdict>;
 
 /* ------------------------------------------------------------------ *
  * Activation: phone -> OTP -> bound device

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n.dart';
 import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -24,9 +25,10 @@ class _EnvanterScreenState extends ConsumerState<EnvanterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final s = ref.watch(sessionProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Ürün Envanterim')),
+      appBar: AppBar(title: Text(l.inventoryTitle)),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
         children: [
@@ -34,13 +36,13 @@ class _EnvanterScreenState extends ConsumerState<EnvanterScreen> {
             children: [
               Expanded(
                 child: StatTile(
-                  label: 'BEKLEYEN',
+                  label: l.pendingCaps,
                   value: '${s.inventoryPending}',
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: StatTile(label: 'TESLİM', value: '${s.inventoryDone}'),
+                child: StatTile(label: l.deliveredCaps, value: '${s.inventoryDone}'),
               ),
             ],
           ),
@@ -51,10 +53,10 @@ class _EnvanterScreenState extends ConsumerState<EnvanterScreen> {
                 Expanded(
                   child: TextField(
                     controller: code,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       border: InputBorder.none,
                       isDense: true,
-                      hintText: 'Kod ile ekle',
+                      hintText: l.addByCode,
                     ),
                     style: const TextStyle(
                       fontSize: 16,
@@ -74,14 +76,15 @@ class _EnvanterScreenState extends ConsumerState<EnvanterScreen> {
                   child: Container(
                     width: 36,
                     height: 36,
-                    decoration: const BoxDecoration(
-                      color: Dg.purple,
+                    decoration: BoxDecoration(
+                      color: Dg.brand,
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(
+                    child: DgIcon(
                       LucideIcons.plus,
                       size: 20,
                       color: Colors.white,
+                      weight: 600,
                     ),
                   ),
                 ),

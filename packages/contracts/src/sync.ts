@@ -1,5 +1,6 @@
 import { ErrorResponse, Timestamp, Uuid, z } from './common.js';
 import { CustodyItem } from './custody.js';
+import { CourierInboxItem } from './notifications.js';
 import { Shift } from './shift.js';
 import { TaskSummary } from './task.js';
 import { WorkflowRef } from './workflow.js';
@@ -108,6 +109,7 @@ export const SyncChanges = z
     shift: Shift.nullish(),
     /** Workflow versions referenced by the tasks above that the client may not have cached. */
     workflows: z.array(WorkflowRef).default([]),
+    notifications: z.array(CourierInboxItem).default([]),
     nextCursor: z.string().nullable(),
     /** Use as `since` on the next pull. Server clock, not device clock. */
     syncedAt: Timestamp,

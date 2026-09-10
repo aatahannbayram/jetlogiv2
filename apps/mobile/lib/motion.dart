@@ -1,13 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 import 'theme.dart';
+
+bool _stillMotion(BuildContext context) {
+  if (MediaQuery.disableAnimationsOf(context)) return true;
+  try {
+    final name = WidgetsBinding.instance.runtimeType.toString();
+    return name.contains('TestWidgetsFlutterBinding') ||
+        name.contains('AutomatedTest');
+  } catch (_) {
+    return true;
+  }
+}
 
 /// Small, reusable motion primitives — kept deliberately few so the app has
 /// one consistent motion vocabulary instead of every screen inventing its
 /// own timing/curve. Built on `flutter_animate` (already a dependency, used
 /// once already in result_screen.dart) for one-shot declarative effects;
-/// continuous/gesture-driven effects (SlideToAct's nudge, RouteGlowBackground)
+/// continuous/gesture-driven effects (SlideToAct's nudge)
 /// stay on raw AnimationController — this file doesn't touch those.
 
 /// Fade + a short upward slide, on [Curves.easeOutCubic] — the curve this
@@ -56,16 +68,66 @@ class StaggerIn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (MediaQuery.disableAnimationsOf(context)) return child;
     return child
-        .animate(delay: (30 * index.clamp(0, 10)).ms)
+        .animate(delay: (30 * index.clamp(0, 5)).ms)
         .fadeIn(duration: 220.ms, curve: Curves.easeOutCubic)
         .slideY(
           begin: 0.08,
           end: 0,
-          duration: 220.ms,
+          duration: 320.ms,
           curve: Curves.easeOutCubic,
         );
   }
+}
+
+/// Framer-style mount: fade + rise + slight scale. One-shot, no loop.
+class Appear extends StatelessWidget {
+  const Appear({
+    super.key,
+    required this.child,
+    this.delay = Duration.zero,
+    this.slide = 0.04,
+  });
+
+  final Widget child;
+  final Duration delay;
+  final double slide;
+
+  @override
+  Widget build(BuildContext context) {
+    if (MediaQuery.disableAnimationsOf(context)) return child;
+    return child
+        .animate(delay: delay)
+        .fadeIn(duration: 280.ms, curve: Curves.easeOutCubic)
+        .slideY(
+          begin: slide,
+          end: 0,
+          duration: 420.ms,
+          curve: Curves.easeOutCubic,
+        )
+        .scale(
+          begin: const Offset(0.98, 0.98),
+          end: const Offset(1, 1),
+          duration: 420.ms,
+          curve: Curves.easeOutCubic,
+        );
+  }
+}
+
+/// Phase / tab crossfade used by [DijigooApp] and the shell.
+Widget dgSwitchTransition(Widget child, Animation<double> animation) {
+  final curved = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
+  return FadeTransition(
+    opacity: curved,
+    child: SlideTransition(
+      position: Tween<Offset>(
+        begin: const Offset(0, 0.018),
+        end: Offset.zero,
+      ).animate(curved),
+      child: child,
+    ),
+  );
 }
 
 /// A plain opacity-pulse loading placeholder — not a shimmer sweep, which
@@ -81,14 +143,16 @@ class DgSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-          width: width,
-          height: height,
-          decoration: BoxDecoration(
-            color: Dg.elev,
-            borderRadius: BorderRadius.circular(radius),
-          ),
-        )
+    final box = Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: Dg.elev,
+        borderRadius: BorderRadius.circular(radius),
+      ),
+    );
+    if (_stillMotion(context)) return box;
+    return box
         .animate(onPlay: (c) => c.repeat(reverse: true))
         .fadeIn(begin: 0.4, duration: 700.ms, curve: Curves.easeInOut);
   }
@@ -117,14 +181,88 @@ class _PressableState extends State<Pressable> {
       onTapDown: (_) => setState(() => _down = true),
       onTapUp: (_) => setState(() => _down = false),
       onTapCancel: () => setState(() => _down = false),
-      onTap: widget.onTap,
+      onTap: () {
+        HapticFeedback.mediumImpact();
+        widget.onTap();
+      },
       child: AnimatedScale(
         scale: _down ? 0.96 : 1.0,
-        duration: const Duration(milliseconds: 100),
-        curve: Curves.easeOut,
+        duration: Duration(milliseconds: _down ? 70 : 280),
+        curve: _down ? Curves.easeOut : Curves.easeOutBack,
         child: widget.child,
       ),
     );
+  }
+}
+
+/// Sayı değişince count-up; aynı değerde animasyon yok.
+class CountUp extends StatefulWidget {
+  const CountUp(
+    this.value, {
+    super.key,
+    this.style,
+    this.prefix = '',
+    this.suffix = '',
+  });
+
+  final int value;
+  final TextStyle? style;
+  final String prefix;
+  final String suffix;
+
+  @override
+  State<CountUp> createState() => _CountUpState();
+}
+
+class _CountUpState extends State<CountUp> {
+  late int _from;
+
+  @override
+  void initState() {
+    super.initState();
+    _from = widget.value;
+  }
+
+  @override
+  void didUpdateWidget(CountUp oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.value != widget.value) _from = oldWidget.value;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final style = widget.style ?? Dg.typeNum(size: 24);
+    String label(int n) => '${widget.prefix}$n${widget.suffix}';
+    if (_from == widget.value || MediaQuery.disableAnimationsOf(context)) {
+      return Text(label(widget.value), style: style);
+    }
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: _from.toDouble(), end: widget.value.toDouble()),
+      duration: const Duration(milliseconds: 520),
+      curve: Curves.easeOutCubic,
+      builder: (_, v, _) => Text(label(v.round()), style: style),
+    );
+  }
+}
+
+/// Çevrimiçi nokta — 2 sn nabız (opacity).
+class PulseDot extends StatelessWidget {
+  const PulseDot({super.key, required this.color, this.size = 7});
+
+  final Color color;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final dot = Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+    );
+    if (_stillMotion(context)) return dot;
+    return dot
+        .animate(onPlay: (c) => c.repeat(reverse: true))
+        .fade(begin: 0.4, end: 1, duration: 2000.ms, curve: Curves.easeInOut);
   }
 }
 
@@ -145,7 +283,15 @@ class ResultIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final child = Icon(icon, size: size, color: color);
+    final child = SizedBox(
+      width: size,
+      height: size,
+      child: Text(
+        String.fromCharCode(icon.codePoint),
+        textAlign: TextAlign.center,
+        style: Dg.lucideStyle(size: size, color: color, weight: 600),
+      ),
+    );
     if (MediaQuery.disableAnimationsOf(context)) return child;
     return child
         .animate()

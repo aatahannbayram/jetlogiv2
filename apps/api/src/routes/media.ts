@@ -1,9 +1,10 @@
-import { ErrorResponse, PresignRequest, PresignResponse } from '@dijigoo/contracts';
+import { ConfirmMediaResponse, ErrorResponse, PresignRequest, PresignResponse, Uuid } from '@dijigoo/contracts';
 import { AppError } from '@dijigoo/core';
 import { media } from '@dijigoo/db';
 import { and, eq } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
+import { z } from 'zod';
 
 import type { AppContext } from '../context.js';
 
@@ -133,6 +134,56 @@ export async function mediaRoutes(app: FastifyInstance, { ctx }: { ctx: AppConte
         expiresAt: presigned.expiresAt.toISOString(),
         alreadyUploaded: false,
       };
+    },
+  );
+
+  route.post(
+    '/v1/media/:mediaId/confirm',
+    {
+      schema: {
+        tags: ['Media'],
+        params: z.object({ mediaId: Uuid }),
+        response: {
+          200: ConfirmMediaResponse,
+          401: ErrorResponse,
+          404: ErrorResponse,
+          409: ErrorResponse,
+        },
+      },
+    },
+    async (request) => {
+      const courier = await app.authenticate(request);
+      const [row] = await ctx.db
+        .select()
+        .from(media)
+        .where(and(eq(media.id, request.params.mediaId), eq(media.courierId, courier.courierId)))
+        .limit(1);
+
+      if (!row) throw new AppError('NOT_FOUND');
+      if (row.state === 'uploaded' || row.state === 'verified') {
+        return { mediaId: row.id, state: row.state };
+      }
+      if (row.state !== 'pending') {
+        throw new AppError('CONFLICT', {
+          message: 'Bu medya onaylanamaz.',
+          userVisible: true,
+        });
+      }
+
+      const exists = await ctx.storage.objectExists(row.storageBucket, row.storageKey);
+      if (!exists) {
+        throw new AppError('CONFLICT', {
+          message: 'Yukleme henuz depolamada gorunmuyor.',
+          userVisible: true,
+        });
+      }
+
+      await ctx.db
+        .update(media)
+        .set({ state: 'uploaded', uploadedAt: new Date() })
+        .where(eq(media.id, row.id));
+
+      return { mediaId: row.id, state: 'uploaded' as const };
     },
   );
 }

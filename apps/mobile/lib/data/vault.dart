@@ -5,7 +5,14 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 /// Keychain / Keystore. Access JWT, refresh, DB passphrase, installationId.
 class Vault {
   Vault({FlutterSecureStorage? storage})
-    : _storage = storage ?? const FlutterSecureStorage();
+    : _storage =
+          storage ??
+          const FlutterSecureStorage(
+            aOptions: AndroidOptions(resetOnError: false),
+            iOptions: IOSOptions(
+              accessibility: KeychainAccessibility.first_unlock,
+            ),
+          );
 
   final FlutterSecureStorage _storage;
 
@@ -20,7 +27,7 @@ class Vault {
     final existing = await _storage.read(key: _dbKey);
     if (existing != null && existing.length == 64) return existing;
     final hex = _randomHex(32);
-    await _storage.write(key: _dbKey, value: hex);
+    await _put(_dbKey, hex);
     return hex;
   }
 
@@ -28,7 +35,7 @@ class Vault {
     final existing = await _storage.read(key: _install);
     if (existing != null && existing.length == 36) return existing;
     final id = newUuid();
-    await _storage.write(key: _install, value: id);
+    await _put(_install, id);
     return id;
   }
 
@@ -38,16 +45,23 @@ class Vault {
     required DateTime accessExpiresAt,
     required DateTime refreshExpiresAt,
   }) async {
-    await _storage.write(key: _access, value: accessToken);
-    await _storage.write(key: _refresh, value: refreshToken);
-    await _storage.write(
-      key: _accessExp,
-      value: accessExpiresAt.toUtc().toIso8601String(),
-    );
-    await _storage.write(
-      key: _refreshExp,
-      value: refreshExpiresAt.toUtc().toIso8601String(),
-    );
+    await _put(_access, accessToken);
+    await _put(_refresh, refreshToken);
+    await _put(_accessExp, accessExpiresAt.toUtc().toIso8601String());
+    await _put(_refreshExp, refreshExpiresAt.toUtc().toIso8601String());
+  }
+
+  /// iOS keychain sometimes returns -25299 (duplicate) on write.
+  /// Delete-then-write recovers without blocking boot.
+  Future<void> _put(String key, String value) async {
+    try {
+      await _storage.write(key: key, value: value);
+    } catch (_) {
+      try {
+        await _storage.delete(key: key);
+      } catch (_) {}
+      await _storage.write(key: key, value: value);
+    }
   }
 
   Future<String?> get accessToken async => _storage.read(key: _access);
@@ -62,11 +76,110 @@ class Vault {
   }
 
   static const _onboard = 'dg.onboard.v2';
+  static const _tips = 'dg.tips.v1';
+  static const _subeOnboard = 'dg.sube.onboard.v1';
+  static const _taskWatermark = 'dg.task.watermark';
+  static const _locale = 'dg.ui.locale';
+  static const _dark = 'dg.ui.dark';
+  static const _notify = 'dg.ui.notify';
+  static const _shiftOpen = 'dg.shift.open';
+  static const _shiftStarted = 'dg.shift.started';
+
+  Future<String?> get locale async => _storage.read(key: _locale);
+
+  Future<void> saveLocale(String value) => _put(_locale, value);
+
+  Future<bool?> get darkMode async {
+    final v = await _storage.read(key: _dark);
+    if (v == null) return null;
+    return v == '1';
+  }
+
+  Future<void> saveDarkMode(bool value) => _put(_dark, value ? '1' : '0');
+
+  Future<bool?> get notifyEnabled async {
+    final v = await _storage.read(key: _notify);
+    if (v == null) return null;
+    return v == '1';
+  }
+
+  Future<void> saveNotifyEnabled(bool value) =>
+      _put(_notify, value ? '1' : '0');
+
+  Future<String?> get taskWatermark async => _storage.read(key: _taskWatermark);
+
+  Future<void> saveTaskWatermark(String? value) async {
+    if (value == null || value.isEmpty) {
+      await _storage.delete(key: _taskWatermark);
+    } else {
+      await _put(_taskWatermark, value);
+    }
+  }
 
   Future<bool> get onboardSeen async =>
       (await _storage.read(key: _onboard)) == '1';
 
-  Future<void> markOnboardSeen() => _storage.write(key: _onboard, value: '1');
+  Future<void> markOnboardSeen() => _put(_onboard, '1');
+
+  Future<bool> get tipsSeen async => (await _storage.read(key: _tips)) == '1';
+
+  Future<void> markTipsSeen() => _put(_tips, '1');
+
+  Future<bool> get subeOnboardSeen async =>
+      (await _storage.read(key: _subeOnboard)) == '1';
+
+  Future<void> markSubeOnboardSeen() => _put(_subeOnboard, '1');
+
+  Future<bool> get shiftIsOpen async =>
+      (await _storage.read(key: _shiftOpen)) == '1';
+
+  Future<DateTime?> get shiftStartedAt async {
+    final raw = await _storage.read(key: _shiftStarted);
+    return raw == null ? null : DateTime.tryParse(raw);
+  }
+
+  Future<void> saveShift({required bool open, DateTime? startedAt}) async {
+    await _put(_shiftOpen, open ? '1' : '0');
+    if (open && startedAt != null) {
+      await _put(_shiftStarted, startedAt.toIso8601String());
+    } else {
+      await _storage.delete(key: _shiftStarted);
+    }
+  }
+
+  static const _notifRead = 'dg.notif.read';
+  static const _notifGone = 'dg.notif.gone';
+  static const _notifCap = 200;
+
+  Future<Set<String>> get readNotificationIds async =>
+      _idSet(await _storage.read(key: _notifRead));
+
+  Future<Set<String>> get dismissedNotificationIds async =>
+      _idSet(await _storage.read(key: _notifGone));
+
+  Future<String?> readSecret(String key) => _storage.read(key: key);
+
+  Future<void> writeSecret(String key, String value) => _put(key, value);
+
+  Future<void> deleteSecret(String key) => _storage.delete(key: key);
+
+  Future<void> saveNotificationState({
+    required Set<String> readIds,
+    required Set<String> dismissedIds,
+  }) async {
+    await _put(_notifRead, _joinIds(readIds));
+    await _put(_notifGone, _joinIds(dismissedIds));
+  }
+
+  static Set<String> _idSet(String? raw) {
+    if (raw == null || raw.isEmpty) return {};
+    return {for (final p in raw.split(',')) if (p.isNotEmpty) p};
+  }
+
+  static String _joinIds(Set<String> ids) {
+    if (ids.length <= _notifCap) return ids.join(',');
+    return ids.skip(ids.length - _notifCap).join(',');
+  }
 
   static String newUuid() {
     final r = Random.secure();

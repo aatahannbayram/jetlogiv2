@@ -1,30 +1,85 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../geo.dart';
+import '../l10n.dart';
 import '../launchers.dart';
+import '../motion.dart';
 import '../models.dart';
 import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
-import 'fail_screen.dart';
+import 'return_screen.dart';
 import 'wizard_screen.dart';
 
 /// Canvas'ın "1d Görev detayı" tasarımı — tam ekran harita + kaydırmalı
 /// alt sheet. Kapıda ödeme yerine Zimmet/Teslim penceresi/Teslim kodu
 /// ikonlu bilgi kartları (bkz. plan Faz E).
-class TaskDetailScreen extends ConsumerWidget {
+class TaskDetailScreen extends ConsumerStatefulWidget {
   const TaskDetailScreen({super.key, required this.taskId});
 
   final String taskId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TaskDetailScreen> createState() => _TaskDetailScreenState();
+}
+
+class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final s = ref.read(sessionProvider);
+      unawaited(s.ensureDayRoute());
+      if (!s.routeLoading) unawaited(s.loadRoute());
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
     final session = ref.watch(sessionProvider);
-    final t = session.taskById(taskId);
+    final t = session.taskOrNull(widget.taskId);
+    if (t == null) {
+      return Scaffold(
+        backgroundColor: Dg.night,
+        body: SafeArea(
+          child: Column(
+            children: [
+              Align(
+                alignment: Alignment.centerLeft,
+                child: _SheetBack(onTap: () => Navigator.of(context).pop()),
+              ),
+              Expanded(
+                child: Center(
+                  child: Text(
+                    l.stopGone,
+                    style: Dg.ui(size: 15, color: Colors.white70),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     final done = t.status == TaskStatus.delivered;
+    final canAct = !t.isClosed;
+    final self = LatLng(session.selfLat, session.selfLng);
+    final dest = LatLng(t.lat, t.lng);
+    final slice = t.hasCoordinates ? session.roadToTask(t.id) : null;
+    final meters = slice?.meters ?? haversineMeters(self, dest).round();
+    final minutes = slice != null
+        ? slice.minutes
+        : (t.etaMinutes ?? (meters / 450).clamp(1, 40).round());
+    final km = meters >= 10000
+        ? (meters / 1000).toStringAsFixed(0)
+        : (meters / 1000).toStringAsFixed(1);
 
     void start() {
       ref.read(sessionProvider).startTask(t.id);
@@ -41,211 +96,292 @@ class TaskDetailScreen extends ConsumerWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                // eta bilinçli olarak geçilmiyor: aşağıdaki _EtaPill zaten
-                // gösteriyor, MapStrip'in kendi pill'i aynı bilgiyi ikinci
-                // kez basıp üst üste iki rozet oluşturuyordu.
                 MapStrip(
                   height: double.infinity,
                   rounded: false,
-                  points: [LatLng(t.lat, t.lng)],
-                  onTap: () => openDirections(context, t),
+                  interactive: true,
+                  points: t.hasCoordinates ? [dest] : [self],
+                  roadPoints: slice != null && slice.points.length > 1
+                      ? slice.points
+                      : null,
+                  polylinePrecision: slice?.precision ?? 6,
+                  estimated: slice?.estimated ?? true,
+                  couriers: session.visibleFleet.where((c) => c.self).toList(),
+                  fitTo: t.hasCoordinates ? [self, dest] : [self],
+                  showBadge: false,
                 ),
-                SafeArea(
-                  bottom: false,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                    child: Row(
-                      children: [
-                        // Solid (not glass) so it stays legible over light OSM
-                        // tiles — a translucent white pill nearly disappeared
-                        // against pale map backgrounds.
-                        _BackButton(onTap: () => Navigator.of(context).pop()),
-                        const Spacer(),
-                        if (t.etaMinutes != null)
-                          _EtaPill(minutes: t.etaMinutes!),
-                      ],
+                // `Positioned` şart: bu Stack `StackFit.expand` kullanıyor,
+                // konumlanmamış (non-positioned) bir çocuk (SafeArea gibi)
+                // Stack'in TAMAMI kadar gerilir. O zaman içindeki Row da
+                // gerilen kutunun tamamını kaplar ve varsayılan
+                // `crossAxisAlignment: center` yüzünden geri/mesafe/Kuryeler
+                // şeridi ekranın üstü yerine ortasına düşer. `Positioned` bu
+                // şeridi sadece kendi doğal yüksekliğine sabitler.
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: SafeArea(
+                    bottom: false,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                      child: Appear(
+                        slide: -0.15,
+                        child: Row(
+                          children: [
+                            _SheetBack(
+                              onTap: () => Navigator.of(context).pop(),
+                            ),
+                            const SizedBox(width: 8),
+                            Flexible(
+                              child: _RouteChip(
+                                text: slice != null && !slice.estimated
+                                    ? l.routeKmMin(km, minutes)
+                                    : '${l.routeKmMin(km, minutes)}  ·  ${l.approxRoute}',
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            _FleetToggle(
+                              on: session.showFleet,
+                              label: l.fleetOnMap,
+                              onTap: session.toggleFleet,
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ],
             ),
           ),
-          Container(
-            decoration: BoxDecoration(
-              color: Dg.surface,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(Dg.radiusHero),
-              ),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x66000000),
-                  blurRadius: 40,
-                  offset: Offset(0, -16),
-                ),
-              ],
+          // Sabit yükseklikli bir Column, uzun içerikte (adres iki satır +
+          // zimmet + pencere + 3 ikon + kaydırma çubuğu + iade linki) haritayı
+          // ekranın küçük bir kısmına sıkıştırıyordu — üstteki geri/mesafe/
+          // Kuryeler şeridi o zaman "ortada" gibi görünüyordu. Yükseklik payı
+          // artık ekranın en fazla %48'i; taşan içerik kaydırılır.
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(context).height * 0.48,
             ),
-            child: SafeArea(
-              top: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 36,
-                        height: 4,
-                        margin: const EdgeInsets.only(bottom: 16),
-                        decoration: BoxDecoration(
-                          color: Dg.rule,
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                      ),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Dg.surface,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(Dg.radiusHero),
+                ),
+                border: Border(top: BorderSide(color: Dg.rule, width: 0.5)),
+              ),
+              child: SafeArea(
+                top: false,
+                child: Appear(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(
+                      Dg.pagePad,
+                      16,
+                      Dg.pagePad,
+                      22,
                     ),
-                    Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Mono('#${t.sequence}  ·  ${t.ref}', color: Dg.ink3),
-                        const Spacer(),
-                        StatusChip(
-                          label: taskStatusLabel(t.status),
-                          tone: taskStatusTone(t.status),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Hero(
-                      tag: 'recipient-${t.id}',
-                      child: Material(
-                        color: Colors.transparent,
-                        child: Display(t.recipient, size: 22),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      t.address,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: Dg.ink2,
-                        fontSize: 13,
-                        height: 1.3,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    _InfoCard(
-                      icon: LucideIcons.layers,
-                      label: 'Zimmet',
-                      value: t.custodyCount == null
-                          ? '—'
-                          : '${t.custodyCount} kalem${t.custodyRef == null ? '' : ' · ${t.custodyRef}'}',
-                    ),
-                    const SizedBox(height: 8),
-                    _InfoCard(
-                      icon: LucideIcons.clock,
-                      label: 'Teslim penceresi',
-                      value: t.slaMinutesLeft == null
-                          ? t.window
-                          : '${t.slaLabel} kaldı',
-                    ),
-                    if (t.otpRequired) ...[
-                      const SizedBox(height: 8),
-                      const _InfoCard(
-                        icon: LucideIcons.key,
-                        label: 'Teslim kodu',
-                        value: 'Alıcıdan istenecek',
-                        dot: true,
-                      ),
-                    ],
-                    const SizedBox(height: 14),
-                    Row(
-                      children: [
-                        SquareAction(
-                          icon: LucideIcons.phone,
-                          label: 'Ara',
-                          onTap: () => callRecipient(context),
-                        ),
-                        const SizedBox(width: 10),
-                        SquareAction(
-                          icon: LucideIcons.navigation,
-                          label: 'Yol',
-                          onTap: () => openDirections(context, t),
-                        ),
-                        const SizedBox(width: 10),
-                        SquareAction(
-                          icon: LucideIcons.camera,
-                          label: 'Foto',
-                          onTap: () {},
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    if (done)
-                      Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
+                        Center(
+                          child: Container(
+                            width: 36,
+                            height: 4,
+                            margin: const EdgeInsets.only(bottom: 16),
                             decoration: BoxDecoration(
-                              color: Dg.loBg,
-                              borderRadius: BorderRadius.circular(
-                                Dg.radiusPill,
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  LucideIcons.circleCheck,
-                                  size: 20,
-                                  color: Dg.lo,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Teslim edildi',
-                                  style: Dg.ui(
-                                    size: 16,
-                                    weight: FontWeight.w700,
-                                    color: Dg.lo,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          )
-                          .animate()
-                          .scale(
-                            begin: const Offset(0.96, 0.96),
-                            duration: 220.ms,
-                            curve: Curves.easeOutBack,
-                          )
-                          .fadeIn(duration: 180.ms)
-                    else
-                      SlideToAct(
-                        label: 'Teslim etmek için kaydır',
-                        onConfirm: start,
-                      ),
-                    if (!done) ...[
-                      const SizedBox(height: 8),
-                      Center(
-                        child: TextButton(
-                          onPressed: () async {
-                            final failed = await Navigator.of(context)
-                                .push<bool>(
-                                  MaterialPageRoute<bool>(
-                                    builder: (_) => FailScreen(taskId: t.id),
-                                  ),
-                                );
-                            if (failed == true && context.mounted)
-                              Navigator.of(context).pop();
-                          },
-                          child: Text(
-                            'Teslim edilemedi',
-                            style: TextStyle(
-                              color: Dg.hi,
-                              fontWeight: FontWeight.w600,
+                              color: Dg.rule,
+                              borderRadius: BorderRadius.circular(3),
                             ),
                           ),
                         ),
-                      ),
-                    ],
-                  ],
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Mono(
+                                taskRefLine(
+                                  t,
+                                  visit: session.visitNumber(t.id),
+                                ),
+                                color: Dg.ink3,
+                              ),
+                            ),
+                            StatusChip(
+                              label: taskChipLabel(t, l),
+                              tone: taskChipTone(t),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Hero(
+                          tag: 'recipient-${t.id}',
+                          child: Material(
+                            color: Colors.transparent,
+                            child: Row(
+                              children: [
+                                InitialsAvatar(
+                                  name: t.recipient,
+                                  photoUrl: t.personPhoto,
+                                  size: 40,
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(child: Display(t.recipient, size: 22)),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          t.address,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Dg.ink2,
+                            fontSize: 13,
+                            height: 1.3,
+                          ),
+                        ),
+                        if (t.merchantName != null &&
+                            t.merchantName!.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Dg.violetBg,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              t.merchantName!,
+                              style: Dg.ui(
+                                size: 12,
+                                weight: FontWeight.w600,
+                                color: Dg.violet,
+                              ),
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 8),
+                        const DgDivider(),
+                        _InfoCard(
+                          icon: LucideIcons.layers,
+                          label: l.custody,
+                          value: t.custodyCount == null
+                              ? '—'
+                              : l.itemsWithRef(t.custodyCount!, t.custodyRef),
+                        ),
+                        const DgDivider(),
+                        _InfoCard(
+                          icon: LucideIcons.clock,
+                          label: l.deliveryWindowLeft,
+                          value: t.slaMinutesLeft == null
+                              ? t.window
+                              : l.slaLeft(t.slaLabel),
+                        ),
+                        if (t.otpRequired) ...[
+                          const DgDivider(),
+                          _InfoCard(
+                            icon: LucideIcons.key,
+                            label: l.deliveryCode,
+                            value: l.askRecipient,
+                            dot: true,
+                          ),
+                        ],
+                        const SizedBox(height: 14),
+                        Row(
+                          children: [
+                            SquareAction(
+                              icon: LucideIcons.phone,
+                              label: l.callShort,
+                              onTap: () => session.callTask(context, t),
+                            ),
+                            const SizedBox(width: 10),
+                            SquareAction(
+                              icon: LucideIcons.navigation,
+                              label: l.routeShort,
+                              onTap: () => openDirections(context, t),
+                            ),
+                            const SizedBox(width: 10),
+                            SquareAction(
+                              icon: LucideIcons.camera,
+                              label: l.photo,
+                              onTap: () {},
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        if (done)
+                          Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Dg.loBg,
+                                  borderRadius: BorderRadius.circular(
+                                    Dg.radiusPill,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      LucideIcons.circleCheck,
+                                      size: 20,
+                                      color: Dg.lo,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      l.deliveredOk,
+                                      style: Dg.ui(
+                                        size: 16,
+                                        weight: FontWeight.w700,
+                                        color: Dg.lo,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                              .animate()
+                              .scale(
+                                begin: const Offset(0.96, 0.96),
+                                duration: 220.ms,
+                                curve: Curves.easeOutBack,
+                              )
+                              .fadeIn(duration: 180.ms)
+                        else if (canAct)
+                          SlideToAct(label: l.slideToDeliver, onConfirm: start),
+                        if (canAct) ...[
+                          const SizedBox(height: 8),
+                          Center(
+                            child: TextButton(
+                              onPressed: () async {
+                                final failed = await Navigator.of(context)
+                                    .push<bool>(
+                                      MaterialPageRoute<bool>(
+                                        builder: (_) =>
+                                            ReturnScreen(taskId: t.id),
+                                      ),
+                                    );
+                                if (failed == true && context.mounted)
+                                  Navigator.of(context).pop();
+                              },
+                              child: Text(
+                                l.couldNotDeliverShort,
+                                style: TextStyle(
+                                  color: Dg.red,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -274,18 +410,14 @@ class _InfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: Dg.elev,
-        borderRadius: BorderRadius.circular(Dg.radius),
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(
         children: [
-          Icon(icon, size: 17, color: Dg.ink2),
+          Icon(icon, size: 16, color: Dg.ink3),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(label, style: Dg.ui(size: 14, color: Dg.ink2)),
+            child: Text(label, style: Dg.ui(size: 14, color: Dg.ink3)),
           ),
           if (dot) ...[
             Container(
@@ -295,12 +427,57 @@ class _InfoCard extends StatelessWidget {
             ),
             const SizedBox(width: 6),
           ],
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: Dg.ink,
+          Text(value, style: Dg.ui(size: 14, weight: FontWeight.w600)),
+        ],
+      ),
+    );
+  }
+}
+
+/// Mesafe/süre rozeti — dolu gradyan dolgu, ince mor çerçeve YOK: kısmen
+/// saydam koyu zemin + tek renkli kenarlık "hesaplanmamış/yükleniyor" gibi
+/// okunuyordu. Dolu dolgu + gölge "kesin, hesaplanmış" bir değeri iletiyor.
+class _RouteChip extends StatelessWidget {
+  const _RouteChip({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        gradient: Dg.primaryGradient,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x4D5B3FBF),
+            blurRadius: 14,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          DgIcon(
+            LucideIcons.navigation,
+            size: 13,
+            color: Colors.white,
+            weight: 600,
+          ),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontFamily: Dg.mono,
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ],
@@ -309,63 +486,88 @@ class _InfoCard extends StatelessWidget {
   }
 }
 
-class _BackButton extends StatelessWidget {
-  const _BackButton({required this.onTap});
+class _FleetToggle extends StatelessWidget {
+  const _FleetToggle({
+    required this.on,
+    required this.label,
+    required this.onTap,
+  });
 
+  final bool on;
+  final String label;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    // Dg.night, not Dg.ink: this sits on the map photo, not the app's own
-    // background, so it must stay a fixed dark chip regardless of the
-    // active koyu/açık tema — Dg.ink flips to near-white in dark mode and
-    // would disappear here (that's what made this invisible before).
     return Material(
-      color: Dg.night,
-      shape: const CircleBorder(),
+      color: on ? Dg.night : Dg.surface,
+      borderRadius: BorderRadius.circular(16),
+      elevation: 3,
+      shadowColor: Colors.black.withValues(alpha: 0.35),
       child: InkWell(
         onTap: onTap,
-        customBorder: const CircleBorder(),
-        child: const SizedBox(
-          width: 38,
-          height: 38,
-          child: Icon(LucideIcons.arrowLeft, size: 16, color: Colors.white),
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: on ? Dg.sage.withValues(alpha: 0.7) : Dg.rule,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                LucideIcons.users,
+                size: 14,
+                color: on ? Colors.white : Dg.ink,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: on ? Colors.white : Dg.ink,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-/// Birleşik ETA rozeti — canvas'ta "↗ ~6 dk" — opak mor gradyan dolgu
-/// kullanır, böylece haritanın gerçek renginden bağımsız her zaman
-/// okunaklı kalır (glass/translucent pillerin aksine).
-class _EtaPill extends StatelessWidget {
-  const _EtaPill({required this.minutes});
+class _SheetBack extends StatelessWidget {
+  const _SheetBack({required this.onTap});
 
-  final int minutes;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-      decoration: BoxDecoration(
-        gradient: Dg.primaryGradient,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(LucideIcons.navigation, size: 13, color: Colors.white),
-          const SizedBox(width: 6),
-          Text(
-            '~$minutes dk',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
+    final tooltip = MaterialLocalizations.of(context).backButtonTooltip;
+    return Semantics(
+      button: true,
+      label: tooltip,
+      child: Tooltip(
+        message: tooltip,
+        child: Material(
+          color: Dg.surface,
+          elevation: 3,
+          shadowColor: const Color(0x33000000),
+          shape: const CircleBorder(),
+          child: InkWell(
+            onTap: onTap,
+            customBorder: const CircleBorder(),
+            child: SizedBox(
+              width: 36,
+              height: 36,
+              child: DgIcon(LucideIcons.arrowLeft, size: 17, color: Dg.ink),
             ),
           ),
-        ],
+        ),
       ),
     );
   }

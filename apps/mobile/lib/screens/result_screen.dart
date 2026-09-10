@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../l10n.dart';
 import '../models.dart';
 import '../motion.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
 /// Shown after a delivery is closed, either successfully or as a return
-/// ("İade"). Reused by [WizardScreen]'s success path and [FailScreen].
+/// ("İade"). Reused by [WizardScreen]'s success path and [ReturnScreen].
 class DeliveryResultScreen extends StatelessWidget {
   const DeliveryResultScreen({
     super.key,
@@ -30,6 +31,7 @@ class DeliveryResultScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final now = DateTime.now();
     final clock =
         '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
@@ -46,7 +48,7 @@ class DeliveryResultScreen extends StatelessWidget {
                 color: success ? Dg.lo : Dg.red,
               ),
               const SizedBox(height: 16),
-              Display(success ? 'Teslim edildi' : 'İade kaydedildi', size: 36),
+              Display(success ? l.deliveredOk : l.returnRecorded, size: 36),
               const SizedBox(height: 6),
               Mono(clock, size: 16, weight: FontWeight.w700, color: Dg.ink2),
               const SizedBox(height: 20),
@@ -67,7 +69,7 @@ class DeliveryResultScreen extends StatelessWidget {
                     if (success && who != null) ...[
                       const SizedBox(height: 10),
                       Text(
-                        'Kim aldı: $who',
+                        l.whoTook(who!),
                         style: const TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w500,
@@ -84,16 +86,17 @@ class DeliveryResultScreen extends StatelessWidget {
                             color: Dg.night,
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: Icon(
+                          child: DgIcon(
                             success ? LucideIcons.doorOpen : LucideIcons.undo2,
                             color: success
                                 ? const Color(0xFF3FB3A8)
-                                : Dg.purpleBright,
+                                : Dg.brand,
+                            weight: 600,
                           ),
                         ),
                         const SizedBox(width: 12),
                         StatusChip(
-                          label: online ? 'Gönderildi' : 'Cihazda bekliyor',
+                          label: online ? l.sent : l.waitingOnDevice,
                           tone: online ? 'lo' : 'mid',
                         ),
                       ],
@@ -101,30 +104,24 @@ class DeliveryResultScreen extends StatelessWidget {
                     const SizedBox(height: 10),
                     Text(
                       online
-                          ? (success
-                                ? 'Teslim kaydı gönderildi.'
-                                : 'İade kaydı merkeze gönderildi.')
-                          : 'Kayıt cihazda. İnternet gelince gönderilecek.',
+                          ? (success ? l.deliveryRecordSent : l.returnRecordSent)
+                          : l.recordOnDevice,
                       style: TextStyle(fontSize: 15, color: Dg.ink2),
                     ),
                   ],
                 ),
               ),
               const Spacer(),
-              FilledButton(
-                style: !success
-                    ? FilledButton.styleFrom(
-                        backgroundColor: Dg.ink,
-                        foregroundColor: Colors.white,
-                      )
-                    : null,
+              DgButton(
+                label: next != null ? l.nextStopCta : l.backToList,
+                icon: next != null ? LucideIcons.navigation : LucideIcons.list,
+                tone: success ? DgButtonTone.primary : DgButtonTone.secondary,
                 onPressed: next != null ? onNext : onClose,
-                child: Text(next != null ? 'Sıradaki durak' : 'Listeye dön'),
               ),
               if (next != null)
                 TextButton(
                   onPressed: onClose,
-                  child: const Text('Listeye dön'),
+                  child: Text(l.backToList),
                 ),
             ],
           ),

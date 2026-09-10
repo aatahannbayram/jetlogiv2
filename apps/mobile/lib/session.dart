@@ -1,71 +1,375 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:latlong2/latlong.dart';
+
+import 'alerts.dart';
 import 'api/client.dart';
+import 'notif.dart';
+import 'push.dart';
+import 'api/courier_tasks.dart';
 import 'api/models.dart';
+import 'api/agency_client.dart';
+import 'api/agency_models.dart';
+import 'api/panel_client.dart';
+import 'api/panel_models.dart';
 import 'data/outbox.dart';
 import 'data/vault.dart';
+import 'geo.dart';
+import 'l10n.dart';
+import 'launchers.dart';
+import 'locate.dart';
+import 'log.dart';
+import 'media_upload.dart';
 import 'models.dart';
+import 'road.dart';
+import 'secure.dart';
 import 'theme.dart';
 
 final sessionProvider = ChangeNotifierProvider<SessionController>((ref) {
   return SessionController();
 });
 
-enum AppPhase { onboard, splash, activation, permissions, shift, main }
+enum AppPhase { onboard, splash, activation, permissions, shift, main, subeMain }
 
 class SessionController extends ChangeNotifier {
   SessionController({
     OutboxStore? outbox,
     this.api,
+    this.panel,
+    this.agency,
     this.vault,
     this.waitForConfig = false,
     AppPhase? initialPhase,
+    Future<PushPermit> Function()? requestPush,
+    Future<PushPermit> Function()? readPush,
   }) : outbox = outbox ?? OutboxStore(),
-       phase = initialPhase ?? AppPhase.onboard {
+       phase = initialPhase ?? AppPhase.onboard,
+       requestPush = requestPush ?? requestPushPermit,
+       readPush = readPush ?? readPushPermit {
     configReady = !waitForConfig;
+    if (!kReleaseMode && !waitForConfig) {
+      tasks.addAll(_buildDemoTasks());
+      notifications.addAll(_buildDemoNotifications());
+      custodyItems = _buildDemoCustodyItems();
+    } else {
+      demo = false;
+      routePlan = null;
+    }
     // Sabit demo-tohumu: gerçek enqueue() id'lerinin izlediği
     // 00000000-0000-4000-a000-{sequence} kalıbından bilinçli olarak farklı,
     // yoksa uygulamanın ilk gerçek enqueue()'u (sequence=1) bu id ile çakışır.
-    this.outbox.seedQueued(
-      OutboxEvent(
-        clientEventId: 'demo-seed-t4-0001',
-        operation: SyncOperation.taskTransition,
-        subjectId: 't4',
-        occurredAt: DateTime.utc(2026, 8, 25, 10, 12),
-        sequence: 1,
-        payload: const {'reason': 'ALICI_YOK', 'note': 'Alıcı yoktu'},
-      ),
-    );
+    if (!kReleaseMode && !waitForConfig) {
+      this.outbox.seedQueued(
+        OutboxEvent(
+          clientEventId: 'demo-seed-t4-0001',
+          operation: SyncOperation.taskTransition,
+          subjectId: 't4',
+          occurredAt: DateTime.utc(2026, 8, 25, 10, 12),
+          sequence: 1,
+          payload: const {
+            'to': 'FAILED',
+            'reason': 'ALICI_YOK',
+            'note': 'Alıcı yoktu',
+          },
+        ),
+      );
+    }
   }
 
   final OutboxStore outbox;
   final MobileApi? api;
+  final PanelApi? panel;
+  final AgencyPortalApi? agency;
   final Vault? vault;
   final bool waitForConfig;
+  final Future<PushPermit> Function() requestPush;
+  final Future<PushPermit> Function() readPush;
+
+  bool get _usesPanelTasks => panelLoggedIn && panel != null;
+
+  /// Panel cookie-session opened via [loginWithPanel]. When true, görev
+  /// listesi ve teslim yazmaları [PanelApi] üzerindendir (Fastify değil).
+  bool panelLoggedIn = false;
+  String? lastPanelError;
+  String? lastActivationError;
+  DateTime? otpResendAt;
+  bool activationBusy = false;
+
+  static const panelDemoIdentifier = 'kurye@dijigoo.test';
+  static const panelDemoPassword = 'demo';
+  static const panelSessionExpired = 'PANEL_SESSION_EXPIRED';
+
+  /// Şube/Acente rolü — dijigoo-ops'un acente portalı üzerinden ayrı bir
+  /// cookie-session (bkz. docs/08-sube-acente-entegrasyonu.md). Kurye
+  /// oturumundan tamamen bağımsız: aynı cihazda ikisi bir arada tutulabilir.
+  AgencyPortalUserDto? agencyUser;
+  AgencyOverviewDto? agencyOverview;
+  String? lastAgencyError;
+  bool agencyLoginBusy = false;
+  List<AgencyDto> agencySelectionOptions = const [];
+
+  static const agencyDemoEmail = 'sube@dijigoo.test';
+  static const agencyDemoPassword = 'demo';
 
   AppConfig config = AppConfig.demo;
   bool configReady = true;
   bool liveApi = false;
-  RoutePlanDto? routePlan;
+  RoutePlanDto? routePlan = RoutePlanDto.demo();
+  double selfLat = 38.1476;
+  double selfLng = 29.0702;
+
+  /// Cihazdan en az bir kez fix alındı. Yoksa kart enroute + “Vardım”.
+  bool selfLocated = false;
+  bool showFleet = false;
+
+  /// OSRM bacakları — görünen durak için yol çizgisi. Tam gün geometrisi
+  /// tek durakta "şaşırmış" görünmesin diye ayrı tutulur.
+  final Map<String, RoadLeg> _roadLegs = {};
+  final Map<String, Future<RoadLeg?>> _roadInflight = {};
+
+  /// Kurye konumu + kalan duraklar: SLA-ağırlıklı sıra + yol ağı çizgisi.
+  DayRoute? dayRoute;
+  String? _dayRouteKey;
+  final Map<String, Future<DayRoute>> _dayInflight = {};
+
+  bool get dayRouteLoading => _dayInflight.isNotEmpty;
+
+  RoadSlice? roadToTask(String taskId) => dayRoute?.legFor(taskId);
+
+  RoadLeg? roadBetween(List<LatLng> points) => _roadLegs[roadCacheKey(points)];
+
+  List<RouteStopInput> get _openRouteStops => [
+    for (final t in tasks.where((t) => t.isOpen && t.hasCoordinates))
+      RouteStopInput(id: t.id, at: LatLng(t.lat, t.lng), urgency: _urgencyOf(t)),
+  ];
+
+  double _urgencyOf(DeliveryTask t) {
+    if (t.status == TaskStatus.inProgress) return 1;
+    final sla = t.slaMinutesLeft;
+    if (sla != null) return (1 - sla / 180).clamp(0.0, 1.0);
+    if (t.status == TaskStatus.queued) return 0.45;
+    return 0;
+  }
+
+  /// Açık görevler: gün rotasının ziyaret sırası, yoksa API planı, yoksa
+  /// liste sırası. Aynı kapı grupları bitişik kalır.
+  List<DeliveryTask> get orderedOpenTasks {
+    final open = tasks.where((t) => t.isOpen).toList();
+    final ids = dayRoute?.stopTaskIds;
+    if (ids != null && ids.isNotEmpty) {
+      final byId = {for (final t in open) t.id: t};
+      final out = <DeliveryTask>[];
+      final seen = <String>{};
+      for (final id in ids) {
+        final t = byId[id];
+        if (t != null && seen.add(t.id)) out.add(t);
+      }
+      for (final t in open) {
+        if (seen.add(t.id)) out.add(t);
+      }
+      return out;
+    }
+    return _tasksInPlanOrder(open, routePlan);
+  }
+
+  Future<void> ensureRoad(List<LatLng> points) async {
+    if (points.length < 2) return;
+    final key = roadCacheKey(points);
+    if (_roadLegs.containsKey(key)) return;
+    final pending = _roadInflight[key];
+    if (pending != null) {
+      await pending;
+      return;
+    }
+    final future = fetchRoadLeg(points);
+    _roadInflight[key] = future;
+    try {
+      final leg = await future;
+      if (leg != null) {
+        _roadLegs[key] = leg;
+        DgLog.i(LogLayer.route, 'osrm ${leg.meters}m ${leg.minutes}dk');
+        notifyListeners();
+      } else {
+        DgLog.w(LogLayer.route, 'osrm miss $key');
+      }
+    } finally {
+      _roadInflight.remove(key);
+    }
+  }
+
+  bool get _skipLiveRouteHttp {
+    try {
+      return WidgetsBinding.instance.runtimeType.toString().contains(
+        'TestWidgetsFlutterBinding',
+      );
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> ensureDayRoute({String? pinFirstId}) async {
+    final origin = LatLng(selfLat, selfLng);
+    final stops = _openRouteStops;
+    final pin = pinFirstId ?? nextStop?.id;
+    final key = dayRouteCacheKey(origin, stops, pinFirstId: pin);
+    if (_dayRouteKey == key && dayRoute != null && dayRoute!.fromLiveEngine) {
+      return;
+    }
+    if (_dayRouteKey != key || dayRoute == null) {
+      dayRoute = planDayRouteLocal(origin, stops, pinFirstId: pin);
+      _dayRouteKey = key;
+      notifyListeners();
+    }
+    if (_skipLiveRouteHttp) return;
+    final pending = _dayInflight[key];
+    if (pending != null) {
+      await pending;
+      return;
+    }
+    final future = planDayRoute(origin, stops, pinFirstId: pin);
+    _dayInflight[key] = future;
+    try {
+      final next = await future;
+      if (_dayRouteKey == key) {
+        dayRoute = next;
+        DgLog.i(
+          LogLayer.route,
+          '${next.provider} ${next.meters}m ${next.minutes}dk est=${next.estimated}',
+        );
+        notifyListeners();
+      }
+    } finally {
+      _dayInflight.remove(key);
+    }
+  }
+
+  List<FleetCourier> get fleet {
+    return [
+      FleetCourier(
+        id: courier.code,
+        name: courier.fullName,
+        lat: selfLat,
+        lng: selfLng,
+        self: true,
+        status: shiftOpen ? 'on' : 'off',
+        photoUrl: courier.photoUrl,
+      ),
+      FleetCourier(
+        id: 'c-mehmet',
+        name: 'Mehmet Aydın',
+        lat: 38.1551,
+        lng: 29.0528,
+        status: 'on',
+        photoUrl: personPhotoAsset('Mehmet Aydın'),
+      ),
+      FleetCourier(
+        id: 'c-elif',
+        name: 'Elif Koç',
+        lat: 38.1422,
+        lng: 29.0744,
+        status: 'break',
+        photoUrl: personPhotoAsset('Elif Koç'),
+      ),
+    ];
+  }
+
+  List<FleetCourier> get visibleFleet =>
+      showFleet ? fleet : fleet.where((c) => c.self).toList();
+
+  void toggleFleet() {
+    showFleet = !showFleet;
+    notifyListeners();
+  }
+
   bool routeLoading = false;
   bool cipherOn = false;
+  /// False when SQLCipher açılamaz; üretimde saha verisi yazılmaz.
+  bool storageOk = true;
   String? challengeId;
+  String? deliveryChallengeId;
+  String? deliveryOtpToken;
+  String? startPhotoMediaId;
+  final stepAnswers = <String, List<Map<String, Object?>>>{};
 
   AppPhase phase;
   bool demo = true;
   bool online = true;
-  bool shiftOpen = false;
-  bool shiftPhotoTaken = false;
-  DateTime? shiftStartedAt;
+  bool shiftOpen = true;
+  bool shiftPhotoTaken = true;
+  bool tipsSeen = true;
+  bool subeOnboardSeen = true;
+  DateTime? shiftStartedAt = DateTime.now();
+  String? currentShiftId;
+
+  /// Yalnız demo oturumu (widget test / "Demoyu aç"). Canlıda selfie + API.
+  bool get bypassShiftGate => !kReleaseMode && demo;
+
+  void ensureOpenForTest() {
+    if (!bypassShiftGate || shiftOpen) return;
+    setShiftOpen(true);
+  }
 
   void setShiftOpen(bool value) {
+    if (shiftOpen == value) return;
     shiftOpen = value;
-    if (value) shiftStartedAt = DateTime.now();
+    if (value) {
+      shiftStartedAt = DateTime.now();
+      shiftPhotoTaken = true;
+      _enqueueShift(start: true);
+      DgLog.i(LogLayer.shift, 'open');
+    } else {
+      currentShiftId = null;
+      _enqueueShift(start: false);
+      DgLog.i(LogLayer.shift, 'close');
+    }
+    unawaited(_persistShift());
+    resyncAlerts();
     notifyListeners();
+    if (value) unawaited(ensureDayRoute());
+  }
+
+  Future<void> _persistShift() async {
+    await vault?.saveShift(open: shiftOpen, startedAt: shiftStartedAt);
+  }
+
+  Future<void> restoreLocalShift() async {
+    if (!storageOk) return;
+    if (bypassShiftGate) {
+      prepareTestLaunch();
+      return;
+    }
+    final open = await vault?.shiftIsOpen ?? false;
+    if (!open) {
+      shiftOpen = false;
+      shiftPhotoTaken = false;
+      return;
+    }
+    shiftOpen = true;
+    shiftPhotoTaken = true;
+    shiftStartedAt = await vault?.shiftStartedAt ?? DateTime.now();
+    if (phase == AppPhase.splash ||
+        phase == AppPhase.shift ||
+        phase == AppPhase.onboard) {
+      phase = AppPhase.main;
+    }
+  }
+
+  /// Debug/demo: splash'ten başla, selfie yapılmış varsay.
+  void prepareTestLaunch() {
+    if (!bypassShiftGate) return;
+    shiftPhotoTaken = true;
+    shiftOpen = true;
+    shiftStartedAt ??= DateTime.now().subtract(
+      const Duration(hours: 5, minutes: 12),
+    );
+    if (phase == AppPhase.shift) phase = AppPhase.splash;
+    DgLog.i(LogLayer.boot, 'test launch · selfie skipped · shift armed');
   }
 
   String get shiftElapsedLabel {
@@ -88,60 +392,93 @@ class SessionController extends ChangeNotifier {
   // Menü / new-screens demo state (local only, no backend — see docs/plan).
   String plate = '20 KR 841';
 
-  final Set<int> _readNotifications = {};
-  final notifications = <AppNotification>[
-    AppNotification(
-      title: 'Yeni durak atandı',
-      body: 'DGO-8844 · Cumhuriyet Mah. 1. Sk. No:3',
-      time: '14:41',
-      icon: LucideIcons.truck,
-      tint: Dg.greenBg,
-      ink: Dg.green,
-    ),
-    AppNotification(
-      title: 'Zimmet onaylandı',
-      body: 'Şube zimmetinden 6 gönderi üstüne alındı.',
-      time: '13:58',
-      icon: LucideIcons.package,
-      tint: Dg.violetBg,
-      ink: Dg.violet,
-    ),
-    AppNotification(
-      title: 'Gönderim başarısız',
-      body: 'DGO-8839 senkron edilemedi, kuyrukta bekliyor.',
-      time: '12:20',
-      icon: LucideIcons.circleAlert,
-      tint: Dg.redBg,
-      ink: Dg.red,
-    ),
-    AppNotification(
-      title: 'Prim güncellendi',
-      body: 'Bu hafta 40 teslim primine 6 teslim kaldı.',
-      time: '09:05',
-      icon: LucideIcons.wallet,
-      tint: Dg.amberBg,
-      ink: Dg.amber,
-    ),
-    AppNotification(
-      title: 'Vardiya hatırlatması',
-      body: 'Yarın 09:00 vardiyası atanmıştır.',
-      time: 'Dün',
-      icon: LucideIcons.clock,
-      tint: Dg.blueBg,
-      ink: Dg.blue,
-    ),
+  final Set<String> _readNotificationIds = {};
+  final Set<String> _dismissedNotificationIds = {};
+  int _notifSeq = 0;
+
+  final notifications = <AppNotification>[];
+
+  List<AppNotification> get visibleNotifications => [
+    for (final n in notifications)
+      if (!_dismissedNotificationIds.contains(n.id)) n,
   ];
 
-  int get unreadNotifCount => notifications.length - _readNotifications.length;
-  bool isNotifRead(int i) => _readNotifications.contains(i);
-  void markNotificationRead(int i) {
-    _readNotifications.add(i);
+  int get unreadNotifCount => visibleNotifications
+      .where((n) => !_readNotificationIds.contains(n.id))
+      .length;
+
+  bool isNotifRead(String id) => _readNotificationIds.contains(id);
+
+  AppNotification? notificationById(String id) {
+    for (final n in visibleNotifications) {
+      if (n.id == id) return n;
+    }
+    return null;
+  }
+
+  void markNotificationRead(String id) {
+    if (!_readNotificationIds.add(id)) return;
+    _persistNotifState();
+    unawaited(FieldAlerts.dismissInbox(id));
+    _syncNotifBadge();
+    if (liveApi) {
+      unawaited(api?.markNotificationsRead(ids: [id]));
+    }
+    notifyListeners();
+  }
+
+  void markNotificationUnread(String id) {
+    if (_dismissedNotificationIds.contains(id)) return;
+    if (!_readNotificationIds.remove(id)) return;
+    _persistNotifState();
+    _syncNotifBadge();
     notifyListeners();
   }
 
   void markAllNotificationsRead() {
-    _readNotifications.addAll(List.generate(notifications.length, (i) => i));
+    final before = _readNotificationIds.length;
+    final ids = [for (final n in visibleNotifications) n.id];
+    for (final id in ids) {
+      _readNotificationIds.add(id);
+    }
+    if (_readNotificationIds.length == before) return;
+    _persistNotifState();
+    for (final id in ids) {
+      unawaited(FieldAlerts.dismissInbox(id));
+    }
+    _syncNotifBadge();
+    if (liveApi) unawaited(api?.markNotificationsRead(all: true));
     notifyListeners();
+  }
+
+  void dismissNotification(String id) {
+    if (!_dismissedNotificationIds.add(id)) return;
+    _readNotificationIds.add(id);
+    _persistNotifState();
+    unawaited(FieldAlerts.dismissInbox(id));
+    _syncNotifBadge();
+    notifyListeners();
+  }
+
+  void restoreNotification(String id) {
+    if (!_dismissedNotificationIds.remove(id)) return;
+    _persistNotifState();
+    _syncNotifBadge();
+    notifyListeners();
+  }
+
+  void _syncNotifBadge() {
+    if (!notifyEnabled || notifyOsBlocked) return;
+    unawaited(FieldAlerts.syncBadge(unreadNotifCount));
+  }
+
+  void _persistNotifState() {
+    unawaited(
+      vault?.saveNotificationState(
+        readIds: _readNotificationIds,
+        dismissedIds: _dismissedNotificationIds,
+      ),
+    );
   }
 
   final depots = const [
@@ -241,21 +578,47 @@ class SessionController extends ChangeNotifier {
 
   void addZimmetScan([String? code]) {
     final v = (code ?? '').trim();
-    final label = v.isEmpty ? 'DGO-${9100 + zimmetScans.length * 7}' : v;
+    if (v.isEmpty) return;
+    if (zimmetScans.any((e) => e.code == v)) return;
     final now = DateTime.now();
     zimmetScans.insert(0, (
-      code: label,
+      code: v,
       time:
           '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}',
     ));
     notifyListeners();
   }
 
-  /// Kuryenin şu an elinde ne var (apps/api `GET /v1/custody`) — "Şube" modunda
-  /// taranan barkodu gerçek bir zimmet kalemine eşlemek için gerekiyor.
+  void removeZimmetScan(String code) {
+    zimmetScans.removeWhere((e) => e.code == code);
+    notifyListeners();
+  }
+
+  /// Kuryenin şu an elinde ne var. Panel oturumunda `GET courier-custody`,
+  /// aksi halde apps/api `GET /v1/custody`.
   Future<void> loadCustody() async {
+    if (custodyLoading) return;
+    if (_usesPanelTasks) {
+      final client = panel;
+      if (client == null) return;
+      custodyLoading = true;
+      notifyListeners();
+      try {
+        custodyItems = await client.fetchCustody();
+      } on PanelApiException catch (e) {
+        if (e.statusCode == 401) {
+          expirePanelSession();
+          return;
+        }
+      } catch (_) {
+      } finally {
+        custodyLoading = false;
+        notifyListeners();
+      }
+      return;
+    }
     final client = api;
-    if (client == null || custodyLoading) return;
+    if (client == null) return;
     custodyLoading = true;
     notifyListeners();
     try {
@@ -276,13 +639,52 @@ class SessionController extends ChangeNotifier {
     return null;
   }
 
-  /// Şube modunda gerçek devir API'sini çağırır (Kurye → Acente teslim,
-  /// Madde 9). Kurye modu bilerek yerel kalıyor — backend'de bir zimmet
-  /// kalemini barkoddan ilk kez oluşturan bir uç yok, bkz. proje notu
-  /// (Hande'nin netleştirmesi bekleniyor). Dönüş değeri devrin (kısmen de
-  /// olsa) başarılı olup olmadığını söyler; ekran buna göre hata gösterir.
+  CustodyItemDto? custodyItemForTask(String taskId) {
+    for (final item in custodyItems) {
+      if (item.taskId == taskId) return item;
+    }
+    return null;
+  }
+
+  /// İade / Geri Teslim ekranının "Geri Teslim" sekmesi — teslim edilemeyen
+  /// bu durağın zimmetteki kalemini doğrudan şubeye bırakır. Barkod okutmaya
+  /// gerek yok: kalem zaten `taskId` ile eşleşmiş durumda, kurye sadece
+  /// onaylıyor.
+  Future<bool> returnTaskToBranch(String taskId, {String branchName = 'Şube'}) async {
+    if (custodyItems.isEmpty && !custodyLoading) await loadCustody();
+    final item = custodyItemForTask(taskId);
+    if (item == null) return false;
+    final client = api;
+    if (client == null) {
+      custodyItems = custodyItems.where((c) => c.id != item.id).toList();
+      notifyListeners();
+      return true;
+    }
+    custodyHandoverPending = true;
+    notifyListeners();
+    try {
+      await client.handoverToBranch(itemIds: [item.id], branchName: branchName);
+      custodyItems = custodyItems.where((c) => c.id != item.id).toList();
+      return true;
+    } catch (_) {
+      return false;
+    } finally {
+      custodyHandoverPending = false;
+      notifyListeners();
+    }
+  }
+
+  /// Şube: eldeki kalemleri acenteye bırakır. Kurye: barkodla tenant
+  /// kalemini bulup `takeover` ile üzerine alır.
   Future<bool> completeZimmet() async {
-    if (zimmetMode != 'sube' || api == null) {
+    if (_usesPanelTasks) return _completePanelZimmet();
+    if (api == null) {
+      zimmetScans.clear();
+      notifyListeners();
+      return true;
+    }
+    if (zimmetMode == 'kurye') return _completeZimmetTakeover();
+    if (zimmetMode != 'sube') {
       zimmetScans.clear();
       notifyListeners();
       return true;
@@ -293,8 +695,6 @@ class SessionController extends ChangeNotifier {
         if (_custodyItemByBarcode(scan.code) case final item?) item.id,
     ];
     if (itemIds.isEmpty) {
-      // Taranan hiçbir kod bilinen bir zimmet kalemiyle eşleşmedi (demo
-      // kodları) — kuryeyi burada bloklamak yerine yerel taramayı bitir.
       zimmetScans.clear();
       notifyListeners();
       return true;
@@ -310,6 +710,131 @@ class SessionController extends ChangeNotifier {
       custodyItems = result.remaining;
       liveApi = api!.lastWasLive;
       zimmetScans.clear();
+      _prependNotification(
+        kind: NotifKind.custody,
+        title: 'Zimmet onaylandı',
+        body: 'Şube zimmetinden ${itemIds.length} gönderi üstüne alındı.',
+        icon: LucideIcons.package,
+        tint: Dg.violetBg,
+        ink: Dg.violet,
+      );
+      return true;
+    } catch (_) {
+      return false;
+    } finally {
+      custodyHandoverPending = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> _completePanelZimmet() async {
+    if (zimmetMode == 'kurye') {
+      lastPanelError = 'PANEL_CUSTODY_TAKEOVER_UNSUPPORTED';
+      notifyListeners();
+      return false;
+    }
+    if (zimmetMode != 'sube') {
+      zimmetScans.clear();
+      notifyListeners();
+      return true;
+    }
+
+    final items = <CustodyItemDto>[
+      for (final scan in zimmetScans)
+        if (_custodyItemByBarcode(scan.code) case final item?) item,
+    ];
+    if (items.isEmpty) {
+      zimmetScans.clear();
+      notifyListeners();
+      return true;
+    }
+
+    final missingWarehouse = items.any(
+      (item) => item.warehouseId == null || item.warehouseId!.isEmpty,
+    );
+    if (missingWarehouse) {
+      lastPanelError = 'WAREHOUSE_ID_REQUIRED';
+      notifyListeners();
+      return false;
+    }
+
+    custodyHandoverPending = true;
+    notifyListeners();
+    try {
+      for (final item in items) {
+        if (_hasPendingPanel(item.id, SyncOperation.panelCustodyReturn)) {
+          continue;
+        }
+        outbox.enqueue(
+          operation: SyncOperation.panelCustodyReturn,
+          subjectId: item.id,
+          payload: {'warehouseId': item.warehouseId},
+        );
+      }
+
+      final returned = {for (final item in items) item.id};
+      custodyItems = [
+        for (final item in custodyItems)
+          if (!returned.contains(item.id)) item,
+      ];
+      zimmetScans.clear();
+      _prependNotification(
+        kind: NotifKind.custody,
+        title: 'Zimmet onaylandı',
+        body: 'Şube zimmetinden ${items.length} gönderi üstüne alındı.',
+        icon: LucideIcons.package,
+        tint: Dg.violetBg,
+        ink: Dg.violet,
+      );
+      await _pushPanelQueue();
+      return true;
+    } finally {
+      custodyHandoverPending = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> _completeZimmetTakeover() async {
+    for (final scan in List.of(zimmetScans)) {
+      if (_custodyItemByBarcode(scan.code) != null) continue;
+      try {
+        final found = await api!.fetchCustody(barcode: scan.code);
+        for (final item in found) {
+          if (custodyItems.every((row) => row.id != item.id)) {
+            custodyItems = [...custodyItems, item];
+          }
+        }
+      } catch (_) {}
+    }
+
+    final itemIds = <String>[
+      for (final scan in zimmetScans)
+        if (_custodyItemByBarcode(scan.code) case final item?) item.id,
+    ];
+    if (itemIds.isEmpty) {
+      zimmetScans.clear();
+      notifyListeners();
+      return true;
+    }
+
+    custodyHandoverPending = true;
+    notifyListeners();
+    try {
+      final result = await api!.takeoverFromBranch(
+        itemIds: itemIds,
+        branchName: 'Şube',
+      );
+      custodyItems = result.remaining;
+      liveApi = api!.lastWasLive;
+      zimmetScans.clear();
+      _prependNotification(
+        kind: NotifKind.custody,
+        title: 'Zimmet alındı',
+        body: 'Şubeden ${itemIds.length} gönderi üzerine alındı.',
+        icon: LucideIcons.package,
+        tint: Dg.violetBg,
+        ink: Dg.violet,
+      );
       return true;
     } catch (_) {
       return false;
@@ -321,19 +846,92 @@ class SessionController extends ChangeNotifier {
 
   bool beepEnabled = true;
   bool notifyEnabled = true;
+  bool notifyOsBlocked = false;
   bool workerEnabled = true;
-  // Koyu tema artık markanın birincil görünümü (bkz. theme.dart) —
-  // varsayılan true, "Açık tema" ayarlardan seçilebilen alternatif.
+  // Koyu tema varsayılan; açık tema ve dil ayarlardan değişir.
   bool darkModeUi = true;
+  String localeCode = 'tr';
+
+  L10n get l10n => L10n(localeCode);
+
+  void setLocale(String code) {
+    localeCode = code == 'en' ? 'en' : 'tr';
+    unawaited(vault?.saveLocale(localeCode));
+    notifyListeners();
+  }
 
   void toggleBeep() {
     beepEnabled = !beepEnabled;
     notifyListeners();
   }
 
-  void toggleNotifyPref() {
-    notifyEnabled = !notifyEnabled;
+  Future<PushPermit?> toggleNotifyPref() async {
+    if (notifyEnabled) {
+      notifyEnabled = false;
+      unawaited(vault?.saveNotifyEnabled(false));
+      unawaited(FieldAlerts.cancelAll());
+      notifyListeners();
+      return null;
+    }
+    return _enableNotify();
+  }
+
+  Future<PushPermit> _enableNotify() async {
+    final permit = await requestPush();
+    notifyOsBlocked = permit == PushPermit.blocked;
+    if (permit != PushPermit.granted) {
+      notifyListeners();
+      return permit;
+    }
+    notifyEnabled = true;
+    unawaited(vault?.saveNotifyEnabled(true));
+    resyncAlerts();
+    unawaited(FieldPush.attach(requestOs: true).then((_) => registerPushToken()));
     notifyListeners();
+    return permit;
+  }
+
+  Future<void> reconcilePushPermit() async {
+    final permit = await readPush();
+    final blocked = permit != PushPermit.granted;
+    if (notifyOsBlocked == blocked) {
+      if (notifyEnabled && !blocked) resyncAlerts();
+      return;
+    }
+    notifyOsBlocked = blocked;
+    if (blocked) {
+      unawaited(FieldAlerts.cancelAll());
+    } else if (notifyEnabled) {
+      resyncAlerts();
+    }
+    notifyListeners();
+  }
+
+  /// Arka plandan dönüş: izin + canlı görev/destek/rota. FCM yoksa bile
+  /// dispatcher ataması bir sonraki öne gelişte görünür.
+  Future<void> onForeground() async {
+    await reconcilePushPermit();
+    if (!liveApi || phase != AppPhase.main) return;
+    unawaited(registerPushToken());
+    await refreshField();
+  }
+
+  void resyncAlerts() {
+    if (!notifyEnabled || notifyOsBlocked) {
+      unawaited(FieldAlerts.cancelAll());
+      return;
+    }
+    _syncNotifBadge();
+    if (!shiftOpen) {
+      unawaited(FieldAlerts.cancelShiftReminder());
+      return;
+    }
+    unawaited(
+      FieldAlerts.scheduleShiftReminder(
+        title: l10n.notifShift,
+        body: l10n.notifShiftBody,
+      ),
+    );
   }
 
   void toggleWorker() {
@@ -343,7 +941,23 @@ class SessionController extends ChangeNotifier {
 
   void toggleDarkModeUi() {
     darkModeUi = !darkModeUi;
+    unawaited(vault?.saveDarkMode(darkModeUi));
     notifyListeners();
+  }
+
+  Future<void> restoreUiPrefs() async {
+    final stored = await vault?.locale;
+    if (stored == 'en' || stored == 'tr') localeCode = stored!;
+    final dark = await vault?.darkMode;
+    if (dark != null) darkModeUi = dark;
+    _readNotificationIds.addAll(await vault?.readNotificationIds ?? const {});
+    _dismissedNotificationIds.addAll(
+      await vault?.dismissedNotificationIds ?? const {},
+    );
+    final notify = await vault?.notifyEnabled;
+    if (notify != null) notifyEnabled = notify;
+    tipsSeen = await vault?.tipsSeen ?? false;
+    subeOnboardSeen = await vault?.subeOnboardSeen ?? false;
   }
 
   static const todayEarn = '₺842';
@@ -358,7 +972,7 @@ class SessionController extends ChangeNotifier {
     WeeklyBar(label: 'Cmt', value: 0.62),
     WeeklyBar(label: 'Paz', value: 0.18),
   ];
-  final bonuses = const [
+  final bonuses = [
     BonusProgress(
       label: 'Haftalık 40 teslim',
       amount: '₺750',
@@ -382,12 +996,14 @@ class SessionController extends ChangeNotifier {
     ),
   ];
 
+  // Toplantı kararı: kurye ekranında eski kimlik/pasaport/yabancı kimlik
+  // seçenekleri olmayacak — sadece yeni TC kimlik kabul ediliyor.
   final kycDocs = const [
     KycDocOption(label: 'Yeni kimlik ön yüz', icon: LucideIcons.idCard),
-    KycDocOption(label: 'Yeni kimlik arka yüz', icon: LucideIcons.idCard),
-    KycDocOption(label: 'Eski kimlik', icon: LucideIcons.fileText),
-    KycDocOption(label: 'Pasaport', icon: LucideIcons.fileText),
-    KycDocOption(label: 'Yabancı kimlik', icon: LucideIcons.idCard),
+    KycDocOption(
+      label: 'Yeni kimlik arka yüz',
+      icon: LucideIcons.rectangleEllipsis,
+    ),
   ];
   bool nfcRead = false;
   String mrzDoc = 'T12345678';
@@ -424,14 +1040,20 @@ class SessionController extends ChangeNotifier {
 
   DeliveryTask? get nextStop {
     for (final t in tasks) {
-      if (t.status == TaskStatus.inProgress || t.status == TaskStatus.assigned)
-        return t;
+      if (t.status == TaskStatus.inProgress) return t;
     }
+    final ordered = orderedOpenTasks;
+    if (ordered.isNotEmpty) return ordered.first;
     return null;
   }
 
-  List<DeliveryTask> get remainingStops =>
-      tasks.where((t) => t.id != nextStop?.id).toList();
+  List<DeliveryTask> get remainingStops {
+    final next = nextStop?.id;
+    return [
+      for (final t in orderedOpenTasks)
+        if (t.id != next) t,
+    ];
+  }
 
   Courier courier = const Courier(
     fullName: 'Ruken Turhan',
@@ -452,78 +1074,67 @@ class SessionController extends ChangeNotifier {
     requiredCount: 2,
   );
 
+  final tickets = <SupportTicketDto>[];
+
+  final trainingModules = <TrainingModuleDto>[];
+  bool trainingBusy = false;
+
+  Future<void> loadTrainingModules() async {
+    final client = api;
+    if (client == null) {
+      if (trainingModules.isEmpty) {
+        trainingModules.addAll(_demoTrainingModulesSeed());
+        notifyListeners();
+      }
+      return;
+    }
+    trainingBusy = true;
+    notifyListeners();
+    try {
+      final remote = await client.fetchTrainingModules();
+      trainingModules
+        ..clear()
+        ..addAll(remote);
+    } catch (_) {
+      // Ağ hatası: mevcut liste (varsa demo tohumu) korunur.
+      if (trainingModules.isEmpty) {
+        trainingModules.addAll(_demoTrainingModulesSeed());
+      }
+    }
+    trainingBusy = false;
+    notifyListeners();
+  }
+
+  Future<void> completeTrainingModule(String moduleId) async {
+    final i = trainingModules.indexWhere((m) => m.id == moduleId);
+    if (i == -1 || trainingModules[i].completed) return;
+    final now = DateTime.now().toUtc().toIso8601String();
+    trainingModules[i] = TrainingModuleDto(
+      id: trainingModules[i].id,
+      title: trainingModules[i].title,
+      summary: trainingModules[i].summary,
+      body: trainingModules[i].body,
+      sortOrder: trainingModules[i].sortOrder,
+      completed: true,
+      completedAt: now,
+    );
+    notifyListeners();
+    final client = api;
+    if (client == null) return;
+    try {
+      await client.completeTrainingModule(moduleId);
+    } catch (_) {
+      // Optimistik güncelleme kalır; bir sonraki loadTrainingModules() gerçek
+      // durumu geri getirir.
+    }
+  }
+
   String get documentsSummary =>
       documents.items.isEmpty ? 'Kimlik ve ehliyet tamam' : documents.summary;
 
-  final tasks = <DeliveryTask>[
-    DeliveryTask(
-      id: 't1',
-      ref: 'DGO-8841',
-      recipient: 'Ahmet Yılmaz',
-      address: 'Kayalık Mah. Cumhuriyet Cd. No:14, Güney / Denizli',
-      window: '14:30–15:00',
-      kind: TaskKind.delivery,
-      status: TaskStatus.assigned,
-      otpRequired: true,
-      sequence: 1,
-      etaMinutes: 6,
-      lat: 38.1512,
-      lng: 29.0614,
-      custodyCount: 2,
-      custodyRef: 'PRD-11207',
-      slaMinutesLeft: 72,
-    ),
-    DeliveryTask(
-      id: 't2',
-      ref: 'DGO-8842',
-      recipient: 'Elif Koç',
-      address: 'İstiklal Cd. No:8 D:3, Güney / Denizli',
-      window: '15:00–15:30',
-      kind: TaskKind.document,
-      status: TaskStatus.assigned,
-      sequence: 2,
-      etaMinutes: 11,
-      lat: 38.1481,
-      lng: 29.0558,
-    ),
-    DeliveryTask(
-      id: 't3',
-      ref: 'DGO-8843',
-      recipient: 'Mehmet Aydın',
-      address: 'Atatürk Mah. 7. Sk. No:22, Güney / Denizli',
-      window: '15:45–16:15',
-      kind: TaskKind.delivery,
-      status: TaskStatus.assigned,
-      cod: 185,
-      sequence: 3,
-      etaMinutes: 18,
-      lat: 38.1554,
-      lng: 29.0692,
-      custodyCount: 1,
-      slaMinutesLeft: 118,
-    ),
-    DeliveryTask(
-      id: 't4',
-      ref: 'DGO-8844',
-      recipient: 'Fatma Şahin',
-      address: 'Yeni Mah. Okul Sk. No:4, Güney / Denizli',
-      window: '13:00–13:30',
-      kind: TaskKind.delivery,
-      status: TaskStatus.queued,
-      note: 'Alıcı yoktu · kapı fotoğrafı kuyrukta',
-      sequence: 4,
-      lat: 38.1460,
-      lng: 29.0488,
-    ),
-  ];
+  final tasks = <DeliveryTask>[];
 
-  int get openCount => tasks
-      .where(
-        (t) =>
-            t.status == TaskStatus.assigned ||
-            t.status == TaskStatus.inProgress,
-      )
-      .length;
+  int get openCount => tasks.where((t) => t.isOpen).length;
 
   int get doneCount => tasks
       .where(
@@ -534,10 +1145,58 @@ class SessionController extends ChangeNotifier {
 
   int get deliveredCount =>
       tasks.where((t) => t.status == TaskStatus.delivered).length;
-  int get returnCount =>
-      tasks.where((t) => t.status == TaskStatus.failed).length;
+
+  int get remainingCount => remainingStops.length;
+
+  int get appointmentCount => tasks
+      .where((t) => t.isOpen && t.window.isNotEmpty && t.window != '—')
+      .length;
+
+  int get slaRiskCount =>
+      tasks.where((t) => t.isOpen && (t.slaMinutesLeft ?? 60) < 45).length;
+
+  /// Bugün üzerine atanan toplam durak sayısı — Kazanç ekranında para
+  /// biriminin yerini alan "dağıtım adedi" metriği bunu kullanır.
+  int get dispatchCount => tasks.length;
+  int get returnCount => tasks
+      .where(
+        (t) =>
+            t.status == TaskStatus.failed || t.status == TaskStatus.cancelled,
+      )
+      .length;
 
   DeliveryTask taskById(String id) => tasks.firstWhere((t) => t.id == id);
+
+  DeliveryTask? taskOrNull(String id) {
+    for (final t in tasks) {
+      if (t.id == id) return t;
+    }
+    return null;
+  }
+
+  DeliveryTask? _maybeTask(String id) => taskOrNull(id);
+
+  /// Dağıtım listesi / rota rozeti — panel satırlarında sequence 0 gelir.
+  int visitNumber(String id) {
+    final i = orderedOpenTasks.indexWhere((t) => t.id == id);
+    if (i >= 0) return i + 1;
+    final t = taskOrNull(id);
+    if (t != null && t.sequence > 0) return t.sequence;
+    return 0;
+  }
+
+  bool get showPanelFieldError =>
+      panelLoggedIn &&
+      lastPanelError != null &&
+      lastPanelError != panelSessionExpired;
+
+  String _taskName(String? id) {
+    if (id == null) return 'Kayıt';
+    for (final t in tasks) {
+      if (t.id == id) return t.recipient;
+    }
+    return id;
+  }
 
   Future<void> bootstrap() async {
     if (configReady && !waitForConfig) return;
@@ -552,6 +1211,104 @@ class SessionController extends ChangeNotifier {
       liveApi = false;
     }
     configReady = true;
+    taskWatermark ??= await vault?.taskWatermark;
+    await restoreUiPrefs();
+    await restoreLocalShift();
+    await restorePanelSession();
+    await restoreOpenShift();
+    final token = await vault?.accessToken;
+    final liveAuth =
+        token != null && token.isNotEmpty && token != 'demo-access';
+    if (!liveAuth &&
+        !liveApi &&
+        phase == AppPhase.splash &&
+        demoFieldAllowed()) {
+      skipToDemo();
+      return;
+    }
+    DgLog.i(
+      LogLayer.boot,
+      'bootstrap live=$liveApi demo=$demo phase=${phase.name}',
+    );
+    notifyListeners();
+  }
+
+  /// Cookie jar’da panel oturumu varsa profili ve görev listesini yükle.
+  Future<void> restorePanelSession() async {
+    final client = panel;
+    if (client == null) return;
+    if (!await client.hasStoredSession) return;
+    await hydratePanelSession();
+  }
+
+  Future<void> hydratePanelSession() async {
+    final client = panel;
+    if (client == null) return;
+    try {
+      final profile = await client.fetchSession();
+      if (profile == null) {
+        expirePanelSession();
+        return;
+      }
+      applyPanelProfile(profile);
+      await loadPanelTasks();
+      await Future.wait([loadTickets(), loadCustody()]);
+    } catch (_) {
+      panelLoggedIn = false;
+      lastPanelError = 'PANEL_REQUEST_FAILED';
+      notifyListeners();
+    }
+  }
+
+  void expirePanelSession() {
+    panelLoggedIn = false;
+    lastPanelError = panelSessionExpired;
+    notifyListeners();
+  }
+
+  void applyPanelProfile(PanelCourierProfileDto profile) {
+    panelLoggedIn = true;
+    lastPanelError = null;
+    demo = false;
+    _dropDemoInbox();
+    courier = courier.copyWith(
+      fullName: profile.fullName.isNotEmpty ? profile.fullName : null,
+      code: profile.courierCode.isNotEmpty ? profile.courierCode : null,
+    );
+    notifyListeners();
+  }
+
+  /// Sunucuda açık vardiya varsa selfie’yi atla (crash / process kill).
+  Future<void> restoreOpenShift() async {
+    final client = api;
+    if (client == null) return;
+    try {
+      final remote = await client.fetchCurrentShift();
+      liveApi = client.lastWasLive;
+      if (remote == null || !remote.isOpen || !liveApi) return;
+      applyOpenShift(remote);
+      unawaited(loadIdentity());
+      unawaited(loadTasks());
+      unawaited(loadTickets());
+      unawaited(loadTrainingModules());
+      unawaited(loadRoute());
+    } catch (_) {
+      liveApi = false;
+    }
+  }
+
+  void applyOpenShift(ShiftDto shift) {
+    if (!shift.isOpen) return;
+    currentShiftId = shift.id;
+    shiftOpen = true;
+    shiftPhotoTaken = true;
+    shiftStartedAt = DateTime.tryParse(shift.startedAt)?.toLocal();
+    final p = shift.vehiclePlate;
+    if (p != null && p.isNotEmpty) plate = p;
+    if (phase == AppPhase.splash || phase == AppPhase.shift) {
+      phase = AppPhase.main;
+    }
+    unawaited(_persistShift());
     notifyListeners();
   }
 
@@ -561,16 +1318,94 @@ class SessionController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void skipToDemo() {
+  void markTipsSeen() {
+    tipsSeen = true;
+    unawaited(vault?.markTipsSeen());
+    notifyListeners();
+  }
+
+  void finishSubeOnboard() {
+    subeOnboardSeen = true;
+    unawaited(vault?.markSubeOnboardSeen());
+    notifyListeners();
+  }
+
+  /// Durak/bildirim/rota tohumlarını yazar — hem [skipToDemo]'nun anlık
+  /// tam-atlama akışında hem de aktivasyon ekranındaki demo OTP'de
+  /// (bkz. [verifyLoginOtp]) kullanılıyor. İkincisi kendi izin/vardiya
+  /// akışını normal şekilde sürdürdüğü için faz/vardiya burada değişmez.
+  void _seedDemoData() {
+    if (tasks.isEmpty) {
+      tasks.addAll(_buildDemoTasks());
+    }
+    if (notifications.every((n) => !n.id.startsWith('demo-'))) {
+      notifications.insertAll(0, _buildDemoNotifications());
+    }
+    routePlan = RoutePlanDto.demo();
+    dayRoute = planDayRouteLocal(
+      LatLng(selfLat, selfLng),
+      _openRouteStops,
+      pinFirstId: 't1',
+    );
+    _dayRouteKey = dayRouteCacheKey(
+      LatLng(selfLat, selfLng),
+      _openRouteStops,
+      pinFirstId: 't1',
+    );
+    unawaited(ensureDayRoute(pinFirstId: 't1'));
+  }
+
+  /// Yerel demo saha. Release'te yalnız `--dart-define=ALLOW_DEMO=true`.
+  /// Sahte OTP / mühendis paneli [kAllowDebugBypass] ile ayrı durur.
+  void skipToDemo({bool? allow}) {
+    if (!(allow ?? demoFieldAllowed())) return;
     demo = true;
+    _seedDemoData();
     phase = AppPhase.main;
     shiftOpen = true;
     shiftPhotoTaken = true;
     shiftStartedAt = DateTime.now().subtract(
       const Duration(hours: 5, minutes: 12),
     );
+    unawaited(_persistShift());
+    DgLog.i(LogLayer.session, 'skipToDemo · selfie assumed · main');
     notifyListeners();
-    unawaited(_seedDemoTokenThenIdentity());
+    if (!kReleaseMode) {
+      unawaited(_seedDemoTokenThenIdentity());
+    }
+  }
+
+  /// Canlı giriş: sahte durak yok. Token varsa vardiya/izin, yoksa OTP.
+  Future<void> enterField() async {
+    _stripDemoField();
+    notifyListeners();
+    final token = await vault?.accessToken;
+    final real =
+        token != null && token.isNotEmpty && token != 'demo-access';
+    if (real) {
+      await restoreOpenShift();
+      if (phase == AppPhase.main) {
+        unawaited(refreshSelfPosition());
+        unawaited(loadIdentity());
+        unawaited(loadTasks());
+        unawaited(loadTickets());
+        return;
+      }
+      completeActivation();
+      return;
+    }
+    finishSplash();
+  }
+
+  static const _kDemoTaskIds = {'t1', 't2', 't3', 't4', 't5'};
+
+  void _stripDemoField() {
+    demo = false;
+    routePlan = null;
+    dayRoute = null;
+    _dayRouteKey = null;
+    tasks.removeWhere((t) => _kDemoTaskIds.contains(t.id));
+    notifications.removeWhere((n) => n.id.startsWith('demo-'));
   }
 
   void finishSplash() {
@@ -582,38 +1417,217 @@ class SessionController extends ChangeNotifier {
   /// back to splash (which re-offers "Vardiyaya başla" / activation).
   Future<void> logout() async {
     await vault?.clearTokens();
+    await vault?.saveTaskWatermark(null);
+    taskWatermark = null;
     shiftOpen = false;
     shiftPhotoTaken = false;
     shiftStartedAt = null;
-    demo = true;
+    unawaited(vault?.saveShift(open: false));
+    currentShiftId = null;
+    demo = false;
     liveApi = false;
     routePlan = null;
+    panelLoggedIn = false;
+    lastPanelError = null;
     phase = AppPhase.splash;
+    DgLog.i(LogLayer.session, 'logout');
+    try {
+      await panel?.logout();
+    } catch (_) {}
     notifyListeners();
   }
 
-  Future<void> requestActivationCode(String phone) async {
+  Future<bool> requestActivationCode(String phone) async {
+    lastActivationError = null;
+    activationBusy = true;
+    notifyListeners();
     final install = await vault?.installationId() ?? Vault.newUuid();
     try {
       final res = await api?.startActivation(phone, install);
       challengeId = res?['challengeId'] as String?;
       liveApi = api?.lastWasLive ?? false;
-    } catch (_) {
+      final rawResend = res?['resendAvailableAt'] as String?;
+      otpResendAt = rawResend == null ? null : DateTime.tryParse(rawResend);
+      if (challengeId == null) {
+        if (kReleaseMode) {
+          lastActivationError = 'NO_CHALLENGE';
+          return false;
+        }
+        challengeId = Vault.newUuid();
+        liveApi = false;
+      }
+      return true;
+    } catch (e) {
+      lastActivationError = _dioMessage(e) ?? 'REQUEST_FAILED';
+      if (kReleaseMode) return false;
       challengeId = Vault.newUuid();
       liveApi = false;
+      return true;
+    } finally {
+      activationBusy = false;
+      notifyListeners();
     }
+  }
+
+  String? _dioMessage(Object e) {
+    if (e is! DioException) return null;
+    final data = e.response?.data;
+    if (data is Map) {
+      final message = data['message'] as String?;
+      if (message != null && message.trim().isNotEmpty) return message.trim();
+      final code = data['code'] as String?;
+      if (code != null && code.isNotEmpty) return code;
+    }
+    switch (e.type) {
+      case DioExceptionType.connectionTimeout:
+      case DioExceptionType.sendTimeout:
+      case DioExceptionType.receiveTimeout:
+      case DioExceptionType.connectionError:
+        return 'NETWORK';
+      default:
+        return null;
+    }
+  }
+
+  /// Panel `courier-auth/login` (cookie). Fastify JWT yazmaz; görevler
+  /// [loadPanelTasks] ile `GET courier-tasks` üzerinden gelir.
+  Future<bool> loginWithPanel({
+    required String identifier,
+    required String password,
+  }) async {
+    lastPanelError = null;
+    final id = identifier.trim();
+    if (kAllowDebugBypass &&
+        id == panelDemoIdentifier &&
+        password == panelDemoPassword) {
+      panelLoggedIn = true;
+      demo = true;
+      _seedDemoData();
+      notifyListeners();
+      return true;
+    }
+    final client = panel;
+    if (client == null) {
+      lastPanelError = 'PANEL_UNAVAILABLE';
+      notifyListeners();
+      return false;
+    }
+    try {
+      final profile = await client.login(identifier: id, password: password);
+      applyPanelProfile(profile);
+      await loadPanelTasks();
+      await Future.wait([loadTickets(), loadCustody()]);
+      return true;
+    } on PanelApiException catch (e) {
+      lastPanelError = e.code;
+      notifyListeners();
+      return false;
+    } catch (_) {
+      lastPanelError = 'PANEL_REQUEST_FAILED';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Şube/Acente girişi. Kullanıcı birden fazla acenteye bağlıysa
+  /// [AgencyApiException]'ın `AGENCY_SELECTION_REQUIRED` kodu ile geri
+  /// döner ve [agencySelectionOptions] doldurulur — arayan taraf bir seçim
+  /// aldıktan sonra `agencyId` ile tekrar çağırmalı.
+  Future<bool> loginAsAgency({
+    required String email,
+    required String password,
+    String? agencyId,
+  }) async {
+    lastAgencyError = null;
+    agencySelectionOptions = const [];
+    agencyLoginBusy = true;
+    notifyListeners();
+    final trimmed = email.trim();
+    if (kAllowDebugBypass &&
+        trimmed == agencyDemoEmail &&
+        password == agencyDemoPassword) {
+      agencyUser = AgencyPortalUserDto(
+        id: 'demo-agency-user',
+        email: agencyDemoEmail,
+        fullName: 'Acente Demo',
+        agency: const AgencyDto(id: 'demo-agency', name: 'Güney Acente'),
+      );
+      agencyOverview = const AgencyOverviewDto(
+        agency: AgencyDto(id: 'demo-agency', name: 'Güney Acente'),
+        courierLinks: 12,
+        regionLinks: 3,
+        nodeLinks: 1,
+        currentShipments: 186,
+      );
+      agencyLoginBusy = false;
+      phase = AppPhase.subeMain;
+      notifyListeners();
+      return true;
+    }
+    final client = agency;
+    if (client == null) {
+      agencyLoginBusy = false;
+      lastAgencyError = 'AGENCY_PORTAL_UNAVAILABLE';
+      notifyListeners();
+      return false;
+    }
+    try {
+      agencyUser = await client.login(
+        email: trimmed,
+        password: password,
+        agencyId: agencyId,
+      );
+      await loadAgencyOverview();
+      agencyLoginBusy = false;
+      phase = AppPhase.subeMain;
+      notifyListeners();
+      return true;
+    } on AgencyApiException catch (e) {
+      agencyLoginBusy = false;
+      lastAgencyError = e.code;
+      agencySelectionOptions = e.agencies;
+      notifyListeners();
+      return false;
+    } catch (_) {
+      agencyLoginBusy = false;
+      lastAgencyError = 'AGENCY_REQUEST_FAILED';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<void> loadAgencyOverview() async {
+    final client = agency;
+    if (client == null || agencyUser == null) return;
+    try {
+      agencyOverview = await client.fetchOverview();
+      notifyListeners();
+    } on AgencyApiException {
+      // Genel bakış olmadan da Ana Sayfa gösterilebilir; sessizce yut.
+    }
+  }
+
+  Future<void> logoutAgency() async {
+    await agency?.logout();
+    agencyUser = null;
+    agencyOverview = null;
+    lastAgencyError = null;
+    phase = AppPhase.activation;
     notifyListeners();
   }
 
   Future<bool> verifyLoginOtp(String code) async {
-    if (code == '123456') {
+    if (!kReleaseMode && code == '123456') {
       demo = true;
+      _seedDemoData();
       await _saveDemoTokens();
+      notifyListeners();
       return true;
     }
     final install = await vault?.installationId() ?? Vault.newUuid();
     final id = challengeId;
     if (api == null || id == null) return false;
+    lastActivationError = null;
     try {
       final tokens = await api!.verifyActivation(
         challengeId: id,
@@ -629,7 +1643,8 @@ class SessionController extends ChangeNotifier {
       liveApi = api?.lastWasLive ?? false;
       demo = !liveApi;
       return true;
-    } catch (_) {
+    } catch (e) {
+      lastActivationError = _dioMessage(e) ?? 'VERIFY_FAILED';
       return false;
     }
   }
@@ -640,32 +1655,133 @@ class SessionController extends ChangeNotifier {
   }
 
   void completePermissions() {
-    phase = AppPhase.shift;
-    notifyListeners();
+    unawaited(refreshSelfPosition());
+    shiftPhotoTaken = true;
+    DgLog.i(LogLayer.shift, 'permissions done · auto available');
+    openShift();
   }
 
-  void takeShiftPhoto() {
+  Future<void> takeShiftPhoto([String? path]) async {
+    if (!kReleaseMode && (path == null || path.isEmpty || path.startsWith('test://'))) {
+      shiftPhotoTaken = true;
+      notifyListeners();
+      unawaited(_storeShiftPhoto(path));
+      return;
+    }
     shiftPhotoTaken = true;
     notifyListeners();
+    final id = await _storeShiftPhoto(path);
+    if (id == null && kReleaseMode) {
+      shiftPhotoTaken = false;
+      startPhotoMediaId = null;
+      notifyListeners();
+    }
+  }
+
+  Future<String?> _storeShiftPhoto(String? path) async {
+    final id = await uploadFileEvidence(
+      api: api,
+      path: path,
+      kind: 'photo',
+      stepKey: 'shift_start',
+    );
+    if (id == null) return null;
+    startPhotoMediaId = id;
+    notifyListeners();
+    return id;
   }
 
   void openShift() {
-    if (!shiftPhotoTaken) return;
+    shiftPhotoTaken = true;
+    online = true;
     shiftOpen = true;
     shiftStartedAt = DateTime.now();
     phase = AppPhase.main;
+    _enqueueShift(start: true);
+    unawaited(_persistShift());
     notifyListeners();
+    unawaited(refreshSelfPosition());
     unawaited(loadIdentity());
     unawaited(loadRoute());
+    unawaited(loadTasks());
+    unawaited(loadTickets());
+    unawaited(loadTrainingModules());
+  }
+
+  Map<String, Object?> _shiftFix() {
+    return {
+      'lat': selfLat,
+      'lng': selfLng,
+      'accuracy': 25,
+      'capturedAt': DateTime.now().toUtc().toIso8601String(),
+      'isMocked': false,
+    };
+  }
+
+  Future<void> refreshSelfPosition() async {
+    final here = await readDeviceLocation();
+    if (here == null) return;
+    final moved = haversineMeters(
+      LatLng(selfLat, selfLng),
+      LatLng(here.lat, here.lng),
+    );
+    selfLat = here.lat;
+    selfLng = here.lng;
+    selfLocated = true;
+    notifyListeners();
+    if (moved > 40) unawaited(ensureDayRoute());
+  }
+
+  Future<void> callTask(BuildContext context, DeliveryTask task) async {
+    var number = task.phone;
+    if (liveApi) {
+      try {
+        final session = await api?.startMaskedCall(task.id);
+        if (session != null && session.dialNumber.isNotEmpty) {
+          number = session.dialNumber;
+        }
+      } catch (_) {}
+    }
+    if (!context.mounted) return;
+    await dialNumber(context, number);
+  }
+
+  void _enqueueShift({required bool start}) {
+    final event = outbox.enqueue(
+      operation: start ? SyncOperation.shiftStart : SyncOperation.shiftEnd,
+      payload: start
+          ? {
+              'location': _shiftFix(),
+              'vehiclePlate': plate,
+              'permissions': {
+                'locationAlways': false,
+                'notifications': notifyEnabled,
+                'camera': true,
+              },
+              if (startPhotoMediaId != null)
+                'startPhotoMediaId': startPhotoMediaId,
+            }
+          : {'location': _shiftFix()},
+    );
+    if (online) {
+      if (api == null) {
+        event.status = 'applied';
+      } else {
+        unawaited(_flushOutbox());
+      }
+    }
   }
 
   Future<void> _seedDemoTokenThenIdentity() async {
     await _saveDemoTokens();
     await loadIdentity();
     await loadRoute();
+    await loadTasks();
+    await loadTickets();
   }
 
   Future<void> _saveDemoTokens() async {
+    if (!kAllowDebugBypass) return;
     final store = vault;
     if (store == null) return;
     final existing = await store.accessToken;
@@ -705,25 +1821,476 @@ class SessionController extends ChangeNotifier {
 
   /// Faz 2 route: real road-network geometry and, past 2 stops, an
   /// optimizer-reordered sequence (apps/api `GET /v1/routes/current`).
-  /// Failures are silent by design — [RouteScreen] falls back to the
-  /// straight-line demo drawing when [routePlan] stays null.
+  /// Failures are silent by design — [ensureDayRoute] already has a local
+  /// order + road line; this only overlays the server plan when it exists.
   Future<void> loadRoute() async {
+    if (_usesPanelTasks) return;
     final client = api;
     if (client == null || routeLoading) return;
     routeLoading = true;
     notifyListeners();
     try {
-      routePlan = await client.fetchRoute();
+      final next = await client.fetchRoute(lat: selfLat, lng: selfLng);
+      if (next != null) {
+        routePlan = next;
+      } else if (client.lastWasLive) {
+        // Live 204/null'da demo geometriyi bırakma — harita t1'den başlar.
+        routePlan = null;
+      }
       liveApi = client.lastWasLive;
-    } catch (_) {
-      // keep whatever routePlan we had; the screen just shows the fallback
+      DgLog.i(
+        LogLayer.route,
+        next == null
+            ? 'plan empty live=$liveApi'
+            : 'plan ${next.stops.length} stops',
+      );
+    } catch (e) {
+      DgLog.w(LogLayer.route, 'loadRoute $e');
     } finally {
       routeLoading = false;
       notifyListeners();
     }
   }
 
+  /// Live `GET /v1/tasks` veya panel `GET courier-tasks`.
+  String? taskWatermark;
+
+  Future<void> loadPanelTasks() async {
+    if (!storageOk) return;
+    final client = panel;
+    if (client == null || !panelLoggedIn) return;
+    try {
+      final list = await client.fetchTasks(pageSize: 50);
+      lastPanelError = null;
+      final pendingIds = {
+        for (final e in outbox.events)
+          if (e.pending && e.operation.isPanel && e.subjectId != null)
+            e.subjectId!,
+      };
+      final previous = {for (final t in tasks) t.id: t};
+      final mapped = [
+        for (final row in list.tasks) deliveryTaskFromPanel(row),
+      ];
+      for (final incoming in mapped) {
+        final old = previous[incoming.id];
+        if (old == null) continue;
+        if (pendingIds.contains(incoming.id) ||
+            _keepLocalPanelTask(old, incoming)) {
+          incoming.status = old.status;
+          incoming.wireStatus = old.wireStatus;
+          incoming.receivedBy = old.receivedBy;
+          incoming.signed = old.signed;
+        }
+      }
+      final extras = [
+        for (final t in previous.values)
+          if (pendingIds.contains(t.id) &&
+              !mapped.any((m) => m.id == t.id))
+            t,
+      ];
+      tasks
+        ..clear()
+        ..addAll(mapped)
+        ..addAll(extras);
+      demo = false;
+      liveApi = true;
+      _dropDemoInbox();
+      unawaited(ensureDayRoute());
+    } on PanelApiException catch (e) {
+      if (e.statusCode == 401) {
+        expirePanelSession();
+        return;
+      }
+      lastPanelError = e.code;
+    } catch (_) {
+      lastPanelError = 'PANEL_REQUEST_FAILED';
+    }
+    notifyListeners();
+  }
+
+  Future<void> loadTasks() async {
+    if (_usesPanelTasks) {
+      await loadPanelTasks();
+      return;
+    }
+    final client = api;
+    if (client == null) return;
+    try {
+      final remote = await client.fetchTasks();
+      liveApi = client.lastWasLive;
+      if (remote.isEmpty && !liveApi) return;
+      tasks
+        ..clear()
+        ..addAll(remote);
+      if (liveApi) {
+        _dropDemoInbox();
+        unawaited(_rememberWatermark(client.lastSyncedAt));
+        final inbox = await client.fetchNotifications();
+        ingestServerNotifications(inbox);
+        unawaited(registerPushToken());
+      }
+    } catch (_) {
+      liveApi = false;
+    }
+    notifyListeners();
+  }
+
+  /// Watermark varsa `GET /v1/sync/changes` (çıkarılan id'ler dahil).
+  /// Yoksa veya `resyncRequired` ise tam [loadTasks].
+  Future<void> pullTasks() async {
+    if (!storageOk) return;
+    if (_usesPanelTasks) {
+      await loadPanelTasks();
+      return;
+    }
+    final client = api;
+    if (client == null) return;
+    final since = taskWatermark;
+    if (since == null) {
+      await loadTasks();
+      return;
+    }
+    try {
+      final delta = await client.fetchChanges(since: since);
+      liveApi = client.lastWasLive;
+      if (!liveApi) return;
+      if (delta.resyncRequired) {
+        await loadTasks();
+        return;
+      }
+      applyTaskDelta(changed: delta.tasks, removedIds: delta.removedTaskIds);
+      if (delta.custody != null) custodyItems = delta.custody!;
+      ingestServerNotifications(delta.notifications);
+      unawaited(_rememberWatermark(delta.syncedAt));
+    } catch (_) {
+      await loadTasks();
+    }
+    notifyListeners();
+  }
+
+  void applyTaskDelta({
+    required List<DeliveryTask> changed,
+    required Iterable<String> removedIds,
+  }) {
+    final previous = {for (final t in tasks) t.id: t};
+    final pending = {
+      for (final e in outbox.events)
+        if (e.pending && e.subjectId != null) e.subjectId!,
+    };
+    tasks.removeWhere((t) => removedIds.contains(t.id));
+    for (final incoming in changed) {
+      if (pending.contains(incoming.id)) continue;
+      final i = tasks.indexWhere((t) => t.id == incoming.id);
+      if (i >= 0) {
+        tasks[i] = incoming;
+      } else {
+        tasks.add(incoming);
+      }
+    }
+    for (final id in removedIds) {
+      final was = previous[id];
+      if (was != null && was.isOpen) {
+        _prependNotification(
+          kind: NotifKind.stopPulled,
+          title: 'Durak çekildi',
+          body: '${was.ref} · başka kuryeye verildi.',
+          icon: LucideIcons.truck,
+          tint: Dg.amberBg,
+          ink: Dg.amber,
+          taskId: was.id,
+        );
+      }
+    }
+    for (final incoming in changed) {
+      final was = previous[incoming.id];
+      if (was == null && incoming.isOpen) {
+        _prependNotification(
+          kind: NotifKind.stopAssigned,
+          title: 'Yeni durak atandı',
+          body: '${incoming.ref} · ${incoming.recipient}',
+          icon: LucideIcons.truck,
+          tint: Dg.greenBg,
+          ink: Dg.green,
+          taskId: incoming.id,
+        );
+      } else if (incoming.status == TaskStatus.cancelled &&
+          was != null &&
+          was.status != TaskStatus.cancelled) {
+        _prependNotification(
+          kind: NotifKind.stopCancelled,
+          title: 'Durak iptal',
+          body:
+              '${incoming.ref.isEmpty ? was.ref : incoming.ref} · ${incoming.recipient.isEmpty ? was.recipient : incoming.recipient}',
+          icon: LucideIcons.circleX,
+          tint: Dg.redBg,
+          ink: Dg.red,
+          taskId: incoming.id,
+        );
+      }
+    }
+  }
+
+  bool _keepLocalPanelTask(DeliveryTask local, DeliveryTask incoming) {
+    if (local.status == incoming.status) return false;
+    if (local.status == TaskStatus.inProgress && incoming.isOpen) return true;
+    if (local.isClosed && incoming.isOpen) return true;
+    return false;
+  }
+
+  void _dropDemoInbox() {
+    notifications.removeWhere((n) => n.id.startsWith('demo-'));
+    outbox.events.removeWhere((e) => e.clientEventId.startsWith('demo-seed-'));
+  }
+
+  void ingestServerNotifications(List<InboxItemDto> rows) {
+    if (rows.isEmpty) return;
+    _dropDemoInbox();
+    for (final row in rows) {
+      final n = row.item;
+      if (n.id.isEmpty) continue;
+      final existing = notifications.indexWhere((e) => e.id == n.id);
+      if (existing >= 0) {
+        notifications[existing] = n;
+      } else {
+        final dup = n.taskId == null
+            ? -1
+            : notifications.indexWhere(
+                (e) => e.kind == n.kind && e.taskId == n.taskId,
+              );
+        if (dup >= 0) {
+          notifications[dup] = n;
+        } else {
+          notifications.insert(0, n);
+        }
+      }
+      if (row.read) {
+        _readNotificationIds.add(n.id);
+      }
+    }
+    while (notifications.length > _inboxCap) {
+      notifications.removeLast();
+    }
+    _persistNotifState();
+    _syncNotifBadge();
+  }
+
+  Future<void> registerPushToken([String? token]) async {
+    if (!storageOk) return;
+    if (!notifyEnabled || notifyOsBlocked || !liveApi) return;
+    final client = api;
+    final store = vault;
+    if (client == null || store == null) return;
+    final value = token ?? FieldPush.token;
+    if (value == null || value.isEmpty) return;
+    try {
+      await client.registerPushToken(
+        installationId: await store.installationId(),
+        token: value,
+      );
+    } catch (_) {}
+  }
+
+  static const _pullPushKinds = {
+    'SYNC_HINT',
+    'TASK_ASSIGNED',
+    'TASK_UPDATED',
+    'TASK_CANCELLED',
+    'TASK_PULLED',
+    'ROUTE_RECALCULATED',
+    'SLA_AT_RISK',
+    'CUSTODY_TAKEN',
+  };
+
+  void ingestPushData(Map<String, String> data) {
+    if (!storageOk) return;
+    final nextToken = data['token'];
+    if (nextToken != null && data.length == 1) {
+      unawaited(registerPushToken(nextToken));
+      return;
+    }
+    final kind = data['kind'];
+    if (kind != null && _pullPushKinds.contains(kind)) {
+      unawaited(pullTasks());
+    }
+    if (kind == 'SYNC_HINT') return;
+    final id = data['id'];
+    if (id == null || id.isEmpty) return;
+    ingestServerNotifications([
+      InboxItemDto(
+        item: appNotificationFromInbox({
+          ...data,
+          'createdAt': DateTime.now().toUtc().toIso8601String(),
+          'subjectId': data['taskId'] ?? data['subjectId'],
+        }),
+        read: false,
+      ),
+    ]);
+    notifyListeners();
+  }
+
+  Future<void> _rememberWatermark(String? value) async {
+    if (value == null || value.isEmpty) return;
+    taskWatermark = value;
+    await vault?.saveTaskWatermark(value);
+  }
+
+  void _prependNotification({
+    required NotifKind kind,
+    required String title,
+    required String body,
+    required IconData icon,
+    required Color tint,
+    required Color ink,
+    String? taskId,
+  }) {
+    if (taskId != null) {
+      final dup = notifications.any(
+        (n) =>
+            n.kind == kind &&
+            n.taskId == taskId &&
+            !_dismissedNotificationIds.contains(n.id) &&
+            !_readNotificationIds.contains(n.id),
+      );
+      if (dup) return;
+    }
+    _notifSeq += 1;
+    final item = AppNotification(
+      id: 'n-$_notifSeq',
+      kind: kind,
+      title: title,
+      body: body,
+      createdAt: DateTime.now(),
+      icon: icon,
+      tint: tint,
+      ink: ink,
+      taskId: taskId,
+    );
+    notifications.insert(0, item);
+    while (notifications.length > _inboxCap) {
+      final dropped = notifications.removeLast();
+      _readNotificationIds.remove(dropped.id);
+      _dismissedNotificationIds.remove(dropped.id);
+      unawaited(FieldAlerts.dismissInbox(dropped.id));
+    }
+    if (notifyEnabled && !notifyOsBlocked) {
+      unawaited(
+        FieldAlerts.announce(
+          item,
+          title: l10n.notifTitle(title),
+          unread: unreadNotifCount,
+        ),
+      );
+      _syncNotifBadge();
+    }
+  }
+
+  static const _inboxCap = 40;
+
+  Future<void> refreshField() async {
+    await Future.wait([
+      refreshSelfPosition(),
+      pullTasks(),
+      loadTickets(),
+      loadRoute(),
+    ]);
+    await ensureDayRoute();
+  }
+
+  Future<void> loadTickets() async {
+    if (_usesPanelTasks) {
+      final client = panel;
+      if (client == null) return;
+      try {
+        replaceTickets(await client.fetchTickets());
+      } on PanelApiException catch (e) {
+        if (e.statusCode == 401) {
+          expirePanelSession();
+          return;
+        }
+      } catch (_) {}
+      notifyListeners();
+      return;
+    }
+    final client = api;
+    if (client == null) return;
+    try {
+      final remote = await client.fetchSupportTickets();
+      liveApi = client.lastWasLive;
+      replaceTickets(remote);
+    } catch (_) {
+      // Destek listesi 404/ağ hatası görev API'sini demo'ya düşürmez.
+    }
+    notifyListeners();
+  }
+
+  /// Sunucu listesi gelince bekleyen (henüz sync olmamış) yerel talepleri tut.
+  void replaceTickets(List<SupportTicketDto> remote) {
+    final pendingIds = {
+      for (final e in outbox.events)
+        if (e.pending &&
+            (e.operation == SyncOperation.supportTicketCreate ||
+                e.operation == SyncOperation.panelTicketCreate))
+          e.clientEventId,
+    };
+    final keep = [
+      for (final t in tickets)
+        if (pendingIds.contains(t.id) && !remote.any((r) => r.id == t.id)) t,
+    ];
+    tickets
+      ..clear()
+      ..addAll(remote)
+      ..addAll(keep);
+  }
+
+  void createSupportTicket({
+    required String category,
+    required String subject,
+    required String body,
+    String? taskId,
+  }) {
+    final operation = _usesPanelTasks
+        ? SyncOperation.panelTicketCreate
+        : SyncOperation.supportTicketCreate;
+    final event = outbox.enqueue(
+      operation: operation,
+      subjectId: taskId,
+      payload: {
+        'category': category,
+        'subject': subject,
+        'body': body,
+        if (taskId != null) 'taskId': taskId,
+        'mediaIds': const <String>[],
+        'attachDiagnostics': false,
+      },
+    );
+    tickets.insert(
+      0,
+      SupportTicketDto(
+        id: event.clientEventId,
+        reference: 'DST-LOCAL',
+        category: category,
+        subject: subject,
+        body: body,
+        status: 'open',
+        priority: 'normal',
+        createdAt: event.occurredAt.toIso8601String(),
+        taskId: taskId,
+      ),
+    );
+    if (online) {
+      if (_usesPanelTasks) {
+        unawaited(_pushPanelQueue());
+      } else if (api == null) {
+        event.status = 'applied';
+      } else {
+        unawaited(_flushOutbox());
+      }
+    }
+    notifyListeners();
+  }
+
   void cyclePricingVisibility() {
+    if (!kAllowDebugBypass) return;
     final c = courier;
     if (c.affiliation == CourierAffiliation.independent &&
         c.compensationType == CompensationType.pieceRate) {
@@ -749,20 +2316,288 @@ class SessionController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void startTask(String id) {
-    final t = taskById(id);
-    t.status = TaskStatus.inProgress;
-    notifyListeners();
+  bool _hasPendingPanel(String id, SyncOperation op) => outbox.events.any(
+    (e) => e.pending && e.subjectId == id && e.operation == op,
+  );
+
+  void _enqueuePanelStart(String id) {
+    if (!_hasPendingPanel(id, SyncOperation.panelAccept)) {
+      outbox.enqueue(operation: SyncOperation.panelAccept, subjectId: id);
+    }
+    if (!_hasPendingPanel(id, SyncOperation.panelStart)) {
+      outbox.enqueue(
+        operation: SyncOperation.panelStart,
+        subjectId: id,
+        payload: {
+          'latitude': selfLat,
+          'longitude': selfLng,
+          'capturedAt': DateTime.now().toUtc().toIso8601String(),
+        },
+      );
+    }
+    if (!_hasPendingPanel(id, SyncOperation.panelLocation)) {
+      outbox.enqueue(
+        operation: SyncOperation.panelLocation,
+        subjectId: id,
+        payload: {
+          'purposeCode': 'ACTIVE_TASK',
+          'latitude': selfLat,
+          'longitude': selfLng,
+        },
+      );
+    }
   }
 
-  void deliverTask(String id, {String? receivedBy}) {
+  void _enqueuePanelFinalize(
+    String id, {
+    required String outcome,
+    String? reasonCode,
+    String? receivedBy,
+  }) {
+    if (_hasPendingPanel(id, SyncOperation.panelFinalize)) return;
+    outbox.enqueue(
+      operation: SyncOperation.panelFinalize,
+      subjectId: id,
+      payload: {
+        'outcome': outcome,
+        if (reasonCode != null) 'reasonCode': reasonCode,
+        if (receivedBy != null) 'receivedBy': receivedBy,
+      },
+    );
+  }
+
+  Future<void> _pushPanelQueue() async {
+    await outbox.waitForPersistence();
+    if (online) await _flushOutbox();
+  }
+
+  double? _asDouble(Object? v) {
+    if (v is num) return v.toDouble();
+    if (v is String) return double.tryParse(v);
+    return null;
+  }
+
+  Future<void> _playPanelEvent(OutboxEvent event) async {
+    final client = panel;
+    if (client == null) {
+      throw PanelApiException('PANEL_UNAVAILABLE');
+    }
+    final id = event.subjectId;
+    if (id == null && event.operation != SyncOperation.panelTicketCreate) {
+      throw PanelApiException('PANEL_UNAVAILABLE');
+    }
+    switch (event.operation) {
+      case SyncOperation.panelAccept:
+        await client.acceptTask(id!);
+      case SyncOperation.panelStart:
+        var lat = _asDouble(event.payload['latitude']) ?? selfLat;
+        var lng = _asDouble(event.payload['longitude']) ?? selfLng;
+        final raw =
+            event.payload['capturedAt'] ?? event.payload['occurredAt'];
+        final captured = raw is String ? DateTime.tryParse(raw) : null;
+        final stale =
+            captured == null ||
+            DateTime.now().toUtc().difference(captured.toUtc()) >
+                const Duration(minutes: 4);
+        if (stale) {
+          lat = selfLat;
+          lng = selfLng;
+        }
+        final started = await client.startTask(
+          id!,
+          latitude: lat,
+          longitude: lng,
+        );
+        final t = _maybeTask(id!);
+        final state = started.workflowState;
+        if (t != null && state != null && state.isNotEmpty) {
+          t.wireStatus = state;
+          t.status = taskStatusFromPanel(state);
+        }
+      case SyncOperation.panelLocation:
+        await client.sendLocation(
+          id!,
+          purposeCode:
+              (event.payload['purposeCode'] as String?) ?? 'ACTIVE_TASK',
+          latitude: _asDouble(event.payload['latitude']) ?? selfLat,
+          longitude: _asDouble(event.payload['longitude']) ?? selfLng,
+        );
+      case SyncOperation.panelFinalize:
+        final res = await client.finalizeTask(
+          id!,
+          outcome: (event.payload['outcome'] as String?) ?? 'DELIVERED',
+          reasonCode: event.payload['reasonCode'] as String?,
+          receivedBy: event.payload['receivedBy'] as String?,
+        );
+        final t = _maybeTask(id!);
+        final state = res.currentStateCode;
+        if (t != null && state != null && state.isNotEmpty) {
+          t.wireStatus = state;
+          t.status = taskStatusFromPanel(state);
+        }
+      case SyncOperation.panelTicketCreate:
+        final created = await client.createTicket(
+          clientEventId: event.clientEventId,
+          category: (event.payload['category'] as String?) ?? 'OTHER',
+          subject: (event.payload['subject'] as String?) ?? '',
+          body: (event.payload['body'] as String?) ?? '',
+          taskId:
+              event.subjectId ?? event.payload['taskId'] as String?,
+        );
+        final idx = tickets.indexWhere((t) => t.id == event.clientEventId);
+        if (idx >= 0) {
+          tickets[idx] = created;
+        } else if (!tickets.any((t) => t.id == created.id)) {
+          tickets.insert(0, created);
+        }
+      case SyncOperation.panelCustodyReturn:
+        final warehouseId = event.payload['warehouseId'] as String?;
+        if (warehouseId == null || warehouseId.isEmpty) {
+          throw PanelApiException('WAREHOUSE_ID_REQUIRED');
+        }
+        await client.returnCustodyUnit(
+          id!,
+          warehouseId: warehouseId,
+          note: event.payload['note'] as String?,
+        );
+      default:
+        throw ArgumentError('panel drain: ${event.operation.wire}');
+    }
+  }
+
+  Future<void> _flushPanelOutbox() async {
+    if (!storageOk || !online || !_usesPanelTasks) return;
+    final client = panel;
+    if (client == null) return;
+    final pending = [
+      for (final e in outbox.events)
+        if (e.pending && e.operation.isPanel) e,
+    ]..sort((a, b) => a.sequence.compareTo(b.sequence));
+    if (pending.isEmpty) return;
+
+    final hardBlock = <String>{};
+    for (final event in pending) {
+      final id = event.subjectId ?? '';
+      if (hardBlock.contains(id)) continue;
+      try {
+        await _playPanelEvent(event);
+        await outbox.applyResults([
+          (id: event.clientEventId, status: 'applied'),
+        ]);
+      } on PanelApiException catch (e) {
+        if (e.statusCode == 401) {
+          expirePanelSession();
+          return;
+        }
+        lastPanelError = e.code;
+        if (e.isRetryable) {
+          if (event.operation == SyncOperation.panelAccept ||
+              event.operation == SyncOperation.panelStart) {
+            hardBlock.add(id);
+          }
+          continue;
+        }
+        await outbox.applyResults([
+          (id: event.clientEventId, status: 'rejected'),
+        ]);
+        if (event.operation == SyncOperation.panelAccept ||
+            event.operation == SyncOperation.panelStart) {
+          hardBlock.add(id);
+        }
+      } catch (_) {
+        lastPanelError = 'PANEL_REQUEST_FAILED';
+        if (event.operation == SyncOperation.panelAccept ||
+            event.operation == SyncOperation.panelStart) {
+          hardBlock.add(id);
+        }
+      }
+    }
+  }
+
+  Future<void> startTask(String id) async {
+    final t = taskById(id);
+    t.status = TaskStatus.inProgress;
+    if (_usesPanelTasks) {
+      t.wireStatus = 'OUT_FOR_DELIVERY';
+      notifyListeners();
+      unawaited(ensureDayRoute());
+      _enqueuePanelStart(id);
+      await _pushPanelQueue();
+      return;
+    }
+    final steps = startTransitions(
+      wireStatus: t.wireStatus,
+      rowVersion: t.rowVersion,
+    );
+    OutboxEvent? last;
+    for (final step in steps) {
+      last = outbox.enqueue(
+        operation: SyncOperation.taskTransition,
+        subjectId: id,
+        payload: {'rowVersion': step.rowVersion, 'to': step.to},
+      );
+      if (online && api == null) last.status = 'applied';
+    }
+    if (steps.isNotEmpty) {
+      t.rowVersion += steps.length;
+      t.wireStatus = 'IN_PROGRESS';
+    }
+    if (online && api != null && last != null) {
+      unawaited(_flushOutbox());
+    }
+    notifyListeners();
+    unawaited(ensureDayRoute());
+  }
+
+  Map<String, Object?> _finalizePayload(
+    DeliveryTask t, {
+    required String outcomeCode,
+    String? note,
+    Map<String, Object?>? proof,
+  }) {
+    return {
+      'rowVersion': t.rowVersion,
+      'workflowVersion': t.workflowVersion,
+      'outcomeCode': outcomeCode,
+      'answers': [
+        for (final a in stepAnswers[t.id] ?? const <Map<String, Object?>>[])
+          a,
+      ],
+      if (note != null && note.isNotEmpty) 'note': note,
+      if (proof != null) 'proof': proof,
+      'location': _shiftFix(),
+    };
+  }
+
+  Future<void> deliverTask(
+    String id, {
+    String? receivedBy,
+    Map<String, Object?>? proof,
+  }) async {
     final t = taskById(id);
     t.status = TaskStatus.delivered;
     t.receivedBy = receivedBy;
+    t.signed = proof?['type'] == 'RECIPIENT_SIGNATURE';
+    if (_usesPanelTasks) {
+      notifyListeners();
+      unawaited(ensureDayRoute());
+      _enqueuePanelFinalize(
+        id,
+        outcome: 'DELIVERED',
+        receivedBy: receivedBy,
+      );
+      await _pushPanelQueue();
+      return;
+    }
     final event = outbox.enqueue(
       operation: SyncOperation.taskFinalize,
       subjectId: id,
-      payload: {'receivedBy': receivedBy, 'outcome': 'DELIVERED'},
+      payload: _finalizePayload(
+        t,
+        outcomeCode: 'DELIVERED',
+        note: receivedBy,
+        proof: proof,
+      ),
     );
     if (online) {
       if (api == null) {
@@ -772,19 +2607,54 @@ class SessionController extends ChangeNotifier {
       }
     }
     notifyListeners();
+    unawaited(ensureDayRoute());
   }
 
-  void returnTask(String id, {required String reason, String? note}) {
+  Future<void> returnTask(String id, {required String reason, String? note, String? photoMediaId}) async {
     final t = taskById(id);
     t.status = TaskStatus.failed;
+    final code = failureOutcomeCode(reason);
+    final detail = note == null || note.isEmpty ? reason : note;
+    if (code == 'RECIPIENT_ABSENT') {
+      submitStep(
+        taskId: id,
+        stepKey: 'yok_notu',
+        value: {'aciklama': detail, 'kapi_notu_birakildi': false},
+      );
+      if (photoMediaId != null) {
+        submitStep(taskId: id, stepKey: 'yok_kanit_fotografi', mediaIds: [photoMediaId]);
+      }
+    } else if (code == 'ADDRESS_NOT_FOUND') {
+      if (photoMediaId != null) {
+        submitStep(taskId: id, stepKey: 'adres_kanit_fotografi', mediaIds: [photoMediaId]);
+      }
+    } else if (code == 'REFUSED') {
+      submitStep(
+        taskId: id,
+        stepKey: 'ret_nedeni',
+        value: {'neden': 'other', 'aciklama': detail},
+      );
+    }
+    if (_usesPanelTasks) {
+      notifyListeners();
+      unawaited(ensureDayRoute());
+      _enqueuePanelFinalize(
+        id,
+        outcome: 'FAILED',
+        reasonCode: code,
+        receivedBy: detail,
+      );
+      await _pushPanelQueue();
+      return;
+    }
     final event = outbox.enqueue(
-      operation: SyncOperation.taskTransition,
+      operation: SyncOperation.taskFinalize,
       subjectId: id,
-      payload: {
-        'outcome': 'RETURNED',
-        'reason': reason,
-        if (note != null && note.isNotEmpty) 'note': note,
-      },
+      payload: _finalizePayload(
+        t,
+        outcomeCode: failureOutcomeCode(reason),
+        note: note == null || note.isEmpty ? reason : '$reason · $note',
+      ),
     );
     if (online) {
       if (api == null) {
@@ -794,6 +2664,7 @@ class SessionController extends ChangeNotifier {
       }
     }
     notifyListeners();
+    unawaited(ensureDayRoute());
   }
 
   void failTask(String id) {
@@ -806,6 +2677,7 @@ class SessionController extends ChangeNotifier {
       payload: const {'outcome': 'FAILED', 'reason': 'TESLIM_EDILEMEDI'},
     );
     notifyListeners();
+    unawaited(ensureDayRoute());
   }
 
   void toggleOnline() {
@@ -822,25 +2694,59 @@ class SessionController extends ChangeNotifier {
   }
 
   Future<void> _flushOutbox() async {
-    final pending = outbox.events.where((e) => e.pending).toList();
-    if (pending.isEmpty) return;
+    if (!storageOk) return;
+    await _flushPanelOutbox();
+    final pending = [
+      for (final e in outbox.events)
+        if (e.pending &&
+            !e.operation.isPanel &&
+            !(_usesPanelTasks &&
+                (e.operation.isFastifyTaskWrite ||
+                    e.operation == SyncOperation.supportTicketCreate)))
+          e,
+    ];
+    if (pending.isEmpty) {
+      notifyListeners();
+      return;
+    }
     final client = api;
-    final store = vault;
-    if (client == null || store == null) {
-      outbox.drain();
+    if (client == null) {
+      await outbox.applyResults([
+        for (final e in pending) (id: e.clientEventId, status: 'applied'),
+      ]);
       notifyListeners();
       return;
     }
     try {
-      final install = await store.installationId();
+      final install = await vault?.installationId() ?? Vault.newUuid();
       final results = await client.syncBatch(
         installationId: install,
         events: pending,
       );
       liveApi = client.lastWasLive;
+      final wasPending = {for (final e in pending) e.clientEventId: e};
       await outbox.applyResults([
         for (final r in results) (id: r.clientEventId, status: r.status),
       ]);
+      if (liveApi) {
+        await Future.wait([pullTasks(), loadTickets()]);
+      }
+      for (final r in results) {
+        if (r.status != 'rejected') continue;
+        final event = wasPending[r.clientEventId];
+        if (event == null) continue;
+        _prependNotification(
+          kind: NotifKind.syncFail,
+          title: 'Gönderim başarısız',
+          body: event.subjectId == null
+              ? 'Bir kayıt senkron edilemedi, kuyrukta bekliyor.'
+              : '${_taskName(event.subjectId)} senkron edilemedi, kuyrukta bekliyor.',
+          icon: LucideIcons.circleAlert,
+          tint: Dg.redBg,
+          ink: Dg.red,
+          taskId: event.subjectId,
+        );
+      }
     } catch (_) {
       // Ağ/istek hatası: "kapalı ortamda" (sinyal yokken) beklenen durum tam
       // olarak bu. Öğeleri applied say(drain) diye işaretlersek gönderilmemiş
@@ -851,5 +2757,286 @@ class SessionController extends ChangeNotifier {
     notifyListeners();
   }
 
-  bool verifyDeliveryOtp(String code) => code == '482913';
+  void submitStep({
+    required String taskId,
+    required String stepKey,
+    String status = 'completed',
+    Map<String, Object?>? value,
+    List<String> mediaIds = const [],
+    String? skipReasonCode,
+  }) {
+    final t = taskById(taskId);
+    final answer = <String, Object?>{
+      'stepKey': stepKey,
+      'workflowVersion': t.workflowVersion,
+      'status': status,
+      if (value != null) 'value': value,
+      'mediaIds': mediaIds,
+      if (skipReasonCode != null) 'skipReasonCode': skipReasonCode,
+      'location': _shiftFix(),
+    };
+    final list = stepAnswers.putIfAbsent(taskId, () => []);
+    list.removeWhere((a) => a['stepKey'] == stepKey);
+    list.add(answer);
+    if (_usesPanelTasks) {
+      notifyListeners();
+      return;
+    }
+    final event = outbox.enqueue(
+      operation: SyncOperation.stepSubmit,
+      subjectId: taskId,
+      payload: {
+        ...answer,
+        'rowVersion': t.rowVersion,
+      },
+    );
+    if (online) {
+      if (api == null) {
+        event.status = 'applied';
+      } else {
+        unawaited(_flushOutbox());
+      }
+    }
+  }
+
+  Future<bool> sendDeliveryOtp(String taskId) async {
+    if (!liveApi) {
+      if (!kAllowDebugBypass) return false;
+      deliveryChallengeId = 'demo-challenge';
+      return true;
+    }
+    try {
+      final res = await api!.sendTaskOtp(
+        taskId: taskId,
+        stepKey: 'otp_dogrula',
+      );
+      liveApi = api?.lastWasLive ?? liveApi;
+      deliveryChallengeId = res['challengeId'] as String?;
+      return deliveryChallengeId != null && deliveryChallengeId!.isNotEmpty;
+    } catch (_) {
+      if (!kReleaseMode) {
+        deliveryChallengeId = 'demo-challenge';
+        return true;
+      }
+      return false;
+    }
+  }
+
+  Future<bool> verifyDeliveryOtp(String taskId, String code) async {
+    if (kAllowDebugBypass && code == '482913') {
+      deliveryOtpToken = 'demo-otp-token';
+      return true;
+    }
+    final id = deliveryChallengeId;
+    if (api == null || id == null) return false;
+    try {
+      final res = await api!.verifyTaskOtp(
+        taskId: taskId,
+        challengeId: id,
+        code: code,
+      );
+      liveApi = api?.lastWasLive ?? liveApi;
+      deliveryOtpToken = res['verificationToken'] as String?;
+      return res['verified'] == true;
+    } catch (_) {
+      return false;
+    }
+  }
+}
+
+List<DeliveryTask> _tasksInPlanOrder(
+  List<DeliveryTask> tasks,
+  RoutePlanDto? plan,
+) {
+  if (plan == null || plan.stops.isEmpty) return tasks;
+  final byId = {for (final t in tasks) t.id: t};
+  final ordered = <DeliveryTask>[
+    for (final stop in plan.stops) ?byId[stop.taskId],
+  ];
+  final seen = ordered.map((t) => t.id).toSet();
+  ordered.addAll(tasks.where((t) => !seen.contains(t.id)));
+  return ordered;
+}
+
+List<CustodyItemDto> _buildDemoCustodyItems() => const [
+  CustodyItemDto(
+    id: 'demo-custody-t4',
+    type: 'parcel',
+    barcode: 'DGO-8844',
+    description: 'Fatma Şahin — Yeni Mah.',
+    quantity: 1,
+    acquiredAt: '2026-08-25T07:00:00.000Z',
+    taskId: 't4',
+  ),
+];
+
+List<TrainingModuleDto> _demoTrainingModulesSeed() => const [
+  TrainingModuleDto(
+    id: 'demo-training-1',
+    title: 'Trafik güvenliği',
+    summary: 'Motosikletle güvenli sürüş için 5 temel kural.',
+    body:
+        '1. Kask her zaman takılı.\n2. Hız sınırlarına uy.\n3. Yaya geçitlerinde dur.\n4. Gece reflektörlü ekipman kullan.\n5. Yorgunken sürme.',
+    sortOrder: 1,
+    completed: false,
+  ),
+  TrainingModuleDto(
+    id: 'demo-training-2',
+    title: 'KVKK ve müşteri verisi',
+    summary: 'Teslimat sırasında müşteri bilgilerini nasıl koruruz.',
+    body:
+        'Alıcı adı, adresi ve telefonu sadece teslimat için kullanılır. Bu bilgileri paylaşmak, fotoğraflamak veya not almak yasaktır.',
+    sortOrder: 2,
+    completed: false,
+  ),
+  TrainingModuleDto(
+    id: 'demo-training-3',
+    title: 'Zimmet ve barkod okutma',
+    summary: 'Doğru zimmet akışı neden önemli.',
+    body:
+        'Her paket teslim alınırken ve teslim edilirken barkodu okutulmalı. Okutulmayan paket zimmetinde görünmeye devam eder.',
+    sortOrder: 3,
+    completed: true,
+    completedAt: '2026-09-01T09:00:00.000Z',
+  ),
+];
+
+List<DeliveryTask> _buildDemoTasks() => [
+  DeliveryTask(
+    id: 't1',
+    ref: 'DGO-8841',
+    recipient: 'Ahmet Yılmaz',
+    phone: '+905321110026',
+    address: 'Kayalık Mah. Cumhuriyet Cd. No:14, Güney / Denizli',
+    window: '14:30–15:00',
+    kind: TaskKind.delivery,
+    status: TaskStatus.assigned,
+    otpRequired: true,
+    sequence: 1,
+    etaMinutes: 6,
+    lat: 38.1512,
+    lng: 29.0614,
+    custodyCount: 2,
+    custodyRef: 'PRD-11207',
+    slaMinutesLeft: 72,
+    merchantName: 'ALİ BAŞEL – PLUXEE',
+  ),
+  DeliveryTask(
+    id: 't2',
+    ref: 'DGO-8842',
+    recipient: 'Elif Koç',
+    phone: '+905321110027',
+    address: 'İstiklal Cd. No:8 D:3, Güney / Denizli',
+    window: '15:00–15:30',
+    kind: TaskKind.document,
+    status: TaskStatus.assigned,
+    sequence: 2,
+    etaMinutes: 11,
+    lat: 38.1481,
+    lng: 29.0558,
+    groupKey: 'istiklal-8',
+  ),
+  DeliveryTask(
+    id: 't5',
+    ref: 'DGO-8845',
+    recipient: 'Zeynep Arslan',
+    phone: '+905321110028',
+    address: 'İstiklal Cd. No:8 D:7, Güney / Denizli',
+    window: '15:00–15:30',
+    kind: TaskKind.delivery,
+    status: TaskStatus.assigned,
+    sequence: 2,
+    etaMinutes: 11,
+    lat: 38.1481,
+    lng: 29.0558,
+    groupKey: 'istiklal-8',
+  ),
+  DeliveryTask(
+    id: 't3',
+    ref: 'DGO-8843',
+    recipient: 'Mehmet Aydın',
+    phone: '+905321110029',
+    address: 'Atatürk Mah. 7. Sk. No:22, Güney / Denizli',
+    window: '15:45–16:15',
+    kind: TaskKind.delivery,
+    status: TaskStatus.assigned,
+    sequence: 3,
+    etaMinutes: 18,
+    lat: 38.1554,
+    lng: 29.0692,
+    custodyCount: 1,
+    slaMinutesLeft: 118,
+    merchantName: 'ALİ BAŞEL – ASSİST',
+  ),
+  DeliveryTask(
+    id: 't4',
+    ref: 'DGO-8844',
+    recipient: 'Fatma Şahin',
+    phone: '+905321110030',
+    address: 'Yeni Mah. Okul Sk. No:4, Güney / Denizli',
+    window: '13:00–13:30',
+    kind: TaskKind.delivery,
+    status: TaskStatus.queued,
+    note: 'Alıcı yoktu · kapı fotoğrafı kuyrukta',
+    sequence: 4,
+    lat: 38.1460,
+    lng: 29.0488,
+  ),
+];
+
+List<AppNotification> _buildDemoNotifications() {
+  final now = DateTime.now();
+  return [
+    AppNotification(
+      id: 'demo-stop',
+      kind: NotifKind.stopAssigned,
+      title: 'Yeni durak atandı',
+      body: 'DGO-8844 · Cumhuriyet Mah. 1. Sk. No:3',
+      createdAt: now.subtract(const Duration(hours: 1, minutes: 18)),
+      icon: LucideIcons.truck,
+      tint: Dg.greenBg,
+      ink: Dg.green,
+      taskId: 't4',
+    ),
+    AppNotification(
+      id: 'demo-custody',
+      kind: NotifKind.custody,
+      title: 'Zimmet onaylandı',
+      body: 'Şube zimmetinden 6 gönderi üstüne alındı.',
+      createdAt: now.subtract(const Duration(hours: 2, minutes: 1)),
+      icon: LucideIcons.package,
+      tint: Dg.violetBg,
+      ink: Dg.violet,
+    ),
+    AppNotification(
+      id: 'demo-sync',
+      kind: NotifKind.syncFail,
+      title: 'Gönderim başarısız',
+      body: 'DGO-8839 senkron edilemedi, kuyrukta bekliyor.',
+      createdAt: now.subtract(const Duration(hours: 3, minutes: 39)),
+      icon: LucideIcons.circleAlert,
+      tint: Dg.redBg,
+      ink: Dg.red,
+    ),
+    AppNotification(
+      id: 'demo-bonus',
+      kind: NotifKind.bonus,
+      title: 'Prim güncellendi',
+      body: 'Bu hafta 40 teslim primine 6 teslim kaldı.',
+      createdAt: now.subtract(const Duration(hours: 6, minutes: 54)),
+      icon: LucideIcons.wallet,
+      tint: Dg.amberBg,
+      ink: Dg.amber,
+    ),
+    AppNotification(
+      id: 'demo-shift',
+      kind: NotifKind.shift,
+      title: 'Vardiya hatırlatması',
+      body: 'Yarın 09:00 vardiyası atanmıştır.',
+      createdAt: now.subtract(const Duration(days: 1, hours: 3)),
+      icon: LucideIcons.clock,
+      tint: Dg.blueBg,
+      ink: Dg.blue,
+    ),
+  ];
 }

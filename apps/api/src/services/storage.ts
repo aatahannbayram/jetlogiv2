@@ -1,4 +1,4 @@
-import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { HeadObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import type { MediaKind } from '@dijigoo/contracts';
 
@@ -93,6 +93,15 @@ export class StorageService {
       bucket,
       expiresAt: new Date(Date.now() + PRESIGN_TTL_SECONDS * 1000),
     };
+  }
+
+  async objectExists(bucket: string, key: string): Promise<boolean> {
+    try {
+      await this.client.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
+      return true;
+    } catch {
+      return false;
+    }
   }
 }
 

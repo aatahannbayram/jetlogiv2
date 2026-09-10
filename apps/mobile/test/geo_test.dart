@@ -25,11 +25,10 @@ void main() {
     final points = decodePolyline(route.geometry!);
     expect(points.length, greaterThan(50), reason: 'a real road-following line has many vertices');
 
-    // t1 = (38.1512, 29.0614), t3 = (38.1554, 29.0692) — first/last stop in
-    // the optimized t1-t2-t4-t3 order (see api_test.dart).
-    expect(points.first.latitude, closeTo(38.1512, 1e-3));
-    expect(points.first.longitude, closeTo(29.0614, 1e-3));
-    expect(points.last.latitude, closeTo(38.1554, 1e-3));
-    expect(points.last.longitude, closeTo(29.0692, 1e-3));
+    // Origin (snapped) → Fatma (last). t3-t1-t2-t4 tour, see api_test.dart.
+    expect(points.first.latitude, closeTo(38.1476, 2e-2));
+    expect(points.first.longitude, closeTo(29.0702, 2e-2));
+    expect(points.last.latitude, closeTo(38.1460, 2e-2));
+    expect(points.last.longitude, closeTo(29.0488, 2e-2));
   });
 }

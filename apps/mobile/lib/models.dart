@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 enum TaskKind { delivery, pickup, document }
 
-enum TaskStatus { assigned, inProgress, delivered, failed, queued }
+enum TaskStatus { assigned, inProgress, delivered, failed, queued, cancelled }
 
 /// Whether a courier works independently or is dispatched by an agency
 /// ("acenta") — agency couriers never see per-delivery pricing.
@@ -26,6 +26,7 @@ class Courier {
     this.affiliation = CourierAffiliation.independent,
     this.compensationType = CompensationType.pieceRate,
     this.monthlyPayLabel = '₺18.500',
+    this.photoUrl,
   });
 
   final String fullName;
@@ -42,6 +43,9 @@ class Courier {
 
   /// Shown instead of per-delivery pricing when [canSeePricing] is false.
   final String monthlyPayLabel;
+
+  /// Asset or http portrait. Falls back to initials when null.
+  final String? photoUrl;
 
   /// Acenta (agency) couriers never see pricing. Independent couriers only
   /// see it when they're paid per delivery (hakediş/parça başı) — fixed
@@ -64,6 +68,7 @@ class Courier {
     CourierAffiliation? affiliation,
     CompensationType? compensationType,
     String? monthlyPayLabel,
+    String? photoUrl,
   }) {
     return Courier(
       fullName: fullName ?? this.fullName,
@@ -78,6 +83,7 @@ class Courier {
       affiliation: affiliation ?? this.affiliation,
       compensationType: compensationType ?? this.compensationType,
       monthlyPayLabel: monthlyPayLabel ?? this.monthlyPayLabel,
+      photoUrl: photoUrl ?? this.photoUrl,
     );
   }
 }
@@ -104,11 +110,29 @@ class DeliveryTask {
     this.slaMinutesLeft,
     this.signed = false,
     this.groupKey,
-  });
+    this.rowVersion = 0,
+    this.workflowVersion = 1,
+    this.photoUrl,
+    this.phone,
+    this.merchantName,
+    String? wireStatus,
+  }) : wireStatus = wireStatus ??
+            switch (status) {
+              TaskStatus.delivered => 'COMPLETED',
+              TaskStatus.failed => 'FAILED',
+              TaskStatus.cancelled => 'CANCELLED',
+              TaskStatus.inProgress => 'IN_PROGRESS',
+              TaskStatus.assigned || TaskStatus.queued => 'ASSIGNED',
+            };
 
   final String id;
   final String ref;
   final String recipient;
+  final String? photoUrl;
+  final String? phone;
+  /// Gönderiyi gönderen firma/marka — teslimat ekranında rozet olarak
+  /// gösterilir (ör. "ALİ BAŞEL – ASSİST"). Kaynak sistemde yoksa null.
+  final String? merchantName;
   final String address;
   final String window;
   final TaskKind kind;
@@ -134,25 +158,83 @@ class DeliveryTask {
 
   /// İmza zaten alınmış mı — dağıtım listesinde tamamlanan durağın "İmza"
   /// pili için.
-  final bool signed;
+  bool signed;
 
   /// Aynı değere sahip görevler "aynı adres" olarak gruplanıp "Birlikte
   /// teslim edilebilir" kartı altında gösterilir.
   final String? groupKey;
 
+  /// Optimistic concurrency — Fastify `TaskSummary.rowVersion`.
+  int rowVersion;
+
+  /// Finalize body — listede yoksa 1; detay gelince güncellenir.
+  int workflowVersion;
+
+  /// Fastify `TaskStatus` teli. Dart [status] ACCEPTED/EN_ROUTE'u sıkıştırır.
+  String wireStatus;
+
+  /// Panel satırında koordinat yoksa (0,0) — rota/haritaya konmaz, kapı
+  /// grubu adresten gelir.
+  bool get hasCoordinates => lat.abs() > 1 || lng.abs() > 1;
+
+  bool get isOpen =>
+      status == TaskStatus.assigned ||
+      status == TaskStatus.inProgress ||
+      status == TaskStatus.queued;
+
+  bool get isClosed =>
+      status == TaskStatus.delivered ||
+      status == TaskStatus.failed ||
+      status == TaskStatus.cancelled;
+
   String get slaLabel {
     final m = slaMinutesLeft;
     if (m == null) return '';
-    final h = m ~/ 60;
-    final mm = m % 60;
+    final left = m < 0 ? -m : m;
+    final h = left ~/ 60;
+    final mm = left % 60;
     return '${h.toString().padLeft(2, '0')}:${mm.toString().padLeft(2, '0')}';
   }
+
+  /// Teslim penceresi kaçırılmış, hâlâ açık bir durak — listede "Gecikti"
+  /// rozetiyle görünür olması gereken durum (toplantı maddesi 7).
+  bool get isLate => isOpen && (slaMinutesLeft ?? 0) < 0;
+
+  String? get personPhoto => photoUrl ?? personPhotoAsset(recipient);
 
   String get kindLabel => switch (kind) {
     TaskKind.delivery => 'Teslimat',
     TaskKind.pickup => 'Alım',
     TaskKind.document => 'Evrak',
   };
+}
+
+/// Kapı anahtarı: açık [groupKey] yoksa ~11 m'lik koordinat hücresi.
+String doorKeyOf(DeliveryTask t) {
+  final g = t.groupKey;
+  if (g != null && g.isNotEmpty) return 'k:$g';
+  return 'g:${t.lat.toStringAsFixed(4)},${t.lng.toStringAsFixed(4)}';
+}
+
+/// Aynı kapıdaki görevleri ilk görüldükleri yerde birleştirir.
+/// Sıra korunur — rota zaman çizelgesi ve dağıtım listesi aynı grupları görür.
+List<List<DeliveryTask>> groupTasksByDoor(Iterable<DeliveryTask> rows) {
+  final list = rows.toList();
+  final byKey = <String, List<DeliveryTask>>{};
+  for (final t in list) {
+    (byKey[doorKeyOf(t)] ??= []).add(t);
+  }
+  final out = <List<DeliveryTask>>[];
+  final seen = <String>{};
+  for (final t in list) {
+    final key = doorKeyOf(t);
+    if (byKey[key]!.length > 1) {
+      if (seen.add(key)) out.add(byKey[key]!);
+    } else {
+      out.add([t]);
+    }
+  }
+  return out;
 }
 
 class WizardStep {
@@ -177,6 +259,12 @@ enum SyncOperation {
   taskFinalize,
   custodyHandover,
   supportTicketCreate,
+  panelAccept,
+  panelStart,
+  panelLocation,
+  panelFinalize,
+  panelTicketCreate,
+  panelCustodyReturn,
 }
 
 extension SyncOperationWire on SyncOperation {
@@ -188,6 +276,32 @@ extension SyncOperationWire on SyncOperation {
     SyncOperation.taskFinalize => 'TASK_FINALIZE',
     SyncOperation.custodyHandover => 'CUSTODY_HANDOVER',
     SyncOperation.supportTicketCreate => 'SUPPORT_TICKET_CREATE',
+    SyncOperation.panelAccept => 'PANEL_ACCEPT',
+    SyncOperation.panelStart => 'PANEL_START',
+    SyncOperation.panelLocation => 'PANEL_LOCATION',
+    SyncOperation.panelFinalize => 'PANEL_FINALIZE',
+    SyncOperation.panelTicketCreate => 'PANEL_TICKET_CREATE',
+    SyncOperation.panelCustodyReturn => 'PANEL_CUSTODY_RETURN',
+  };
+
+  bool get isPanel => switch (this) {
+    SyncOperation.panelAccept ||
+    SyncOperation.panelStart ||
+    SyncOperation.panelLocation ||
+    SyncOperation.panelFinalize ||
+    SyncOperation.panelTicketCreate ||
+    SyncOperation.panelCustodyReturn => true,
+    _ => false,
+  };
+
+  /// Fastify `/v1/sync/batch` görev yazmaları. Panel oturumunda bunlar
+  /// panele gitmeli, eski API'ye değil (demo tohum TASK_TRANSITION dahil).
+  bool get isFastifyTaskWrite => switch (this) {
+    SyncOperation.taskTransition ||
+    SyncOperation.stepSubmit ||
+    SyncOperation.taskFinalize ||
+    SyncOperation.custodyHandover => true,
+    _ => false,
   };
 
   static SyncOperation fromWire(String wire) => switch (wire) {
@@ -198,6 +312,12 @@ extension SyncOperationWire on SyncOperation {
     'TASK_FINALIZE' => SyncOperation.taskFinalize,
     'CUSTODY_HANDOVER' => SyncOperation.custodyHandover,
     'SUPPORT_TICKET_CREATE' => SyncOperation.supportTicketCreate,
+    'PANEL_ACCEPT' => SyncOperation.panelAccept,
+    'PANEL_START' => SyncOperation.panelStart,
+    'PANEL_LOCATION' => SyncOperation.panelLocation,
+    'PANEL_FINALIZE' => SyncOperation.panelFinalize,
+    'PANEL_TICKET_CREATE' => SyncOperation.panelTicketCreate,
+    'PANEL_CUSTODY_RETURN' => SyncOperation.panelCustodyReturn,
     _ => throw ArgumentError('Bilinmeyen sync operation: $wire'),
   };
 }
@@ -224,22 +344,39 @@ class OutboxEvent {
   bool get pending => status == 'pending';
 }
 
+enum NotifKind {
+  stopAssigned,
+  custody,
+  syncFail,
+  bonus,
+  shift,
+  stopPulled,
+  stopCancelled,
+  slaRisk,
+}
+
 class AppNotification {
   const AppNotification({
+    required this.id,
+    required this.kind,
     required this.title,
     required this.body,
-    required this.time,
+    required this.createdAt,
     required this.icon,
     required this.tint,
     required this.ink,
+    this.taskId,
   });
 
+  final String id;
+  final NotifKind kind;
   final String title;
   final String body;
-  final String time;
+  final DateTime createdAt;
   final IconData icon;
   final Color tint;
   final Color ink;
+  final String? taskId;
 }
 
 class DepotOption {
@@ -318,3 +455,37 @@ class BonusProgress {
   final String meta;
   final Color color;
 }
+
+/// Haritadaki kurye konumu — kendi konum + filodaki diğerleri.
+/// Canlı GPS / panel filoları aynı modele bağlanır.
+class FleetCourier {
+  const FleetCourier({
+    required this.id,
+    required this.name,
+    required this.lat,
+    required this.lng,
+    this.self = false,
+    this.status = 'on',
+    this.photoUrl,
+  });
+
+  final String id;
+  final String name;
+  final double lat;
+  final double lng;
+  final bool self;
+  final String status;
+  final String? photoUrl;
+
+  bool get onBreak => status == 'break';
+}
+
+/// Demo / known people — local portraits so the field UI works offline.
+String? personPhotoAsset(String name) => switch (name.trim()) {
+  'Ruken Turhan' => 'assets/images/avatars/ruken.jpg',
+  'Ahmet Yılmaz' => 'assets/images/avatars/ahmet.jpg',
+  'Elif Koç' => 'assets/images/avatars/elif.jpg',
+  'Mehmet Aydın' => 'assets/images/avatars/mehmet.jpg',
+  'Fatma Şahin' => 'assets/images/avatars/fatma.jpg',
+  _ => null,
+};

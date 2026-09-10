@@ -19,6 +19,11 @@ import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 
 import type { AppContext } from '../context.js';
+import {
+  activationStartRateLimit,
+  activationVerifyRateLimit,
+} from '../rate-limits.js';
+import { decoyChallenge, shouldIssueActivation } from '../services/activation.js';
 
 const problem = { 400: ErrorResponse, 401: ErrorResponse, 429: ErrorResponse };
 
@@ -41,7 +46,7 @@ export async function authRoutes(app: FastifyInstance, { ctx }: { ctx: AppContex
         body: ActivationStartRequest,
         response: { 200: ActivationStartResponse, ...problem },
       },
-      config: { rateLimit: { max: 5, timeWindow: '10 minutes' } },
+      config: { rateLimit: activationStartRateLimit },
     },
     async (request) => {
       const { phone, device } = request.body;
@@ -52,7 +57,7 @@ export async function authRoutes(app: FastifyInstance, { ctx }: { ctx: AppContex
         .where(and(eq(couriers.phone, phone), isNull(couriers.deletedAt)))
         .limit(1);
 
-      if (!courier || courier.status !== 'active') {
+      if (!shouldIssueActivation(courier)) {
         request.log.info({ phone: mask(phone) }, 'Bilinmeyen numara icin aktivasyon istegi');
         return decoyChallenge();
       }
@@ -87,7 +92,7 @@ export async function authRoutes(app: FastifyInstance, { ctx }: { ctx: AppContex
         body: ActivationVerifyRequest,
         response: { 200: ActivationVerifyResponse, ...problem },
       },
-      config: { rateLimit: { max: 10, timeWindow: '10 minutes' } },
+      config: { rateLimit: activationVerifyRateLimit },
     },
     async (request) => {
       const { challengeId, code, device, integrity } = request.body;
@@ -257,7 +262,7 @@ export async function authRoutes(app: FastifyInstance, { ctx }: { ctx: AppContex
         await ctx.tokens.revokeFamily(courier.familyId, 'user_logout');
       }
 
-      return reply.status(204).send();
+      return reply.status(204).send(null);
     },
   );
 
@@ -293,7 +298,7 @@ export async function authRoutes(app: FastifyInstance, { ctx }: { ctx: AppContex
         .set({ pushToken: request.body.token })
         .where(eq(devices.id, courier.deviceId));
 
-      return reply.status(204).send();
+      return reply.status(204).send(null);
     },
   );
 }
@@ -351,22 +356,6 @@ function toProfile(courier: CourierRow): z.infer<typeof CourierProfile> {
     avatarUrl: null,
     status: courier.status,
     capabilities: courier.capabilities as z.infer<typeof CourierProfile>['capabilities'],
-  };
-}
-
-/**
- * Response for an unknown or inactive number. Shaped exactly like a real one,
- * including a plausible cooldown, so timing and payload give nothing away.
- */
-function decoyChallenge(): z.infer<typeof ActivationStartResponse> {
-  const now = Date.now();
-  return {
-    challengeId: crypto.randomUUID(),
-    codeLength: 6,
-    expiresAt: new Date(now + 300_000).toISOString(),
-    resendAvailableAt: new Date(now + 60_000).toISOString(),
-    attemptsRemaining: 5,
-    integrityNonce: Buffer.from(crypto.randomUUID()).toString('base64url'),
   };
 }
 

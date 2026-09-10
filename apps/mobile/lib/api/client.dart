@@ -3,6 +3,10 @@ import 'package:flutter/foundation.dart';
 
 import '../data/vault.dart';
 import '../models.dart';
+import '../notif.dart';
+import '../secure.dart';
+import '../tls_pinning.dart';
+import 'courier_tasks.dart';
 import 'models.dart';
 
 const kApiBase = String.fromEnvironment(
@@ -11,7 +15,10 @@ const kApiBase = String.fromEnvironment(
 );
 
 const kAppVersion = '1.0.0';
-const kAppBuild = 1;
+const kAppBuild = 42;
+
+/// Sync pull: sunucu da bu tavanı uygular; istemci şişmiş diziyi yutmaz.
+const kRemovedTaskIdsCap = 200;
 
 String clientInfoHeader() {
   final os = defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android';
@@ -27,19 +34,48 @@ String e164(String raw) {
   return '+90$digits';
 }
 
+class InboxItemDto {
+  const InboxItemDto({required this.item, required this.read});
+
+  final AppNotification item;
+  final bool read;
+}
+
+class SyncChangesDto {
+  const SyncChangesDto({
+    required this.tasks,
+    required this.removedTaskIds,
+    required this.syncedAt,
+    this.custody,
+    this.notifications = const [],
+    this.resyncRequired = false,
+  });
+
+  final List<DeliveryTask> tasks;
+  final List<String> removedTaskIds;
+  final String syncedAt;
+  final List<CustodyItemDto>? custody;
+  final List<InboxItemDto> notifications;
+  final bool resyncRequired;
+}
+
 class MobileApi {
-  MobileApi({required this.dio, this.vault});
+  MobileApi({required this.dio, this.vault}) : tasks = CourierTaskClient(dio);
 
   final Dio dio;
   final Vault? vault;
+  final CourierTaskClient tasks;
   bool lastWasLive = false;
+  bool lastPullRequired = false;
+  String? lastSyncedAt;
 
   factory MobileApi.create({Vault? vault}) {
+    assertHttpsInRelease(kApiBase, 'API_BASE');
     final dio = Dio(
       BaseOptions(
         baseUrl: kApiBase,
-        connectTimeout: const Duration(seconds: 2),
-        receiveTimeout: const Duration(seconds: 4),
+        connectTimeout: const Duration(seconds: 8),
+        receiveTimeout: const Duration(seconds: 15),
         headers: {
           'x-client-info': clientInfoHeader(),
           'accept': 'application/json',
@@ -49,8 +85,8 @@ class MobileApi {
     final refreshDio = Dio(
       BaseOptions(
         baseUrl: kApiBase,
-        connectTimeout: const Duration(seconds: 2),
-        receiveTimeout: const Duration(seconds: 4),
+        connectTimeout: const Duration(seconds: 8),
+        receiveTimeout: const Duration(seconds: 15),
         headers: {
           'x-client-info': clientInfoHeader(),
           'accept': 'application/json',
@@ -61,8 +97,171 @@ class MobileApi {
     dio.interceptors.add(
       _RefreshInterceptor(vault: vault, refreshDio: refreshDio, dio: dio),
     );
-    dio.interceptors.add(DemoFallbackInterceptor());
+    if (!kReleaseMode) {
+      dio.interceptors.add(DemoFallbackInterceptor());
+    }
+    attachTlsPinning(dio);
+    attachTlsPinning(refreshDio);
     return MobileApi(dio: dio, vault: vault);
+  }
+
+  /// Pinning veya HTTPS assert patlarsa çıplak Dio yok — `null`.
+  static MobileApi? tryCreate({Vault? vault}) {
+    try {
+      return MobileApi.create(vault: vault);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<List<DeliveryTask>> fetchTasks({String? updatedSince}) async {
+    final items = <DeliveryTask>[];
+    String? cursor;
+    var pages = 0;
+    do {
+      final res = await tasks.list(updatedSince: updatedSince, cursor: cursor);
+      lastWasLive = res.extra['demo'] != true;
+      final raw = (res.data?['items'] as List?) ?? const [];
+      for (final row in raw) {
+        if (row is Map) {
+          items.add(deliveryTaskFromSummary(Map<String, dynamic>.from(row)));
+        }
+      }
+      final next = res.data?['nextCursor'];
+      cursor = next is String && next.isNotEmpty ? next : null;
+      final synced = res.data?['syncedAt'];
+      if (synced is String && synced.isNotEmpty) lastSyncedAt = synced;
+      pages += 1;
+    } while (cursor != null && pages < 20);
+    return items;
+  }
+
+  Future<SyncChangesDto> fetchChanges({String? since}) async {
+    final items = <DeliveryTask>[];
+    final removed = <String>{};
+    final inbox = <InboxItemDto>[];
+    List<CustodyItemDto>? custody;
+    String? cursor;
+    var pages = 0;
+    var resyncRequired = false;
+    String syncedAt = lastSyncedAt ?? DateTime.now().toUtc().toIso8601String();
+    do {
+      final res = await dio.get<Map<String, dynamic>>(
+        '/v1/sync/changes',
+        queryParameters: {
+          if (since != null) 'since': since,
+          if (cursor != null) 'cursor': cursor,
+        },
+      );
+      lastWasLive = res.extra['demo'] != true;
+      final raw = (res.data?['tasks'] as List?) ?? const [];
+      for (final row in raw) {
+        if (row is Map) {
+          items.add(deliveryTaskFromSummary(Map<String, dynamic>.from(row)));
+        }
+      }
+      final gone = (res.data?['removedTaskIds'] as List?) ?? const [];
+      for (final id in gone) {
+        if (removed.length >= kRemovedTaskIdsCap) break;
+        if (id is String && id.isNotEmpty) removed.add(id);
+      }
+      if (res.data?['resyncRequired'] == true) resyncRequired = true;
+      final rawCustody = res.data?['custody'] as List?;
+      if (rawCustody != null) {
+        custody = [
+          for (final row in rawCustody)
+            if (row is Map)
+              CustodyItemDto.fromJson(Map<String, dynamic>.from(row)),
+        ];
+      }
+      inbox.addAll(_inboxFrom(res.data?['notifications']));
+      final synced = res.data?['syncedAt'];
+      if (synced is String && synced.isNotEmpty) {
+        syncedAt = synced;
+        lastSyncedAt = synced;
+      }
+      final next = res.data?['nextCursor'];
+      cursor = next is String && next.isNotEmpty ? next : null;
+      pages += 1;
+    } while (cursor != null && pages < 20 && !resyncRequired);
+    return SyncChangesDto(
+      tasks: items,
+      removedTaskIds: removed.toList(),
+      syncedAt: syncedAt,
+      custody: custody,
+      notifications: inbox,
+      resyncRequired: resyncRequired,
+    );
+  }
+
+  Future<List<InboxItemDto>> fetchNotifications() async {
+    final res = await dio.get<Map<String, dynamic>>('/v1/notifications');
+    lastWasLive = res.extra['demo'] != true;
+    return _inboxFrom(res.data?['items']);
+  }
+
+  Future<void> markNotificationsRead({
+    List<String>? ids,
+    bool all = false,
+  }) async {
+    await dio.post<void>(
+      '/v1/notifications/read',
+      data: {
+        if (all) 'all': true,
+        if (ids != null && ids.isNotEmpty) 'ids': ids,
+      },
+    );
+  }
+
+  Future<void> registerPushToken({
+    required String installationId,
+    required String token,
+  }) async {
+    await dio.post<void>(
+      '/v1/devices/push-token',
+      data: {
+        'installationId': installationId,
+        'provider': 'fcm',
+        'token': token,
+      },
+    );
+  }
+
+  Future<List<SupportTicketDto>> fetchSupportTickets() async {
+    final items = <SupportTicketDto>[];
+    String? cursor;
+    var pages = 0;
+    do {
+      final res = await dio.get<Map<String, dynamic>>(
+        '/v1/support/tickets',
+        queryParameters: {if (cursor != null) 'cursor': cursor},
+      );
+      lastWasLive = res.extra['demo'] != true;
+      final raw = (res.data?['items'] as List?) ?? const [];
+      for (final row in raw) {
+        if (row is Map) {
+          items.add(SupportTicketDto.fromJson(Map<String, dynamic>.from(row)));
+        }
+      }
+      final next = res.data?['nextCursor'];
+      cursor = next is String && next.isNotEmpty ? next : null;
+      pages += 1;
+    } while (cursor != null && pages < 20);
+    return items;
+  }
+
+  Future<List<TrainingModuleDto>> fetchTrainingModules() async {
+    final res = await dio.get<Map<String, dynamic>>('/v1/training/modules');
+    lastWasLive = res.extra['demo'] != true;
+    final raw = (res.data?['items'] as List?) ?? const [];
+    return [
+      for (final row in raw)
+        if (row is Map) TrainingModuleDto.fromJson(Map<String, dynamic>.from(row)),
+    ];
+  }
+
+  Future<void> completeTrainingModule(String moduleId) async {
+    await dio.post<void>('/v1/training/modules/$moduleId/complete');
   }
 
   Future<CourierAvailabilityDto> fetchAvailability() async {
@@ -112,9 +311,19 @@ class MobileApi {
     final tokens = Map<String, dynamic>.from(
       res.data?['tokens'] as Map? ?? const {},
     );
+    final access = tokens['accessToken'] as String?;
+    final refresh = tokens['refreshToken'] as String?;
+    if (access == null ||
+        access.isEmpty ||
+        refresh == null ||
+        refresh.isEmpty) {
+      if (kReleaseMode) {
+        throw StateError('TOKEN_MISSING');
+      }
+    }
     return TokenPair(
-      accessToken: tokens['accessToken'] as String? ?? 'demo-access',
-      refreshToken: tokens['refreshToken'] as String? ?? 'demo-refresh',
+      accessToken: access ?? 'demo-access',
+      refreshToken: refresh ?? 'demo-refresh',
       accessExpiresAt:
           DateTime.tryParse(tokens['accessTokenExpiresAt'] as String? ?? '') ??
           DateTime.now().toUtc().add(const Duration(minutes: 15)),
@@ -124,12 +333,109 @@ class MobileApi {
     );
   }
 
+  Future<ShiftDto?> fetchCurrentShift() async {
+    final res = await dio.get<dynamic>('/v1/shifts/current');
+    lastWasLive = res.extra['demo'] != true;
+    final data = res.data;
+    if (data is! Map) return null;
+    final map = Map<String, dynamic>.from(data);
+    if (map.isEmpty) return null;
+    final id = map['id'] as String?;
+    if (id == null || id.isEmpty) return null;
+    return ShiftDto.fromJson(map);
+  }
+
+  Future<MaskedCallDto> startMaskedCall(
+    String taskId, {
+    String target = 'recipient',
+  }) async {
+    final res = await dio.post<Map<String, dynamic>>(
+      '/v1/tasks/$taskId/call',
+      data: {'target': target},
+    );
+    lastWasLive = res.extra['demo'] != true;
+    return MaskedCallDto.fromJson(res.data ?? const {});
+  }
+
+  Future<PresignResult> presignMedia({
+    required String mediaId,
+    required String kind,
+    required String contentType,
+    required int byteSize,
+    required String sha256,
+    String? taskId,
+    String? stepKey,
+    double? lat,
+    double? lng,
+  }) async {
+    final res = await dio.post<Map<String, dynamic>>(
+      '/v1/media/presign',
+      data: {
+        'mediaId': mediaId,
+        'kind': kind,
+        'contentType': contentType,
+        'byteSize': byteSize,
+        'sha256': sha256,
+        if (taskId != null && taskId.contains('-')) 'taskId': taskId,
+        if (stepKey != null) 'stepKey': stepKey,
+        'capturedAt': DateTime.now().toUtc().toIso8601String(),
+        if (lat != null && lng != null)
+          'capturedAt_location': {
+            'lat': lat,
+            'lng': lng,
+            'accuracy': 25,
+            'capturedAt': DateTime.now().toUtc().toIso8601String(),
+            'isMocked': false,
+          },
+      },
+    );
+    lastWasLive = res.extra['demo'] != true;
+    return PresignResult.fromJson(res.data ?? const {});
+  }
+
+  Future<void> confirmMedia(String mediaId) async {
+    await dio.post<Map<String, dynamic>>('/v1/media/$mediaId/confirm');
+    lastWasLive = true;
+  }
+
+  Future<Map<String, dynamic>> sendTaskOtp({
+    required String taskId,
+    required String stepKey,
+    String channel = 'sms',
+  }) async {
+    final res = await dio.post<Map<String, dynamic>>(
+      '/v1/tasks/$taskId/otp/send',
+      data: {'stepKey': stepKey, 'channel': channel},
+    );
+    lastWasLive = res.extra['demo'] != true;
+    return res.data ?? const {};
+  }
+
+  Future<Map<String, dynamic>> verifyTaskOtp({
+    required String taskId,
+    required String challengeId,
+    required String code,
+  }) async {
+    final res = await dio.post<Map<String, dynamic>>(
+      '/v1/tasks/$taskId/otp/verify',
+      data: {'challengeId': challengeId, 'code': code},
+    );
+    lastWasLive = res.extra['demo'] != true;
+    return res.data ?? const {};
+  }
+
   /// Today's optimized stop order (apps/api `GET /v1/routes/current`) — real
   /// road-network distances/geometry and, past 2 stops, a reordered sequence
   /// (see apps/api/src/services/optimizer.ts). Null on 204 (no open shift or
   /// no geocoded stops yet), matching the API contract rather than throwing.
-  Future<RoutePlanDto?> fetchRoute() async {
-    final res = await dio.get<Map<String, dynamic>>('/v1/routes/current');
+  Future<RoutePlanDto?> fetchRoute({double? lat, double? lng}) async {
+    final res = await dio.get<Map<String, dynamic>>(
+      '/v1/routes/current',
+      queryParameters: {
+        if (lat != null) 'lat': lat,
+        if (lng != null) 'lng': lng,
+      },
+    );
     lastWasLive = res.extra['demo'] != true;
     if (res.statusCode == 204 || res.data == null || res.data!.isEmpty)
       return null;
@@ -137,10 +443,14 @@ class MobileApi {
   }
 
   /// What the courier currently holds (apps/api `GET /v1/custody`).
-  Future<List<CustodyItemDto>> fetchCustody({String? type}) async {
+  /// [barcode] looks up a tenant item for takeover, not only items already held.
+  Future<List<CustodyItemDto>> fetchCustody({String? type, String? barcode}) async {
     final res = await dio.get<Map<String, dynamic>>(
       '/v1/custody',
-      queryParameters: type == null ? null : {'type': type},
+      queryParameters: {
+        if (type != null) 'type': type,
+        if (barcode != null && barcode.isNotEmpty) 'barcode': barcode,
+      },
     );
     lastWasLive = res.extra['demo'] != true;
     final raw = (res.data?['items'] as List?) ?? const [];
@@ -178,6 +488,29 @@ class MobileApi {
     return CustodyHandoverResultDto.fromJson(res.data ?? const {});
   }
 
+  Future<CustodyHandoverResultDto> takeoverFromBranch({
+    required List<String> itemIds,
+    required String branchName,
+    String? branchId,
+    String? note,
+  }) async {
+    final res = await dio.post<Map<String, dynamic>>(
+      '/v1/custody/handover',
+      options: Options(headers: {'idempotency-key': Vault.newUuid()}),
+      data: {
+        'clientEventId': Vault.newUuid(),
+        'occurredAt': DateTime.now().toUtc().toIso8601String(),
+        'direction': 'takeover',
+        'counterparty': {'kind': 'branch', 'id': branchId, 'name': branchName},
+        'itemIds': itemIds,
+        'photoMediaIds': const [],
+        if (note != null) 'note': note,
+      },
+    );
+    lastWasLive = res.extra['demo'] != true;
+    return CustodyHandoverResultDto.fromJson(res.data ?? const {});
+  }
+
   Future<List<SyncBatchResult>> syncBatch({
     required String installationId,
     required List<OutboxEvent> events,
@@ -201,6 +534,7 @@ class MobileApi {
       },
     );
     lastWasLive = res.extra['demo'] != true;
+    lastPullRequired = res.data?['pullRequired'] == true;
     final results = (res.data?['results'] as List?) ?? const [];
     return [
       for (final r in results)
@@ -349,7 +683,13 @@ class DemoFallbackInterceptor extends Interceptor {
     final mockable =
         path.contains('/me/availability') ||
         path.contains('/me/documents') ||
-        path.contains('/v1/routes/current');
+        path.contains('/v1/routes/current') ||
+        path.contains('/v1/tasks') ||
+        path.contains('/v1/support/tickets') ||
+        path.contains('/v1/training/modules') ||
+        path.contains('/v1/sync/changes') ||
+        path.contains('/v1/notifications') ||
+        path.contains('/v1/shifts');
     return mockable && (code == 401 || code == 404 || code == 501);
   }
 
@@ -363,6 +703,37 @@ class DemoFallbackInterceptor extends Interceptor {
 
 /// Demo parcels held for branch handover (Madde 9). Barcodes match what
 /// [ZimmetScreen]'s "Şube" mode expects a courier to scan.
+final _demoTrainingModules = [
+  {
+    'id': '30000000-0000-4000-a000-000000000001',
+    'title': 'Trafik güvenliği',
+    'summary': 'Motosikletle güvenli sürüş için 5 temel kural.',
+    'body':
+        '1. Kask her zaman takılı.\n2. Hız sınırlarına uy.\n3. Yaya geçitlerinde dur.\n4. Gece reflektörlü ekipman kullan.\n5. Yorgunken sürme.',
+    'sortOrder': 1,
+    'completed': false,
+  },
+  {
+    'id': '30000000-0000-4000-a000-000000000002',
+    'title': 'KVKK ve müşteri verisi',
+    'summary': 'Teslimat sırasında müşteri bilgilerini nasıl koruruz.',
+    'body':
+        'Alıcı adı, adresi ve telefonu sadece teslimat için kullanılır. Bu bilgileri paylaşmak, fotoğraflamak veya not almak yasaktır.',
+    'sortOrder': 2,
+    'completed': false,
+  },
+  {
+    'id': '30000000-0000-4000-a000-000000000003',
+    'title': 'Zimmet ve barkod okutma',
+    'summary': 'Doğru zimmet akışı neden önemli.',
+    'body':
+        'Her paket teslim alınırken ve teslim edilirken barkodu okutulmalı. Okutulmayan paket zimmetinde görünmeye devam eder.',
+    'sortOrder': 3,
+    'completed': true,
+    'completedAt': '2026-09-01T09:00:00.000Z',
+  },
+];
+
 final _demoCustodyItems = [
   {
     'id': '10000000-0000-4000-a000-000000000001',
@@ -399,6 +770,109 @@ final _demoCustodyItems = [
   },
 ];
 
+Map<String, Object?> _demoTask({
+  required String id,
+  required String reference,
+  required String name,
+  required String line1,
+  required String district,
+  required int sequence,
+  required String status,
+  required double lat,
+  required double lng,
+  String type = 'DELIVERY',
+  double? slotHour,
+  int? itemCount,
+  double? codAmount,
+  String? note,
+}) {
+  final day = DateTime.utc(2026, 8, 25, 14);
+  final start = day.add(Duration(minutes: ((slotHour ?? 14.5) * 60).round() - 14 * 60));
+  return {
+    'id': id,
+    'reference': reference,
+    'type': type,
+    'status': status,
+    'sequence': sequence,
+    'address': {
+      'line1': line1,
+      'district': district,
+      'city': 'Denizli',
+      'countryCode': 'TR',
+      'coordinates': {'lat': lat, 'lng': lng},
+    },
+    'contact': {
+      'name': name,
+      'maskedPhone': '+905321110026',
+      'hasReachablePhone': true,
+    },
+    'slotStartAt': start.toIso8601String(),
+    'slotEndAt': start.add(const Duration(minutes: 30)).toIso8601String(),
+    'priority': 'normal',
+    'itemCount': itemCount ?? 1,
+    'codAmount': codAmount,
+    'updatedAt': '2026-08-25T10:00:00.000Z',
+    'rowVersion': 0,
+    'notes': note,
+    'workflow': {'version': 1},
+  };
+}
+
+final _demoTaskSummaries = [
+  _demoTask(
+    id: 't1',
+    reference: 'DGO-8841',
+    name: 'Ahmet Yılmaz',
+    line1: 'Kayalık Mah. Cumhuriyet Cd. No:14',
+    district: 'Güney',
+    sequence: 1,
+    status: 'ASSIGNED',
+    lat: 38.1512,
+    lng: 29.0614,
+    itemCount: 2,
+    slotHour: 14.5,
+  ),
+  _demoTask(
+    id: 't2',
+    reference: 'DGO-8842',
+    name: 'Elif Koç',
+    line1: 'İstiklal Cd. No:8 D:3',
+    district: 'Güney',
+    sequence: 2,
+    status: 'ASSIGNED',
+    lat: 38.1481,
+    lng: 29.0558,
+    type: 'DOCUMENT',
+    slotHour: 15,
+  ),
+  _demoTask(
+    id: 't3',
+    reference: 'DGO-8843',
+    name: 'Mehmet Aydın',
+    line1: 'Atatürk Mah. 7. Sk. No:22',
+    district: 'Güney',
+    sequence: 3,
+    status: 'ASSIGNED',
+    lat: 38.1554,
+    lng: 29.0692,
+    itemCount: 1,
+    slotHour: 15.75,
+  ),
+  _demoTask(
+    id: 't4',
+    reference: 'DGO-8844',
+    name: 'Fatma Şahin',
+    line1: 'Yeni Mah. Okul Sk. No:4',
+    district: 'Güney',
+    sequence: 4,
+    status: 'ASSIGNED',
+    lat: 38.1460,
+    lng: 29.0488,
+    note: 'Alıcı yoktu · kapı fotoğrafı kuyrukta',
+    slotHour: 13,
+  ),
+];
+
 Map<String, dynamic> mockPayload(String path, RequestOptions options) {
   if (path.endsWith('/v1/config') || path.contains('/v1/config')) {
     return {
@@ -411,7 +885,7 @@ Map<String, dynamic> mockPayload(String path, RequestOptions options) {
       'geofenceDefaultRadiusMeters': 200,
       'geofenceMaxAccuracyMeters': 100,
       'featureFlags': {
-        'maskedCall': false,
+        'maskedCall': true,
         'cashCollect': true,
         'documentScan': false,
         'custody': false,
@@ -496,41 +970,168 @@ Map<String, dynamic> mockPayload(String path, RequestOptions options) {
       'pullRequired': false,
     };
   }
-  if (path.contains('/v1/routes/current')) {
-    // Real osrm-routed output captured for this exact stop cluster (see
-    // apps/api/test/optimizer.test.ts) — not synthetic numbers. Faz 2 found
-    // t1-t2-t4-t3 shorter than the t1-t2-t3-t4 dispatch order: 820s/6801m
-    // vs. 1127s/9872m on the real road network.
-    final now = DateTime.now().toUtc();
-    var eta = now;
-    Map<String, Object?> stop(
-      String taskId,
-      int sequence,
-      int? distanceMeters,
-      int? durationSeconds,
-    ) {
-      if (durationSeconds != null)
-        eta = eta.add(Duration(seconds: durationSeconds));
-      return {
-        'taskId': taskId,
-        'sequence': sequence,
-        'etaAt': eta.toIso8601String(),
-        'distanceMeters': distanceMeters,
-        'durationSeconds': durationSeconds,
-      };
-    }
-
+  if (path.contains('/v1/shifts/current')) {
+    return <String, dynamic>{};
+  }
+  if (path.contains('/v1/shifts/start') || path.contains('/v1/shifts/end')) {
+    final now = DateTime.now().toUtc().toIso8601String();
     return {
       'id': Vault.newUuid(),
+      'courierId': '00000000-0000-4000-a000-000000000026',
+      'status': path.contains('/end') ? 'closed' : 'active',
+      'startedAt': now,
+      'endedAt': path.contains('/end') ? now : null,
+      'taskCount': 0,
+      'completedCount': 0,
+    };
+  }
+  if (path.contains('/v1/sync/changes')) {
+    return {
+      'tasks': _demoTaskSummaries,
+      'removedTaskIds': const <String>[],
+      'custody': _demoCustodyItems,
+      'removedCustodyIds': const <String>[],
+      'notifications': const [],
+      'shift': null,
+      'workflows': const [],
+      'nextCursor': null,
+      'syncedAt': DateTime.now().toUtc().toIso8601String(),
+      'resyncRequired': false,
+    };
+  }
+  if (path.contains('/v1/notifications/read') ||
+      path.contains('/v1/devices/push-token')) {
+    return <String, dynamic>{};
+  }
+  if (path.contains('/v1/notifications')) {
+    return {'items': const [], 'nextCursor': null};
+  }
+  if (path.contains('/v1/support/tickets')) {
+    if (options.method == 'POST' ||
+        (options.data is Map && (options.data as Map).containsKey('subject'))) {
+      final body = options.data is Map
+          ? Map<String, dynamic>.from(options.data as Map)
+          : const <String, dynamic>{};
+      return {
+        'id': Vault.newUuid(),
+        'reference': 'DST-DEMO-1',
+        'category': body['category'] ?? 'OTHER',
+        'subject': body['subject'] ?? 'Destek',
+        'body': body['body'] ?? '',
+        'status': 'open',
+        'priority': 'normal',
+        'createdAt': DateTime.now().toUtc().toIso8601String(),
+        'updatedAt': DateTime.now().toUtc().toIso8601String(),
+        'media': const [],
+      };
+    }
+    return {
+      'items': [
+        {
+          'id': '20000000-0000-4000-a000-000000000001',
+          'reference': 'DST-20260825-DEMO',
+          'category': 'ADDRESS_PROBLEM',
+          'subject': 'Kapı numarası görünmüyor',
+          'body': 'DGO-8841 adresinde bina girişi karanlık.',
+          'status': 'open',
+          'priority': 'high',
+          'taskId': 't1',
+          'createdAt': '2026-08-25T09:00:00.000Z',
+          'updatedAt': '2026-08-25T09:00:00.000Z',
+          'media': const [],
+        },
+      ],
+      'nextCursor': null,
+      'syncedAt': DateTime.now().toUtc().toIso8601String(),
+    };
+  }
+  if (path.contains('/training/modules') && path.endsWith('/complete')) {
+    return {
+      'moduleId': path.split('/').reversed.skip(1).first,
+      'completedAt': DateTime.now().toUtc().toIso8601String(),
+    };
+  }
+  if (path.contains('/v1/training/modules')) {
+    return {'items': _demoTrainingModules};
+  }
+  if (path.contains('/media/presign')) {
+    return {
+      'mediaId': (options.data is Map ? (options.data as Map)['mediaId'] : null) ??
+          Vault.newUuid(),
+      'uploadUrl': 'about:blank',
+      'method': 'PUT',
+      'headers': <String, String>{},
+      'expiresAt': DateTime.now()
+          .toUtc()
+          .add(const Duration(minutes: 10))
+          .toIso8601String(),
+      'alreadyUploaded': true,
+    };
+  }
+  if (path.contains('/otp/send')) {
+    return {
+      'challengeId': Vault.newUuid(),
+      'maskedPhone': '+90 532 *** ** 26',
+      'expiresAt': DateTime.now()
+          .toUtc()
+          .add(const Duration(minutes: 5))
+          .toIso8601String(),
+      'resendAvailableAt': DateTime.now()
+          .toUtc()
+          .add(const Duration(seconds: 30))
+          .toIso8601String(),
+      'attemptsRemaining': 5,
+    };
+  }
+  if (path.contains('/otp/verify')) {
+    return {
+      'verified': true,
+      'verificationToken': 'demo-otp-token',
+      'attemptsRemaining': 4,
+    };
+  }
+  if (path.contains('/call')) {
+    return {
+      'dialNumber': '+905321110026',
+      'sessionId': Vault.newUuid(),
+      'expiresAt': DateTime.now()
+          .toUtc()
+          .add(const Duration(minutes: 10))
+          .toIso8601String(),
+    };
+  }
+  if (path.contains('/v1/tasks') &&
+      !path.contains('/finalize') &&
+      !path.contains('/transition') &&
+      !path.contains('/steps') &&
+      !path.contains('/call') &&
+      !path.contains('/otp')) {
+    return {
+      'items': _demoTaskSummaries,
+      'nextCursor': null,
+      'syncedAt': DateTime.now().toUtc().toIso8601String(),
+    };
+  }
+  if (path.contains('/v1/routes/current')) {
+    // OSRM `/trip` Güney turu (kurye → Mehmet → Ahmet → Elif → Fatma).
+    // Eski t1-t2-t4-t3 sırası kasabayı çaprazlayıp 6.8 km / 14 dk üretiyordu.
+    final now = DateTime.now().toUtc();
+    final plan = RoutePlanDto.demo(now: now);
+    return {
+      'id': plan.id,
       'shiftId': Vault.newUuid(),
-      'mode': 'distance_optimized',
-      'computedAt': now.toIso8601String(),
-      'geometry': '_kzgFybkpD\\VVVPPNJNLJGFKFSB[?_@@UGWESM[SUOOIIMMQUH@TFl@DjD?@eADm@Eq@?Uv@BXHxAb@nBh@v@T^RrEnHbAfDRtD?n@i@jDFlBR|@BDTb@xAbBVd@xAhG^|Bv@zCj@nAV`Al@hECnAa@nDBnBv@hCf@~BTh@b@d@bCdArAlAvBbAdDlCfAh@rC~@x@|@|@`BJ@RJb@BzAIp@Pb@Pd@VPTLXJf@B`@L\\XTRJFN@RGVK`@CZ@RDLEMASB[Ja@FWASGOSKYUM]Ca@Kg@MYQUe@Wc@Qq@Q{AHc@CSKKA}@aBy@}@sC_AgAi@eDmCwBcAsAmAcCeAc@e@Ui@g@_CWy@_@oACoB`@oDBoAm@iEWaAk@oAw@{C_@}ByAiGWe@yAcBYi@S}@GmBh@kD?o@SuDcAgDsEoH_@Sw@UoBi@yAc@YIw@CS?cEx@eCFo@RqAx@k@^g@LWCUYIIGm@V}AV_Br@}EDWGa@CS@y@EGEKa@GEEGIMOoAcBU[mAyAq@m@KKYIMJB[@GFWTu@BM^w@@YIS?QLc@@k@BYHm@JeA[PIFIDO?C?E@EBQJWHKHi@BUDWZ_@\\[@c@Iw@S',
+      'mode': plan.mode,
+      'computedAt': plan.computedAt,
+      'geometry': plan.geometry,
       'stops': [
-        stop('t1', 0, null, null),
-        stop('t2', 1, 1185, 145),
-        stop('t4', 2, 2799, 383),
-        stop('t3', 3, 2817, 292),
+        for (final s in plan.stops)
+          {
+            'taskId': s.taskId,
+            'sequence': s.sequence,
+            'etaAt': s.etaAt,
+            'distanceMeters': s.distanceMeters,
+            'durationSeconds': s.durationSeconds,
+          },
       ],
     };
   }
@@ -591,4 +1192,16 @@ Map<String, dynamic> mockPayload(String path, RequestOptions options) {
     };
   }
   return <String, dynamic>{};
+}
+
+List<InboxItemDto> _inboxFrom(Object? raw) {
+  if (raw is! List) return const [];
+  return [
+    for (final row in raw)
+      if (row is Map && row['kind'] != 'SYNC_HINT')
+        InboxItemDto(
+          item: appNotificationFromInbox(Map<String, dynamic>.from(row)),
+          read: row['readAt'] != null,
+        ),
+  ];
 }

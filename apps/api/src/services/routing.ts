@@ -109,10 +109,13 @@ interface OsrmTableResponse {
  */
 export class OsrmRoutingProvider implements RoutingProvider {
   readonly name = 'osrm';
+  private readonly cache = new Map<string, { at: number; value: ComputedRoute }>();
 
   constructor(
     private readonly baseUrl: string,
     private readonly log: (msg: string) => void,
+    private readonly fallbackUrl?: string,
+    private readonly cacheTtlMs = 10 * 60_000,
   ) {}
 
   async computeRoute(stops: RouteWaypoint[]): Promise<ComputedRoute> {
@@ -128,35 +131,71 @@ export class OsrmRoutingProvider implements RoutingProvider {
       };
     }
 
-    try {
-      const coords = stops.map((s) => `${s.lng},${s.lat}`).join(';');
-      const url = `${this.baseUrl}/route/v1/driving/${coords}?overview=full&geometries=polyline&steps=false`;
-      const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
-      if (!res.ok) throw new Error(`osrm http ${res.status}`);
+    const cacheKey = stops.map((s) => `${s.lng.toFixed(4)},${s.lat.toFixed(4)}`).join(';');
+    const hit = this.cache.get(cacheKey);
+    if (hit && Date.now() - hit.at < this.cacheTtlMs) return hit.value;
 
-      const body = (await res.json()) as OsrmRouteResponse;
-      const route = body.routes?.[0];
-      if (body.code !== 'Ok' || !route) throw new Error(`osrm code ${body.code}`);
-
-      const legs: RouteLeg[] = route.legs.map((leg, i) => ({
-        taskId: stops[i + 1]!.taskId,
-        distanceMeters: Math.round(leg.distance),
-        durationSeconds: Math.round(leg.duration),
-      }));
-
-      return {
-        mode: 'distance_optimized',
-        geometry: route.geometry,
-        totalDistanceMeters: Math.round(route.distance),
-        totalDurationSeconds: Math.round(route.duration),
-        legs,
-        isEstimateOnly: false,
-        provider: this.name,
-      };
-    } catch (error) {
-      this.log(`OSRM'e ulasilamadi, duz-hat tahmine dusuluyor: ${error instanceof Error ? error.message : String(error)}`);
-      return haversineRoute(stops, `${this.name}-fallback`);
+    for (const host of this.hosts()) {
+      try {
+        const computed = await this.fetchRoute(host, stops);
+        this.cache.set(cacheKey, { at: Date.now(), value: computed });
+        if (this.cache.size > 64) {
+          const oldest = this.cache.keys().next().value;
+          if (oldest) this.cache.delete(oldest);
+        }
+        return computed;
+      } catch (error) {
+        this.log(`OSRM ${host} yanit vermedi: ${error instanceof Error ? error.message : String(error)}`);
+      }
     }
+
+    return haversineRoute(stops, `${this.name}-fallback`);
+  }
+
+  private hosts(): string[] {
+    const hosts = [this.baseUrl];
+    if (this.fallbackUrl && this.fallbackUrl !== this.baseUrl) hosts.push(this.fallbackUrl);
+    return hosts;
+  }
+
+  private async fetchRoute(baseUrl: string, stops: RouteWaypoint[]): Promise<ComputedRoute> {
+    const coords = stops.map((s) => `${s.lng},${s.lat}`).join(';');
+    const radiuses = ['1000', ...Array(Math.max(0, stops.length - 1)).fill('400')].join(';');
+    const qs = [
+      `overview=full&geometries=polyline&steps=false&radiuses=${radiuses}`,
+      'overview=full&geometries=polyline&steps=false',
+    ];
+    let lastError: Error | undefined;
+    for (const query of qs) {
+      try {
+        const res = await fetch(`${baseUrl}/route/v1/driving/${coords}?${query}`, {
+          signal: AbortSignal.timeout(8000),
+        });
+        if (!res.ok) throw new Error(`osrm http ${res.status}`);
+        const body = (await res.json()) as OsrmRouteResponse;
+        const route = body.routes?.[0];
+        if (body.code !== 'Ok' || !route) throw new Error(`osrm code ${body.code}`);
+
+        const legs: RouteLeg[] = route.legs.map((leg, i) => ({
+          taskId: stops[i + 1]!.taskId,
+          distanceMeters: Math.round(leg.distance),
+          durationSeconds: Math.round(leg.duration),
+        }));
+
+        return {
+          mode: 'distance_optimized',
+          geometry: route.geometry,
+          totalDistanceMeters: Math.round(route.distance),
+          totalDurationSeconds: Math.round(route.duration),
+          legs,
+          isEstimateOnly: false,
+          provider: this.name,
+        };
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+      }
+    }
+    throw lastError ?? new Error('osrm unreachable');
   }
 
   /**
@@ -167,22 +206,24 @@ export class OsrmRoutingProvider implements RoutingProvider {
    */
   async computeMatrix(stops: RouteWaypoint[]): Promise<number[][] | null> {
     if (stops.length < 2) return null;
-    try {
-      const coords = stops.map((s) => `${s.lng},${s.lat}`).join(';');
-      const url = `${this.baseUrl}/table/v1/driving/${coords}?annotations=duration`;
-      const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
-      if (!res.ok) throw new Error(`osrm http ${res.status}`);
+    const coords = stops.map((s) => `${s.lng},${s.lat}`).join(';');
+    for (const host of this.hosts()) {
+      try {
+        const url = `${host}/table/v1/driving/${coords}?annotations=duration`;
+        const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
+        if (!res.ok) throw new Error(`osrm http ${res.status}`);
 
-      const body = (await res.json()) as OsrmTableResponse;
-      if (body.code !== 'Ok' || !body.durations) throw new Error(`osrm code ${body.code}`);
+        const body = (await res.json()) as OsrmTableResponse;
+        if (body.code !== 'Ok' || !body.durations) throw new Error(`osrm code ${body.code}`);
 
-      // A pair OSRM could not connect on the graph comes back `null`;
-      // treat it as unreachable rather than crashing the optimizer on it.
-      return body.durations.map((row) => row.map((v) => v ?? Number.POSITIVE_INFINITY));
-    } catch (error) {
-      this.log(`OSRM matrisine ulasilamadi, sira optimize edilmiyor: ${error instanceof Error ? error.message : String(error)}`);
-      return null;
+        // A pair OSRM could not connect on the graph comes back `null`;
+        // treat it as unreachable rather than crashing the optimizer on it.
+        return body.durations.map((row) => row.map((v) => v ?? Number.POSITIVE_INFINITY));
+      } catch (error) {
+        this.log(`OSRM matrisine ulasilamadi (${host}): ${error instanceof Error ? error.message : String(error)}`);
+      }
     }
+    return null;
   }
 }
 
@@ -198,7 +239,7 @@ export class MockRoutingProvider implements RoutingProvider {
 export function createRoutingProvider(env: Env, log: (msg: string) => void): RoutingProvider {
   switch (env.ROUTING_PROVIDER) {
     case 'osrm':
-      return new OsrmRoutingProvider(env.OSRM_URL, log);
+      return new OsrmRoutingProvider(env.OSRM_URL, log, env.PUBLIC_OSRM_URL);
     case 'mock':
       return new MockRoutingProvider();
     default:

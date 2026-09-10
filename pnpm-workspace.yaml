@@ -2,4 +2,5 @@ packages:
   - "apps/api"
   - "apps/worker"
   - "apps/panel"
+  - "apps/website"
   - "packages/*"

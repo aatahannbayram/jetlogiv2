@@ -1,12 +1,15 @@
 import {
   CustodyHandoverRequest,
   CustodyHandoverResponse,
+  CustodyIntakeRequest,
+  CustodyIntakeResponse,
   CustodyIssueReportRequest,
   CustodyIssueReportResponse,
   CustodyItem,
   CustodyListQuery,
   CustodyListResponse,
   ErrorResponse,
+  CursorPageQuery,
   SupportTicket,
   SupportTicketCreateRequest,
   SupportTicketListResponse,
@@ -15,15 +18,22 @@ import {
 import type { ProductStatusCode } from '@dijigoo/contracts';
 import { AppError, clampOccurredAt, emitEvent, runIdempotent } from '@dijigoo/core';
 import { custodyHandoverItems, custodyHandovers, custodyItems, supportTickets } from '@dijigoo/db';
-import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 
 import type { AppContext } from '../context.js';
+import { serviceRouteRateLimit } from '../rate-limits.js';
+import { decodeCursor, encodeCursor } from './task.js';
 import type { AuthenticatedCourier } from '../plugins/authenticate.js';
-import { productStatusForHandover, transitionCustodyItem } from '../services/custody-status.js';
+import {
+  intakeCustodyItem,
+  productStatusForHandover,
+  transitionCustodyItem,
+} from '../services/custody-status.js';
 import { PostgresIdempotencyStore } from '../services/idempotency-store.js';
+import { enqueueCourierNotification } from '../services/notify.js';
 import { closeReturnOnBranchHandover } from '../services/return-status.js';
 
 export async function custodyRoutes(app: FastifyInstance, { ctx }: { ctx: AppContext }) {
@@ -40,15 +50,18 @@ export async function custodyRoutes(app: FastifyInstance, { ctx }: { ctx: AppCon
     },
     async (request) => {
       const courier = await app.authenticate(request);
-      const { type, limit } = request.query;
+      const { type, limit, barcode } = request.query;
 
       const rows = await ctx.db
         .select()
         .from(custodyItems)
         .where(
           and(
-            eq(custodyItems.holderCourierId, courier.courierId),
+            eq(custodyItems.tenantId, courier.tenantId),
             isNull(custodyItems.releasedAt),
+            barcode
+              ? eq(custodyItems.barcode, barcode)
+              : eq(custodyItems.holderCourierId, courier.courierId),
             type?.length ? inArray(custodyItems.type, type) : undefined,
           ),
         )
@@ -87,7 +100,13 @@ export async function custodyRoutes(app: FastifyInstance, { ctx }: { ctx: AppCon
           const held = await tx
             .select()
             .from(custodyItems)
-            .where(and(inArray(custodyItems.id, body.itemIds), isNull(custodyItems.releasedAt)))
+            .where(
+              and(
+                eq(custodyItems.tenantId, courier.tenantId),
+                inArray(custodyItems.id, body.itemIds),
+                isNull(custodyItems.releasedAt),
+              ),
+            )
             .for('update');
 
           const heldIds = new Set(held.map((item) => item.id));
@@ -208,6 +227,25 @@ export async function custodyRoutes(app: FastifyInstance, { ctx }: { ctx: AppCon
           return { handoverId: handover!.id, remaining };
         });
 
+        const toCourier =
+          body.direction === 'handover' &&
+          body.counterparty.kind === 'courier' &&
+          body.counterparty.id &&
+          body.counterparty.id !== courier.courierId
+            ? body.counterparty.id
+            : null;
+        if (toCourier) {
+          await enqueueCourierNotification(ctx.db, ctx.env, {
+            courierId: toCourier,
+            kind: 'CUSTODY_TAKEN',
+            title: 'Zimmet size geçti',
+            body: `${body.itemIds.length} kalem · ${body.counterparty.name || 'devralındı'}.`,
+            subjectId: result.handoverId,
+            collapseKey: `custody-in:${result.handoverId}`,
+            route: 'custody',
+          });
+        }
+
         return {
           status: 201,
           value: {
@@ -217,6 +255,59 @@ export async function custodyRoutes(app: FastifyInstance, { ctx }: { ctx: AppCon
             appliedAt: new Date().toISOString(),
           },
         };
+      });
+    },
+  );
+
+  /**
+   * Depot/branch intake: the first row for a barcode that has never been in
+   * custody before. Closes the long-standing gap noted in
+   * `services/custody-status.ts` (PRD-010..070 had no producer) — without
+   * this, "Kurye" custody takeover mode has nothing to take over. Guarded by
+   * `authenticateService` rather than `app.authenticate` because no
+   * branch-staff identity exists in this codebase yet; once one does, this
+   * should move to that auth instead of the shared service token.
+   */
+  route.post(
+    '/v1/custody/intake',
+    {
+      config: { rateLimit: serviceRouteRateLimit },
+      schema: {
+        tags: ['Custody'],
+        body: CustodyIntakeRequest,
+        response: {
+          200: CustodyIntakeResponse,
+          201: CustodyIntakeResponse,
+          400: ErrorResponse,
+          401: ErrorResponse,
+        },
+      },
+    },
+    async (request, reply) => {
+      await app.authenticateService(request);
+      const body = request.body;
+      const occurredAt = clampOccurredAt(new Date(body.occurredAt), new Date());
+
+      const result = await ctx.db.transaction((tx) =>
+        intakeCustodyItem(
+          tx,
+          { tenantId: body.tenantId, correlationId: body.clientEventId },
+          {
+            barcode: body.barcode,
+            type: body.type,
+            description: body.description,
+            quantity: body.quantity,
+            amount: body.amount ?? null,
+            taskId: body.taskId ?? null,
+            occurredAt,
+          },
+        ),
+      );
+
+      return reply.status(result.created ? 201 : 200).send({
+        item: toCustodyItem(result.item),
+        created: result.created,
+        appliedAt: new Date().toISOString(),
       });
     },
   );
@@ -389,20 +480,39 @@ export async function custodyRoutes(app: FastifyInstance, { ctx }: { ctx: AppCon
     {
       schema: {
         tags: ['Support'],
-        querystring: z.object({ limit: z.coerce.number().int().min(1).max(50).default(20) }),
+        querystring: CursorPageQuery,
         response: { 200: SupportTicketListResponse, 401: ErrorResponse },
       },
     },
     async (request) => {
       const courier = await app.authenticate(request);
+      const { cursor, limit } = request.query;
+      const conditions = [eq(supportTickets.courierId, courier.courierId)];
+      const decoded = decodeCursor(cursor);
+      if (decoded) {
+        conditions.push(
+          or(
+            lt(supportTickets.createdAt, decoded.updatedAt),
+            and(eq(supportTickets.createdAt, decoded.updatedAt), lt(supportTickets.id, decoded.id)),
+          )!,
+        );
+      }
+
       const rows = await ctx.db
         .select()
         .from(supportTickets)
-        .where(eq(supportTickets.courierId, courier.courierId))
-        .orderBy(desc(supportTickets.createdAt))
-        .limit(request.query.limit);
+        .where(and(...conditions))
+        .orderBy(sql`${supportTickets.createdAt} desc`, sql`${supportTickets.id} desc`)
+        .limit(limit + 1);
 
-      return { items: rows.map(toTicket), nextCursor: null, syncedAt: new Date().toISOString() };
+      const page = rows.slice(0, limit);
+      const last = page.at(-1);
+
+      return {
+        items: page.map(toTicket),
+        nextCursor: rows.length > limit && last ? encodeCursor(last.createdAt, last.id) : null,
+        syncedAt: new Date().toISOString(),
+      };
     },
   );
 }

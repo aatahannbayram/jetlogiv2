@@ -4,12 +4,17 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../l10n.dart';
 import '../session.dart';
+import '../brand.dart';
+import '../motion.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
 class OnboardScreen extends ConsumerStatefulWidget {
-  const OnboardScreen({super.key});
+  const OnboardScreen({super.key, this.forBranch = false});
+
+  final bool forBranch;
 
   @override
   ConsumerState<OnboardScreen> createState() => _OnboardScreenState();
@@ -19,27 +24,31 @@ class _OnboardScreenState extends ConsumerState<OnboardScreen> {
   final _pages = PageController();
   int _index = 0;
 
-  static const _slides = [
-    (
-      kicker: 'Liste',
-      title: 'Üstteki durak senin.',
-      body: 'Numara, adres, saat kartta.',
-    ),
-    (
-      kicker: 'Yol',
-      title: 'Durağa bas, harita açılsın.',
-      body: 'Sıra Güney. Mola üstte. Yol tarifi telefonda açılır.',
-    ),
-    (
-      kicker: 'Kapanış',
-      title: 'Foto ve kod yoksa bitmez.',
-      body: 'Kim aldı, kapı, kod. Sözleşme panele kalır.',
-    ),
-  ];
+  List<(String, String, String)> _slides(L10n l) {
+    if (widget.forBranch) {
+      return [
+        (l.subeOnboard1Kicker, l.subeOnboard1Title, l.subeOnboard1Body),
+        (l.subeOnboard2Kicker, l.subeOnboard2Title, l.subeOnboard2Body),
+        (l.subeOnboard3Kicker, l.subeOnboard3Title, l.subeOnboard3Body),
+      ];
+    }
+    return [
+      (l.onboard1Kicker, l.onboard1Title, l.onboard1Body),
+      (l.onboard2Kicker, l.onboard2Title, l.onboard2Body),
+      (l.onboard4Kicker, l.onboard4Title, l.onboard4Body),
+      (l.onboard3Kicker, l.onboard3Title, l.onboard3Body),
+      (l.onboard5Kicker, l.onboard5Title, l.onboard5Body),
+    ];
+  }
 
   void _next() {
-    if (_index >= _slides.length - 1) {
-      ref.read(sessionProvider).finishOnboard();
+    final last = _index >= _slides(context.l10n).length - 1;
+    if (last) {
+      if (widget.forBranch) {
+        ref.read(sessionProvider).finishSubeOnboard();
+      } else {
+        ref.read(sessionProvider).finishOnboard();
+      }
       return;
     }
     _pages.nextPage(
@@ -56,7 +65,9 @@ class _OnboardScreenState extends ConsumerState<OnboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final last = _index == _slides.length - 1;
+    final l = context.l10n;
+    final slides = _slides(l);
+    final last = _index == slides.length - 1;
     return Scaffold(
       backgroundColor: Dg.ground,
       body: SafeArea(
@@ -68,15 +79,18 @@ class _OnboardScreenState extends ConsumerState<OnboardScreen> {
                 children: [
                   const Padding(
                     padding: EdgeInsets.only(left: 16),
-                    child: Image(
-                      image: AssetImage('assets/images/jetlogi_logo_color.png'),
-                      height: 30,
-                    ),
+                    child: Appear(child: DijigooWordmark(height: 26)),
                   ),
                   const Spacer(),
                   TextButton(
-                    onPressed: () => ref.read(sessionProvider).finishOnboard(),
-                    child: const Text('Atla'),
+                    onPressed: () {
+                      if (widget.forBranch) {
+                        ref.read(sessionProvider).finishSubeOnboard();
+                      } else {
+                        ref.read(sessionProvider).finishOnboard();
+                      }
+                    },
+                    child: Text(l.skip),
                   ),
                 ],
               ),
@@ -84,10 +98,10 @@ class _OnboardScreenState extends ConsumerState<OnboardScreen> {
             Expanded(
               child: PageView.builder(
                 controller: _pages,
-                itemCount: _slides.length,
+                itemCount: slides.length,
                 onPageChanged: (i) => setState(() => _index = i),
                 itemBuilder: (context, i) {
-                  final s = _slides[i];
+                  final s = slides[i];
                   return Padding(
                     padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
                     child: Column(
@@ -102,12 +116,12 @@ class _OnboardScreenState extends ConsumerState<OnboardScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  s.kicker,
+                                  s.$1,
                                   style: Dg.kicker(color: Dg.ink3),
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  s.title,
+                                  s.$2,
                                   style: Dg.serif(
                                     size: 34,
                                     weight: FontWeight.w700,
@@ -116,7 +130,7 @@ class _OnboardScreenState extends ConsumerState<OnboardScreen> {
                                 ),
                                 const SizedBox(height: 10),
                                 Text(
-                                  s.body,
+                                  s.$3,
                                   style: Dg.ui(
                                     size: 16,
                                     color: Dg.ink2,
@@ -148,7 +162,7 @@ class _OnboardScreenState extends ConsumerState<OnboardScreen> {
                 children: [
                   Row(
                     children: [
-                      for (var i = 0; i < _slides.length; i++) ...[
+                      for (var i = 0; i < slides.length; i++) ...[
                         if (i > 0) const SizedBox(width: 6),
                         AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
@@ -163,9 +177,10 @@ class _OnboardScreenState extends ConsumerState<OnboardScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  FilledButton(
+                  DgButton(
+                    label: last ? l.done : l.continueLabel,
+                    trailing: last ? LucideIcons.check : LucideIcons.arrowRight,
                     onPressed: _next,
-                    child: Text(last ? 'Tamam' : 'Devam'),
                   ),
                 ],
               ),
@@ -208,11 +223,11 @@ class _Art extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Row(
+                      Row(
                         children: [
-                          Mono('DGO-8841', color: Colors.white),
-                          Spacer(),
-                          StatusChip(label: 'Sırada', tone: 'lime'),
+                          const Mono('DGO-8841', color: Colors.white),
+                          const Spacer(),
+                          StatusChip(label: L10n.of(context).inQueue, tone: 'lime'),
                         ],
                       ),
                       const SizedBox(height: 6),
@@ -255,7 +270,7 @@ class _Art extends StatelessWidget {
           LatLng(38.1554, 29.0692),
           LatLng(38.1460, 29.0488),
         ],
-        label: '4 durak',
+        label: L10n.of(context).fourStops,
       ),
       _ => DgCard(
         hero: true,
@@ -278,7 +293,7 @@ class _Art extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            _line(LucideIcons.camera, 'Kapı fotoğrafı'),
+            _line(LucideIcons.camera, L10n.of(context).doorPhoto),
             _line(LucideIcons.pin, 'Alıcı kodu'),
             _line(LucideIcons.idCard, 'Sözleşme panelde'),
           ],
@@ -292,7 +307,7 @@ class _Art extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         children: [
-          Icon(icon, size: 20, color: Dg.ink),
+          DgIcon(icon, size: 20, color: Dg.ink),
           const SizedBox(width: 10),
           Text(
             t,
