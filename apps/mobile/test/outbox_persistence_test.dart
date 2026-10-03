@@ -33,6 +33,10 @@ void main() {
       subjectId: 't2',
       payload: const {'outcome': 'FAILED'},
     );
+    store.enqueue(
+      operation: SyncOperation.panelAccept,
+      subjectId: 's-9',
+    );
     await store.waitForPersistence();
     await db.close();
 
@@ -43,10 +47,18 @@ void main() {
 
     await store.hydrateFromDb();
 
-    expect(store.pendingCount, 2);
+    expect(store.pendingCount, 3);
     expect(
       store.events.map((e) => e.subjectId).toSet(),
-      {'t1', 't2'},
+      {'t1', 't2', 's-9'},
+    );
+    expect(
+      store.events.map((e) => e.operation).toSet(),
+      {
+        SyncOperation.taskFinalize,
+        SyncOperation.taskTransition,
+        SyncOperation.panelAccept,
+      },
     );
 
     // Yeni bir enqueue, önceki (persisted) sequence'lerle çakışan bir

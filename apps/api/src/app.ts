@@ -1,25 +1,38 @@
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
+import swagger from '@fastify/swagger';
+import swaggerUi from '@fastify/swagger-ui';
 import Fastify from 'fastify';
 import type { FastifyInstance } from 'fastify';
-import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
+import {
+  jsonSchemaTransform,
+  serializerCompiler,
+  validatorCompiler,
+} from 'fastify-type-provider-zod';
 
 import type { AppContext } from './context.js';
 import { authenticate } from './plugins/authenticate.js';
 import { errorHandler } from './plugins/error-handler.js';
 import { serviceAuth } from './plugins/service-auth.js';
+import { solvelineAuth } from './plugins/solveline-auth.js';
 import { authRoutes } from './routes/auth.js';
 import { configRoutes } from './routes/config.js';
 import { custodyRoutes } from './routes/custody.js';
 import { delayDecisionRoutes } from './routes/delay-decision.js';
+import { taskAssignRoutes } from './routes/task-assign.js';
 import { healthRoutes } from './routes/health.js';
 import { identityRoutes } from './routes/identity.js';
+import { ivrRoutes } from './routes/ivr.js';
 import { mediaRoutes } from './routes/media.js';
+import { notificationRoutes } from './routes/notifications.js';
 import { routingRoutes } from './routes/routing.js';
+import { routingServiceRoutes } from './routes/routing-service.js';
 import { shiftRoutes } from './routes/shift.js';
+import { solvelineWebhookRoutes } from './routes/solveline-webhook.js';
 import { syncRoutes } from './routes/sync.js';
 import { taskRoutes } from './routes/task.js';
+import { trainingRoutes } from './routes/training.js';
 import { workflowRoutes } from './routes/workflow.js';
 
 export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
@@ -40,6 +53,7 @@ export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
           'req.body.code',
           'req.body.refreshToken',
           'req.body.phone',
+          'req.query.phone',
           'res.body.tokens',
         ],
         censor: '[redacted]',
@@ -60,7 +74,7 @@ export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
   await app.register(cors, {
     // Only the panel calls this API from a browser; the mobile app is not
     // subject to CORS at all.
-    origin: ctx.env.NODE_ENV === 'production' ? [/\.dijigoo\.example$/] : true,
+    origin: ctx.env.NODE_ENV === 'production' ? [/\.dijigoo\.com$/] : true,
     credentials: true,
   });
 
@@ -74,9 +88,28 @@ export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
     keyGenerator: (request) => request.courier?.courierId ?? request.ip,
   });
 
+  // Generated from the same Zod schemas every route already declares (see
+  // `schema.tags`/`schema.body` across routes/*.ts) — routes are not
+  // rewritten, jsonSchemaTransform turns them into OpenAPI on the fly.
+  // Registered before the route plugins below: @fastify/swagger collects
+  // schemas via an onRoute hook, so it must exist before routes do.
+  await app.register(swagger, {
+    openapi: {
+      info: {
+        title: 'JetLogi Courier API',
+        description: 'Kurye mobil uygulamasının kullandığı REST API.',
+        version: '1.0.0',
+      },
+      servers: [],
+    },
+    transform: jsonSchemaTransform,
+  });
+  await app.register(swaggerUi, { routePrefix: '/docs' });
+
   await app.register(errorHandler);
   await app.register(authenticate, { ctx });
   await app.register(serviceAuth, { ctx });
+  await app.register(solvelineAuth, { ctx });
 
   await app.register(healthRoutes, { ctx });
   await app.register(configRoutes, { ctx });
@@ -85,10 +118,16 @@ export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
   await app.register(workflowRoutes, { ctx });
   await app.register(taskRoutes, { ctx });
   await app.register(delayDecisionRoutes, { ctx });
+  await app.register(taskAssignRoutes, { ctx });
   await app.register(shiftRoutes, { ctx });
   await app.register(routingRoutes, { ctx });
+  await app.register(routingServiceRoutes, { ctx });
   await app.register(custodyRoutes, { ctx });
   await app.register(mediaRoutes, { ctx });
+  await app.register(notificationRoutes, { ctx });
+  await app.register(trainingRoutes, { ctx });
+  await app.register(ivrRoutes, { ctx });
+  await app.register(solvelineWebhookRoutes, { ctx });
   // Registered last on purpose: it re-dispatches into the routes above via
   // app.inject, so they must already exist.
   await app.register(syncRoutes, { ctx });

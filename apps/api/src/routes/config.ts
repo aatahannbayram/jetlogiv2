@@ -34,7 +34,7 @@ export async function configRoutes(app: FastifyInstance, { ctx }: { ctx: AppCont
         geofenceDefaultRadiusMeters: 200,
         geofenceMaxAccuracyMeters: 100,
         featureFlags: {
-          maskedCall: false,
+          maskedCall: true,
           cashCollect: true,
           documentScan: false,
           custody: false,

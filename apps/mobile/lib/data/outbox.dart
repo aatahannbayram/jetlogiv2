@@ -22,13 +22,20 @@ class OutboxStore {
     Map<String, Object?> payload = const {},
   }) {
     _seq += 1;
+    final clientEventId = _clientEventId(_seq);
+    final occurredAt = DateTime.now().toUtc();
     final event = OutboxEvent(
-      clientEventId: _clientEventId(_seq),
+      clientEventId: clientEventId,
       operation: operation,
       subjectId: subjectId,
-      occurredAt: DateTime.now().toUtc(),
+      occurredAt: occurredAt,
       sequence: _seq,
-      payload: payload,
+      payload: {
+        ...payload,
+        if (!payload.containsKey('clientEventId')) 'clientEventId': clientEventId,
+        if (!payload.containsKey('occurredAt'))
+          'occurredAt': occurredAt.toIso8601String(),
+      },
     );
     events.add(event);
     final conn = db;

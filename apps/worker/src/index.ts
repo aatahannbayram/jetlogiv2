@@ -1,3 +1,4 @@
+import { parseFcmAccount, tryDispatchInboxPush } from '@dijigoo/core';
 import { createDatabase } from '@dijigoo/db';
 
 import { loadEnv } from './env.js';
@@ -16,6 +17,12 @@ async function tick(): Promise<void> {
     const flagged = await flagAtRiskSlaInstances(db, { riskWindowMinutes: env.SLA_RISK_WINDOW_MINUTES });
     if (flagged.length > 0) {
       log('info', 'sla.at_risk flagged', { count: flagged.length });
+    }
+    const account = parseFcmAccount(env.FCM_SERVICE_ACCOUNT_JSON, env.FCM_PROJECT_ID);
+    for (const row of flagged) {
+      if (row.push) {
+        await tryDispatchInboxPush(db, account, row.push);
+      }
     }
   } catch (error) {
     // A single bad tick must not kill the process — the next interval retries.

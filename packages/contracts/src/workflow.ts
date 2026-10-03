@@ -259,6 +259,7 @@ export const WorkflowOutcome = z
       .nullish(),
   })
   .openapi('WorkflowOutcome');
+export type WorkflowOutcome = z.infer<typeof WorkflowOutcome>;
 
 /* ------------------------------------------------------------------ *
  * Definition

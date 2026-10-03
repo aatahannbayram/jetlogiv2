@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../l10n.dart';
 import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -10,28 +12,53 @@ class ShiftScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = context.l10n;
     final s = ref.watch(sessionProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Vardiya başlat')),
+      appBar: AppBar(title: Text(l.startShiftTitle)),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
         children: [
-          Text(
-            'Bu fotoğraf yalnız vardiya kanıtı. Yüz aranmaz.',
-            style: TextStyle(color: Dg.ink2, fontSize: 16, height: 1.4),
+          DgCard(
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: Dg.violetBg,
+                    shape: BoxShape.circle,
+                  ),
+                  child: DgIcon(LucideIcons.camera, size: 20, color: Dg.brand, weight: 600),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    l.shiftSelfieHint,
+                    style: TextStyle(color: Dg.ink2, fontSize: 15, height: 1.4),
+                  ),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 18),
           Viewfinder(
             captured: s.shiftPhotoTaken,
             aspectRatio: 3 / 4,
-            hint: 'Yüzünüz kadrajda olsun.',
-            capturedLabel: 'Kanıt alındı',
-            onCapture: s.takeShiftPhoto,
+            hint: l.faceInFrame,
+            capturedLabel: l.proofTaken,
+            frontCamera: true,
+            onCapture: (path) => s.takeShiftPhoto(path),
           ),
           const SizedBox(height: 18),
-          FilledButton(
-            onPressed: s.shiftPhotoTaken ? s.openShift : null,
-            child: const Text('Vardiyayı aç'),
+          DgButton(
+            label: l.openShift,
+            icon: LucideIcons.sun,
+            tone: DgButtonTone.brand,
+            onPressed: (s.shiftPhotoTaken || s.bypassShiftGate)
+                ? s.openShift
+                : null,
           ),
         ],
       ),

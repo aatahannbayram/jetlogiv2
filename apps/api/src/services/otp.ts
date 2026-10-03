@@ -124,7 +124,12 @@ export class OtpService {
   async verify(params: {
     challengeId: string;
     code: string;
-  }): Promise<{ attemptsRemaining: number; courierId: string | null; taskId: string | null }> {
+  }): Promise<{
+    attemptsRemaining: number;
+    courierId: string | null;
+    taskId: string | null;
+    stepKey: string | null;
+  }> {
     const [challenge] = await this.db
       .select()
       .from(otpChallenges)
@@ -167,6 +172,7 @@ export class OtpService {
       attemptsRemaining: challenge.maxAttempts - challenge.attempts,
       courierId: challenge.courierId,
       taskId: challenge.taskId,
+      stepKey: challenge.stepKey,
     };
   }
 

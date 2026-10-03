@@ -1,5 +1,18 @@
 import { z } from 'zod';
 
+function emptyToUndef(value: unknown): unknown {
+  return typeof value === 'string' && value.trim() === '' ? undefined : value;
+}
+
+const optionalString = z.preprocess(emptyToUndef, z.string().min(1).optional());
+
+function optionalUrl(fallback?: string) {
+  return z.preprocess(
+    emptyToUndef,
+    fallback ? z.string().url().default(fallback) : z.string().url().optional(),
+  );
+}
+
 /**
  * Parsed once at boot. A missing secret should crash the process on start,
  * not surface as a 500 the first time a courier tries to log in.
@@ -34,12 +47,33 @@ const EnvSchema = z.object({
     .default('false')
     .transform((v) => v === 'true'),
 
-  SMS_PROVIDER: z.enum(['mock', 'netgsm', 'verimor', 'iletimerkezi']).default('mock'),
+  SMS_PROVIDER: z.enum(['mock', 'netgsm', 'verimor', 'iletimerkezi', 'solveline']).default('mock'),
   SMS_API_KEY: z.string().optional(),
   SMS_SENDER_ID: z.string().default('DIJIGOO'),
 
-  MASKED_CALL_PROVIDER: z.enum(['mock', 'netgsm', 'verimor']).default('mock'),
+  MASKED_CALL_PROVIDER: z.enum(['mock', 'netgsm', 'verimor', 'solveline']).default('mock'),
   MASKED_CALL_API_KEY: z.string().optional(),
+
+  SOLVELINE_SMS_BASE_URL: optionalUrl('https://smslogin.nac.com.tr:9588'),
+  SOLVELINE_SMS_USER: optionalString,
+  SOLVELINE_SMS_PASSWORD: optionalString,
+  SOLVELINE_CALL_BASE_URL: optionalUrl('https://capi.ncvav.com'),
+  SOLVELINE_CALL_TOKEN: optionalString,
+  SOLVELINE_CALL_WEBHOOK_URL: optionalUrl(),
+  SOLVELINE_WEBHOOK_SECRET: optionalString,
+  SOLVELINE_CALLER_ID: z.preprocess(emptyToUndef, z.string().default('908504808538')),
+  /** Bos ise DYNAMIC IVR (993/994) kapali. Solveline JetLogi hesabi: firma id=1. 911/991/992 kullanilmaz. */
+  SOLVELINE_FIRMA_ID: optionalString,
+  SOLVELINE_IVR_APPOINTMENT_DEST: z.preprocess(emptyToUndef, z.string().default('993')),
+  SOLVELINE_IVR_OTP_DEST: z.preprocess(emptyToUndef, z.string().default('994')),
+  /** Sesli asistanin bizim API'yi cagirmasi. Bos ise inbound 401. */
+  SOLVELINE_INBOUND_TOKEN: optionalString,
+  /**
+   * Solveline cikis IPv4/CIDR listesi (virgul). Bos = IP kontrolu yok (yerel).
+   * Bizim prod/staging cikis IP'leri buraya yazilmaz; onlari Solveline allowlist'ine
+   * bildiririz (docs/09-solveline.md).
+   */
+  SOLVELINE_INBOUND_CIDRS: optionalString,
 
   /**
    * `osrm` is a self-hosted engine (see `infra/osrm/`) — real distance,
@@ -50,6 +84,8 @@ const EnvSchema = z.object({
   ROUTING_PROVIDER: z.enum(['mock', 'osrm', 'openrouteservice']).default('mock'),
   ROUTING_API_KEY: z.string().optional(),
   OSRM_URL: z.string().url().default('http://localhost:5001'),
+  /** Self-host yokken Türkiye dahil planet OSRM (project-osrm demo). */
+  PUBLIC_OSRM_URL: z.string().url().default('https://router.project-osrm.org'),
 
   /**
    * Minimum app build the API will serve. Raised when a release ships a
@@ -77,12 +113,27 @@ const EnvSchema = z.object({
   DEVICE_INTEGRITY_MODE: z.enum(['off', 'log', 'restrict']).default('log'),
 
   /**
-   * Faz 5: shared secret for the operations panel's *backend* (a different
-   * team's codebase) to call the delay-decision endpoint. Not a courier
-   * bearer token — there is no operator identity in this codebase, see
+   * Shared secret for the operations panel's *backend* (jetlogi-panel, a
+   * different team's codebase) to call our service-to-service endpoints —
+   * originally just delay-decision (Faz 5), now also `/v1/routing/optimize`
+   * (docs/05-panel-entegrasyonu.md Faz 4). Not a courier bearer token —
+   * there is no operator identity in this codebase, see
    * project-nihai-mimari-plan. Rotate by issuing a new value to that team.
    */
   DELAY_DECISION_SERVICE_TOKEN: z.string().min(16),
+
+  /**
+   * FCM HTTP v1. Bos ise kutu yine yazilir, uzak push gitmez.
+   * `FCM_SERVICE_ACCOUNT_JSON` servis hesabinin ham JSON'u.
+   */
+  FCM_PROJECT_ID: z.preprocess(
+    (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
+    z.string().min(1).optional(),
+  ),
+  FCM_SERVICE_ACCOUNT_JSON: z.preprocess(
+    (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
+    z.string().min(8).optional(),
+  ),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

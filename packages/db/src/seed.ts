@@ -7,10 +7,31 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { encryptField, fieldKeyFromEnv, phoneLookupHmac } from '@dijigoo/core';
 import { eq, sql } from 'drizzle-orm';
 
 import { createDatabase } from './index';
 import { branches, couriers, taskItems, tasks, tenants, workflows } from './schema/index';
+
+function storePhone(phone: string): string {
+  const raw = process.env['FIELD_ENCRYPTION_KEY'];
+  if (!raw) return phone;
+  try {
+    return encryptField(phone, fieldKeyFromEnv(raw));
+  } catch {
+    return phone;
+  }
+}
+
+function storePhoneHmac(phone: string): string | null {
+  const raw = process.env['FIELD_ENCRYPTION_KEY'];
+  if (!raw) return null;
+  try {
+    return phoneLookupHmac(phone, fieldKeyFromEnv(raw));
+  } catch {
+    return null;
+  }
+}
 
 const url = process.env['DATABASE_URL'];
 if (!url) {
@@ -122,6 +143,7 @@ const fixtures = [
     district: 'Kadikoy',
     position: { lat: 40.9829, lng: 29.0575 },
     contactName: 'Ayse Yilmaz',
+    contactPhone: '+905321110026',
     codAmount: null,
     sequence: 1,
   },
@@ -131,6 +153,7 @@ const fixtures = [
     district: 'Kadikoy',
     position: { lat: 40.9915, lng: 29.0256 },
     contactName: 'Mehmet Demir',
+    contactPhone: '+905321110027',
     codAmount: '450.00',
     sequence: 2,
   },
@@ -140,6 +163,7 @@ const fixtures = [
     district: 'Kadikoy',
     position: { lat: 40.9887, lng: 29.0281 },
     contactName: 'Zeynep Kaya',
+    contactPhone: '+905321110028',
     codAmount: null,
     sequence: 3,
   },
@@ -165,15 +189,26 @@ for (const fixture of fixtures) {
       position: fixture.position,
       geocodeConfidence: 'exact',
       contactName: fixture.contactName,
-      contactPhoneEncrypted: 'dev-placeholder',
+      contactPhoneEncrypted: storePhone(fixture.contactPhone),
+      contactPhoneHmac: storePhoneHmac(fixture.contactPhone),
       codAmount: fixture.codAmount,
       itemCount: 1,
       assignedAt: new Date(),
-      attributes: { codAmount: fixture.codAmount ? Number(fixture.codAmount) : 0 },
+      attributes: {
+        codAmount: fixture.codAmount ? Number(fixture.codAmount) : 0,
+        otpRequired: true,
+        barcode: `BC${fixture.reference.replace(/\D/g, '')}`,
+      },
     })
     .onConflictDoUpdate({
       target: [tasks.tenantId, tasks.reference],
-      set: { courierId: courier!.id, status: 'ASSIGNED', sequence: fixture.sequence },
+      set: {
+        courierId: courier!.id,
+        status: 'ASSIGNED',
+        sequence: fixture.sequence,
+        contactPhoneEncrypted: storePhone(fixture.contactPhone),
+        contactPhoneHmac: storePhoneHmac(fixture.contactPhone),
+      },
     })
     .returning();
 

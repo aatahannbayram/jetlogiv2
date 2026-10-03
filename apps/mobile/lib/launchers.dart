@@ -2,16 +2,30 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'l10n.dart';
 import 'models.dart';
 
-Future<void> callRecipient(BuildContext context) async {
-  final uri = Uri(scheme: 'tel', path: '+905321110026');
+Future<void> dialNumber(BuildContext context, String? phone) async {
+  final raw = (phone ?? '').replaceAll(RegExp(r'[^\d+]'), '');
+  if (raw.isEmpty) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.noRecipientPhone)),
+      );
+    }
+    return;
+  }
+  final uri = Uri(scheme: 'tel', path: raw);
   final ok = await launchUrl(uri);
   if (!ok && context.mounted) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('Aranıyor…')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(context.l10n.callOpening)),
+    );
   }
 }
+
+Future<void> callRecipient(BuildContext context, {String? phone}) =>
+    dialNumber(context, phone);
 
 Future<void> openDirections(BuildContext context, DeliveryTask task) async {
   final apple = Uri.parse(

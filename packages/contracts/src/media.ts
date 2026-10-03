@@ -1,6 +1,7 @@
 import { GeoPoint, Timestamp, Uuid, z } from './common.js';
 
 export const MediaKind = z.enum(['photo', 'document_page', 'document_pdf', 'signature', 'audio']);
+export type MediaKind = z.infer<typeof MediaKind>;
 
 /**
  * Media never travels through the API. The client asks for a presigned PUT,
@@ -54,3 +55,11 @@ export const MediaRef = z
   })
   .openapi('MediaRef');
 export type MediaRef = z.infer<typeof MediaRef>;
+
+export const ConfirmMediaResponse = z
+  .object({
+    mediaId: Uuid,
+    state: z.enum(['uploaded', 'verified']),
+  })
+  .openapi('ConfirmMediaResponse');
+export type ConfirmMediaResponse = z.infer<typeof ConfirmMediaResponse>;

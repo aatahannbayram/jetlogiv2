@@ -26,11 +26,17 @@ export async function routingRoutes(app: FastifyInstance, { ctx }: { ctx: AppCon
       schema: {
         tags: ['Shift'],
         summary: "Gunun rota sirasi",
+        querystring: z.object({
+          lat: z.coerce.number().min(-90).max(90).optional(),
+          lng: z.coerce.number().min(-180).max(180).optional(),
+        }),
         response: { 200: Route, 204: z.null(), 401: ErrorResponse },
       },
     },
     async (request, reply) => {
       const courier = await app.authenticate(request);
+      const originLat = request.query.lat;
+      const originLng = request.query.lng;
 
       const [openShift] = await ctx.db
         .select({ id: shifts.id })
@@ -52,18 +58,24 @@ export async function routingRoutes(app: FastifyInstance, { ctx }: { ctx: AppCon
       );
       if (dispatchOrder.length === 0) return reply.status(204).send(null);
 
-      // Faz 2: reorder the dispatch list to minimise total travel time,
-      // keeping stop 0 fixed (the courier's next stop is not renegotiable
-      // mid-route). Providers without a real engine (`computeMatrix` unset)
-      // skip straight to the dispatch order as-is.
-      let stops = dispatchOrder;
-      if (dispatchOrder.length > 2 && ctx.routing.computeMatrix) {
+      // Courier GPS is the fixed start when the client sends it — otherwise
+      // the first *task* is pinned (legacy). Reordering a day from the
+      // first parcel instead of the rider is what produced the town-wide
+      // scribble on the map.
+      const hasOrigin = originLat != null && originLng != null;
+      const engineInput = [
+        ...(hasOrigin ? [{ id: '__origin', position: { lat: originLat, lng: originLng } }] : []),
+        ...dispatchOrder,
+      ];
+
+      let stops = engineInput;
+      if (engineInput.length > 2 && ctx.routing.computeMatrix) {
         const matrix = await ctx.routing.computeMatrix(
-          dispatchOrder.map((t) => ({ taskId: t.id, lat: t.position.lat, lng: t.position.lng })),
+          engineInput.map((t) => ({ taskId: t.id, lat: t.position.lat, lng: t.position.lng })),
         );
         if (matrix) {
           const order = optimizeStopOrder(matrix);
-          stops = order.map((i) => dispatchOrder[i]!);
+          stops = order.map((i) => engineInput[i]!);
         }
       }
 
@@ -73,15 +85,18 @@ export async function routingRoutes(app: FastifyInstance, { ctx }: { ctx: AppCon
 
       const now = new Date();
       let eta = now;
-      const stopRows = stops.map((stop, i) => {
-        const leg = i === 0 ? null : computed.legs[i - 1];
-        if (leg) eta = new Date(eta.getTime() + (leg.durationSeconds ?? 0) * 1000);
+      const taskStops = hasOrigin ? stops.filter((s) => s.id !== '__origin') : stops;
+      const stopRows = taskStops.map((stop, i) => {
+        // With an origin, legs[0] is rider→first task (useful on the sheet).
+        // Without, sequence 0 has no incoming leg — same as before.
+        const incoming = hasOrigin ? computed.legs[i] : i === 0 ? null : computed.legs[i - 1];
+        if (incoming) eta = new Date(eta.getTime() + (incoming.durationSeconds ?? 0) * 1000);
         return {
           taskId: stop.id,
           sequence: i,
           etaAt: eta,
-          distanceMeters: leg?.distanceMeters ?? null,
-          durationSeconds: leg?.durationSeconds ?? null,
+          distanceMeters: incoming?.distanceMeters ?? null,
+          durationSeconds: incoming?.durationSeconds ?? null,
           isEstimateOnly: computed.isEstimateOnly,
         };
       });

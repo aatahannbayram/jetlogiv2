@@ -3,6 +3,7 @@ import 'package:dijigoo_kurye/api/models.dart';
 import 'package:dijigoo_kurye/geo.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:latlong2/latlong.dart';
 
 void main() {
   test('decodePolyline: known short example (Google\'s reference case)', () {
@@ -25,11 +26,33 @@ void main() {
     final points = decodePolyline(route.geometry!);
     expect(points.length, greaterThan(50), reason: 'a real road-following line has many vertices');
 
-    // t1 = (38.1512, 29.0614), t3 = (38.1554, 29.0692) — first/last stop in
-    // the optimized t1-t2-t4-t3 order (see api_test.dart).
-    expect(points.first.latitude, closeTo(38.1512, 1e-3));
-    expect(points.first.longitude, closeTo(29.0614, 1e-3));
-    expect(points.last.latitude, closeTo(38.1554, 1e-3));
-    expect(points.last.longitude, closeTo(29.0692, 1e-3));
+    // Origin (snapped) → Fatma (last). t3-t1-t2-t4 tour, see api_test.dart.
+    expect(points.first.latitude, closeTo(38.1476, 2e-2));
+    expect(points.first.longitude, closeTo(29.0702, 2e-2));
+    expect(points.last.latitude, closeTo(38.1460, 2e-2));
+    expect(points.last.longitude, closeTo(29.0488, 2e-2));
+  });
+
+  test('Cupertino GPS Denizli duraklarına uzak sayılır', () {
+    const denizli = LatLng(38.1512, 29.0614);
+    const cupertino = LatLng(37.3349, -122.0090);
+    expect(
+      originNearStops(origin: cupertino, stops: [denizli]),
+      isFalse,
+    );
+    expect(
+      originNearStops(origin: const LatLng(38.1476, 29.0702), stops: [denizli]),
+      isTrue,
+    );
+    expect(originNearStops(origin: cupertino, stops: const []), isTrue);
+  });
+
+  test('keepNearStops uzak kökeni atar', () {
+    const stop = LatLng(38.1512, 29.0614);
+    final kept = keepNearStops(
+      const [LatLng(37.3349, -122.0090), stop],
+      [stop],
+    );
+    expect(kept, [stop]);
   });
 }

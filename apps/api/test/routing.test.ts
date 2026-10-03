@@ -70,3 +70,30 @@ test('OsrmRoutingProvider: unreachable host falls back to a straight-line estima
   assert.equal(result.isEstimateOnly, true);
   assert.equal(result.provider, 'osrm-fallback');
 });
+
+test('OsrmRoutingProvider: local down, public OSRM draws a real Turkey road', async () => {
+  const publicUrl = process.env['PUBLIC_OSRM_URL'] ?? 'https://router.project-osrm.org';
+  const reachable = await fetch(`${publicUrl}/route/v1/driving/29.0702,38.1476;29.0614,38.1512`)
+    .then((r) => r.ok)
+    .catch(() => false);
+  if (!reachable) {
+    console.warn('[routing.test] public OSRM not reachable, skipping');
+    return;
+  }
+
+  const provider = new OsrmRoutingProvider('http://127.0.0.1:1', () => {}, publicUrl);
+  const result = await provider.computeRoute([
+    { taskId: 'self', lat: 38.1476, lng: 29.0702 },
+    { taskId: 't1', lat: 38.1512, lng: 29.0614 },
+  ]);
+
+  assert.equal(result.isEstimateOnly, false);
+  assert.ok(result.geometry && result.geometry.length > 20);
+  assert.ok(result.totalDistanceMeters! > 800);
+
+  const again = await provider.computeRoute([
+    { taskId: 'self', lat: 38.1476, lng: 29.0702 },
+    { taskId: 't1', lat: 38.1512, lng: 29.0614 },
+  ]);
+  assert.equal(again.geometry, result.geometry);
+});

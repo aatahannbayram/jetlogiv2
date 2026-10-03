@@ -77,6 +77,7 @@ export const supportCategory = pgEnum('support_category', [
   'SECURITY',
   'PAYMENT',
   'OTHER',
+  'EXPEDITE',
 ]);
 
 export const supportStatus = pgEnum('support_status', ['open', 'in_progress', 'resolved', 'closed']);

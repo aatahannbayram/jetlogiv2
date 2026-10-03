@@ -11,6 +11,15 @@ const EnvSchema = z.object({
   WORKER_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(60_000),
   /** How close to its deadline an SLA instance must be to flip to SLA-030 (Riskte). */
   SLA_RISK_WINDOW_MINUTES: z.coerce.number().int().positive().default(30),
+
+  FCM_PROJECT_ID: z.preprocess(
+    (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
+    z.string().min(1).optional(),
+  ),
+  FCM_SERVICE_ACCOUNT_JSON: z.preprocess(
+    (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
+    z.string().min(8).optional(),
+  ),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

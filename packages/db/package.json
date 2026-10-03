@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@dijigoo/contracts": "workspace:*",
+    "@dijigoo/core": "workspace:*",
     "drizzle-orm": "^0.36.4",
     "postgres": "^3.4.4"
   },

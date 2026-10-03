@@ -31,16 +31,15 @@ void main() {
     expect(av.hoursLabel, contains('09:00'));
   });
 
-  test('demo rota gerçek OSRM çıktısıyla optimize sırayı (t1-t2-t4-t3) döner', () {
+  test('demo rota gerçek OSRM çıktısıyla optimize sırayı (t3-t1-t2-t4) döner', () {
     final route = RoutePlanDto.fromJson(
       mockPayload('/v1/routes/current', RequestOptions(path: '/v1/routes/current')),
     );
     expect(route.mode, 'distance_optimized');
     expect(route.hasRealGeometry, isTrue);
-    expect(route.stops.map((s) => s.taskId), ['t1', 't2', 't4', 't3']);
-    expect(route.stops.first.distanceMeters, isNull, reason: 'ilk durağın bacak mesafesi yok');
-    expect(route.totalDistanceMeters, 1185 + 2799 + 2817);
-    expect(route.totalDurationSeconds, 145 + 383 + 292);
+    expect(route.stops.map((s) => s.taskId), ['t3', 't1', 't2', 't4']);
+    expect(route.totalDistanceMeters, 1435 + 1486 + 1026 + 592);
+    expect(route.totalDurationSeconds, 219 + 196 + 281 + 213);
   });
 
   test('demo zimmet listesi Şube devri için barkodlu 3 parsel döner', () {

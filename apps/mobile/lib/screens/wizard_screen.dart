@@ -2,11 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n.dart';
+import '../media_upload.dart';
 import '../motion.dart';
 import '../session.dart';
+import '../signature.dart';
+import '../privacy.dart';
 import '../theme.dart';
 import '../widgets.dart';
-import 'fail_screen.dart';
+import 'return_screen.dart';
 import 'kyc_screen.dart';
 import 'result_screen.dart';
 
@@ -24,7 +28,10 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
   String? recipient;
   String proof = 'photo';
   bool photo = false;
-  final signature = <Offset?>[];
+  String? photoMediaId;
+  String? signMediaId;
+  SignatureCapture? signature;
+  final _pad = GlobalKey<SignaturePadState>();
   bool otpSent = false;
   final otp = TextEditingController();
   String? error;
@@ -34,13 +41,13 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
   // Dg.dark at call time, so this must re-evaluate on every access instead
   // of being frozen at first use (otherwise it'd go stale after a
   // koyu/açık tema toggle).
-  static List<(String, String, IconData, Color, Color)> get options => [
-    ('recipient', 'Alıcının kendisi', LucideIcons.user, Dg.violetBg, Dg.violet),
-    ('relative', 'Aile bireyi', LucideIcons.users, Dg.blueBg, Dg.blue),
-    ('neighbor', 'Komşu', LucideIcons.doorOpen, Dg.amberBg, Dg.amber),
+  static List<(String, String, IconData, Color, Color)> optionsFor(L10n l) => [
+    ('recipient', l.recipientSelf, LucideIcons.user, Dg.violetBg, Dg.violet),
+    ('relative', l.familyMember, LucideIcons.users, Dg.blueBg, Dg.blue),
+    ('neighbor', l.neighbor, LucideIcons.doorOpen, Dg.amberBg, Dg.amber),
     (
       'workplace',
-      'İş yeri / resepsiyon',
+      l.workplace,
       LucideIcons.building2,
       Dg.greenBg,
       Dg.green,
@@ -53,43 +60,116 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
     super.dispose();
   }
 
-  bool get proofDone => proof == 'photo' ? photo : signature.isNotEmpty;
+  bool get proofDone =>
+      proof == 'photo' ? photo : signature != null && !signature!.isEmpty;
 
-  String get whoLabel => options
+  String whoLabel(L10n l) => optionsFor(l)
       .firstWhere(
         (o) => o.$1 == recipient,
         orElse: () => ('', '—', LucideIcons.circle, Dg.elev, Dg.ink),
       )
       .$2;
 
-  String get cta {
-    if (step == 1 && proofDone) return 'Kullan';
-    if (step == 2) return otpSent ? 'Doğrula ve teslim et' : 'Kodu gönder';
-    return 'Devam';
+  String cta(L10n l) {
+    if (step == 1 && proofDone) return l.usePhoto;
+    if (step == 2) return otpSent ? l.verifyAndDeliver : l.sendCodeCta;
+    return l.continueLabel;
   }
 
-  void _next() {
+  Future<void> _next() async {
+    final l = context.l10n;
+    final s = ref.read(sessionProvider);
     setState(() => error = null);
     if (step == 0 && recipient == null) {
-      setState(() => error = 'Teslim alan kişiyi seçin.');
+      setState(() => error = l.pickRecipient);
       return;
     }
     if (step == 1 && !proofDone) {
-      setState(() => error = 'Kapı fotoğrafı veya alıcı imzası gerekli.');
+      setState(() => error = l.proofNeeded);
       return;
+    }
+    if (step == 0) {
+      s.submitStep(
+        taskId: widget.taskId,
+        stepKey: 'varis_kontrolu',
+        skipReasonCode: 'GPS_UNAVAILABLE',
+        status: 'completed',
+      );
+      s.submitStep(
+        taskId: widget.taskId,
+        stepKey: 'barkod_okut',
+        value: {'code': s.taskById(widget.taskId).ref},
+      );
+      s.submitStep(
+        taskId: widget.taskId,
+        stepKey: 'alici_kim',
+        value: {
+          'teslim_alan': recipient,
+          'teslim_alan_ad': s.taskById(widget.taskId).recipient,
+        },
+      );
+    }
+    if (step == 1) {
+      if (proof == 'photo' && photoMediaId != null) {
+        s.submitStep(
+          taskId: widget.taskId,
+          stepKey: 'teslim_fotografi',
+          mediaIds: [photoMediaId!],
+        );
+      }
+      if (proof == 'sign') {
+        signMediaId ??= await uploadEvidence(
+          api: s.api,
+          bytes: tinyPng(),
+          kind: 'signature',
+          contentType: 'image/png',
+          taskId: widget.taskId,
+          stepKey: 'alici_imza',
+        );
+        if (signMediaId != null) {
+          s.submitStep(
+            taskId: widget.taskId,
+            stepKey: 'alici_imza',
+            value: signature?.toProof(),
+            mediaIds: [signMediaId!],
+          );
+        }
+      }
     }
     if (step == 2) {
       if (!otpSent) {
+        final sent = await s.sendDeliveryOtp(widget.taskId);
+        if (!mounted) return;
+        if (!sent) {
+          setState(() => error = l.otpMismatchAsk);
+          return;
+        }
         setState(() => otpSent = true);
         return;
       }
-      if (!ref.read(sessionProvider).verifyDeliveryOtp(otp.text.trim())) {
-        setState(() => error = 'Kod eşleşmedi. Alıcıya yeniden sorun.');
+      if (!await s.verifyDeliveryOtp(widget.taskId, otp.text.trim())) {
+        if (!mounted) return;
+        setState(() => error = l.otpMismatchAsk);
         return;
       }
-      ref
-          .read(sessionProvider)
-          .deliverTask(widget.taskId, receivedBy: whoLabel);
+      if (recipient == 'recipient' && s.taskById(widget.taskId).otpRequired) {
+        s.submitStep(
+          taskId: widget.taskId,
+          stepKey: 'otp_dogrula',
+          value: {'verificationToken': s.deliveryOtpToken},
+        );
+      }
+      s.deliverTask(
+        widget.taskId,
+        receivedBy: whoLabel(l),
+        proof: proof == 'sign'
+            ? signature?.toProof()
+            : const {
+                'type': 'DOOR_PHOTO',
+                'channel': 'CAMERA_CAPTURE',
+                'btk': {'status': 'PENDING_INTEGRATION', 'qualified': false},
+              },
+      );
       setState(() => done = true);
       return;
     }
@@ -99,7 +179,7 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
   Future<void> _goFail() async {
     final failed = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
-        builder: (_) => FailScreen(taskId: widget.taskId),
+        builder: (_) => ReturnScreen(taskId: widget.taskId),
       ),
     );
     if (failed == true && mounted)
@@ -109,13 +189,20 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
   @override
   Widget build(BuildContext context) {
     final s = ref.watch(sessionProvider);
-    final task = s.taskById(widget.taskId);
+    final l = context.l10n;
+    final task = s.taskOrNull(widget.taskId);
+    if (task == null) {
+      return Scaffold(
+        appBar: AppBar(),
+        body: Center(child: Text(l.stopGone)),
+      );
+    }
 
     if (done) {
       return DeliveryResultScreen(
         success: true,
         task: task,
-        who: whoLabel,
+        who: whoLabel(l),
         online: s.online,
         next: s.nextStop,
         onClose: () => Navigator.popUntil(context, (r) => r.isFirst),
@@ -131,8 +218,10 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
       );
     }
 
-    final titles = ['Teslim alan', 'Kanıt', 'Teslim kodu'];
-    return Scaffold(
+    final titles = [l.recipient, l.proof, l.deliveryCode];
+    return PrivacyGate(
+      active: otpSent,
+      child: Scaffold(
       appBar: AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -140,7 +229,7 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
           children: [
             Text(titles[step]),
             Text(
-              'Adım ${step + 1}/3  ·  ${task.ref}',
+              '${l.stepOf(step + 1, 3)}  ·  ${task.ref}',
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
@@ -162,7 +251,8 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
                     child: Container(
                       height: 4,
                       decoration: BoxDecoration(
-                        color: i <= step ? Dg.primaryGradientStart : Dg.elev,
+                        gradient: i <= step ? Dg.primaryGradient : null,
+                        color: i <= step ? null : Dg.elev,
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -175,55 +265,84 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
               children: [
+                DgCard(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                  child: Row(
+                    children: [
+                      InitialsAvatar(
+                        name: task.recipient,
+                        photoUrl: task.personPhoto,
+                        size: 44,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              task.recipient,
+                              style: Dg.ui(size: 16, weight: FontWeight.w700),
+                            ),
+                            const SizedBox(height: 2),
+                            Mono(
+                              '${task.ref}  ·  ${task.window}',
+                              size: 12,
+                              color: Dg.ink3,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              task.address,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Dg.ui(size: 12, color: Dg.ink3),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
                 if (step == 0) ...[
-                  for (final (i, o) in options.indexed)
+                  Text(
+                    l.whoReceived,
+                    style: Dg.ui(
+                      size: 14,
+                      weight: FontWeight.w600,
+                      color: Dg.ink2,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  for (final (i, o) in optionsFor(l).indexed)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 10),
                       child: StaggerIn(
                         index: i,
-                        child: Material(
-                          color: recipient == o.$1 ? Dg.accentSoft : Dg.surface,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(Dg.radius),
-                            side: BorderSide(
-                              color: recipient == o.$1 ? Dg.accent : Dg.rule,
-                              width: recipient == o.$1 ? 2 : 1,
-                            ),
-                          ),
-                          child: InkWell(
-                            onTap: () => setState(() => recipient = o.$1),
-                            borderRadius: BorderRadius.circular(Dg.radius),
-                            child: Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Row(
-                                children: [
-                                  IconTintBadge(
-                                    icon: o.$3,
-                                    tint: o.$4,
-                                    ink: o.$5,
-                                    size: 40,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      o.$2,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 16,
-                                      ),
+                        child: DgChoiceSurface(
+                          selected: recipient == o.$1,
+                          onTap: () => setState(() => recipient = o.$1),
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Row(
+                              children: [
+                                IconTintBadge(
+                                  icon: o.$3,
+                                  tint: o.$4,
+                                  ink: o.$5,
+                                  size: 40,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    o.$2,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 16,
                                     ),
                                   ),
-                                  Icon(
-                                    recipient == o.$1
-                                        ? LucideIcons.circleCheck
-                                        : LucideIcons.circle,
-                                    color: recipient == o.$1
-                                        ? Dg.accent
-                                        : Dg.ink3,
-                                    size: 22,
-                                  ),
-                                ],
-                              ),
+                                ),
+                                DgSelectMark(selected: recipient == o.$1),
+                              ],
                             ),
                           ),
                         ),
@@ -232,7 +351,7 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
                 ],
                 if (step == 1) ...[
                   SegmentedTabs(
-                    labels: const ['Fotoğraf', 'İmza'],
+                    labels: [l.photoFull, l.signature],
                     index: proof == 'photo' ? 0 : 1,
                     onChanged: (i) =>
                         setState(() => proof = i == 0 ? 'photo' : 'sign'),
@@ -241,12 +360,22 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
                   if (proof == 'photo') ...[
                     Viewfinder(
                       captured: photo,
-                      onCapture: () => setState(() => photo = true),
+                      onCapture: (path) async {
+                        setState(() => photo = true);
+                        final id = await uploadFileEvidence(
+                          api: ref.read(sessionProvider).api,
+                          path: path,
+                          kind: 'photo',
+                          taskId: widget.taskId,
+                          stepKey: 'teslim_fotografi',
+                        );
+                        if (mounted) setState(() => photoMediaId = id);
+                      },
                     ),
                     if (photo)
                       TextButton(
                         onPressed: () => setState(() => photo = false),
-                        child: const Text('Tekrar çek'),
+                        child: Text(l.retake),
                       ),
                   ] else ...[
                     Container(
@@ -260,7 +389,7 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Yukarıda belirtilen gönderiyi eksiksiz ve hasarsız teslim aldığımı beyan ederim.',
+                            l.declaration,
                             style: TextStyle(
                               fontSize: 13,
                               color: Dg.ink2,
@@ -270,21 +399,18 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
                           const SizedBox(height: 10),
                           const DgDivider(),
                           const SizedBox(height: 10),
-                          _declarationRow('Gönderi no', task.ref),
-                          _declarationRow('Alıcı', task.recipient),
-                          _declarationRow('Tarih', _now()),
+                          _declarationRow(l.shipmentNo, task.ref),
+                          _declarationRow(l.recipientName, task.recipient),
+                          _declarationRow(l.date, _now()),
                         ],
                       ),
                     ),
-                    _SignaturePad(
-                      points: signature,
-                      onChanged: (pts) => setState(() {
-                        signature
-                          ..clear()
-                          ..addAll(pts);
-                      }),
+                    SignaturePad(
+                      key: _pad,
+                      hint: l.signHere,
+                      onChanged: (cap) => setState(() => signature = cap),
                     ),
-                    if (signature.isNotEmpty) ...[
+                    if (proofDone) ...[
                       const SizedBox(height: 10),
                       Row(
                         children: [
@@ -299,13 +425,16 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
-                              'İmza kaydı · Sahada imzalandı',
+                              l.signedOnField,
                               style: Dg.ui(size: 13, color: Dg.ink2),
                             ),
                           ),
                           TextButton(
-                            onPressed: () => setState(signature.clear),
-                            child: const Text('Temizle'),
+                            onPressed: () {
+                              _pad.currentState?.clear();
+                              setState(() => signature = null);
+                            },
+                            child: Text(l.clear),
                           ),
                         ],
                       ),
@@ -326,16 +455,17 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
                             color: Colors.white.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(14),
                           ),
-                          child: const Icon(
+                          child: DgIcon(
                             LucideIcons.key,
                             size: 20,
                             color: Colors.white,
+                            weight: 600,
                           ),
                         ),
                         const SizedBox(height: 12),
-                        const Text(
-                          'Alıcıdan 4 haneli kodu isteyin',
-                          style: TextStyle(
+                        Text(
+                          l.askFourDigit,
+                          style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w700,
                             fontSize: 17,
@@ -343,9 +473,7 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          otpSent
-                              ? 'Kod, alıcının telefonuna SMS ile gönderildi. Kodu görmeden teslim etme.'
-                              : 'Alıcının telefonuna tek kullanımlık bir kod göndereceğiz.',
+                          otpSent ? l.otpSentToRecipient : l.otpWillSend,
                           style: const TextStyle(
                             color: Color(0xFF9A9E90),
                             fontSize: 13,
@@ -365,7 +493,7 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
                         children: [
                           Expanded(
                             child: Text(
-                              'Kod gelmedi mi? Yeniden gönder',
+                              l.resendCode,
                               style: Dg.ui(
                                 size: 14,
                                 weight: FontWeight.w600,
@@ -390,11 +518,11 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
                         children: [
                           Expanded(
                             child: Text(
-                              'Kod alınamıyor · kimlik ile doğrula',
+                              l.verifyWithId,
                               style: Dg.ui(size: 14, color: Dg.ink2),
                             ),
                           ),
-                          Icon(
+                          DgIcon(
                             LucideIcons.chevronRight,
                             size: 16,
                             color: Dg.ink3,
@@ -432,11 +560,15 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
                 padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
                 child: Column(
                   children: [
-                    FilledButton(onPressed: _next, child: Text(cta)),
+                    DgButton(
+                      label: cta(l),
+                      trailing: LucideIcons.arrowRight,
+                      onPressed: _next,
+                    ),
                     TextButton(
                       onPressed: _goFail,
                       child: Text(
-                        'Teslim edemedim',
+                        l.couldNotDeliver,
                         style: TextStyle(
                           color: Dg.hi,
                           fontWeight: FontWeight.w600,
@@ -450,6 +582,7 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
             ),
           ),
         ],
+      ),
       ),
     );
   }
@@ -476,86 +609,4 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
     String two(int v) => v.toString().padLeft(2, '0');
     return '${two(n.day)}.${two(n.month)}.${n.year} ${two(n.hour)}:${two(n.minute)}';
   }
-}
-
-class _SignaturePad extends StatefulWidget {
-  const _SignaturePad({required this.points, required this.onChanged});
-
-  final List<Offset?> points;
-  final ValueChanged<List<Offset?>> onChanged;
-
-  @override
-  State<_SignaturePad> createState() => _SignaturePadState();
-}
-
-class _SignaturePadState extends State<_SignaturePad> {
-  late final _pts = List<Offset?>.from(widget.points);
-
-  @override
-  Widget build(BuildContext context) {
-    return AspectRatio(
-      aspectRatio: 342 / 274,
-      child: GestureDetector(
-        onPanUpdate: (d) {
-          final box = context.findRenderObject() as RenderBox;
-          setState(() => _pts.add(box.globalToLocal(d.globalPosition)));
-          widget.onChanged(_pts);
-        },
-        onPanEnd: (_) {
-          setState(() => _pts.add(null));
-          widget.onChanged(_pts);
-        },
-        child: Container(
-          decoration: BoxDecoration(
-            color: Dg.surface,
-            borderRadius: BorderRadius.circular(Dg.radius),
-            border: Border.all(color: Dg.rule),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              if (_pts.isEmpty)
-                Center(
-                  child: Text(
-                    'Parmağınla imzala',
-                    style: Dg.ui(size: 14, color: Dg.ink3),
-                  ),
-                ),
-              CustomPaint(painter: _SignaturePainter(_pts)),
-              Positioned(
-                left: 20,
-                right: 20,
-                bottom: 34,
-                child: const DgDivider(),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _SignaturePainter extends CustomPainter {
-  const _SignaturePainter(this.points);
-  final List<Offset?> points;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = Dg.ink
-      ..strokeWidth = 2.6
-      ..strokeCap = StrokeCap.round
-      ..style = PaintingStyle.stroke;
-    for (var i = 0; i < points.length - 1; i++) {
-      final a = points[i];
-      final b = points[i + 1];
-      if (a != null && b != null) canvas.drawLine(a, b, p);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _SignaturePainter oldDelegate) =>
-      oldDelegate.points != points;
 }

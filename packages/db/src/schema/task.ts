@@ -74,6 +74,8 @@ export const tasks = pgTable(
     contactName: varchar('contact_name', { length: 160 }),
     /** Encrypted at rest; the app only ever receives the masked proxy number. */
     contactPhoneEncrypted: text('contact_phone_encrypted'),
+    /** HMAC of normalised MSISDN (90…); lookup index, not reversible. */
+    contactPhoneHmac: varchar('contact_phone_hmac', { length: 64 }),
     contactNote: varchar('contact_note', { length: 500 }),
 
     slotStartAt: timestamp('slot_start_at', { withTimezone: true }),
@@ -117,6 +119,9 @@ export const tasks = pgTable(
       .where(sql`status not in ('COMPLETED', 'FAILED', 'CANCELLED')`),
     positionIdx: index('tasks_position_idx').using('gist', t.position),
     statusIdx: index('tasks_status_idx').on(t.tenantId, t.status, t.createdAt),
+    phoneHmacIdx: index('tasks_contact_phone_hmac_idx')
+      .on(t.contactPhoneHmac)
+      .where(sql`contact_phone_hmac is not null`),
   }),
 );
 
@@ -229,5 +234,8 @@ export const maskedCallSessions = pgTable(
     liveIdx: index('masked_calls_live_idx')
       .on(t.expiresAt)
       .where(sql`connected_at is null`),
+    providerSessionIdx: uniqueIndex('masked_calls_provider_session_uq')
+      .on(t.providerSessionId)
+      .where(sql`provider_session_id is not null`),
   }),
 );
