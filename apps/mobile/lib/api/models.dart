@@ -124,19 +124,29 @@ class PresignResult {
 
 class MaskedCallDto {
   const MaskedCallDto({
-    required this.dialNumber,
+    required this.mode,
     required this.sessionId,
     required this.expiresAt,
+    this.dialNumber = '',
+    this.message,
   });
 
+  /// `originated`: Solveline already ringing; do not open `tel:`.
+  /// `dial`: mock / fallback; app may dial [dialNumber].
+  final String mode;
   final String dialNumber;
   final String sessionId;
   final String expiresAt;
+  final String? message;
+
+  bool get originated => mode == 'originated';
 
   factory MaskedCallDto.fromJson(Map<String, dynamic> json) => MaskedCallDto(
+    mode: json['mode'] as String? ?? 'dial',
     dialNumber: json['dialNumber'] as String? ?? '',
     sessionId: json['sessionId'] as String? ?? '',
     expiresAt: json['expiresAt'] as String? ?? '',
+    message: json['message'] as String?,
   );
 }
 
@@ -566,6 +576,7 @@ String supportCategoryLabel(String category) => switch (category) {
   'ACCIDENT' => 'Kaza',
   'SECURITY' => 'Güvenlik',
   'PAYMENT' => 'Ödeme',
+  'EXPEDITE' => 'Hızlandırma',
   'OTHER' => 'Diğer',
   _ => category,
 };

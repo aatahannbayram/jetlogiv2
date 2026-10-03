@@ -28,7 +28,7 @@ import {
   visibleSteps,
 } from '@dijigoo/core';
 import type { ConditionContext } from '@dijigoo/core';
-import { maskedCallSessions, media, taskItems, taskSteps, taskTransitions, tasks, workflows } from '@dijigoo/db';
+import { couriers, maskedCallSessions, media, taskItems, taskSteps, taskTransitions, tasks, workflows } from '@dijigoo/db';
 import { and, asc, eq, gte, inArray, lt, or, sql } from 'drizzle-orm';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
@@ -44,7 +44,7 @@ import {
   transitionDocument,
 } from '../services/document-status.js';
 import { PostgresIdempotencyStore } from '../services/idempotency-store.js';
-import { plaintextPhone, proxyDialNumber } from '../services/masked-call.js';
+import { plaintextPhone, proxyDialNumber, SOLVELINE_DID_E164 } from '../services/masked-call.js';
 import { signOtpProof, verifyOtpProof } from '../services/otp-token.js';
 import { openReturnsForFailedTask } from '../services/return-status.js';
 import { resolveSlaInstance, startSlaInstance } from '../services/sla.js';
@@ -133,8 +133,15 @@ export async function taskRoutes(app: FastifyInstance, { ctx }: { ctx: AppContex
       const courier = await app.authenticate(request);
       const task = await loadTask(ctx, courier, request.params.taskId);
       const { target } = request.body;
+      const provider = ctx.env.MASKED_CALL_PROVIDER;
 
-      if (ctx.env.MASKED_CALL_PROVIDER !== 'mock' && !ctx.env.MASKED_CALL_API_KEY) {
+      if (provider !== 'mock' && provider !== 'solveline' && !ctx.env.MASKED_CALL_API_KEY) {
+        throw new AppError('UPSTREAM_UNAVAILABLE', {
+          message: 'Arama servisi su anda kullanilamiyor.',
+          userVisible: true,
+        });
+      }
+      if (provider === 'solveline' && !ctx.solvelineCall) {
         throw new AppError('UPSTREAM_UNAVAILABLE', {
           message: 'Arama servisi su anda kullanilamiyor.',
           userVisible: true,
@@ -161,8 +168,12 @@ export async function taskRoutes(app: FastifyInstance, { ctx }: { ctx: AppContex
         });
       }
 
-      const dialNumber =
-        target === 'recipient' ? proxyDialNumber(recipient) : recipient;
+      const originate = provider === 'solveline' && target === 'recipient' && ctx.solvelineCall;
+      const dialNumber = originate
+        ? SOLVELINE_DID_E164
+        : target === 'recipient'
+          ? proxyDialNumber(recipient)
+          : recipient;
 
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
       const [session] = await ctx.db
@@ -171,13 +182,52 @@ export async function taskRoutes(app: FastifyInstance, { ctx }: { ctx: AppContex
           taskId: task.id,
           courierId: courier.courierId,
           target,
-          provider: ctx.env.MASKED_CALL_PROVIDER,
+          provider,
           proxyNumber: dialNumber,
           expiresAt,
         })
         .returning();
 
+      if (originate) {
+        const [courierRow] = await ctx.db
+          .select({ phone: couriers.phone })
+          .from(couriers)
+          .where(eq(couriers.id, courier.courierId))
+          .limit(1);
+        if (!courierRow?.phone) {
+          throw new AppError('BUSINESS_RULE_VIOLATION', {
+            message: 'Kurye telefonu kayitli degil.',
+            userVisible: true,
+          });
+        }
+        try {
+          const originated = await ctx.solvelineCall!.originateClickToCall({
+            courierMsisdn: courierRow.phone,
+            recipientMsisdn: recipient,
+            variable: session!.id,
+          });
+          await ctx.db
+            .update(maskedCallSessions)
+            .set({ providerSessionId: originated.uniqueId })
+            .where(eq(maskedCallSessions.id, session!.id));
+        } catch (cause) {
+          throw new AppError('UPSTREAM_UNAVAILABLE', {
+            message: 'Arama kuyruga alinamadi.',
+            userVisible: true,
+            cause,
+          });
+        }
+        return {
+          mode: 'originated' as const,
+          dialNumber: SOLVELINE_DID_E164,
+          sessionId: session!.id,
+          expiresAt: expiresAt.toISOString(),
+          message: 'Sizi ve aliciyi ariyoruz',
+        };
+      }
+
       return {
+        mode: 'dial' as const,
         dialNumber,
         sessionId: session!.id,
         expiresAt: expiresAt.toISOString(),

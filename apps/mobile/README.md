@@ -240,6 +240,10 @@ açılınca ya da uygulama kapanıp açılınca sıfırlanmaz.
   (`loginWithPanel`/`hydratePanelSession`); görev/senkron akışını **henüz**
   devralmadı (bkz. §4, Linear JETLOG-20).
 
+Canlı `POST /v1/tasks/:id/call` `mode: originated` donerse uygulama `tel:`
+acmaz (Solveline kuryeyi sonra aliciyi arar). Demo/mock `mode: dial` ile
+eski `tel:` yolunu kullanir. Bkz. `docs/09-solveline.md`.
+
 ---
 
 ## 2. Ekranlar

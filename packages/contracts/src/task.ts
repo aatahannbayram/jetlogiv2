@@ -232,9 +232,15 @@ export const MaskedCallRequest = z
 
 export const MaskedCallResponse = z
   .object({
-    /** Proxy number the app dials. Real MSISDN never reaches the handset. */
-    dialNumber: z.string(),
+    /**
+     * `originated`: Solveline already ringing courier then recipient. App
+     * must not open `tel:`. `dial`: mock / fallback; app may dial dialNumber.
+     */
+    mode: z.enum(['originated', 'dial']).default('dial'),
+    /** Present in dial mode. Originated may echo the 850 DID for display. */
+    dialNumber: z.string().optional(),
     sessionId: Uuid,
     expiresAt: Timestamp,
+    message: z.string().max(200).optional(),
   })
   .openapi('MaskedCallResponse');

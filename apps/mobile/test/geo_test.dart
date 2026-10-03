@@ -3,6 +3,7 @@ import 'package:dijigoo_kurye/api/models.dart';
 import 'package:dijigoo_kurye/geo.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:latlong2/latlong.dart';
 
 void main() {
   test('decodePolyline: known short example (Google\'s reference case)', () {
@@ -30,5 +31,28 @@ void main() {
     expect(points.first.longitude, closeTo(29.0702, 2e-2));
     expect(points.last.latitude, closeTo(38.1460, 2e-2));
     expect(points.last.longitude, closeTo(29.0488, 2e-2));
+  });
+
+  test('Cupertino GPS Denizli duraklarına uzak sayılır', () {
+    const denizli = LatLng(38.1512, 29.0614);
+    const cupertino = LatLng(37.3349, -122.0090);
+    expect(
+      originNearStops(origin: cupertino, stops: [denizli]),
+      isFalse,
+    );
+    expect(
+      originNearStops(origin: const LatLng(38.1476, 29.0702), stops: [denizli]),
+      isTrue,
+    );
+    expect(originNearStops(origin: cupertino, stops: const []), isTrue);
+  });
+
+  test('keepNearStops uzak kökeni atar', () {
+    const stop = LatLng(38.1512, 29.0614);
+    final kept = keepNearStops(
+      const [LatLng(37.3349, -122.0090), stop],
+      [stop],
+    );
+    expect(kept, [stop]);
   });
 }

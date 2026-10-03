@@ -148,9 +148,8 @@ export const supportTickets = pgTable(
     tenantId: uuid('tenant_id')
       .notNull()
       .references(() => tenants.id, { onDelete: 'restrict' }),
-    courierId: uuid('courier_id')
-      .notNull()
-      .references(() => couriers.id, { onDelete: 'cascade' }),
+    /** Null when the ticket came from IVR / system rather than a courier JWT. */
+    courierId: uuid('courier_id').references(() => couriers.id, { onDelete: 'cascade' }),
     reference: varchar('reference', { length: 40 }).notNull(),
     category: supportCategory('category').notNull(),
     status: supportStatus('status').notNull().default('open'),

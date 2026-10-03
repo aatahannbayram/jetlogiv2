@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../geo.dart';
 import '../l10n.dart';
 import '../launchers.dart';
 import '../models.dart';
@@ -157,6 +159,30 @@ class _NextStopCardState extends ConsumerState<NextStopCard> {
               _MapShot(
                 height: mapH,
                 url: snap,
+                map: task.hasCoordinates
+                    ? MapStrip(
+                        height: mapH,
+                        clipTopOnly: false,
+                        rounded: false,
+                        showBadge: false,
+                        points: [LatLng(task.lat, task.lng)],
+                        roadPoints: slice?.points,
+                        couriers: [
+                          FleetCourier(
+                            id: 'self',
+                            name: '',
+                            lat: s.selfLat,
+                            lng: s.selfLng,
+                            self: true,
+                          ),
+                        ],
+                        fitTo: keepNearStops([
+                          LatLng(s.selfLat, s.selfLng),
+                          LatLng(task.lat, task.lng),
+                          ...?slice?.points,
+                        ], [LatLng(task.lat, task.lng)]),
+                      )
+                    : null,
                 indexLabel: l.stopIndexOf(index, total),
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(builder: (_) => const RouteScreen()),
@@ -296,10 +322,12 @@ class _MapShot extends StatelessWidget {
     required this.url,
     required this.indexLabel,
     required this.onTap,
+    this.map,
   });
 
   final double height;
   final String? url;
+  final Widget? map;
   final String indexLabel;
   final VoidCallback onTap;
 
@@ -319,9 +347,11 @@ class _MapShot extends StatelessWidget {
                 url!,
                 fit: BoxFit.cover,
                 gaplessPlayback: true,
-                errorBuilder: (_, _, _) => const SizedBox.shrink(),
-              ),
-            if (url == null)
+                errorBuilder: (_, _, _) => map ?? const SizedBox.shrink(),
+              )
+            else if (map != null)
+              map!
+            else
               Center(
                 child: DgIcon(LucideIcons.map, color: Dg.text3, size: 22),
               ),

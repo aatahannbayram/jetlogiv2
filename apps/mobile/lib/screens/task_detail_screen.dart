@@ -107,7 +107,10 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                   polylinePrecision: slice?.precision ?? 6,
                   estimated: slice?.estimated ?? true,
                   couriers: session.visibleFleet.where((c) => c.self).toList(),
-                  fitTo: t.hasCoordinates ? [self, dest] : [self],
+                  fitTo: keepNearStops(
+                    t.hasCoordinates ? [self, dest] : [self],
+                    t.hasCoordinates ? [dest] : const [],
+                  ),
                   showBadge: false,
                 ),
                 // `Positioned` şart: bu Stack `StackFit.expand` kullanıyor,

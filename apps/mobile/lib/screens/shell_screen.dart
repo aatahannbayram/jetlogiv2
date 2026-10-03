@@ -8,6 +8,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../alerts.dart';
 import '../api/models.dart';
+import '../geo.dart';
 import '../l10n.dart';
 import '../launchers.dart';
 import '../models.dart';
@@ -352,11 +353,11 @@ class _RouteMap extends ConsumerWidget {
       fitEpoch: fitEpoch,
       numberStops: true,
       fitPadding: mapRouteFitPadding(height: size.height, topInset: topInset),
-      fitTo: [
+      fitTo: keepNearStops([
         LatLng(s.selfLat, s.selfLng),
         ...pts,
         if (day != null) ...day.waypoints,
-      ],
+      ], pts),
     );
   }
 }

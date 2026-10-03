@@ -1,9 +1,12 @@
-import { decryptField } from '@dijigoo/core';
+import { decryptField, normalizeE164 } from '@dijigoo/core';
 
 /** Placeholder DID the handset dials. Never the recipient MSISDN. */
 export const MOCK_PROXY_MSISDN = '+908500000026';
 
-/** Proxy the courier dials — must not equal the stored recipient number. */
+/** Live 850 DID shown to the customer; never a personal GSM. */
+export const SOLVELINE_DID_E164 = '+908504808538';
+
+/** Proxy the courier dials. Must not equal the stored recipient number. */
 export function proxyDialNumber(recipientMsisdn: string): string {
   const recipient = dialableFromStored(recipientMsisdn) ?? recipientMsisdn;
   if (recipient === MOCK_PROXY_MSISDN) {
@@ -22,11 +25,5 @@ export function plaintextPhone(
 
 /** Mock / live-prep: stored value is treated as MSISDN until field encryption lands. */
 export function dialableFromStored(raw: string | null | undefined): string | null {
-  if (!raw) return null;
-  const digits = raw.replace(/\D/g, '');
-  if (digits.length < 10) return null;
-  if (digits.startsWith('90') && digits.length >= 12) return `+${digits}`;
-  if (digits.startsWith('0') && digits.length >= 11) return `+90${digits.slice(1)}`;
-  if (digits.length === 10) return `+90${digits}`;
-  return `+${digits}`;
+  return normalizeE164(raw);
 }

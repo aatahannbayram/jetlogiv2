@@ -207,6 +207,8 @@ class L10n {
   String get noRecipientPhone =>
       _t('Alıcı telefonu yok.', 'Recipient phone is missing.');
   String get callOpening => _t('Aranıyor…', 'Calling…');
+  String get callConnecting =>
+      _t('Sizi ve alıcıyı arıyoruz', 'Calling you and the recipient');
 
   String get startShiftTitle => _t('Vardiya başlat', 'Start shift');
   String get shiftSelfieHint => _t('Bu fotoğraf yalnız vardiya kanıtı. Yüz aranmaz.', 'This photo is shift proof only. Faces are not searched.');

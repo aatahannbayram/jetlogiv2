@@ -237,6 +237,7 @@ void main() {
       '/v1/tasks/t1/call',
       RequestOptions(path: '/v1/tasks/t1/call'),
     );
+    expect(payload['mode'], 'dial');
     expect(payload['dialNumber'], '+905321110026');
     expect(payload['sessionId'], isNotEmpty);
     final dio = Dio();
@@ -255,7 +256,20 @@ void main() {
       ),
     );
     final call = await MobileApi(dio: dio).startMaskedCall('t1');
+    expect(call.mode, 'dial');
+    expect(call.originated, isFalse);
     expect(call.dialNumber, '+905321110026');
+  });
+
+  test('MaskedCallDto originated tel acmaz', () {
+    final call = MaskedCallDto.fromJson({
+      'mode': 'originated',
+      'sessionId': '00000000-0000-4000-a000-000000000001',
+      'expiresAt': '2026-09-14T12:00:00.000Z',
+      'message': 'Sizi ve aliciyi ariyoruz',
+    });
+    expect(call.originated, isTrue);
+    expect(call.dialNumber, isEmpty);
   });
 
   test('ReturnScreen gerekçesi kanonik outcomeCode’a düşer', () {

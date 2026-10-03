@@ -1,3 +1,6 @@
+import { createSolvelineCallClient } from './solveline-call.js';
+import { SolvelineSmsProvider, type SolvelineSmsEnv } from './solveline-sms.js';
+
 export interface SmsMessage {
   to: string;
   body: string;
@@ -15,6 +18,10 @@ export interface IvrCall {
   /** Digits are read one by one, with a pause between each. */
   code: string;
   language: 'tr' | 'en';
+  /** Default otp (994). Appointment (993) does not bridge the courier. */
+  kind?: 'otp' | 'appointment';
+  dateLabel?: string;
+  placeLabel?: string;
 }
 
 /**
@@ -54,7 +61,7 @@ export class MockSmsProvider implements SmsProvider {
 }
 
 export interface SmsProviderEnv {
-  SMS_PROVIDER: 'mock' | 'netgsm' | 'verimor' | 'iletimerkezi';
+  SMS_PROVIDER: 'mock' | 'netgsm' | 'verimor' | 'iletimerkezi' | 'solveline';
 }
 
 export interface NetgsmSmsEnv {
@@ -99,14 +106,19 @@ export class NetgsmSmsProvider implements SmsProvider {
 }
 
 export function createSmsProvider(
-  env: SmsProviderEnv & NetgsmSmsEnv,
+  env: SmsProviderEnv & NetgsmSmsEnv & SolvelineSmsEnv,
   log: (msg: string) => void,
+  fetchImpl: typeof fetch = fetch,
 ): SmsProvider {
   switch (env.SMS_PROVIDER) {
     case 'mock':
       return new MockSmsProvider(log);
     case 'netgsm':
-      return new NetgsmSmsProvider(env, log);
+      return new NetgsmSmsProvider(env, log, fetchImpl);
+    case 'solveline': {
+      const call = createSolvelineCallClient(env, log, fetchImpl);
+      return new SolvelineSmsProvider(env, log, fetchImpl, call);
+    }
     default:
       throw new Error(
         `SMS saglayicisi "${env.SMS_PROVIDER}" henuz uygulanmadi. ` +

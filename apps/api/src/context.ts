@@ -1,5 +1,5 @@
-import { createSmsProvider } from '@dijigoo/core';
-import type { SmsProvider } from '@dijigoo/core';
+import { createSmsProvider, createSolvelineCallClient } from '@dijigoo/core';
+import type { SmsProvider, SolvelineCallClient } from '@dijigoo/core';
 import { createDatabase } from '@dijigoo/db';
 import type { Database } from '@dijigoo/db';
 import Redis from 'ioredis';
@@ -24,6 +24,7 @@ export interface AppContext {
   tokens: TokenService;
   otp: OtpService;
   sms: SmsProvider;
+  solvelineCall: SolvelineCallClient | null;
   routing: RoutingProvider;
   storage: StorageService;
   integrity: IntegrityService;
@@ -45,6 +46,7 @@ export function createContext(env: Env, log: (msg: string) => void = console.log
   });
 
   const sms = createSmsProvider(env, log);
+  const solvelineCall = createSolvelineCallClient(env, log);
   const routing = createRoutingProvider(env, log);
 
   return {
@@ -52,6 +54,7 @@ export function createContext(env: Env, log: (msg: string) => void = console.log
     db,
     redis,
     sms,
+    solvelineCall,
     routing,
     tokens: new TokenService(db, env),
     otp: new OtpService(db, sms),

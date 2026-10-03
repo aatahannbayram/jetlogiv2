@@ -1,5 +1,18 @@
 import { z } from 'zod';
 
+function emptyToUndef(value: unknown): unknown {
+  return typeof value === 'string' && value.trim() === '' ? undefined : value;
+}
+
+const optionalString = z.preprocess(emptyToUndef, z.string().min(1).optional());
+
+function optionalUrl(fallback?: string) {
+  return z.preprocess(
+    emptyToUndef,
+    fallback ? z.string().url().default(fallback) : z.string().url().optional(),
+  );
+}
+
 /**
  * Parsed once at boot. A missing secret should crash the process on start,
  * not surface as a 500 the first time a courier tries to log in.
@@ -34,12 +47,33 @@ const EnvSchema = z.object({
     .default('false')
     .transform((v) => v === 'true'),
 
-  SMS_PROVIDER: z.enum(['mock', 'netgsm', 'verimor', 'iletimerkezi']).default('mock'),
+  SMS_PROVIDER: z.enum(['mock', 'netgsm', 'verimor', 'iletimerkezi', 'solveline']).default('mock'),
   SMS_API_KEY: z.string().optional(),
   SMS_SENDER_ID: z.string().default('DIJIGOO'),
 
-  MASKED_CALL_PROVIDER: z.enum(['mock', 'netgsm', 'verimor']).default('mock'),
+  MASKED_CALL_PROVIDER: z.enum(['mock', 'netgsm', 'verimor', 'solveline']).default('mock'),
   MASKED_CALL_API_KEY: z.string().optional(),
+
+  SOLVELINE_SMS_BASE_URL: optionalUrl('https://smslogin.nac.com.tr:9588'),
+  SOLVELINE_SMS_USER: optionalString,
+  SOLVELINE_SMS_PASSWORD: optionalString,
+  SOLVELINE_CALL_BASE_URL: optionalUrl('https://capi.ncvav.com'),
+  SOLVELINE_CALL_TOKEN: optionalString,
+  SOLVELINE_CALL_WEBHOOK_URL: optionalUrl(),
+  SOLVELINE_WEBHOOK_SECRET: optionalString,
+  SOLVELINE_CALLER_ID: z.preprocess(emptyToUndef, z.string().default('908504808538')),
+  /** Bos ise DYNAMIC IVR (993/994) kapali. Solveline JetLogi hesabi: firma id=1. 911/991/992 kullanilmaz. */
+  SOLVELINE_FIRMA_ID: optionalString,
+  SOLVELINE_IVR_APPOINTMENT_DEST: z.preprocess(emptyToUndef, z.string().default('993')),
+  SOLVELINE_IVR_OTP_DEST: z.preprocess(emptyToUndef, z.string().default('994')),
+  /** Sesli asistanin bizim API'yi cagirmasi. Bos ise inbound 401. */
+  SOLVELINE_INBOUND_TOKEN: optionalString,
+  /**
+   * Solveline cikis IPv4/CIDR listesi (virgul). Bos = IP kontrolu yok (yerel).
+   * Bizim prod/staging cikis IP'leri buraya yazilmaz; onlari Solveline allowlist'ine
+   * bildiririz (docs/09-solveline.md).
+   */
+  SOLVELINE_INBOUND_CIDRS: optionalString,
 
   /**
    * `osrm` is a self-hosted engine (see `infra/osrm/`) — real distance,

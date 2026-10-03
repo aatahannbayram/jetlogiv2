@@ -1092,6 +1092,7 @@ Map<String, dynamic> mockPayload(String path, RequestOptions options) {
   }
   if (path.contains('/call')) {
     return {
+      'mode': 'dial',
       'dialNumber': '+905321110026',
       'sessionId': Vault.newUuid(),
       'expiresAt': DateTime.now()

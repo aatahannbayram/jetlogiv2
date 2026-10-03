@@ -163,6 +163,7 @@ export const SupportCategory = z.enum([
   'SECURITY',
   'PAYMENT',
   'OTHER',
+  'EXPEDITE',
 ]);
 
 export const SupportTicket = z

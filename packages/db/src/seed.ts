@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { encryptField, fieldKeyFromEnv } from '@dijigoo/core';
+import { encryptField, fieldKeyFromEnv, phoneLookupHmac } from '@dijigoo/core';
 import { eq, sql } from 'drizzle-orm';
 
 import { createDatabase } from './index';
@@ -20,6 +20,16 @@ function storePhone(phone: string): string {
     return encryptField(phone, fieldKeyFromEnv(raw));
   } catch {
     return phone;
+  }
+}
+
+function storePhoneHmac(phone: string): string | null {
+  const raw = process.env['FIELD_ENCRYPTION_KEY'];
+  if (!raw) return null;
+  try {
+    return phoneLookupHmac(phone, fieldKeyFromEnv(raw));
+  } catch {
+    return null;
   }
 }
 
@@ -180,6 +190,7 @@ for (const fixture of fixtures) {
       geocodeConfidence: 'exact',
       contactName: fixture.contactName,
       contactPhoneEncrypted: storePhone(fixture.contactPhone),
+      contactPhoneHmac: storePhoneHmac(fixture.contactPhone),
       codAmount: fixture.codAmount,
       itemCount: 1,
       assignedAt: new Date(),
@@ -196,6 +207,7 @@ for (const fixture of fixtures) {
         status: 'ASSIGNED',
         sequence: fixture.sequence,
         contactPhoneEncrypted: storePhone(fixture.contactPhone),
+        contactPhoneHmac: storePhoneHmac(fixture.contactPhone),
       },
     })
     .returning();

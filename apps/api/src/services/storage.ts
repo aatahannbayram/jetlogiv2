@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import { HeadObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import type { MediaKind } from '@dijigoo/contracts';
@@ -103,6 +105,45 @@ export class StorageService {
       return false;
     }
   }
+
+  /** Server-side copy (call recordings). Bytes never go through the courier app. */
+  async putBytes(input: {
+    mediaId: string;
+    tenantId: string;
+    courierId: string | null;
+    kind: MediaKind;
+    contentType: string;
+    body: Buffer;
+    capturedAt: Date;
+  }): Promise<{ storageKey: string; bucket: string; sha256: string; byteSize: number }> {
+    const bucket = this.bucketFor(input.kind);
+    const storageKey = this.keyFor({
+      mediaId: input.mediaId,
+      tenantId: input.tenantId,
+      courierId: input.courierId ?? 'system',
+      kind: input.kind,
+      contentType: input.contentType,
+      byteSize: input.body.byteLength,
+      sha256: '',
+      capturedAt: input.capturedAt,
+    });
+    const sha256 = createHash('sha256').update(input.body).digest('hex');
+    await this.client.send(
+      new PutObjectCommand({
+        Bucket: bucket,
+        Key: storageKey,
+        Body: input.body,
+        ContentType: input.contentType,
+        ContentLength: input.body.byteLength,
+        ChecksumSHA256: Buffer.from(sha256, 'hex').toString('base64'),
+        Metadata: {
+          'media-id': input.mediaId,
+          'captured-at': input.capturedAt.toISOString(),
+        },
+      }),
+    );
+    return { storageKey, bucket, sha256, byteSize: input.body.byteLength };
+  }
 }
 
 const EXTENSIONS: Record<string, string> = {
@@ -111,4 +152,8 @@ const EXTENSIONS: Record<string, string> = {
   'image/webp': 'webp',
   'application/pdf': 'pdf',
   'audio/mp4': 'm4a',
+  'audio/mpeg': 'mp3',
+  'audio/wav': 'wav',
+  'audio/x-wav': 'wav',
+  'audio/ogg': 'ogg',
 };

@@ -64,6 +64,10 @@
       "description": "Destek kayitlari (v1.1)"
     },
     {
+      "name": "Ivr",
+      "description": "Solveline sesli asistan inbound sorgu ve ticket"
+    },
+    {
       "name": "Sync",
       "description": "Offline senkronizasyon"
     }
@@ -86,6 +90,11 @@
         "in": "header",
         "name": "x-service-token",
         "description": "Operasyon panelinin backend’i icin paylasilan servis anahtari. Kurye bearer tokeni degildir, bu API’de operator kimligi yoktur."
+      },
+      "solvelineInboundAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Solveline sesli asistanin bizim IVR sorgu/ticket API’sini cagirmasi icin ayri servis tokeni (SOLVELINE_INBOUND_TOKEN). Kurye JWT ve panel x-service-token degildir."
       }
     },
     "schemas": {
@@ -6182,6 +6191,14 @@
       "MaskedCallResponse": {
         "type": "object",
         "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "originated",
+              "dial"
+            ],
+            "default": "dial"
+          },
           "dialNumber": {
             "type": "string"
           },
@@ -6194,12 +6211,306 @@
             "type": "string",
             "format": "date-time",
             "example": "2026-08-25T09:15:00.000Z"
+          },
+          "message": {
+            "type": "string",
+            "maxLength": 200
           }
         },
         "required": [
-          "dialNumber",
           "sessionId",
           "expiresAt"
+        ]
+      },
+      "IvrShipmentSummary": {
+        "type": "object",
+        "properties": {
+          "reference": {
+            "type": "string",
+            "maxLength": 60
+          },
+          "company": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 160
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ASSIGNED",
+              "ACCEPTED",
+              "EN_ROUTE",
+              "ARRIVED",
+              "IN_PROGRESS",
+              "COMPLETED",
+              "FAILED",
+              "CANCELLED"
+            ]
+          },
+          "custodyAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "example": "2026-08-25T09:15:00.000Z"
+          },
+          "etaConfirmed": {
+            "type": "boolean"
+          },
+          "slotEndAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "example": "2026-08-25T09:15:00.000Z"
+          },
+          "deliveredAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "example": "2026-08-25T09:15:00.000Z"
+          },
+          "courierName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 160
+          },
+          "agencyName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 160
+          }
+        },
+        "required": [
+          "reference",
+          "company",
+          "status",
+          "custodyAt",
+          "etaConfirmed",
+          "slotEndAt",
+          "deliveredAt",
+          "courierName",
+          "agencyName"
+        ],
+        "additionalProperties": false
+      },
+      "IvrShipmentDetail": {
+        "type": "object",
+        "properties": {
+          "reference": {
+            "type": "string",
+            "maxLength": 60
+          },
+          "company": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 160
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ASSIGNED",
+              "ACCEPTED",
+              "EN_ROUTE",
+              "ARRIVED",
+              "IN_PROGRESS",
+              "COMPLETED",
+              "FAILED",
+              "CANCELLED"
+            ]
+          },
+          "custodyAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "example": "2026-08-25T09:15:00.000Z"
+          },
+          "etaConfirmed": {
+            "type": "boolean"
+          },
+          "slotEndAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "example": "2026-08-25T09:15:00.000Z"
+          },
+          "deliveredAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "example": "2026-08-25T09:15:00.000Z"
+          },
+          "courierName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 160
+          },
+          "agencyName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 160
+          },
+          "customerPhone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 20
+          }
+        },
+        "required": [
+          "reference",
+          "company",
+          "status",
+          "custodyAt",
+          "etaConfirmed",
+          "slotEndAt",
+          "deliveredAt",
+          "courierName",
+          "agencyName",
+          "customerPhone"
+        ],
+        "additionalProperties": false
+      },
+      "IvrShipmentListResponse": {
+        "type": "object",
+        "properties": {
+          "shipments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IvrShipmentSummary"
+            }
+          }
+        },
+        "required": [
+          "shipments"
+        ]
+      },
+      "IvrTicketCreateRequest": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "expedite",
+              "support"
+            ]
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "IvrTicketCreateResponse": {
+        "type": "object",
+        "properties": {
+          "ticketReference": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "in_progress",
+              "resolved",
+              "closed"
+            ]
+          }
+        },
+        "required": [
+          "ticketReference",
+          "status"
+        ]
+      },
+      "IvrResultRequest": {
+        "type": "object",
+        "properties": {
+          "uniqueId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "variable": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "selection": {
+            "type": "string",
+            "enum": [
+              "confirm",
+              "reschedule",
+              "cancel",
+              "no_input",
+              "invalid"
+            ]
+          },
+          "dtmf": {
+            "type": "string",
+            "maxLength": 16
+          },
+          "calledAt": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-08-25T09:15:00.000Z"
+          }
+        },
+        "required": [
+          "uniqueId",
+          "selection"
+        ]
+      },
+      "IvrResultResponse": {
+        "type": "object",
+        "properties": {
+          "uniqueId": {
+            "type": "string",
+            "maxLength": 160
+          },
+          "selection": {
+            "type": "string",
+            "enum": [
+              "confirm",
+              "reschedule",
+              "cancel",
+              "no_input",
+              "invalid"
+            ]
+          },
+          "duplicate": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "uniqueId",
+          "selection",
+          "duplicate"
         ]
       },
       "Shift": {
@@ -7296,7 +7607,8 @@
               "ACCIDENT",
               "SECURITY",
               "PAYMENT",
-              "OTHER"
+              "OTHER",
+              "EXPEDITE"
             ]
           },
           "subject": {
@@ -7381,7 +7693,8 @@
               "ACCIDENT",
               "SECURITY",
               "PAYMENT",
-              "OTHER"
+              "OTHER",
+              "EXPEDITE"
             ]
           },
           "subject": {
@@ -7937,6 +8250,7 @@
               "otp.manually_overridden",
               "evidence.uploaded",
               "evidence.rejected",
+              "custody.item_intake",
               "custody.item_taken",
               "custody.item_handed_over",
               "custody.discrepancy_reported",
@@ -11170,7 +11484,7 @@
         },
         "responses": {
           "200": {
-            "description": "Aranacak proxy numara",
+            "description": "Maskeli arama oturumu (originated veya dial)",
             "content": {
               "application/json": {
                 "schema": {
@@ -11241,6 +11555,340 @@
           },
           "503": {
             "description": "Operator servisi kullanilamiyor",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/ivr/shipments": {
+      "get": {
+        "tags": [
+          "Ivr"
+        ],
+        "summary": "Telefon ile gonderi ozeti (sesli asistan)",
+        "security": [
+          {
+            "solvelineInboundAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 10,
+              "maxLength": 20
+            },
+            "required": true,
+            "name": "phone",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Eslesen gonderiler, acik olanlar once",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IvrShipmentListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Gecersiz istek",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Kimlik dogrulanamadi veya token suresi doldu",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Hiz siniri asildi",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Beklenmeyen sunucu hatasi",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/ivr/shipments/{reference}": {
+      "get": {
+        "tags": [
+          "Ivr"
+        ],
+        "summary": "Gonderi no ile ozet ve musteri telefonu",
+        "security": [
+          {
+            "solvelineInboundAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 60
+            },
+            "required": true,
+            "name": "reference",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Gonderi ozeti",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IvrShipmentDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Gecersiz istek",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Kimlik dogrulanamadi veya token suresi doldu",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Gonderi yok",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Hiz siniri asildi",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Beklenmeyen sunucu hatasi",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/ivr/shipments/{reference}/tickets": {
+      "post": {
+        "tags": [
+          "Ivr"
+        ],
+        "summary": "Gonderi no ile hizlandirma veya destek ticket",
+        "security": [
+          {
+            "solvelineInboundAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 60
+            },
+            "required": true,
+            "name": "reference",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IvrTicketCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Ticket acildi",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IvrTicketCreateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Gecersiz istek",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Kimlik dogrulanamadi veya token suresi doldu",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Gonderi yok",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Hiz siniri asildi",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Beklenmeyen sunucu hatasi",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/ivr/results": {
+      "post": {
+        "tags": [
+          "Ivr"
+        ],
+        "summary": "IVR DTMF / secim sonucu (idempotent uniqueId)",
+        "security": [
+          {
+            "solvelineInboundAuth": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IvrResultRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Kaydedildi veya tekrar",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IvrResultResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Gecersiz istek",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Kimlik dogrulanamadi veya token suresi doldu",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Hiz siniri asildi",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Beklenmeyen sunucu hatasi",
             "content": {
               "application/problem+json": {
                 "schema": {

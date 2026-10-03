@@ -526,6 +526,7 @@ function priorityFor(category: z.infer<typeof SupportTicketCreateRequest>['categ
     case 'RECIPIENT_UNREACHABLE':
     case 'ADDRESS_PROBLEM':
     case 'PAYMENT':
+    case 'EXPEDITE':
       return 'high' as const;
     default:
       return 'normal' as const;

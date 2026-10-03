@@ -97,6 +97,9 @@ pnpm infra:down   # docker compose down
 - `docs/06-eski-panel-ve-repo-analizi.md` — eski sistem (api/panel.jetlogi.net) analizi
 - `docs/07-ana-plan.md` — üç sistemi (eski/yeni panel/bizim iş) birleştiren yol haritası
 - `docs/08-sube-acente-entegrasyonu.md` — acente portal auth’u ve şube mobil kabuğu
+- `docs/09-solveline.md` — Solveline SMS / CALL / IVR (outbound + inbound)
+- `docs/10-jetlogi-ai-santral-kararlar.md` — JetLogi M01-M18 (AI santral canli gate)
+- `docs/11-solveline-test.md` — Solveline: calisiyor mu, nasil test, ne kaldi
 
 Ana sayfadaki **Sıradaki durak** kartı (`apps/mobile/lib/screens/next_stop_card.dart`):
 konum yoksa **Vardım** → **Teslime başla** (mevcut sihirbaz); **Olmadı** iade

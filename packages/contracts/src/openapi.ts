@@ -53,6 +53,15 @@ import {
   NotificationReadRequest,
 } from './notifications.js';
 import { ConfirmMediaResponse, MediaRef, PresignRequest, PresignResponse } from './media.js';
+import {
+  IvrResultRequest,
+  IvrResultResponse,
+  IvrShipmentDetail,
+  IvrShipmentListResponse,
+  IvrShipmentSummary,
+  IvrTicketCreateRequest,
+  IvrTicketCreateResponse,
+} from './ivr.js';
 import { RoutingOptimizeRequest, RoutingOptimizeResponse } from './routing-service.js';
 import {
   LocationBatchRequest,
@@ -114,6 +123,14 @@ const serviceAuth = registry.registerComponent('securitySchemes', 'serviceAuth',
     'tokeni degildir, bu API’de operator kimligi yoktur.',
 });
 
+const solvelineInboundAuth = registry.registerComponent('securitySchemes', 'solvelineInboundAuth', {
+  type: 'http',
+  scheme: 'bearer',
+  description:
+    'Solveline sesli asistanin bizim IVR sorgu/ticket API’sini cagirmasi icin ' +
+    'ayri servis tokeni (SOLVELINE_INBOUND_TOKEN). Kurye JWT ve panel x-service-token degildir.',
+});
+
 /* ------------------------------------------------------------------ *
  * Components
  * ------------------------------------------------------------------ */
@@ -162,6 +179,13 @@ const schemas = {
   TaskOtpVerifyResponse,
   MaskedCallRequest,
   MaskedCallResponse,
+  IvrShipmentSummary,
+  IvrShipmentDetail,
+  IvrShipmentListResponse,
+  IvrTicketCreateRequest,
+  IvrTicketCreateResponse,
+  IvrResultRequest,
+  IvrResultResponse,
   Shift,
   ShiftStartRequest,
   ShiftEndRequest,
@@ -663,9 +687,66 @@ registry.registerPath({
     body: { content: json(MaskedCallRequest) },
   },
   responses: {
-    200: { description: 'Aranacak proxy numara', content: json(MaskedCallResponse) },
+    200: { description: 'Maskeli arama oturumu (originated veya dial)', content: json(MaskedCallResponse) },
     ...authedErrors,
     503: { description: 'Operator servisi kullanilamiyor', content: errorContent },
+  },
+});
+
+registry.registerPath({
+  method: 'get',
+  path: '/v1/ivr/shipments',
+  tags: ['Ivr'],
+  summary: 'Telefon ile gonderi ozeti (sesli asistan)',
+  security: [{ [solvelineInboundAuth.name]: [] }],
+  request: { query: z.object({ phone: z.string().min(10).max(20) }) },
+  responses: {
+    200: { description: 'Eslesen gonderiler, acik olanlar once', content: json(IvrShipmentListResponse) },
+    ...commonErrors,
+  },
+});
+
+registry.registerPath({
+  method: 'get',
+  path: '/v1/ivr/shipments/{reference}',
+  tags: ['Ivr'],
+  summary: 'Gonderi no ile ozet ve musteri telefonu',
+  security: [{ [solvelineInboundAuth.name]: [] }],
+  request: { params: z.object({ reference: z.string().min(3).max(60) }) },
+  responses: {
+    200: { description: 'Gonderi ozeti', content: json(IvrShipmentDetail) },
+    ...commonErrors,
+    404: { description: 'Gonderi yok', content: errorContent },
+  },
+});
+
+registry.registerPath({
+  method: 'post',
+  path: '/v1/ivr/shipments/{reference}/tickets',
+  tags: ['Ivr'],
+  summary: 'Gonderi no ile hizlandirma veya destek ticket',
+  security: [{ [solvelineInboundAuth.name]: [] }],
+  request: {
+    params: z.object({ reference: z.string().min(3).max(60) }),
+    body: { content: json(IvrTicketCreateRequest) },
+  },
+  responses: {
+    200: { description: 'Ticket acildi', content: json(IvrTicketCreateResponse) },
+    ...commonErrors,
+    404: { description: 'Gonderi yok', content: errorContent },
+  },
+});
+
+registry.registerPath({
+  method: 'post',
+  path: '/v1/ivr/results',
+  tags: ['Ivr'],
+  summary: 'IVR DTMF / secim sonucu (idempotent uniqueId)',
+  security: [{ [solvelineInboundAuth.name]: [] }],
+  request: { body: { content: json(IvrResultRequest) } },
+  responses: {
+    200: { description: 'Kaydedildi veya tekrar', content: json(IvrResultResponse) },
+    ...commonErrors,
   },
 });
 
@@ -878,6 +959,7 @@ export function buildOpenApiDocument(): OpenAPIObject {
       { name: 'Media', description: 'Kanit yukleme' },
       { name: 'Custody', description: 'Zimmet (v1.1)' },
       { name: 'Support', description: 'Destek kayitlari (v1.1)' },
+      { name: 'Ivr', description: 'Solveline sesli asistan inbound sorgu ve ticket' },
       { name: 'Sync', description: 'Offline senkronizasyon' },
     ],
     security: [{ bearerAuth: [] }],

@@ -55,6 +55,36 @@ double haversineMeters(LatLng a, LatLng b) {
   return 2 * radius * asin(sqrt(h));
 }
 
+/// Simülatör varsayılanı (Cupertino) Türkiye'deki duraklarla ~11.000 km
+/// fit üretiyordu; kamera okyanusa zoom oluyordu. Gerçek saha rotası
+/// bu eşiğin üstünde başlamaz.
+const kImplausibleOriginMeters = 400000.0;
+
+/// [origin] açık durak kümesine makul mesafede mi?
+/// Durak yoksa karşılaştırmacak bir şey yoktur; konum kabul edilir.
+bool originNearStops({
+  required LatLng origin,
+  required Iterable<LatLng> stops,
+  double maxMeters = kImplausibleOriginMeters,
+}) {
+  final pts = stops.toList();
+  if (pts.isEmpty) return true;
+  for (final p in pts) {
+    if (haversineMeters(origin, p) <= maxMeters) return true;
+  }
+  return false;
+}
+
+/// Kamera / rota fit listesinden durak kümesine uzak noktaları atar.
+List<LatLng> keepNearStops(Iterable<LatLng> candidates, Iterable<LatLng> stops) {
+  final cluster = stops.toList();
+  if (cluster.isEmpty) return candidates.toList();
+  return [
+    for (final p in candidates)
+      if (originNearStops(origin: p, stops: cluster)) p,
+  ];
+}
+
 double _rad(double deg) => deg * 3.141592653589793 / 180;
 
 /// ~15 m — aynı kapı / aynı bina. Yinelenen koordinat OSRM'de U-dönüşü

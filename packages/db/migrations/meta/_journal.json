@@ -50,6 +50,20 @@
       "when": 1788030000000,
       "tag": "0006_add_training_modules",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1788040000000,
+      "tag": "0007_add_solveline_ivr",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1788050000000,
+      "tag": "0008_add_ivr_results",
+      "breakpoints": true
     }
   ]
 }

@@ -121,8 +121,10 @@ class SessionController extends ChangeNotifier {
   bool configReady = true;
   bool liveApi = false;
   RoutePlanDto? routePlan = RoutePlanDto.demo();
-  double selfLat = 38.1476;
-  double selfLng = 29.0702;
+  static const _depotLat = 38.1476;
+  static const _depotLng = 29.0702;
+  double selfLat = _depotLat;
+  double selfLng = _depotLng;
 
   /// Cihazdan en az bir kez fix alındı. Yoksa kart enroute + “Vardım”.
   bool selfLocated = false;
@@ -213,8 +215,37 @@ class SessionController extends ChangeNotifier {
     }
   }
 
+  Iterable<LatLng> get _openStopPoints => [
+    for (final t in tasks.where((t) => t.isOpen && t.hasCoordinates))
+      LatLng(t.lat, t.lng),
+  ];
+
+  bool _gpsFitsStops(double lat, double lng) {
+    return originNearStops(
+      origin: LatLng(lat, lng),
+      stops: _openStopPoints,
+    );
+  }
+
+  /// Simülatör / yanlış kıta GPS'ini depo varsayılanına çeker.
+  bool _resetImplausibleGps() {
+    if (_gpsFitsStops(selfLat, selfLng)) return false;
+    DgLog.i(
+      LogLayer.route,
+      'gps discarded $selfLat,$selfLng far from stops',
+    );
+    selfLat = _depotLat;
+    selfLng = _depotLng;
+    selfLocated = false;
+    _dayRouteKey = null;
+    dayRoute = null;
+    return true;
+  }
+
   Future<void> ensureDayRoute({String? pinFirstId}) async {
-    final origin = LatLng(selfLat, selfLng);
+    final origin = _gpsFitsStops(selfLat, selfLng)
+        ? LatLng(selfLat, selfLng)
+        : const LatLng(_depotLat, _depotLng);
     final stops = _openRouteStops;
     final pin = pinFirstId ?? nextStop?.id;
     final key = dayRouteCacheKey(origin, stops, pinFirstId: pin);
@@ -1721,6 +1752,13 @@ class SessionController extends ChangeNotifier {
   Future<void> refreshSelfPosition() async {
     final here = await readDeviceLocation();
     if (here == null) return;
+    if (!_gpsFitsStops(here.lat, here.lng)) {
+      DgLog.i(
+        LogLayer.route,
+        'gps discarded ${here.lat},${here.lng} far from stops',
+      );
+      return;
+    }
     final moved = haversineMeters(
       LatLng(selfLat, selfLng),
       LatLng(here.lat, here.lng),
@@ -1737,6 +1775,14 @@ class SessionController extends ChangeNotifier {
     if (liveApi) {
       try {
         final session = await api?.startMaskedCall(task.id);
+        if (session != null && session.originated) {
+          if (!context.mounted) return;
+          final text = session.message?.trim().isNotEmpty == true
+              ? session.message!
+              : context.l10n.callConnecting;
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+          return;
+        }
         if (session != null && session.dialNumber.isNotEmpty) {
           number = session.dialNumber;
         }
@@ -1895,6 +1941,7 @@ class SessionController extends ChangeNotifier {
       demo = false;
       liveApi = true;
       _dropDemoInbox();
+      _resetImplausibleGps();
       unawaited(ensureDayRoute());
     } on PanelApiException catch (e) {
       if (e.statusCode == 401) {
@@ -1932,6 +1979,7 @@ class SessionController extends ChangeNotifier {
     } catch (_) {
       liveApi = false;
     }
+    if (_resetImplausibleGps()) unawaited(ensureDayRoute());
     notifyListeners();
   }
 
@@ -2906,7 +2954,7 @@ List<DeliveryTask> _buildDemoTasks() => [
     id: 't1',
     ref: 'DGO-8841',
     recipient: 'Ahmet Yılmaz',
-    phone: '+905321110026',
+    phone: '+905454879623',
     address: 'Kayalık Mah. Cumhuriyet Cd. No:14, Güney / Denizli',
     window: '14:30–15:00',
     kind: TaskKind.delivery,
