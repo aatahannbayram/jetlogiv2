@@ -18,18 +18,31 @@ class FailScreen extends ConsumerStatefulWidget {
 }
 
 class _FailScreenState extends ConsumerState<FailScreen> {
-  static const reasons = [
-    'Adres bulunamadı',
-    'Alıcı adreste yok',
-    'Alıcı teslim almadı',
-    'Ödeme alınamadı',
-    'Adres hatalı',
-    'Siteye giriş izni yok',
+  static const demoReasons = [
+    ('Adres bulunamadı', 'Adres bulunamadı'),
+    ('Alıcı adreste yok', 'Alıcı adreste yok'),
+    ('Alıcı teslim almadı', 'Alıcı teslim almadı'),
+    ('Ödeme alınamadı', 'Ödeme alınamadı'),
+    ('Adres hatalı', 'Adres hatalı'),
+    ('Siteye giriş izni yok', 'Siteye giriş izni yok'),
   ];
 
-  String? picked;
+  String? pickedCode;
+  String? pickedName;
   final note = TextEditingController();
   bool closed = false;
+  bool busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final s = ref.read(sessionProvider);
+      if (s.usesJetdijiCourier && s.deliveryReasons == null) {
+        await s.ensureDeliveryReasons();
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -52,6 +65,14 @@ class _FailScreenState extends ConsumerState<FailScreen> {
         onNext: () {},
       );
     }
+
+    final reasons = s.usesJetdijiCourier
+        ? [
+            for (final reason in s.deliveryReasons?.failed ?? const [])
+              (reason.code, reason.name.isEmpty ? reason.code : reason.name),
+          ]
+        : demoReasons;
+    final noteRequired = s.usesJetdijiCourier;
 
     return Scaffold(
       appBar: AppBar(
@@ -76,16 +97,19 @@ class _FailScreenState extends ConsumerState<FailScreen> {
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Material(
-                color: picked == r ? Dg.redBg : Dg.surface,
+                color: pickedCode == r.$1 ? Dg.redBg : Dg.surface,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(Dg.radius),
                   side: BorderSide(
-                    color: picked == r ? Dg.red : Dg.rule,
-                    width: picked == r ? 2 : 1,
+                    color: pickedCode == r.$1 ? Dg.red : Dg.rule,
+                    width: pickedCode == r.$1 ? 2 : 1,
                   ),
                 ),
                 child: InkWell(
-                  onTap: () => setState(() => picked = r),
+                  onTap: () => setState(() {
+                    pickedCode = r.$1;
+                    pickedName = r.$2;
+                  }),
                   borderRadius: BorderRadius.circular(Dg.radius),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
@@ -96,11 +120,11 @@ class _FailScreenState extends ConsumerState<FailScreen> {
                       children: [
                         Expanded(
                           child: Text(
-                            r,
+                            r.$2,
                             style: TextStyle(
                               fontWeight: FontWeight.w600,
                               fontSize: 16,
-                              color: picked == r ? Dg.red : Dg.ink,
+                              color: pickedCode == r.$1 ? Dg.red : Dg.ink,
                             ),
                           ),
                         ),
@@ -110,10 +134,12 @@ class _FailScreenState extends ConsumerState<FailScreen> {
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: picked == r ? Dg.red : Dg.rule,
+                              color: pickedCode == r.$1 ? Dg.red : Dg.rule,
                               width: 2,
                             ),
-                            color: picked == r ? Dg.red : Colors.transparent,
+                            color: pickedCode == r.$1
+                                ? Dg.red
+                                : Colors.transparent,
                           ),
                         ),
                       ],
@@ -131,10 +157,12 @@ class _FailScreenState extends ConsumerState<FailScreen> {
                 const SizedBox(height: 6),
                 TextField(
                   controller: note,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     border: InputBorder.none,
                     isDense: true,
-                    hintText: 'İsteğe bağlı açıklama',
+                    hintText: noteRequired
+                        ? 'Not zorunlu'
+                        : 'İsteğe bağlı açıklama',
                   ),
                   style: const TextStyle(
                     fontSize: 16,
@@ -145,19 +173,40 @@ class _FailScreenState extends ConsumerState<FailScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          if (picked != null)
+          if (pickedCode != null)
             FilledButton(
               style: FilledButton.styleFrom(backgroundColor: Dg.red),
-              onPressed: () {
-                ref
-                    .read(sessionProvider)
-                    .returnTask(
-                      widget.taskId,
-                      reason: picked!,
-                      note: note.text.trim(),
-                    );
-                setState(() => closed = true);
-              },
+              onPressed: busy
+                  ? null
+                  : () async {
+                      if (noteRequired && note.text.trim().isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Not zorunlu.')),
+                        );
+                        return;
+                      }
+                      setState(() => busy = true);
+                      final ok = await ref.read(sessionProvider).returnTask(
+                        widget.taskId,
+                        reason: pickedName ?? pickedCode!,
+                        reasonCode: s.usesJetdijiCourier ? pickedCode : null,
+                        note: note.text.trim(),
+                      );
+                      if (!context.mounted) return;
+                      if (!ok) {
+                        setState(() => busy = false);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              ref.read(sessionProvider).lastJetdijiError ??
+                                  'Kayıt başarısız.',
+                            ),
+                          ),
+                        );
+                        return;
+                      }
+                      setState(() => closed = true);
+                    },
               child: const Text('İade olarak kapat'),
             ),
         ],

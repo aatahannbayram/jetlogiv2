@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import 'jetdiji_login_screen.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -138,6 +139,39 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                                 color: Colors.white,
                               ),
                             ),
+                    ),
+                    const SizedBox(height: 10),
+                    OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFFF3F0E7),
+                        side: const BorderSide(color: Color(0xFF3A4744)),
+                        backgroundColor: Colors.transparent,
+                      ),
+                      onPressed: canGo
+                          ? () {
+                              final session = ref.read(sessionProvider);
+                              if (session.jetdijiCourier) {
+                                unawaited(session.enterCourierHome());
+                                return;
+                              }
+                              if (session.jetdijiBranch) {
+                                unawaited(session.openBranchShell());
+                                return;
+                              }
+                              Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => const JetdijiLoginScreen(),
+                                ),
+                              );
+                            }
+                          : null,
+                      child: Text(
+                        s.jetdijiCourier
+                            ? 'Kurye görevlerine dön'
+                            : s.jetdijiBranch
+                            ? 'Şube paneline dön'
+                            : 'JetDiji ile gir',
+                      ),
                     ),
                     const SizedBox(height: 10),
                     OutlinedButton(

@@ -162,13 +162,36 @@ class TaskDetailScreen extends ConsumerWidget {
                         SquareAction(
                           icon: LucideIcons.phone,
                           label: 'Ara',
-                          onTap: () => callRecipient(context),
+                          onTap: () async {
+                            if (session.usesJetdijiCourier) {
+                              final tel = await ref
+                                  .read(sessionProvider)
+                                  .revealCallUri(t.id);
+                              if (!context.mounted) return;
+                              if (tel == null) {
+                                final code = ref
+                                    .read(sessionProvider)
+                                    .lastJetdijiError;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(code ?? 'Arama açılamadı.'),
+                                  ),
+                                );
+                                return;
+                              }
+                              await callRecipient(context, telUri: tel);
+                              return;
+                            }
+                            await callRecipient(context);
+                          },
                         ),
                         const SizedBox(width: 10),
                         SquareAction(
                           icon: LucideIcons.navigation,
                           label: 'Yol',
-                          onTap: () => openDirections(context, t),
+                          onTap: t.usableForProximity
+                              ? () => openDirections(context, t)
+                              : () {},
                         ),
                         const SizedBox(width: 10),
                         SquareAction(

@@ -5,27 +5,109 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'api/client.dart';
+import 'api/jetdiji_branch_client.dart';
+import 'api/jetdiji_branch_models.dart';
+import 'api/jetdiji_courier_client.dart';
+import 'api/jetdiji_courier_models.dart';
+import 'api/jetdiji_http.dart';
 import 'api/models.dart';
 import 'data/outbox.dart';
 import 'data/vault.dart';
 import 'models.dart';
 import 'theme.dart';
 
+List<DeliveryTask> demoDeliveryTasks() {
+  return [
+    DeliveryTask(
+      id: 't1',
+      ref: 'DGO-8841',
+      recipient: 'Ahmet Yılmaz',
+      address: 'Kayalık Mah. Cumhuriyet Cd. No:14, Güney / Denizli',
+      window: '14:30–15:00',
+      kind: TaskKind.delivery,
+      status: TaskStatus.assigned,
+      otpRequired: true,
+      sequence: 1,
+      etaMinutes: 6,
+      lat: 38.1512,
+      lng: 29.0614,
+      custodyCount: 2,
+      custodyRef: 'PRD-11207',
+      slaMinutesLeft: 72,
+    ),
+    DeliveryTask(
+      id: 't2',
+      ref: 'DGO-8842',
+      recipient: 'Elif Koç',
+      address: 'İstiklal Cd. No:8 D:3, Güney / Denizli',
+      window: '15:00–15:30',
+      kind: TaskKind.document,
+      status: TaskStatus.assigned,
+      sequence: 2,
+      etaMinutes: 11,
+      lat: 38.1481,
+      lng: 29.0558,
+    ),
+    DeliveryTask(
+      id: 't3',
+      ref: 'DGO-8843',
+      recipient: 'Mehmet Aydın',
+      address: 'Atatürk Mah. 7. Sk. No:22, Güney / Denizli',
+      window: '15:45–16:15',
+      kind: TaskKind.delivery,
+      status: TaskStatus.assigned,
+      cod: 185,
+      sequence: 3,
+      etaMinutes: 18,
+      lat: 38.1554,
+      lng: 29.0692,
+      custodyCount: 1,
+      slaMinutesLeft: 118,
+    ),
+    DeliveryTask(
+      id: 't4',
+      ref: 'DGO-8844',
+      recipient: 'Fatma Şahin',
+      address: 'Yeni Mah. Okul Sk. No:4, Güney / Denizli',
+      window: '13:00–13:30',
+      kind: TaskKind.delivery,
+      status: TaskStatus.queued,
+      note: 'Alıcı yoktu · kapı fotoğrafı kuyrukta',
+      sequence: 4,
+      lat: 38.1460,
+      lng: 29.0488,
+    ),
+  ];
+}
+
+String? jetdijiReceiverType(String? key) {
+  return switch (key) {
+    'recipient' => 'SELF',
+    'relative' => 'RELATIVE',
+    'neighbor' => 'AUTHORIZED',
+    'workplace' => 'SECRETARY',
+    _ => null,
+  };
+}
+
 final sessionProvider = ChangeNotifierProvider<SessionController>((ref) {
   return SessionController();
 });
 
-enum AppPhase { onboard, splash, activation, permissions, shift, main }
+enum AppPhase { onboard, splash, activation, permissions, shift, main, branch }
 
 class SessionController extends ChangeNotifier {
   SessionController({
     OutboxStore? outbox,
     this.api,
     this.vault,
+    this.jetdiji,
+    this.branchApi,
     this.waitForConfig = false,
     AppPhase? initialPhase,
   }) : outbox = outbox ?? OutboxStore(),
        phase = initialPhase ?? AppPhase.onboard {
+    tasks.addAll(demoDeliveryTasks());
     configReady = !waitForConfig;
     // Sabit demo-tohumu: gerçek enqueue() id'lerinin izlediği
     // 00000000-0000-4000-a000-{sequence} kalıbından bilinçli olarak farklı,
@@ -45,6 +127,8 @@ class SessionController extends ChangeNotifier {
   final OutboxStore outbox;
   final MobileApi? api;
   final Vault? vault;
+  final JetDijiCourierApi? jetdiji;
+  final JetDijiBranchApi? branchApi;
   final bool waitForConfig;
 
   AppConfig config = AppConfig.demo;
@@ -58,6 +142,32 @@ class SessionController extends ChangeNotifier {
   AppPhase phase;
   bool demo = true;
   bool online = true;
+  bool jetdijiCourier = false;
+  bool jetdijiBranch = false;
+  String? lastJetdijiError;
+  JetDijiDashboardCounts? jetdijiCounts;
+  JetDijiDeliveryReasons? deliveryReasons;
+  final Map<String, JetDijiRequirements?> requirementsByTask = {};
+  final Map<String, String> otpChallengeByTask = {};
+  final Map<String, String?> otpDevCodeByTask = {};
+  final Map<String, String> otpEvidenceByTask = {};
+  final Map<String, String> finalizeKeys = {};
+  final Map<String, String> finalizeFingerprints = {};
+  final Set<String> calledTaskIds = {};
+
+  JetDijiBranchUser? branchUser;
+  JetDijiBranchDashboard? branchDashboard;
+  List<JetDijiShipmentRow> branchShipments = [];
+  List<JetDijiAgencyCourier> branchCouriers = [];
+  JetDijiCourierMap? branchMap;
+  Map<String, dynamic> branchPending = const {};
+  List<Map<String, dynamic>> branchCounts = [];
+  Map<String, dynamic> branchOutgoing = const {};
+  bool branchLoading = false;
+  String? branchError;
+
+  bool get usesJetdijiCourier => jetdijiCourier && !demo;
+  bool get branchCanOperate => branchUser?.operate == true;
   bool shiftOpen = false;
   bool shiftPhotoTaken = false;
   DateTime? shiftStartedAt;
@@ -282,6 +392,39 @@ class SessionController extends ChangeNotifier {
   /// (Hande'nin netleştirmesi bekleniyor). Dönüş değeri devrin (kısmen de
   /// olsa) başarılı olup olmadığını söyler; ekran buna göre hata gösterir.
   Future<bool> completeZimmet() async {
+    if (usesJetdijiCourier && zimmetMode == 'kurye' && jetdiji != null) {
+      try {
+        for (final scan in List.of(zimmetScans)) {
+          await jetdiji!.acceptCustody(
+            scanCode: scan.code,
+            scanType: 'BARCODE',
+          );
+        }
+        zimmetScans.clear();
+        lastJetdijiError = null;
+        return true;
+      } on JetDijiException catch (e) {
+        lastJetdijiError = e.code;
+        return false;
+      } finally {
+        notifyListeners();
+      }
+    }
+    if (jetdijiBranch && zimmetMode == 'sube' && branchApi != null) {
+      try {
+        for (final scan in List.of(zimmetScans)) {
+          await branchApi!.scanCourierReturn(scanCode: scan.code);
+        }
+        zimmetScans.clear();
+        lastJetdijiError = null;
+        return true;
+      } on JetDijiException catch (e) {
+        lastJetdijiError = e.code;
+        return false;
+      } finally {
+        notifyListeners();
+      }
+    }
     if (zimmetMode != 'sube' || api == null) {
       zimmetScans.clear();
       notifyListeners();
@@ -455,67 +598,7 @@ class SessionController extends ChangeNotifier {
   String get documentsSummary =>
       documents.items.isEmpty ? 'Kimlik ve ehliyet tamam' : documents.summary;
 
-  final tasks = <DeliveryTask>[
-    DeliveryTask(
-      id: 't1',
-      ref: 'DGO-8841',
-      recipient: 'Ahmet Yılmaz',
-      address: 'Kayalık Mah. Cumhuriyet Cd. No:14, Güney / Denizli',
-      window: '14:30–15:00',
-      kind: TaskKind.delivery,
-      status: TaskStatus.assigned,
-      otpRequired: true,
-      sequence: 1,
-      etaMinutes: 6,
-      lat: 38.1512,
-      lng: 29.0614,
-      custodyCount: 2,
-      custodyRef: 'PRD-11207',
-      slaMinutesLeft: 72,
-    ),
-    DeliveryTask(
-      id: 't2',
-      ref: 'DGO-8842',
-      recipient: 'Elif Koç',
-      address: 'İstiklal Cd. No:8 D:3, Güney / Denizli',
-      window: '15:00–15:30',
-      kind: TaskKind.document,
-      status: TaskStatus.assigned,
-      sequence: 2,
-      etaMinutes: 11,
-      lat: 38.1481,
-      lng: 29.0558,
-    ),
-    DeliveryTask(
-      id: 't3',
-      ref: 'DGO-8843',
-      recipient: 'Mehmet Aydın',
-      address: 'Atatürk Mah. 7. Sk. No:22, Güney / Denizli',
-      window: '15:45–16:15',
-      kind: TaskKind.delivery,
-      status: TaskStatus.assigned,
-      cod: 185,
-      sequence: 3,
-      etaMinutes: 18,
-      lat: 38.1554,
-      lng: 29.0692,
-      custodyCount: 1,
-      slaMinutesLeft: 118,
-    ),
-    DeliveryTask(
-      id: 't4',
-      ref: 'DGO-8844',
-      recipient: 'Fatma Şahin',
-      address: 'Yeni Mah. Okul Sk. No:4, Güney / Denizli',
-      window: '13:00–13:30',
-      kind: TaskKind.delivery,
-      status: TaskStatus.queued,
-      note: 'Alıcı yoktu · kapı fotoğrafı kuyrukta',
-      sequence: 4,
-      lat: 38.1460,
-      lng: 29.0488,
-    ),
-  ];
+  final tasks = <DeliveryTask>[];
 
   int get openCount => tasks
       .where(
@@ -540,17 +623,19 @@ class SessionController extends ChangeNotifier {
   DeliveryTask taskById(String id) => tasks.firstWhere((t) => t.id == id);
 
   Future<void> bootstrap() async {
-    if (configReady && !waitForConfig) return;
-    try {
-      final remote = await api?.fetchConfig();
-      if (remote != null) {
-        config = remote;
-        liveApi = api?.lastWasLive ?? false;
+    if (!configReady || waitForConfig) {
+      try {
+        final remote = await api?.fetchConfig();
+        if (remote != null) {
+          config = remote;
+          liveApi = api?.lastWasLive ?? false;
+        }
+      } catch (_) {
+        config = AppConfig.demo;
+        liveApi = false;
       }
-    } catch (_) {
-      config = AppConfig.demo;
-      liveApi = false;
     }
+    await restoreJetdiji();
     configReady = true;
     notifyListeners();
   }
@@ -581,13 +666,34 @@ class SessionController extends ChangeNotifier {
   /// Clears stored auth + resets in-memory shift/session state, dropping
   /// back to splash (which re-offers "Vardiyaya başla" / activation).
   Future<void> logout() async {
+    try {
+      await jetdiji?.logout();
+    } catch (_) {
+      await vault?.clearJetdijiToken('courier');
+      await jetdiji?.http.tokens.clear();
+    }
+    try {
+      await branchApi?.logout();
+    } catch (_) {
+      await vault?.clearJetdijiToken('branch');
+      await branchApi?.http.tokens.clear();
+    }
     await vault?.clearTokens();
     shiftOpen = false;
     shiftPhotoTaken = false;
     shiftStartedAt = null;
     demo = true;
+    jetdijiCourier = false;
+    jetdijiBranch = false;
+    branchUser = null;
+    branchDashboard = null;
+    branchShipments = [];
+    lastJetdijiError = null;
     liveApi = false;
     routePlan = null;
+    tasks
+      ..clear()
+      ..addAll(demoDeliveryTasks());
     phase = AppPhase.splash;
     notifyListeners();
   }
@@ -753,47 +859,196 @@ class SessionController extends ChangeNotifier {
     final t = taskById(id);
     t.status = TaskStatus.inProgress;
     notifyListeners();
+    if (usesJetdijiCourier) unawaited(_acceptJetdijiTask(id));
   }
 
-  void deliverTask(String id, {String? receivedBy}) {
-    final t = taskById(id);
-    t.status = TaskStatus.delivered;
-    t.receivedBy = receivedBy;
-    final event = outbox.enqueue(
-      operation: SyncOperation.taskFinalize,
-      subjectId: id,
-      payload: {'receivedBy': receivedBy, 'outcome': 'DELIVERED'},
-    );
-    if (online) {
-      if (api == null) {
-        event.status = 'applied';
-      } else {
-        unawaited(_flushOutbox());
-      }
+  Future<void> _acceptJetdijiTask(String id) async {
+    final client = jetdiji;
+    if (client == null) return;
+    try {
+      await client.acceptTask(id);
+      lastJetdijiError = null;
+    } on JetDijiException catch (e) {
+      lastJetdijiError = e.code;
+      notifyListeners();
     }
-    notifyListeners();
   }
 
-  void returnTask(String id, {required String reason, String? note}) {
+  Future<bool> deliverTask(
+    String id, {
+    String? receivedBy,
+    String? receiverType,
+    String? receivedRelationCode,
+    String? otpEvidenceId,
+    List<String> evidenceIds = const [],
+  }) async {
     final t = taskById(id);
-    t.status = TaskStatus.failed;
-    final event = outbox.enqueue(
-      operation: SyncOperation.taskTransition,
-      subjectId: id,
-      payload: {
-        'outcome': 'RETURNED',
-        'reason': reason,
-        if (note != null && note.isNotEmpty) 'note': note,
-      },
-    );
-    if (online) {
-      if (api == null) {
-        event.status = 'applied';
-      } else {
-        unawaited(_flushOutbox());
+    if (!usesJetdijiCourier) {
+      t.status = TaskStatus.delivered;
+      t.receivedBy = receivedBy;
+      final event = outbox.enqueue(
+        operation: SyncOperation.taskFinalize,
+        subjectId: id,
+        payload: {'receivedBy': receivedBy, 'outcome': 'DELIVERED'},
+      );
+      if (online) {
+        if (api == null) {
+          event.status = 'applied';
+        } else {
+          unawaited(_flushOutbox());
+        }
       }
+      notifyListeners();
+      return true;
     }
-    notifyListeners();
+
+    final fingerprint = [
+      'DELIVERED',
+      receiverType,
+      receivedBy,
+      receivedRelationCode,
+      otpEvidenceId,
+      evidenceIds.join(','),
+    ].join('|');
+    final key = _finalizeKey(id, fingerprint);
+    final capturedAt = DateTime.now().toUtc().toIso8601String();
+    final payload = <String, Object?>{
+      'jetdiji': true,
+      'resultCode': 'DELIVERED',
+      'idempotencyKey': key,
+      'capturedAt': capturedAt,
+      if (receiverType != null) 'receiverType': receiverType,
+      if (receivedBy != null) 'receivedByName': receivedBy,
+      if (receivedRelationCode != null)
+        'receivedRelationCode': receivedRelationCode,
+      if (otpEvidenceId != null) 'otpEvidenceId': otpEvidenceId,
+      'evidenceIds': evidenceIds,
+      if (t.usableForProximity) 'latitude': t.lat,
+      if (t.usableForProximity) 'longitude': t.lng,
+    };
+
+    if (!online) {
+      _enqueueJetdijiFinalize(id, payload);
+      t.status = TaskStatus.delivered;
+      t.receivedBy = receivedBy;
+      notifyListeners();
+      return true;
+    }
+
+    try {
+      await jetdiji!.finalize(
+        id,
+        resultCode: 'DELIVERED',
+        receiverType: receiverType,
+        receivedByName: receivedBy,
+        receivedRelationCode: receivedRelationCode,
+        otpEvidenceId: otpEvidenceId,
+        evidenceIds: evidenceIds,
+        latitude: t.usableForProximity ? t.lat : null,
+        longitude: t.usableForProximity ? t.lng : null,
+        capturedAt: capturedAt,
+        idempotencyKey: key,
+      );
+      t.status = TaskStatus.delivered;
+      t.receivedBy = receivedBy;
+      lastJetdijiError = null;
+      notifyListeners();
+      return true;
+    } on JetDijiException catch (e) {
+      lastJetdijiError = e.code;
+      if (e.code == 'NETWORK') {
+        _enqueueJetdijiFinalize(id, payload);
+        t.status = TaskStatus.delivered;
+        t.receivedBy = receivedBy;
+        notifyListeners();
+        return true;
+      }
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> returnTask(
+    String id, {
+    required String reason,
+    String? reasonCode,
+    String? note,
+  }) async {
+    final t = taskById(id);
+    if (!usesJetdijiCourier) {
+      t.status = TaskStatus.failed;
+      final event = outbox.enqueue(
+        operation: SyncOperation.taskTransition,
+        subjectId: id,
+        payload: {
+          'outcome': 'RETURNED',
+          'reason': reason,
+          if (note != null && note.isNotEmpty) 'note': note,
+        },
+      );
+      if (online) {
+        if (api == null) {
+          event.status = 'applied';
+        } else {
+          unawaited(_flushOutbox());
+        }
+      }
+      notifyListeners();
+      return true;
+    }
+
+    final trimmed = note?.trim() ?? '';
+    if (trimmed.isEmpty || (reasonCode == null || reasonCode.isEmpty)) {
+      lastJetdijiError = 'NOTE_REQUIRED';
+      notifyListeners();
+      return false;
+    }
+    final fingerprint = 'DELIVERY_FAILED|$reasonCode|$trimmed';
+    final key = _finalizeKey(id, fingerprint);
+    final capturedAt = DateTime.now().toUtc().toIso8601String();
+    final payload = <String, Object?>{
+      'jetdiji': true,
+      'resultCode': 'DELIVERY_FAILED',
+      'reasonCode': reasonCode,
+      'note': trimmed,
+      'idempotencyKey': key,
+      'capturedAt': capturedAt,
+      'evidenceIds': const <String>[],
+      if (t.usableForProximity) 'latitude': t.lat,
+      if (t.usableForProximity) 'longitude': t.lng,
+    };
+    if (!online) {
+      _enqueueJetdijiFinalize(id, payload);
+      t.status = TaskStatus.failed;
+      notifyListeners();
+      return true;
+    }
+    try {
+      await jetdiji!.finalize(
+        id,
+        resultCode: 'DELIVERY_FAILED',
+        reasonCode: reasonCode,
+        note: trimmed,
+        latitude: t.usableForProximity ? t.lat : null,
+        longitude: t.usableForProximity ? t.lng : null,
+        capturedAt: capturedAt,
+        idempotencyKey: key,
+      );
+      t.status = TaskStatus.failed;
+      lastJetdijiError = null;
+      notifyListeners();
+      return true;
+    } on JetDijiException catch (e) {
+      lastJetdijiError = e.code;
+      if (e.code == 'NETWORK') {
+        _enqueueJetdijiFinalize(id, payload);
+        t.status = TaskStatus.failed;
+        notifyListeners();
+        return true;
+      }
+      notifyListeners();
+      return false;
+    }
   }
 
   void failTask(String id) {
@@ -822,12 +1077,17 @@ class SessionController extends ChangeNotifier {
   }
 
   Future<void> _flushOutbox() async {
-    final pending = outbox.events.where((e) => e.pending).toList();
+    await _flushJetdijiOutbox();
+    final pending = outbox.events
+        .where((e) => e.pending && e.payload['jetdiji'] != true)
+        .toList();
     if (pending.isEmpty) return;
     final client = api;
     final store = vault;
     if (client == null || store == null) {
-      outbox.drain();
+      for (final event in pending) {
+        event.status = 'applied';
+      }
       notifyListeners();
       return;
     }
@@ -851,5 +1111,513 @@ class SessionController extends ChangeNotifier {
     notifyListeners();
   }
 
-  bool verifyDeliveryOtp(String code) => code == '482913';
+  bool verifyDeliveryOtp(String code, {String? taskId}) {
+    if (!usesJetdijiCourier || taskId == null) return code == '482913';
+    return false;
+  }
+
+  Future<bool> verifyDeliveryOtpAsync(String code, {String? taskId}) async {
+    if (!usesJetdijiCourier || taskId == null) return code == '482913';
+    final challengeId = otpChallengeByTask[taskId];
+    final client = jetdiji;
+    if (challengeId == null || client == null) return false;
+    try {
+      final verified = await client.verifyOtp(
+        taskId,
+        challengeId: challengeId,
+        code: code,
+      );
+      if (verified.evidenceId != null) {
+        otpEvidenceByTask[taskId] = verified.evidenceId!;
+      }
+      lastJetdijiError = null;
+      return verified.verified;
+    } on JetDijiException catch (e) {
+      lastJetdijiError = e.code;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  String _finalizeKey(String id, String fingerprint) {
+    if (finalizeFingerprints[id] != fingerprint) {
+      finalizeFingerprints[id] = fingerprint;
+      finalizeKeys[id] = Vault.newUuid();
+    }
+    return finalizeKeys[id]!;
+  }
+
+  void _enqueueJetdijiFinalize(String id, Map<String, Object?> payload) {
+    outbox.enqueue(
+      operation: SyncOperation.taskFinalize,
+      subjectId: id,
+      payload: payload,
+    );
+  }
+
+  Future<void> _flushJetdijiOutbox() async {
+    final client = jetdiji;
+    final pending = outbox.events
+        .where((e) => e.pending && e.payload['jetdiji'] == true)
+        .toList();
+    for (final event in pending) {
+      if (event.payload['kind'] == 'location') {
+        final captured = DateTime.tryParse('${event.payload['capturedAt']}');
+        if (captured != null &&
+            DateTime.now().toUtc().difference(captured.toUtc()) >
+                const Duration(minutes: 5)) {
+          event.status = 'rejected';
+          continue;
+        }
+        if (client == null || event.subjectId == null) continue;
+        try {
+          await client.sendLocation(
+            event.subjectId!,
+            latitude: (event.payload['latitude'] as num).toDouble(),
+            longitude: (event.payload['longitude'] as num).toDouble(),
+            purposeCode: '${event.payload['purposeCode'] ?? 'ACTIVE_TASK'}',
+            capturedAt: event.payload['capturedAt'] as String?,
+          );
+          event.status = 'applied';
+        } on JetDijiException catch (e) {
+          if (e.code == 'LOCATION_NOT_FRESH') event.status = 'rejected';
+          lastJetdijiError = e.code;
+        }
+        continue;
+      }
+      if (client == null || event.subjectId == null) continue;
+      if (event.payload['resultCode'] is! String) continue;
+      final ids = event.payload['evidenceIds'];
+      try {
+        await client.finalize(
+          event.subjectId!,
+          resultCode: event.payload['resultCode'] as String,
+          reasonCode: event.payload['reasonCode'] as String?,
+          receiverType: event.payload['receiverType'] as String?,
+          receivedByName: event.payload['receivedByName'] as String?,
+          receivedRelationCode: event.payload['receivedRelationCode'] as String?,
+          note: event.payload['note'] as String?,
+          latitude: (event.payload['latitude'] as num?)?.toDouble(),
+          longitude: (event.payload['longitude'] as num?)?.toDouble(),
+          capturedAt: event.payload['capturedAt'] as String?,
+          otpEvidenceId: event.payload['otpEvidenceId'] as String?,
+          evidenceIds: [
+            for (final id in ids is List ? ids : const []) '$id',
+          ],
+          idempotencyKey: event.payload['idempotencyKey'] as String?,
+        );
+        event.status = 'applied';
+      } on JetDijiException catch (e) {
+        lastJetdijiError = e.code;
+      }
+    }
+  }
+
+  Future<void> restoreJetdiji() async {
+    if (await jetdiji?.hasToken == true) jetdijiCourier = true;
+    if (await branchApi?.hasToken == true) {
+      jetdijiBranch = true;
+      try {
+        branchUser = await branchApi!.session();
+      } on JetDijiException catch (e) {
+        lastJetdijiError = e.code;
+      }
+    }
+  }
+
+  Future<bool> loginWithJetdiji({
+    required String identifier,
+    required String password,
+  }) async {
+    final client = jetdiji;
+    if (client == null) return false;
+    try {
+      final login = await client.login(
+        identifier: identifier,
+        password: password,
+      );
+      final profile = login.courier;
+      if (profile != null) {
+        courier = courier.copyWith(
+          fullName: profile.fullName.isEmpty ? null : profile.fullName,
+          code: profile.courierCode.isEmpty ? null : profile.courierCode,
+          phone: profile.phone,
+        );
+      }
+      await enterCourierHome();
+      return true;
+    } on JetDijiException catch (e) {
+      lastJetdijiError = e.code;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<void> enterCourierHome() async {
+    jetdijiCourier = true;
+    demo = false;
+    shiftOpen = true;
+    shiftPhotoTaken = true;
+    shiftStartedAt ??= DateTime.now();
+    phase = AppPhase.main;
+    notifyListeners();
+    await loadJetdijiTasks();
+  }
+
+  Future<void> loadJetdijiTasks() async {
+    final client = jetdiji;
+    if (client == null || !jetdijiCourier) return;
+    try {
+      final list = await client.tasks();
+      final dash = await client.dashboard();
+      deliveryReasons ??= await client.deliveryReasons();
+      tasks
+        ..clear()
+        ..addAll(list.tasks.map(deliveryTaskFromJetdiji));
+      jetdijiCounts = dash.counts;
+      lastJetdijiError = null;
+    } on JetDijiException catch (e) {
+      lastJetdijiError = e.code;
+    }
+    notifyListeners();
+  }
+
+  Future<void> ensureDeliveryReasons() async {
+    if (deliveryReasons != null || jetdiji == null || !usesJetdijiCourier) {
+      return;
+    }
+    try {
+      deliveryReasons = await jetdiji!.deliveryReasons();
+      lastJetdijiError = null;
+    } on JetDijiException catch (e) {
+      lastJetdijiError = e.code;
+    }
+    notifyListeners();
+  }
+
+  Future<JetDijiRequirements?> loadTaskRequirements(String id) async {
+    final client = jetdiji;
+    if (client == null) return null;
+    try {
+      final detail = await client.taskDetail(id);
+      if (lastCallFromDetail(detail) != null) calledTaskIds.add(id);
+      final fromDetail = requirementsFromDetail(detail);
+      final req = fromDetail ?? await client.requirements(id);
+      requirementsByTask[id] = req;
+      lastJetdijiError = null;
+      notifyListeners();
+      return req;
+    } on JetDijiException catch (e) {
+      lastJetdijiError = e.code;
+      notifyListeners();
+      return requirementsByTask[id];
+    }
+  }
+
+  Future<String?> sendDeliveryOtp(
+    String id, {
+    required String receiverType,
+  }) async {
+    final client = jetdiji;
+    if (client == null) return null;
+    try {
+      final challenge = await client.sendOtp(id, receiverType: receiverType);
+      otpChallengeByTask[id] = challenge.challengeId;
+      otpDevCodeByTask[id] = challenge.devCode;
+      lastJetdijiError = null;
+      notifyListeners();
+      return challenge.devCode;
+    } on JetDijiException catch (e) {
+      lastJetdijiError = e.code;
+      notifyListeners();
+      return null;
+    }
+  }
+
+  Future<bool> submitDeliveryForm(String id) async {
+    final client = jetdiji;
+    final version = requirementsByTask[id]?.formVersionId;
+    if (client == null || version == null) return true;
+    try {
+      await client.saveForm(id, formVersionId: version, status: 'SUBMITTED');
+      return true;
+    } on JetDijiException catch (e) {
+      lastJetdijiError = e.code;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// `telUri` döner ve saklanmaz.
+  Future<String?> revealCallUri(String id) async {
+    final client = jetdiji;
+    if (client == null) return null;
+    try {
+      final data = await client.callRecipient(id);
+      calledTaskIds.add(id);
+      lastJetdijiError = null;
+      notifyListeners();
+      final tel = data['telUri'];
+      return tel is String && tel.isNotEmpty ? tel : null;
+    } on JetDijiException catch (e) {
+      lastJetdijiError = e.code;
+      notifyListeners();
+      return null;
+    }
+  }
+
+  Future<JetDijiBranchLoginResult> loginWithBranch({
+    required String email,
+    required String password,
+    String? agencyId,
+  }) async {
+    final client = branchApi;
+    if (client == null) {
+      return const JetDijiBranchLoginResult(ok: false, errorCode: 'NO_CLIENT');
+    }
+    try {
+      final login = await client.login(
+        email: email,
+        password: password,
+        agencyId: agencyId,
+      );
+      branchUser = login.user;
+      try {
+        branchUser = await client.session();
+      } on JetDijiException {
+        // yetki okunamazsa operate kapalı kalır
+      }
+      jetdijiBranch = true;
+      phase = AppPhase.branch;
+      branchError = null;
+      notifyListeners();
+      await loadBranchHome();
+      return const JetDijiBranchLoginResult(ok: true);
+    } on JetDijiException catch (e) {
+      lastJetdijiError = e.code;
+      branchError = e.code;
+      notifyListeners();
+      if (e.code == 'AGENCY_SELECTION_REQUIRED') {
+        return JetDijiBranchLoginResult(ok: false, agencies: e.agencies);
+      }
+      return JetDijiBranchLoginResult(ok: false, errorCode: e.code);
+    }
+  }
+
+  Future<void> openBranchShell() async {
+    if (await branchApi?.hasToken != true) return;
+    jetdijiBranch = true;
+    phase = AppPhase.branch;
+    notifyListeners();
+    await loadBranchHome();
+  }
+
+  Future<void> loadBranchHome() async {
+    final client = branchApi;
+    if (client == null) return;
+    branchLoading = true;
+    notifyListeners();
+    try {
+      final dash = await client.dashboard();
+      final board = await client.dispatchBoard();
+      branchDashboard = dash.withDispatch(board);
+      branchError = null;
+    } on JetDijiException catch (e) {
+      branchError = e.code;
+    } finally {
+      branchLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadBranchShipments() async {
+    final client = branchApi;
+    if (client == null) return;
+    branchLoading = true;
+    notifyListeners();
+    try {
+      final prep = await client.preparation();
+      final board = await client.dispatchBoard();
+      final rows = <JetDijiShipmentRow>[
+        ...shipmentRowsOf(prep),
+        ...shipmentRowsOf(board),
+      ];
+      final seen = <String>{};
+      branchShipments = [
+        for (final row in rows)
+          if (seen.add(row.shipmentId)) row,
+      ];
+      branchError = null;
+    } on JetDijiException catch (e) {
+      branchError = e.code;
+    } finally {
+      branchLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> handoverShipments({
+    required String courierId,
+    required List<String> shipmentIds,
+  }) async {
+    if (!branchCanOperate) return false;
+    final client = branchApi;
+    if (client == null || shipmentIds.isEmpty) return false;
+    try {
+      await client.handover(courierId: courierId, shipmentIds: shipmentIds);
+      await loadBranchShipments();
+      return true;
+    } on JetDijiException catch (e) {
+      branchError = e.code;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<void> loadBranchCouriers() async {
+    final client = branchApi;
+    if (client == null) return;
+    branchLoading = true;
+    notifyListeners();
+    try {
+      branchCouriers = await client.couriers();
+      branchMap = await client.courierMap();
+      branchError = null;
+    } on JetDijiException catch (e) {
+      branchError = e.code;
+    } finally {
+      branchLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadBranchCounts() async {
+    final client = branchApi;
+    if (client == null) return;
+    try {
+      final data = await client.counts();
+      final raw = data['counts'] ?? data['items'] ?? data['rows'];
+      branchCounts = [
+        for (final row in raw is List ? raw : const [])
+          if (row is Map) Map<String, dynamic>.from(row),
+      ];
+      branchError = null;
+    } on JetDijiException catch (e) {
+      branchError = e.code;
+    }
+    notifyListeners();
+  }
+
+  Future<String?> startBranchCount() async {
+    if (!branchCanOperate) return null;
+    try {
+      final data = await branchApi!.startCount();
+      final id = data['id'] ?? data['countId'];
+      await loadBranchCounts();
+      return id?.toString();
+    } on JetDijiException catch (e) {
+      branchError = e.code;
+      notifyListeners();
+      return null;
+    }
+  }
+
+  Future<bool> scanBranchCount(String countId, String barcode) async {
+    if (!branchCanOperate) return false;
+    try {
+      await branchApi!.countAction(countId, {
+        'action': 'scan',
+        'barcode': barcode,
+      });
+      return true;
+    } on JetDijiException catch (e) {
+      branchError = e.code;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<void> loadBranchPending() async {
+    final client = branchApi;
+    if (client == null) return;
+    try {
+      branchPending = await client.pending();
+      branchError = null;
+    } on JetDijiException catch (e) {
+      branchError = e.code;
+    }
+    notifyListeners();
+  }
+
+  Future<bool> scanBranchReturn(String scanCode) async {
+    if (!branchCanOperate) return false;
+    try {
+      await branchApi!.scanCourierReturn(scanCode: scanCode);
+      await loadBranchPending();
+      return true;
+    } on JetDijiException catch (e) {
+      branchError = e.code;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<void> loadBranchOutgoing() async {
+    final client = branchApi;
+    if (client == null) return;
+    try {
+      branchOutgoing = await client.outgoingOptions();
+      branchError = null;
+    } on JetDijiException catch (e) {
+      branchError = e.code;
+    }
+    notifyListeners();
+  }
+
+  Future<Map<String, dynamic>?> resolveOutgoingScan(String scanCode) async {
+    try {
+      final data = await branchApi!.resolveOutgoing(scanCode: scanCode);
+      return data;
+    } on JetDijiException catch (e) {
+      branchError = e.code;
+      notifyListeners();
+      return null;
+    }
+  }
+
+  Future<bool> sendOutgoingShipment({
+    required String shipmentId,
+    required String destinationWarehouseId,
+    required String transferType,
+    List<String> barcodes = const [],
+  }) async {
+    if (!branchCanOperate || shipmentId.isEmpty) return false;
+    try {
+      await branchApi!.sendOutgoing({
+        'transferType': transferType,
+        'destinationWarehouseId': destinationWarehouseId,
+        'lines': [
+          {'shipmentId': shipmentId, 'barcodes': barcodes},
+        ],
+      });
+      await loadBranchOutgoing();
+      return true;
+    } on JetDijiException catch (e) {
+      branchError = e.code;
+      notifyListeners();
+      return false;
+    }
+  }
+}
+
+class JetDijiBranchLoginResult {
+  const JetDijiBranchLoginResult({
+    required this.ok,
+    this.agencies = const [],
+    this.errorCode,
+  });
+
+  final bool ok;
+  final List<JetDijiAgencyOption> agencies;
+  final String? errorCode;
 }

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 enum TaskKind { delivery, pickup, document }
 
-enum TaskStatus { assigned, inProgress, delivered, failed, queued }
+enum TaskStatus { assigned, inProgress, delivered, failed, queued, cancelled }
 
 /// Whether a courier works independently or is dispatched by an agency
 /// ("acenta") — agency couriers never see per-delivery pricing.
@@ -104,6 +104,10 @@ class DeliveryTask {
     this.slaMinutesLeft,
     this.signed = false,
     this.groupKey,
+    this.phone,
+    this.usableForProximity = true,
+    this.wireStatus,
+    this.merchantName,
   });
 
   final String id;
@@ -139,6 +143,18 @@ class DeliveryTask {
   /// Aynı değere sahip görevler "aynı adres" olarak gruplanıp "Birlikte
   /// teslim edilebilir" kartı altında gösterilir.
   final String? groupKey;
+
+  /// Maskeli alıcı telefonu. Gerçek numara listede yok.
+  final String? phone;
+
+  /// false ise koordinat yaklaşık; haritaya konmaz.
+  final bool usableForProximity;
+
+  /// Sunucunun sayısal `statusCode` değeri.
+  final String? wireStatus;
+
+  /// Gönderen firma. `customer.displayName`.
+  final String? merchantName;
 
   String get slaLabel {
     final m = slaMinutesLeft;

@@ -4,8 +4,8 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'models.dart';
 
-Future<void> callRecipient(BuildContext context) async {
-  final uri = Uri(scheme: 'tel', path: '+905321110026');
+Future<void> callRecipient(BuildContext context, {String? telUri}) async {
+  final uri = Uri.parse(telUri ?? 'tel:+905321110026');
   final ok = await launchUrl(uri);
   if (!ok && context.mounted) {
     ScaffoldMessenger.of(context)

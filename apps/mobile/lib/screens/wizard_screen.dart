@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -22,6 +24,7 @@ class WizardScreen extends ConsumerStatefulWidget {
 class _WizardScreenState extends ConsumerState<WizardScreen> {
   int step = 0;
   String? recipient;
+  String? relationCode;
   String proof = 'photo';
   bool photo = false;
   final signature = <Offset?>[];
@@ -29,6 +32,17 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
   final otp = TextEditingController();
   String? error;
   bool done = false;
+  bool busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final s = ref.read(sessionProvider);
+      if (!s.usesJetdijiCourier) return;
+      unawaited(s.loadTaskRequirements(widget.taskId));
+    });
+  }
 
   // Getter, not `static const` — the tint/ink pair (Dg.violetBg, ...) reads
   // Dg.dark at call time, so this must re-evaluate on every access instead
@@ -53,7 +67,46 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
     super.dispose();
   }
 
-  bool get proofDone => proof == 'photo' ? photo : signature.isNotEmpty;
+  bool get proofDone {
+    final s = ref.read(sessionProvider);
+    if (!s.usesJetdijiCourier) {
+      return proof == 'photo' ? photo : signature.isNotEmpty;
+    }
+    final photoOk = !showPhoto || photo;
+    final signOk = !showSign || signature.isNotEmpty;
+    return photoOk && signOk;
+  }
+
+  bool get showPhoto {
+    final s = ref.read(sessionProvider);
+    if (!s.usesJetdijiCourier) return true;
+    final req = s.requirementsByTask[widget.taskId];
+    if (req == null) return true;
+    return req.photos.isNotEmpty;
+  }
+
+  bool get showSign {
+    final s = ref.read(sessionProvider);
+    if (!s.usesJetdijiCourier) return true;
+    final req = s.requirementsByTask[widget.taskId];
+    if (req == null) return true;
+    return req.signatureRequired;
+  }
+
+  List<String> get steps {
+    final s = ref.read(sessionProvider);
+    if (!s.usesJetdijiCourier) return const ['who', 'proof', 'otp'];
+    final req = s.requirementsByTask[widget.taskId];
+    final next = <String>['who'];
+    final photos = req == null || req.photos.isNotEmpty;
+    final sign = req == null || req.signatureRequired;
+    if (photos || sign) next.add('proof');
+    if (req?.formRequired == true) next.add('form');
+    if (req == null || req.otpRequired) next.add('otp');
+    return next;
+  }
+
+  String get current => steps[step.clamp(0, steps.length - 1)];
 
   String get whoLabel => options
       .firstWhere(
@@ -63,37 +116,103 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
       .$2;
 
   String get cta {
-    if (step == 1 && proofDone) return 'Kullan';
-    if (step == 2) return otpSent ? 'Doğrula ve teslim et' : 'Kodu gönder';
+    if (current == 'proof' && proofDone) return 'Kullan';
+    if (current == 'otp') {
+      return otpSent ? 'Doğrula ve teslim et' : 'Kodu gönder';
+    }
+    if (current == steps.last && current != 'otp') return 'Teslim et';
     return 'Devam';
   }
 
-  void _next() {
+  Future<void> _next() async {
+    if (busy) return;
     setState(() => error = null);
-    if (step == 0 && recipient == null) {
-      setState(() => error = 'Teslim alan kişiyi seçin.');
-      return;
+    final session = ref.read(sessionProvider);
+    if (current == 'who') {
+      if (recipient == null) {
+        setState(() => error = 'Teslim alan kişiyi seçin.');
+        return;
+      }
+      if (session.usesJetdijiCourier &&
+          session.deliveryReasons != null &&
+          session.deliveryReasons!.delivered.isNotEmpty &&
+          (relationCode == null || relationCode!.isEmpty)) {
+        setState(() => error = 'Yakınlık kodunu seçin.');
+        return;
+      }
     }
-    if (step == 1 && !proofDone) {
+    if (current == 'proof' && !proofDone) {
       setState(() => error = 'Kapı fotoğrafı veya alıcı imzası gerekli.');
       return;
     }
-    if (step == 2) {
+    if (current == 'form') {
+      setState(() => busy = true);
+      final ok = await session.submitDeliveryForm(widget.taskId);
+      if (!mounted) return;
+      setState(() => busy = false);
+      if (!ok) {
+        setState(() => error = session.lastJetdijiError ?? 'Form kaydedilemedi.');
+        return;
+      }
+    }
+    if (current == 'otp') {
+      final receiver = jetdijiReceiverType(recipient) ?? 'SELF';
       if (!otpSent) {
+        if (session.usesJetdijiCourier) {
+          setState(() => busy = true);
+          final dev = await session.sendDeliveryOtp(
+            widget.taskId,
+            receiverType: receiver,
+          );
+          if (!mounted) return;
+          setState(() => busy = false);
+          if (session.otpChallengeByTask[widget.taskId] == null) {
+            setState(
+              () => error = session.lastJetdijiError ?? 'Kod gönderilemedi.',
+            );
+            return;
+          }
+          setState(() {
+            otpSent = true;
+            if (dev != null) error = null;
+          });
+          return;
+        }
         setState(() => otpSent = true);
         return;
       }
-      if (!ref.read(sessionProvider).verifyDeliveryOtp(otp.text.trim())) {
+      final ok = session.usesJetdijiCourier
+          ? await session.verifyDeliveryOtpAsync(otp.text.trim(), taskId: widget.taskId)
+          : session.verifyDeliveryOtp(otp.text.trim());
+      if (!ok) {
         setState(() => error = 'Kod eşleşmedi. Alıcıya yeniden sorun.');
         return;
       }
-      ref
-          .read(sessionProvider)
-          .deliverTask(widget.taskId, receivedBy: whoLabel);
-      setState(() => done = true);
+    }
+    if (step < steps.length - 1 && current != 'otp') {
+      setState(() => step += 1);
       return;
     }
-    setState(() => step += 1);
+    if (current != 'otp' && step < steps.length - 1) return;
+    setState(() => busy = true);
+    final delivered = await session.deliverTask(
+      widget.taskId,
+      receivedBy: whoLabel,
+      receiverType: session.usesJetdijiCourier
+          ? jetdijiReceiverType(recipient)
+          : null,
+      receivedRelationCode: relationCode,
+      otpEvidenceId: session.otpEvidenceByTask[widget.taskId],
+    );
+    if (!mounted) return;
+    setState(() => busy = false);
+    if (!delivered) {
+      setState(
+        () => error = session.lastJetdijiError ?? 'Teslim kaydedilemedi.',
+      );
+      return;
+    }
+    setState(() => done = true);
   }
 
   Future<void> _goFail() async {
@@ -131,16 +250,22 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
       );
     }
 
-    final titles = ['Teslim alan', 'Kanıt', 'Teslim kodu'];
+    final titles = {
+      'who': 'Teslim alan',
+      'proof': 'Kanıt',
+      'form': 'Form',
+      'otp': 'Teslim kodu',
+    };
+    final flow = steps;
     return Scaffold(
       appBar: AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(titles[step]),
+            Text(titles[current] ?? 'Teslim'),
             Text(
-              'Adım ${step + 1}/3  ·  ${task.ref}',
+              'Adım ${step + 1}/${flow.length}  ·  ${task.ref}',
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
@@ -156,7 +281,7 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
             padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
             child: Row(
               children: [
-                for (var i = 0; i < 3; i++) ...[
+                for (var i = 0; i < flow.length; i++) ...[
                   if (i > 0) const SizedBox(width: 6),
                   Expanded(
                     child: Container(
@@ -175,7 +300,7 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
               children: [
-                if (step == 0) ...[
+                if (current == 'who') ...[
                   for (final (i, o) in options.indexed)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 10),
@@ -229,16 +354,47 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
                         ),
                       ),
                     ),
+                  if (s.usesJetdijiCourier &&
+                      (s.deliveryReasons?.delivered.isNotEmpty ?? false)) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'Yakınlık kodu',
+                      style: TextStyle(color: Dg.ink2, fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final reason in s.deliveryReasons!.delivered)
+                          ChoiceChip(
+                            label: Text(reason.name),
+                            selected: relationCode == reason.code,
+                            onSelected: (_) =>
+                                setState(() => relationCode = reason.code),
+                          ),
+                      ],
+                    ),
+                  ],
+                  if (s.calledTaskIds.contains(task.id))
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        'Arama kaydı var.',
+                        style: TextStyle(color: Dg.ink2),
+                      ),
+                    ),
                 ],
-                if (step == 1) ...[
-                  SegmentedTabs(
+                if (current == 'proof') ...[
+                  if (showPhoto && showSign)
+                    SegmentedTabs(
                     labels: const ['Fotoğraf', 'İmza'],
                     index: proof == 'photo' ? 0 : 1,
                     onChanged: (i) =>
                         setState(() => proof = i == 0 ? 'photo' : 'sign'),
                   ),
                   const SizedBox(height: 16),
-                  if (proof == 'photo') ...[
+                  if (showPhoto && (proof == 'photo' || !showSign)) ...[
                     Viewfinder(
                       captured: photo,
                       onCapture: () => setState(() => photo = true),
@@ -248,7 +404,7 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
                         onPressed: () => setState(() => photo = false),
                         child: const Text('Tekrar çek'),
                       ),
-                  ] else ...[
+                  ] else if (showSign) ...[
                     Container(
                       padding: const EdgeInsets.all(14),
                       margin: const EdgeInsets.only(bottom: 12),
@@ -312,7 +468,12 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
                     ],
                   ],
                 ],
-                if (step == 2) ...[
+                if (current == 'form')
+                  Text(
+                    'Zorunlu form bu adımda kaydedilir.',
+                    style: TextStyle(color: Dg.ink2, height: 1.4),
+                  ),
+                if (current == 'otp') ...[
                   DgCard(
                     dark: true,
                     child: Column(
@@ -333,8 +494,10 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
                           ),
                         ),
                         const SizedBox(height: 12),
-                        const Text(
-                          'Alıcıdan 4 haneli kodu isteyin',
+                        Text(
+                          s.usesJetdijiCourier
+                              ? 'Alıcıdan 6 haneli kodu isteyin'
+                              : 'Alıcıdan 4 haneli kodu isteyin',
                           style: TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w700,
@@ -352,6 +515,16 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
                             height: 1.4,
                           ),
                         ),
+                        if (s.otpDevCodeByTask[task.id] != null) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            'Geliştirme kodu: ${s.otpDevCodeByTask[task.id]}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -432,7 +605,10 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
                 padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
                 child: Column(
                   children: [
-                    FilledButton(onPressed: _next, child: Text(cta)),
+                    FilledButton(
+                      onPressed: busy ? null : () => unawaited(_next()),
+                      child: Text(busy ? 'Kaydediliyor' : cta),
+                    ),
                     TextButton(
                       onPressed: _goFail,
                       child: Text(

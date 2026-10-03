@@ -514,6 +514,13 @@ class _ShiftOpenCard extends StatelessWidget {
                       Expanded(child: _pill('Mesafe', km)),
                     ],
                   ),
+                  if (session.jetdijiCounts != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'Geciken ${session.jetdijiCounts!.overdue} · Şubeye iade ${session.jetdijiCounts!.toReturnToBranch} · Zimmet ${session.jetdijiCounts!.pendingCustody}',
+                      style: const TextStyle(color: Color(0xFFDCCFEF), fontSize: 12),
+                    ),
+                  ],
                 ],
               ),
             ),

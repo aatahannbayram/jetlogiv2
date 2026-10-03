@@ -61,6 +61,28 @@ class Vault {
     await _storage.delete(key: _refreshExp);
   }
 
+  static String _jetdijiToken(String role) => 'dg.jetdiji.$role.token';
+  static String _jetdijiExp(String role) => 'dg.jetdiji.$role.exp';
+
+  Future<String?> readJetdijiToken(String role) =>
+      _storage.read(key: _jetdijiToken(role));
+
+  Future<void> saveJetdijiToken(
+    String role,
+    String token,
+    String? expiresAt,
+  ) async {
+    await _storage.write(key: _jetdijiToken(role), value: token);
+    if (expiresAt != null && expiresAt.isNotEmpty) {
+      await _storage.write(key: _jetdijiExp(role), value: expiresAt);
+    }
+  }
+
+  Future<void> clearJetdijiToken(String role) async {
+    await _storage.delete(key: _jetdijiToken(role));
+    await _storage.delete(key: _jetdijiExp(role));
+  }
+
   static const _onboard = 'dg.onboard.v2';
 
   Future<bool> get onboardSeen async =>

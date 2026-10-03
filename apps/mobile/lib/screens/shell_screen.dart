@@ -110,7 +110,9 @@ class _RouteScreenState extends ConsumerState<RouteScreen> {
     final open = tasks
         .where(
           (t) =>
-              t.status != TaskStatus.delivered && t.status != TaskStatus.failed,
+              t.status != TaskStatus.delivered &&
+              t.status != TaskStatus.failed &&
+              t.status != TaskStatus.cancelled,
         )
         .length;
     final next = s.nextStop;
@@ -125,7 +127,10 @@ class _RouteScreenState extends ConsumerState<RouteScreen> {
             child: MapStrip(
               height: 900,
               clipTopOnly: false,
-              points: [for (final t in tasks) LatLng(t.lat, t.lng)],
+              points: [
+                for (final t in tasks)
+                  if (t.usableForProximity) LatLng(t.lat, t.lng),
+              ],
               encodedPolyline: plan?.geometry,
               label: '$open durak',
             ),

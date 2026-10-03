@@ -1178,6 +1178,7 @@ String taskStatusLabel(TaskStatus s) => switch (s) {
   TaskStatus.queued => 'Kuyrukta',
   TaskStatus.inProgress => 'İşlemde',
   TaskStatus.assigned => 'Bekliyor',
+  TaskStatus.cancelled => 'İptal',
 };
 
 String taskStatusTone(TaskStatus s) => switch (s) {
@@ -1185,7 +1186,8 @@ String taskStatusTone(TaskStatus s) => switch (s) {
   TaskStatus.failed => 'hi',
   TaskStatus.queued => 'mid',
   TaskStatus.inProgress => 'lime',
-  _ => 'accent',
+  TaskStatus.cancelled => 'hi',
+  TaskStatus.assigned => 'accent',
 };
 
 class TaskListTile extends StatelessWidget {

@@ -9,8 +9,10 @@ import '../widgets.dart';
 import 'depo_screen.dart';
 import 'earnings_screen.dart';
 import 'envanter_screen.dart';
+import 'jetdiji_login_screen.dart';
 import 'kyc_screen.dart';
 import 'profile_screen.dart';
+import 'sube_home_screen.dart';
 import 'sync_screen.dart';
 import 'tara_screen.dart';
 import 'zimmet_screen.dart';
@@ -62,6 +64,14 @@ class MenuScreen extends ConsumerWidget {
         icon: LucideIcons.package,
         badge: s.inventoryPending > 0 ? '${s.inventoryPending}' : null,
         open: () => const EnvanterScreen(),
+      ),
+      (
+        label: 'Şube paneli',
+        icon: LucideIcons.building2,
+        badge: null,
+        open: () => s.jetdijiBranch
+            ? const SubeHomeScreen(embedded: true)
+            : const JetdijiLoginScreen(initialTab: 1),
       ),
     ];
 
