@@ -1,0 +1,34 @@
+{
+  "STİCKER ASILMASINI KABUL ETMİYOR": [
+    "Sticker uygulanmasına izin verilmiyor",
+    "Güncel sticker mevcut",
+    "Sticker uygulaması için uygun alan bulunmuyor",
+    "Yetkili bulunmadığı için işlem yapılamadı",
+    "AVM veya işletme yönetimi izin vermiyor",
+    "Pluxee kullanmıyor",
+    "Yemek kartı kullanmıyor",
+    "Pluxee ile çalışmayı bırakmış",
+    "Pluxee ödeme sorunu",
+    "Fotoğraf izni yok",
+    "Stickerı kendisi uygulayacak"
+  ],
+  "TOPLU STİCKER KULLANIYOR": [
+    "Toplu sticker mevcut"
+  ],
+  "ADRES HATALI": [
+    "Adreste bulunamadı",
+    "Taşınmış",
+    "Adreste farklı işletme var",
+    "İşletme adı değişmiş",
+    "İşletme devredilmiş"
+  ],
+  "KALICI OLARAK KAPALI": [
+    "Bina yıkılmış / dönüşümde",
+    "İşletme kalıcı kapanmış"
+  ],
+  "KAPALI": [
+    "Ziyarette kapalı",
+    "Tadilat nedeniyle kapalı",
+    "Güvenlik giriş izni vermiyor"
+  ]
+}

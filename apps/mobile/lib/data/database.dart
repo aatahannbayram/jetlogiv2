@@ -20,12 +20,31 @@ class OutboxRows extends Table {
   Set<Column<Object>> get primaryKey => {clientEventId};
 }
 
-@DriftDatabase(tables: [OutboxRows])
+class PluxeeDraftRows extends Table {
+  TextColumn get taskId => text()();
+  TextColumn get bodyJson => text()();
+  DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {taskId};
+}
+
+@DriftDatabase(tables: [OutboxRows, PluxeeDraftRows])
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.executor);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+    onCreate: (migrator) async {
+      await migrator.createAll();
+    },
+    onUpgrade: (migrator, from, to) async {
+      if (from < 2) await migrator.createTable(pluxeeDraftRows);
+    },
+  );
 
   /// Opens the on-device file with SQLCipher / sqlite3mc. Key lives in the vault.
   static Future<AppDatabase> openEncrypted(Vault vault) async {

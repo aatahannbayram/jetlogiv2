@@ -12,7 +12,10 @@ import 'api/jetdiji_courier_models.dart';
 import 'api/jetdiji_http.dart';
 import 'api/models.dart';
 import 'data/outbox.dart';
+import 'data/pluxee_store.dart';
 import 'data/vault.dart';
+import 'pluxee/draft.dart';
+import 'pluxee/submit.dart';
 import 'models.dart';
 import 'theme.dart';
 
@@ -103,6 +106,7 @@ class SessionController extends ChangeNotifier {
     this.vault,
     this.jetdiji,
     this.branchApi,
+    this.pluxee,
     this.waitForConfig = false,
     AppPhase? initialPhase,
   }) : outbox = outbox ?? OutboxStore(),
@@ -129,6 +133,7 @@ class SessionController extends ChangeNotifier {
   final Vault? vault;
   final JetDijiCourierApi? jetdiji;
   final JetDijiBranchApi? branchApi;
+  final PluxeeDraftStore? pluxee;
   final bool waitForConfig;
 
   AppConfig config = AppConfig.demo;
@@ -1195,15 +1200,14 @@ class SessionController extends ChangeNotifier {
           reasonCode: event.payload['reasonCode'] as String?,
           receiverType: event.payload['receiverType'] as String?,
           receivedByName: event.payload['receivedByName'] as String?,
-          receivedRelationCode: event.payload['receivedRelationCode'] as String?,
+          receivedRelationCode:
+              event.payload['receivedRelationCode'] as String?,
           note: event.payload['note'] as String?,
           latitude: (event.payload['latitude'] as num?)?.toDouble(),
           longitude: (event.payload['longitude'] as num?)?.toDouble(),
           capturedAt: event.payload['capturedAt'] as String?,
           otpEvidenceId: event.payload['otpEvidenceId'] as String?,
-          evidenceIds: [
-            for (final id in ids is List ? ids : const []) '$id',
-          ],
+          evidenceIds: [for (final id in ids is List ? ids : const []) '$id'],
           idempotencyKey: event.payload['idempotencyKey'] as String?,
         );
         event.status = 'applied';
@@ -1332,6 +1336,47 @@ class SessionController extends ChangeNotifier {
       notifyListeners();
       return null;
     }
+  }
+
+  /// Pluxee anketi. Kargo finalize edilmez. Form sürümü yoksa taslak bekler.
+  Future<PluxeeSubmitResult> submitPluxeeVisit(PluxeeDraft draft) async {
+    String? version;
+    final client = jetdiji;
+    if (client != null && usesJetdijiCourier) {
+      final req = await loadTaskRequirements(draft.taskId);
+      version = req?.formVersionId;
+    }
+    final result = await const PluxeeSubmitter().run(
+      draft: draft,
+      formVersionId: version,
+      now: DateTime.now(),
+      newKey: Vault.newUuid,
+      upload: (photo, key) async {
+        if (client == null) throw StateError('JetDiji yok');
+        final body = await client.uploadEvidence(
+          draft.taskId,
+          fileBytes: photo.bytes,
+          filename: '${photo.slot}.jpg',
+          requirementCode: photo.slot,
+          idempotencyKey: key,
+        );
+        final id = body['evidenceId'] ?? body['id'];
+        return id == null ? null : '$id';
+      },
+      saveForm: (formVersionId, values, key) async {
+        if (client == null) throw StateError('JetDiji yok');
+        await client.saveForm(
+          draft.taskId,
+          formVersionId: formVersionId,
+          status: 'SUBMITTED',
+          values: values,
+          idempotencyKey: key,
+        );
+      },
+    );
+    await pluxee?.save(draft);
+    notifyListeners();
+    return result;
   }
 
   Future<bool> submitDeliveryForm(String id) async {

@@ -10,6 +10,7 @@ import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'fail_screen.dart';
+import 'pluxee_visit_screen.dart';
 import 'wizard_screen.dart';
 
 /// Canvas'ın "1d Görev detayı" tasarımı — tam ekran harita + kaydırmalı
@@ -246,6 +247,16 @@ class TaskDetailScreen extends ConsumerWidget {
                       ),
                     if (!done) ...[
                       const SizedBox(height: 8),
+                      OutlinedButton(
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => PluxeeVisitScreen(taskId: t.id),
+                            ),
+                          );
+                        },
+                        child: const Text('Pluxee ziyareti'),
+                      ),
                       Center(
                         child: TextButton(
                           onPressed: () async {
