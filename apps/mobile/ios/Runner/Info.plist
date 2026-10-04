@@ -54,9 +54,9 @@
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Teslim ve vardiya kanıt fotoğrafı çekmek için kamera gerekir.</string>
+	<string>Teslim, vardiya ve sticker ziyareti kanıt fotoğrafı çekmek için kamera gerekir.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Adrese varış doğrulaması (geofence) için konum gerekir.</string>
+	<string>Adrese varış doğrulaması ve sticker ziyareti konum kaydı için konum gerekir.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Vardiya boyunca rota kaydı için konum gerekir. v1.1.</string>
 	<key>LSApplicationQueriesSchemes</key>

@@ -7,6 +7,7 @@ import 'api/jetdiji_courier_client.dart';
 import 'app.dart';
 import 'data/database.dart';
 import 'data/outbox.dart';
+import 'data/pluxee_store.dart';
 import 'data/vault.dart';
 import 'session.dart';
 
@@ -35,6 +36,7 @@ void main() async {
     vault: vault,
     jetdiji: jetdiji,
     branchApi: branchApi,
+    pluxee: PluxeeDraftStore(db),
     waitForConfig: true,
     initialPhase: seen ? AppPhase.splash : AppPhase.onboard,
   )..cipherOn = cipherOn;
