@@ -161,6 +161,13 @@ void _panelRespond(
 }
 
 void main() {
+  test('JetDiji teslim edilemedi kodları 93xx', () {
+    expect(panelFailureReasonCode('Alıcı adreste yok'), '9302');
+    expect(panelFailureReasonCode('Alıcı teslim almadı'), '9303');
+    expect(panelFailureReasonCode('Adres bulunamadı'), '9304');
+    expect(panelFailureReasonCode('bilinmeyen'), '9302');
+  });
+
   test('TaskSummary → DeliveryTask (isim, adres, cancelled, rowVersion)', () {
     final task = deliveryTaskFromSummary({
       'id': '9f1c2f8a-7d1e-4f6b-9a3c-2b5d4e6f7a81',
@@ -395,7 +402,7 @@ void main() {
             );
             return;
           }
-          if (options.method == 'POST' && path.contains('/courier-tickets')) {
+          if (options.method == 'POST' && path.contains('/courier-support/cases')) {
             ticketPosts += 1;
             handler.resolve(
               Response<Map<String, dynamic>>(
@@ -480,7 +487,8 @@ void main() {
           if (options.path.contains('/courier-custody') &&
               options.path.contains('/return')) {
             returns += 1;
-            expect(options.data['warehouseId'], 'wh-1');
+            expect(options.data['targetUnitId'], 'wh-1');
+            expect(options.data['shipmentIds'], ['u-1']);
             handler.resolve(
               Response<Map<String, dynamic>>(
                 requestOptions: options,
@@ -548,13 +556,17 @@ void main() {
     expect(s.notifications.first.title, 'Zimmet onaylandı');
   });
 
-  test('panel kurye zimmeti Fastify takeover çağırmaz', () async {
-    var handover = 0;
+  test('panel kurye zimmeti depodan kabul ucunu çağırır', () async {
+    var accepts = 0;
     final dio = Dio();
     dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) {
-          if (options.path.contains('/v1/custody/handover')) handover += 1;
+          if (options.path == '/courier-custody/accept') {
+            accepts += 1;
+            expect(options.data['scanCode'], 'DGO-2201');
+            expect(options.data['scanType'], 'AUTO');
+          }
           handler.resolve(
             Response<Map<String, dynamic>>(
               requestOptions: options,
@@ -590,9 +602,9 @@ void main() {
     s.zimmetMode = 'kurye';
     s.addZimmetScan('DGO-2201');
     final ok = await s.completeZimmet();
-    expect(ok, isFalse);
-    expect(handover, 0);
-    expect(s.lastPanelError, 'PANEL_CUSTODY_TAKEOVER_UNSUPPORTED');
+    expect(ok, isTrue);
+    expect(accepts, 1);
+    expect(s.zimmetScans, isEmpty);
   });
 
   test('Panel courier-tasks satırı DeliveryTask’a düşer', () {
@@ -1065,7 +1077,9 @@ void main() {
             );
             return;
           }
-          if (options.method == 'GET' && path.contains('/courier-tasks')) {
+          if (options.method == 'GET' &&
+              path.contains('/courier-tasks') &&
+              !path.contains('delivery-reasons')) {
             panelLists += 1;
             handler.resolve(
               Response<Map<String, dynamic>>(

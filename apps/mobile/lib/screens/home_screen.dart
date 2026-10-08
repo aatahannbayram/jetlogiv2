@@ -205,23 +205,14 @@ class HomeScreen extends ConsumerWidget {
                     MaterialPageRoute<void>(builder: (_) => const SyncScreen()),
                   ),
                   child: DgCard(
-                    padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+                    padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
                     child: Row(
                       children: [
-                        Container(
-                          width: 36,
-                          height: 36,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: syncDone ? Dg.greenBg : Dg.violetBg,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: DgIcon(
-                            LucideIcons.refreshCw,
-                            size: 16,
-                            color: syncDone ? Dg.ok : Dg.brand,
-                            weight: 600,
-                          ),
+                        DgIcon(
+                          LucideIcons.refreshCw,
+                          size: 18,
+                          color: Dg.text2,
+                          weight: 500,
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -235,7 +226,7 @@ class HomeScreen extends ConsumerWidget {
                           style: Dg.ui(
                             size: 13,
                             weight: FontWeight.w600,
-                            color: syncDone ? Dg.ink2 : Dg.purpleActive,
+                            color: Dg.ink3,
                           ),
                         ),
                       ],
@@ -396,15 +387,27 @@ class _ShiftOpenCard extends StatelessWidget {
                 width: 7,
                 height: 7,
                 decoration: BoxDecoration(
-                  color: Dg.sage,
+                  color: Dg.ok,
                   shape: BoxShape.circle,
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  l.shiftOpen,
-                  style: Dg.ui(size: 13, weight: FontWeight.w600),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l.shiftOpen,
+                      style: Dg.ui(size: 15, weight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      km == null
+                          ? l.sinceFrom(session.shiftStartLabel)
+                          : l.shiftDayLine(session.shiftStartLabel, km),
+                      style: Dg.ui(size: 12, color: Dg.ink3),
+                    ),
+                  ],
                 ),
               ),
               GestureDetector(
@@ -413,14 +416,14 @@ class _ShiftOpenCard extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    DgIcon(LucideIcons.moon, size: 15, color: Dg.brand),
+                    DgIcon(LucideIcons.moon, size: 14, color: Dg.text3, weight: 500),
                     const SizedBox(width: 6),
                     Text(
                       l.eodTitle,
                       style: Dg.ui(
                         size: 13,
-                        weight: FontWeight.w700,
-                        color: Dg.purpleActive,
+                        weight: FontWeight.w600,
+                        color: Dg.text2,
                       ),
                     ),
                   ],
@@ -428,14 +431,7 @@ class _ShiftOpenCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 6),
-          Text(
-            km == null
-                ? l.sinceFrom(session.shiftStartLabel)
-                : l.shiftDayLine(session.shiftStartLabel, km),
-            style: Dg.ui(size: 12, color: Dg.ink3),
-          ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 16),
           Row(
             children: [
               Expanded(
@@ -466,7 +462,7 @@ class _ShiftOpenCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 16),
           Row(
             children: [
               _cell(session.openCount, l.kpiOnMe),
@@ -483,22 +479,19 @@ class _ShiftOpenCard extends StatelessWidget {
                 l.kpiAppt,
                 session.appointmentCount,
                 hot: session.appointmentCount > 0,
-                hotColor: Dg.sand,
-                hotBg: Dg.midBg,
+                hotColor: Dg.text2,
               ),
               _flag(
                 l.kpiSla,
                 session.slaRiskCount,
                 hot: session.slaRiskCount > 0,
-                hotColor: Dg.clay,
-                hotBg: Dg.hiBg,
+                hotColor: Dg.text2,
               ),
               _flag(
                 l.kpiReturn,
                 session.returnCount,
                 hot: session.returnCount > 0,
-                hotColor: Dg.amber,
-                hotBg: Dg.amberBg,
+                hotColor: Dg.text2,
               ),
             ],
           ),
@@ -510,10 +503,9 @@ class _ShiftOpenCard extends StatelessWidget {
   Widget _cell(int value, String label) {
     return Expanded(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           CountUp(value, style: Dg.stat(size: 22)),
-          const SizedBox(height: 4),
+          const SizedBox(height: 2),
           Text(
             label,
             maxLines: 1,
@@ -530,21 +522,13 @@ class _ShiftOpenCard extends StatelessWidget {
     int n, {
     required bool hot,
     required Color hotColor,
-    required Color hotBg,
   }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: hot ? hotBg : Dg.elev,
-        borderRadius: BorderRadius.circular(Dg.radius),
-      ),
-      child: Text(
-        '$n  $label',
-        style: Dg.ui(
-          size: 12,
-          weight: FontWeight.w600,
-          color: hot ? hotColor : Dg.ink3,
-        ),
+    return Text(
+      '$n  $label',
+      style: Dg.ui(
+        size: 13,
+        weight: FontWeight.w600,
+        color: hot ? hotColor : Dg.ink3,
       ),
     );
   }

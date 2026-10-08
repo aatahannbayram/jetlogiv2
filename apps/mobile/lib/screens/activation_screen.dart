@@ -26,7 +26,7 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
   final _password = TextEditingController();
   bool _sent = false;
   bool _remember = true;
-  bool _panelMode = false;
+  bool _panelMode = true;
   bool _panelBusy = false;
   bool _obscurePassword = true;
   bool _skipStoredPanel = false;
@@ -152,7 +152,9 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
                           child: DijigooWordmark(height: 56, onDark: true),
                         ),
                         const SizedBox(height: 14),
-                        Row(
+                        Appear(
+                          delay: const Duration(milliseconds: 80),
+                          child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Container(
@@ -182,6 +184,7 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
                               color: _muted.withValues(alpha: 0.45),
                             ),
                           ],
+                        ),
                         ),
                         const SizedBox(height: 28),
                         if (storedPanel)
@@ -247,7 +250,9 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
                               ),
                             ),
                           const SizedBox(height: 16),
-                          Row(
+                          Appear(
+                            delay: const Duration(milliseconds: 160),
+                            child: Row(
                             children: [
                               Expanded(
                                 child: _MethodTile(
@@ -279,6 +284,7 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
                               ),
                             ],
                           ),
+                          ),
                           const SizedBox(height: 16),
                           Row(
                             children: [
@@ -309,23 +315,25 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
                               ),
                               const Spacer(),
                               if (_panelMode)
-                                Flexible(
-                                  child: TextButton(
-                                    onPressed: () {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        SnackBar(content: Text(l.supportHint)),
-                                      );
-                                    },
-                                    child: Text(
-                                      l.forgotPassword,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        color: Dg.heroAccentOrange,
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w600,
-                                      ),
+                                TextButton(
+                                  style: TextButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 4,
+                                    ),
+                                    minimumSize: Size.zero,
+                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                                  onPressed: () {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text(l.supportHint)),
+                                    );
+                                  },
+                                  child: Text(
+                                    l.forgotPassword,
+                                    style: const TextStyle(
+                                      color: Dg.heroAccentOrange,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
                                     ),
                                   ),
                                 ),
@@ -343,7 +351,9 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
                               ),
                             ),
                           const SizedBox(height: 14),
-                          DgButton(
+                          Appear(
+                            delay: const Duration(milliseconds: 240),
+                            child: DgButton(
                             key: _panelMode
                                 ? const Key('panel-login')
                                 : const Key('sms-login'),
@@ -361,6 +371,7 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
                                     : session.activationBusy)
                                 ? null
                                 : () => _panelMode ? _loginPanel(l) : _sendSms(l),
+                          ),
                           ),
                         ],
                         const SizedBox(height: 18),
@@ -565,10 +576,10 @@ class _MethodTile extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 220),
         curve: Curves.easeOutCubic,
-        height: 88,
+        height: 96,
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: selected ? 0.09 : 0.05),
-          borderRadius: BorderRadius.circular(16),
+          color: Colors.white.withValues(alpha: selected ? 0.10 : 0.05),
+          borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: selected
                 ? Dg.heroAccentOrange
@@ -578,8 +589,8 @@ class _MethodTile extends StatelessWidget {
           boxShadow: selected
               ? const [
                   BoxShadow(
-                    color: Color(0x66F08A24),
-                    blurRadius: 18,
+                    color: Color(0x55FF7A18),
+                    blurRadius: 16,
                     offset: Offset(0, 6),
                   ),
                 ]

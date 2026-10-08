@@ -110,6 +110,12 @@ class SessionController extends ChangeNotifier {
   /// oturumundan tamamen bağımsız: aynı cihazda ikisi bir arada tutulabilir.
   AgencyPortalUserDto? agencyUser;
   AgencyOverviewDto? agencyOverview;
+  Map<String, int> branchKpis = const {};
+  List<BranchRow> branchShipments = const [];
+  List<BranchRow> branchCouriers = const [];
+  List<BranchRow> branchStock = const [];
+  List<BranchRow> branchCounts = const [];
+  List<BranchRow> branchTransfers = const [];
   String? lastAgencyError;
   bool agencyLoginBusy = false;
   List<AgencyDto> agencySelectionOptions = const [];
@@ -452,7 +458,7 @@ class SessionController extends ChangeNotifier {
     _persistNotifState();
     unawaited(FieldAlerts.dismissInbox(id));
     _syncNotifBadge();
-    if (liveApi) {
+    if (liveApi && !_usesPanelTasks) {
       unawaited(api?.markNotificationsRead(ids: [id]));
     }
     notifyListeners();
@@ -478,7 +484,9 @@ class SessionController extends ChangeNotifier {
       unawaited(FieldAlerts.dismissInbox(id));
     }
     _syncNotifBadge();
-    if (liveApi) unawaited(api?.markNotificationsRead(all: true));
+    if (liveApi && !_usesPanelTasks) {
+      unawaited(api?.markNotificationsRead(all: true));
+    }
     notifyListeners();
   }
 
@@ -681,9 +689,44 @@ class SessionController extends ChangeNotifier {
   /// bu durağın zimmetteki kalemini doğrudan şubeye bırakır. Barkod okutmaya
   /// gerek yok: kalem zaten `taskId` ile eşleşmiş durumda, kurye sadece
   /// onaylıyor.
+  List<({String code, String name})> deliveryFailReasons = const [];
+
+  Future<void> loadDeliveryReasons() async {
+    final client = panel;
+    if (client == null || !_usesPanelTasks) return;
+    try {
+      final rows = await client.fetchDeliveryReasons();
+      if (rows.isNotEmpty) deliveryFailReasons = rows;
+    } catch (_) {}
+    notifyListeners();
+  }
+
   Future<bool> returnTaskToBranch(String taskId, {String branchName = 'Şube'}) async {
     if (custodyItems.isEmpty && !custodyLoading) await loadCustody();
     final item = custodyItemForTask(taskId);
+    if (_usesPanelTasks) {
+      final client = panel;
+      if (client == null) return false;
+      final shipmentId = item?.taskId ?? taskId;
+      custodyHandoverPending = true;
+      notifyListeners();
+      try {
+        await client.returnCustodyUnit(
+          shipmentId,
+          warehouseId: item?.warehouseId ?? '',
+        );
+        if (item != null) {
+          custodyItems = custodyItems.where((c) => c.id != item.id).toList();
+        }
+        return true;
+      } on PanelApiException catch (e) {
+        lastPanelError = e.code;
+        return false;
+      } finally {
+        custodyHandoverPending = false;
+        notifyListeners();
+      }
+    }
     if (item == null) return false;
     final client = api;
     if (client == null) {
@@ -760,9 +803,7 @@ class SessionController extends ChangeNotifier {
 
   Future<bool> _completePanelZimmet() async {
     if (zimmetMode == 'kurye') {
-      lastPanelError = 'PANEL_CUSTODY_TAKEOVER_UNSUPPORTED';
-      notifyListeners();
-      return false;
+      return _acceptPanelCustodyScans();
     }
     if (zimmetMode != 'sube') {
       zimmetScans.clear();
@@ -780,15 +821,6 @@ class SessionController extends ChangeNotifier {
       return true;
     }
 
-    final missingWarehouse = items.any(
-      (item) => item.warehouseId == null || item.warehouseId!.isEmpty,
-    );
-    if (missingWarehouse) {
-      lastPanelError = 'WAREHOUSE_ID_REQUIRED';
-      notifyListeners();
-      return false;
-    }
-
     custodyHandoverPending = true;
     notifyListeners();
     try {
@@ -799,7 +831,10 @@ class SessionController extends ChangeNotifier {
         outbox.enqueue(
           operation: SyncOperation.panelCustodyReturn,
           subjectId: item.id,
-          payload: {'warehouseId': item.warehouseId},
+          payload: {
+            'warehouseId': item.warehouseId ?? '',
+            'shipmentId': item.taskId ?? item.id,
+          },
         );
       }
 
@@ -819,6 +854,37 @@ class SessionController extends ChangeNotifier {
       );
       await _pushPanelQueue();
       return true;
+    } finally {
+      custodyHandoverPending = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> _acceptPanelCustodyScans() async {
+    final client = panel;
+    if (client == null) return false;
+    if (zimmetScans.isEmpty) return true;
+    custodyHandoverPending = true;
+    notifyListeners();
+    try {
+      for (final scan in List.of(zimmetScans)) {
+        await client.acceptCustodyScan(scan.code);
+      }
+      zimmetScans.clear();
+      await Future.wait([loadPanelTasks(), loadCustody()]);
+      _prependNotification(
+        kind: NotifKind.custody,
+        title: 'Zimmet alındı',
+        body: 'Depodan kabul edilen gönderiler görevlere düştü.',
+        icon: LucideIcons.package,
+        tint: Dg.violetBg,
+        ink: Dg.violet,
+      );
+      return true;
+    } on PanelApiException catch (e) {
+      lastPanelError = e.code;
+      notifyListeners();
+      return false;
     } finally {
       custodyHandoverPending = false;
       notifyListeners();
@@ -1111,6 +1177,13 @@ class SessionController extends ChangeNotifier {
   bool trainingBusy = false;
 
   Future<void> loadTrainingModules() async {
+    if (_usesPanelTasks) {
+      if (trainingModules.isEmpty) {
+        trainingModules.addAll(_demoTrainingModulesSeed());
+        notifyListeners();
+      }
+      return;
+    }
     final client = api;
     if (client == null) {
       if (trainingModules.isEmpty) {
@@ -1150,6 +1223,7 @@ class SessionController extends ChangeNotifier {
       completedAt: now,
     );
     notifyListeners();
+    if (_usesPanelTasks) return;
     final client = api;
     if (client == null) return;
     try {
@@ -1547,7 +1621,12 @@ class SessionController extends ChangeNotifier {
       final profile = await client.login(identifier: id, password: password);
       applyPanelProfile(profile);
       await loadPanelTasks();
-      await Future.wait([loadTickets(), loadCustody()]);
+      await Future.wait([
+        loadTickets(),
+        loadCustody(),
+        loadIdentity(),
+        loadDeliveryReasons(),
+      ]);
       return true;
     } on PanelApiException catch (e) {
       lastPanelError = e.code;
@@ -1609,6 +1688,7 @@ class SessionController extends ChangeNotifier {
         agencyId: agencyId,
       );
       await loadAgencyOverview();
+      await loadBranchWorkspace();
       agencyLoginBusy = false;
       phase = AppPhase.subeMain;
       notifyListeners();
@@ -1638,10 +1718,40 @@ class SessionController extends ChangeNotifier {
     }
   }
 
+  Future<void> loadBranchWorkspace() async {
+    final client = agency;
+    if (client == null || agencyUser == null) return;
+    Future<T?> read<T>(Future<T> call) async {
+      try {
+        return await call;
+      } catch (_) {
+        return null;
+      }
+    }
+    final dashboard = await read(client.fetchDashboard());
+    if (dashboard != null) branchKpis = branchNumbers(dashboard);
+    final pending = await read(client.fetchPendingShipments());
+    final jobs = await read(client.fetchCourierJobs());
+    if (pending != null || jobs != null) {
+      branchShipments = [...?pending, ...?jobs];
+    }
+    branchCouriers = await read(client.fetchCouriers()) ?? branchCouriers;
+    branchStock = await read(client.fetchPreparation()) ?? branchStock;
+    branchCounts = await read(client.fetchCounts()) ?? branchCounts;
+    branchTransfers = await read(client.fetchOutgoingTransfers()) ?? branchTransfers;
+    notifyListeners();
+  }
+
   Future<void> logoutAgency() async {
     await agency?.logout();
     agencyUser = null;
     agencyOverview = null;
+    branchKpis = const {};
+    branchShipments = const [];
+    branchCouriers = const [];
+    branchStock = const [];
+    branchCounts = const [];
+    branchTransfers = const [];
     lastAgencyError = null;
     phase = AppPhase.activation;
     notifyListeners();
@@ -1710,6 +1820,7 @@ class SessionController extends ChangeNotifier {
   }
 
   Future<String?> _storeShiftPhoto(String? path) async {
+    if (_usesPanelTasks) return 'local-shift';
     final id = await uploadFileEvidence(
       api: api,
       path: path,
@@ -1771,6 +1882,21 @@ class SessionController extends ChangeNotifier {
   }
 
   Future<void> callTask(BuildContext context, DeliveryTask task) async {
+    if (_usesPanelTasks) {
+      final client = panel;
+      if (client != null) {
+        try {
+          final dial = await client.callRecipient(task.id);
+          if (!context.mounted) return;
+          final number = dial.phone.isNotEmpty ? dial.phone : dial.telUri;
+          await dialNumber(context, number);
+          return;
+        } on PanelApiException catch (_) {}
+        if (!context.mounted) return;
+        await dialNumber(context, task.phone);
+        return;
+      }
+    }
     var number = task.phone;
     if (liveApi) {
       try {
@@ -1793,6 +1919,7 @@ class SessionController extends ChangeNotifier {
   }
 
   void _enqueueShift({required bool start}) {
+    if (_usesPanelTasks) return;
     final event = outbox.enqueue(
       operation: start ? SyncOperation.shiftStart : SyncOperation.shiftEnd,
       payload: start
@@ -1842,8 +1969,40 @@ class SessionController extends ChangeNotifier {
     );
   }
 
-  /// Panel cookie is never used. Token BFF fills city, hours, documents.
+  Map<String, dynamic>? taskRequirements;
+
+  Future<void> loadTaskRequirements(String taskId) async {
+    if (!_usesPanelTasks) return;
+    final client = panel;
+    if (client == null) return;
+    try {
+      taskRequirements = await client.fetchRequirements(taskId);
+    } catch (_) {
+      taskRequirements = null;
+    }
+    notifyListeners();
+  }
+
+  /// Panel oturumunda profil JetDiji'den gelir. Eski BFF çağrılmaz.
   Future<void> loadIdentity() async {
+    if (_usesPanelTasks) {
+      final client = panel;
+      if (client == null) return;
+      try {
+        final profile = await client.fetchCourierProfile();
+        final docs = await client.fetchMyDocuments();
+        courier = courier.copyWith(
+          city: profile.city ?? courier.city,
+          district: profile.district ?? courier.district,
+          vehicle: profile.vehicle ?? courier.vehicle,
+          availability: profile.status ?? courier.availability,
+        );
+        documents = docs;
+        liveApi = true;
+      } catch (_) {}
+      notifyListeners();
+      return;
+    }
     final client = api;
     if (client == null) return;
     try {
@@ -2410,6 +2569,8 @@ class SessionController extends ChangeNotifier {
         'outcome': outcome,
         if (reasonCode != null) 'reasonCode': reasonCode,
         if (receivedBy != null) 'receivedBy': receivedBy,
+        if (outcome != 'FAILED' && deliveryOtpToken != null)
+          'otpEvidenceId': deliveryOtpToken,
       },
     );
   }
@@ -2476,6 +2637,7 @@ class SessionController extends ChangeNotifier {
           outcome: (event.payload['outcome'] as String?) ?? 'DELIVERED',
           reasonCode: event.payload['reasonCode'] as String?,
           receivedBy: event.payload['receivedBy'] as String?,
+          otpEvidenceId: event.payload['otpEvidenceId'] as String?,
         );
         final t = _maybeTask(id!);
         final state = res.currentStateCode;
@@ -2499,12 +2661,10 @@ class SessionController extends ChangeNotifier {
           tickets.insert(0, created);
         }
       case SyncOperation.panelCustodyReturn:
-        final warehouseId = event.payload['warehouseId'] as String?;
-        if (warehouseId == null || warehouseId.isEmpty) {
-          throw PanelApiException('WAREHOUSE_ID_REQUIRED');
-        }
+        final warehouseId = event.payload['warehouseId'] as String? ?? '';
+        final shipmentId = event.payload['shipmentId'] as String? ?? id!;
         await client.returnCustodyUnit(
-          id!,
+          shipmentId,
           warehouseId: warehouseId,
           note: event.payload['note'] as String?,
         );
@@ -2689,7 +2849,7 @@ class SessionController extends ChangeNotifier {
       _enqueuePanelFinalize(
         id,
         outcome: 'FAILED',
-        reasonCode: code,
+        reasonCode: panelFailureReasonCode(reason),
         receivedBy: detail,
       );
       await _pushPanelQueue();
@@ -2750,7 +2910,9 @@ class SessionController extends ChangeNotifier {
             !e.operation.isPanel &&
             !(_usesPanelTasks &&
                 (e.operation.isFastifyTaskWrite ||
-                    e.operation == SyncOperation.supportTicketCreate)))
+                    e.operation == SyncOperation.supportTicketCreate ||
+                    e.operation == SyncOperation.shiftStart ||
+                    e.operation == SyncOperation.shiftEnd)))
           e,
     ];
     if (pending.isEmpty) {
@@ -2848,6 +3010,17 @@ class SessionController extends ChangeNotifier {
   }
 
   Future<bool> sendDeliveryOtp(String taskId) async {
+    if (_usesPanelTasks) {
+      final client = panel;
+      if (client == null) return false;
+      try {
+        final challengeId = await client.requestDeliveryOtp(taskId);
+        deliveryChallengeId = challengeId;
+        return challengeId != null && challengeId.isNotEmpty;
+      } on PanelApiException catch (_) {
+        return false;
+      }
+    }
     if (!liveApi) {
       if (!kAllowDebugBypass) return false;
       deliveryChallengeId = 'demo-challenge';
@@ -2876,6 +3049,21 @@ class SessionController extends ChangeNotifier {
       return true;
     }
     final id = deliveryChallengeId;
+    if (_usesPanelTasks) {
+      final client = panel;
+      if (client == null || id == null) return false;
+      try {
+        final evidenceId = await client.verifyDeliveryOtp(
+          shipmentId: taskId,
+          challengeId: id,
+          code: code,
+        );
+        if (evidenceId != null) deliveryOtpToken = evidenceId;
+        return evidenceId != null;
+      } on PanelApiException catch (_) {
+        return false;
+      }
+    }
     if (api == null || id == null) return false;
     try {
       final res = await api!.verifyTaskOtp(

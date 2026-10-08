@@ -86,6 +86,10 @@ Ornek `variable`: `1@tr@123456`
 `SOLVELINE_FIRMA_ID` bossa IVR kapalidir (canlida `1`). OTP kanal `ivr`
 bu client'i cagirir. Firma id yoksa 503.
 
+### Santral anonsu (inbound)
+
+Numara arandiginda arayana bu kayit dinletilir: `docs/audio/jetlogicmgiris.wav` cagri merkezi, `docs/audio/jetlogimerkezgrs.wav` merkez. `docs/12-santral-anons.md` yalniz ne dendiginin notu. 993 / 994 `variable` ve `shouldCopyRecording` degismez. DYNAMIC IVR sesi yine kopyalanmaz.
+
 ## Inbound (Solveline -> biz)
 
 Sesli asistan. Kurye JWT ve panel `x-service-token` degildir.

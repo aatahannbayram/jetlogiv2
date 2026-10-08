@@ -525,15 +525,23 @@ class SupportTicketDto {
 
   factory SupportTicketDto.fromJson(Map<String, dynamic> json) =>
       SupportTicketDto(
-        id: json['id'] as String? ?? '',
-        reference: json['reference'] as String? ?? '',
+        id: json['id'] as String? ?? json['caseId'] as String? ?? '',
+        reference: json['reference'] as String? ??
+            json['caseNumber'] as String? ??
+            '',
         category: json['category'] as String? ?? 'OTHER',
         subject: json['subject'] as String? ?? '',
-        body: json['body'] as String? ?? '',
-        status: json['status'] as String? ?? 'open',
-        priority: json['priority'] as String? ?? 'normal',
+        body: json['body'] as String? ?? json['message'] as String? ?? '',
+        status: (json['status'] as String? ??
+                json['statusCode'] as String? ??
+                'open')
+            .toLowerCase(),
+        priority: (json['priority'] as String? ??
+                json['priorityCode'] as String? ??
+                'normal')
+            .toLowerCase(),
         createdAt: json['createdAt'] as String? ?? '',
-        taskId: json['taskId'] as String?,
+        taskId: json['taskId'] as String? ?? json['shipmentId'] as String?,
       );
 }
 

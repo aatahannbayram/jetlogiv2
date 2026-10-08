@@ -1,19 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../l10n.dart';
 import '../scan.dart';
+import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
-class SubeCountScreen extends StatefulWidget {
+class SubeCountScreen extends ConsumerStatefulWidget {
   const SubeCountScreen({super.key});
 
   @override
-  State<SubeCountScreen> createState() => _SubeCountScreenState();
+  ConsumerState<SubeCountScreen> createState() => _SubeCountScreenState();
 }
 
-class _SubeCountScreenState extends State<SubeCountScreen> {
+class _SubeCountScreenState extends ConsumerState<SubeCountScreen> {
   bool _running = false;
   bool _paused = false;
   final _codes = <String>[];
@@ -21,6 +23,8 @@ class _SubeCountScreenState extends State<SubeCountScreen> {
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
+    final live = ref.watch(sessionProvider).branchCounts;
+    final count = live.isEmpty ? null : live.first;
     return Scaffold(
       appBar: AppBar(title: Text(l.subeCountTitle)),
       body: ListView(
@@ -30,8 +34,8 @@ class _SubeCountScreenState extends State<SubeCountScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Mono('SAY-2026-001', size: 12, color: Dg.ink3),
-                Text('Genel stok sayımı', style: Dg.ui(size: 16, weight: FontWeight.w700)),
+                Mono(count?.ref ?? 'SAY-2026-001', size: 12, color: Dg.ink3),
+                Text(count?.title.isNotEmpty == true ? count!.title : 'Genel stok sayımı', style: Dg.ui(size: 16, weight: FontWeight.w700)),
                 Text('${_codes.length} okundu', style: Dg.ui(size: 13, color: Dg.ink2)),
               ],
             ),

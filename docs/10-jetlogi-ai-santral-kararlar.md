@@ -22,7 +22,7 @@ Dijigoo tarafinda maskeli arama, OTP SMS, 3 inbound sorgu/ticket ucu ve IVR sonu
 | M09 | Outbound tekrar ve saat; arama istememe | `outbound_window`, `max_retries` | Evet (T18) | | |
 | M10 | KVKK aydinlatma metni; kayit saklama suresi | `kvkk_announcement` | Evet | | |
 | M11 | Kuyruklar ve yedekler | `routing_rules` | Evet | | |
-| M12 | Temsilci musait degilse | `no_agent_fallback` | Evet | | |
+| M12 | Temsilci musait degilse. Dahili yoksa ilgili cep | `no_agent_fallback` | Evet | Hande | 06.10.2026 |
 | M13 | Dil destegi | `languages` | Hayir | | |
 | M14 | Erisilebilirlik alternatifi | `accessibility_channel` | Hayir | | |
 | M15 | Resmi kurum proseduru | `routing_rules` official | Evet (T15) | | |

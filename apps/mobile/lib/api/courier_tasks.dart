@@ -144,6 +144,14 @@ String failureOutcomeCode(String reason) => switch (reason) {
   _ => 'RECIPIENT_ABSENT',
 };
 
+/// JetDiji 5110 neden kodları. Panel teslim sonucu bunları ister.
+String panelFailureReasonCode(String reason) => switch (failureOutcomeCode(reason)) {
+  'ADDRESS_NOT_FOUND' => '9304',
+  'REFUSED' => '9303',
+  'RECIPIENT_ABSENT' => '9302',
+  _ => '9301',
+};
+
 bool photoRequiredForFailure(String reason) {
   final code = failureOutcomeCode(reason);
   return code == 'RECIPIENT_ABSENT' || code == 'ADDRESS_NOT_FOUND';

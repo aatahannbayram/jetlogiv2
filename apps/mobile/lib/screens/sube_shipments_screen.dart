@@ -1,19 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../l10n.dart';
+import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'sube_demo.dart';
 
-class SubeShipmentsScreen extends StatefulWidget {
+class SubeShipmentsScreen extends ConsumerStatefulWidget {
   const SubeShipmentsScreen({super.key});
 
   @override
-  State<SubeShipmentsScreen> createState() => _SubeShipmentsScreenState();
+  ConsumerState<SubeShipmentsScreen> createState() => _SubeShipmentsScreenState();
 }
 
-class _SubeShipmentsScreenState extends State<SubeShipmentsScreen> {
+class _SubeShipmentsScreenState extends ConsumerState<SubeShipmentsScreen> {
   String _filter = 'all';
   final _picked = <String>{};
 
@@ -30,8 +32,15 @@ class _SubeShipmentsScreenState extends State<SubeShipmentsScreen> {
       ('return', l.filterReturn),
       ('sla', l.filterSla),
     ];
+    final live = ref.watch(sessionProvider).branchShipments;
+    final source = live.isEmpty
+        ? kSubeDemoShipments
+        : [
+            for (final row in live)
+              SubeDemoShipment(row.ref, row.title, 'waiting', 'mid', row.id),
+          ];
     final rows = [
-      for (final s in kSubeDemoShipments)
+      for (final s in source)
         if (_filter == 'all' || s.filter == _filter) s,
     ];
     return Scaffold(
@@ -121,7 +130,19 @@ class _SubeShipmentsScreenState extends State<SubeShipmentsScreen> {
         children: [
           Text(l.pickCourier, style: Dg.ui(size: 17, weight: FontWeight.w700)),
           const SizedBox(height: 12),
-          for (final c in kSubeDemoCouriers)
+          for (final c in (ref.read(sessionProvider).branchCouriers.isEmpty
+              ? kSubeDemoCouriers
+              : [
+                  for (final row in ref.read(sessionProvider).branchCouriers)
+                    SubeDemoCourier(
+                      row.title.isEmpty ? row.ref : row.title,
+                      row.detail,
+                      'lime',
+                      0,
+                      0,
+                      row.id,
+                    ),
+                ]))
             ListTile(
               title: Text(c.name),
               subtitle: Text(l.availableStatus),
@@ -131,6 +152,20 @@ class _SubeShipmentsScreenState extends State<SubeShipmentsScreen> {
       ),
     );
     if (courier == null || !context.mounted) return;
+    final shipments = ref.read(sessionProvider).branchShipments;
+    final ids = [
+      for (final row in shipments)
+        if (_picked.contains(row.ref) && row.id.isNotEmpty) row.id,
+    ];
+    if (courier.id.isNotEmpty && ids.isNotEmpty) {
+      try {
+        await ref.read(sessionProvider).agency?.handoverToCourier(
+          courierId: courier.id,
+          shipmentIds: ids,
+        );
+        await ref.read(sessionProvider).loadBranchWorkspace();
+      } catch (_) {}
+    }
     setState(() => _picked.clear());
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('${l.confirmAssign}: ${courier.name}')),

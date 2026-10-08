@@ -126,16 +126,17 @@ class DgIconChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fg = color ?? (accent ? Dg.warn : Dg.text2);
+    final tone = color ?? (accent ? Dg.text1 : Dg.text2);
+    final bg = background ?? Dg.surface2;
     return Container(
       width: size,
       height: size,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: background ?? (accent ? Dg.warnSoft : Dg.muteSoft),
-        borderRadius: BorderRadius.circular(Dg.rSm),
+        color: bg,
+        shape: BoxShape.circle,
       ),
-      child: DgIcon(icon, size: size * 0.46, color: fg, weight: 600),
+      child: DgIcon(icon, size: size * 0.44, color: tone, weight: 500),
     );
   }
 }
@@ -199,7 +200,7 @@ class _RingPainter extends CustomPainter {
       ..shader = const SweepGradient(
         startAngle: -pi / 2,
         endAngle: 3 * pi / 2,
-        colors: [Color(0xFF7B61FF), Color(0xFFFF7A2F), Color(0xFF7B61FF)],
+        colors: [Color(0xFF8A74E6), Color(0xFFE8893A), Color(0xFF8A74E6)],
       ).createShader(rect);
     canvas.drawArc(rect, -pi / 2, 2 * pi * progress, false, sweep);
   }
@@ -469,9 +470,9 @@ class _DgButtonState extends State<DgButton> {
             boxShadow: ember && enabled
                 ? const [
                     BoxShadow(
-                      color: Color(0x99F08A24),
-                      blurRadius: 28,
-                      offset: Offset(0, 10),
+                      color: Color(0x66FF7A18),
+                      blurRadius: 22,
+                      offset: Offset(0, 8),
                     ),
                   ]
                 : null,
@@ -629,7 +630,7 @@ class DgCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: dark ? Dg.night : (lime ? Dg.ink : Dg.surface1),
         borderRadius: BorderRadius.circular(radius),
-        border: Border(top: BorderSide(color: Dg.hairline, width: 0.5)),
+        border: Border.all(color: Dg.cardEdge),
       ),
       child: child,
     );
@@ -673,24 +674,19 @@ class NotifCard extends StatelessWidget {
       DateTime.now(),
       yesterdayLabel: l.yesterday,
     );
-    final tile = compact ? 32.0 : 40.0;
     final pad = compact
         ? const EdgeInsets.symmetric(vertical: 10)
         : const EdgeInsets.fromLTRB(12, 12, 12, 12);
     final row = Padding(
       padding: pad,
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Container(
-            width: tile,
-            height: tile,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: n.tint,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: DgIcon(n.icon, size: compact ? 16 : 18, color: n.ink),
+          DgIcon(
+            n.icon,
+            size: compact ? 18 : 20,
+            color: unread ? Dg.text1 : Dg.text3,
+            weight: 500,
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -723,10 +719,10 @@ class NotifCard extends StatelessWidget {
               if (unread) ...[
                 const SizedBox(height: 8),
                 Container(
-                  width: 7,
-                  height: 7,
+                  width: 5,
+                  height: 5,
                   decoration: BoxDecoration(
-                    color: Dg.bad,
+                    color: Dg.text2,
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -747,14 +743,9 @@ class NotifCard extends StatelessWidget {
         ? row
         : DecoratedBox(
             decoration: BoxDecoration(
-              color: unread ? Dg.surface : Colors.transparent,
-              borderRadius: BorderRadius.circular(Dg.radiusHero),
-              border: Border(
-                left: BorderSide(
-                  color: unread ? n.ink : Colors.transparent,
-                  width: 3,
-                ),
-              ),
+              color: Dg.surface1,
+              borderRadius: BorderRadius.circular(Dg.rLg),
+              border: Border.all(color: Dg.cardEdge),
             ),
             child: row,
           );
@@ -1945,6 +1936,7 @@ class SegmentedTabs extends StatelessWidget {
     required this.index,
     required this.onChanged,
     this.glass = false,
+    this.soft = false,
   });
 
   final List<String> labels;
@@ -1952,8 +1944,54 @@ class SegmentedTabs extends StatelessWidget {
   final ValueChanged<int> onChanged;
   final bool glass;
 
+  /// Koyu zeminde yüzen hap. Alt çizgi yerine seçili sekme kart gibi durur.
+  final bool soft;
+
   @override
   Widget build(BuildContext context) {
+    if (soft) {
+      return Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: Dg.surface2,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          children: [
+            for (var i = 0; i < labels.length; i++)
+              Expanded(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => onChanged(i),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeOutCubic,
+                    height: 34,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: index == i ? Dg.surface1 : Colors.transparent,
+                      borderRadius: BorderRadius.circular(10),
+                      border: index == i
+                          ? Border.all(color: Dg.cardEdge)
+                          : null,
+                    ),
+                    child: Text(
+                      labels[i],
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Dg.ui(
+                        size: 13,
+                        weight: index == i ? FontWeight.w700 : FontWeight.w500,
+                        color: index == i ? Dg.text1 : Dg.text3,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      );
+    }
     return Row(
       children: [
         for (var i = 0; i < labels.length; i++)
@@ -2452,7 +2490,7 @@ class PhoneShell extends StatelessWidget {
 }
 
 /// Giriş ve tören ekranları için marka zemini.
-/// [vivid] giriş ekranında ızgara, parıltı ve flare ekler.
+/// [vivid] girişte yavaş nefes alan bir ışık ve alçak ızgara ekler.
 class HeroBackground extends StatelessWidget {
   const HeroBackground({super.key, this.vivid = false, required this.child});
 
@@ -2487,14 +2525,12 @@ class _VividHeroState extends State<_VividHero>
     super.initState();
     _pulse = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 7),
-    )..value = 0.65;
-    var start = kReleaseMode;
-    assert(() {
-      start = !WidgetsBinding.instance.runtimeType.toString().contains('Test');
-      return true;
-    }());
-    if (start) _pulse.repeat(reverse: true);
+      duration: const Duration(seconds: 8),
+    )..value = 0.35;
+    final test = WidgetsBinding.instance.runtimeType.toString().contains(
+      'Test',
+    );
+    if (!test) _pulse.repeat(reverse: true);
   }
 
   @override
@@ -2514,19 +2550,19 @@ class _VividHeroState extends State<_VividHero>
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Color(0xFF6A32D4),
-                Color(0xFF3A1488),
-                Color(0xFF1A0848),
-                Color(0xFF0B041C),
+                Color(0xFF4E2C96),
+                Color(0xFF32186C),
+                Color(0xFF1A1038),
+                Color(0xFF100C22),
               ],
-              stops: [0, 0.32, 0.68, 1],
+              stops: [0, 0.28, 0.62, 1],
             ),
           ),
         ),
         AnimatedBuilder(
           animation: _pulse,
           builder: (context, _) => CustomPaint(
-            painter: _VividMeshPainter(t: _pulse.value),
+            painter: _CalmGridPainter(t: _pulse.value),
             child: const SizedBox.expand(),
           ),
         ),
@@ -2536,8 +2572,8 @@ class _VividHeroState extends State<_VividHero>
   }
 }
 
-class _VividMeshPainter extends CustomPainter {
-  const _VividMeshPainter({required this.t});
+class _CalmGridPainter extends CustomPainter {
+  const _CalmGridPainter({required this.t});
 
   final double t;
 
@@ -2545,81 +2581,67 @@ class _VividMeshPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final w = size.width;
     final h = size.height;
-    final glow = 0.72 + 0.28 * t;
+    final breath = 0.72 + 0.28 * t;
 
-    final flare = Offset(w * 0.12, h * 0.02);
     canvas.drawRect(
       Offset.zero & size,
       Paint()
         ..shader = RadialGradient(
           colors: [
-            Color.fromRGBO(255, 255, 255, 0.42 * glow),
-            Color.fromRGBO(180, 120, 255, 0.22 * glow),
+            Color.fromRGBO(255, 255, 255, 0.10 * breath),
+            Color.fromRGBO(170, 120, 255, 0.08 * breath),
             const Color(0x00000000),
           ],
-          stops: const [0, 0.18, 1],
-        ).createShader(Rect.fromCircle(center: flare, radius: w * 0.95)),
-    );
-
-    canvas.drawCircle(
-      Offset(w * 0.82, h * 0.18),
-      w * 0.42,
-      Paint()
-        ..shader = RadialGradient(
-          colors: [
-            Color.fromRGBO(240, 138, 36, 0.18 * glow),
-            const Color(0x00000000),
-          ],
+          stops: const [0, 0.22, 1],
         ).createShader(
-          Rect.fromCircle(
-            center: Offset(w * 0.82, h * 0.18),
-            radius: w * 0.42,
-          ),
+          Rect.fromCircle(center: Offset(w * 0.5, -h * 0.02), radius: w * 0.95),
         ),
     );
 
-    final horizon = h * 0.52;
+    canvas.drawCircle(
+      Offset(w * 0.82, h * 0.92),
+      w * 0.55,
+      Paint()
+        ..shader = RadialGradient(
+          colors: [
+            Color.fromRGBO(255, 122, 24, 0.07 * breath),
+            const Color(0x00000000),
+          ],
+        ).createShader(
+          Rect.fromCircle(center: Offset(w * 0.82, h * 0.92), radius: w * 0.55),
+        ),
+    );
+
+    final horizon = h * 0.58;
     final vp = Offset(w * 0.5, horizon);
     final grid = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1
-      ..color = Color.fromRGBO(180, 130, 255, 0.16 + 0.1 * t);
+      ..color = Color.fromRGBO(190, 160, 255, 0.07 + 0.05 * t);
 
-    for (var i = 1; i <= 14; i++) {
-      final p = i / 14;
+    for (var i = 1; i <= 9; i++) {
+      final p = i / 9;
       final y = horizon + (h - horizon) * p * p;
       canvas.drawLine(Offset(0, y), Offset(w, y), grid);
     }
-    for (var i = -8; i <= 8; i++) {
-      final x = w * 0.5 + i * (w * 0.22);
+    for (var i = -6; i <= 6; i++) {
+      final x = w * 0.5 + i * (w * 0.24);
       canvas.drawLine(Offset(x, h), vp, grid);
     }
 
-    final rng = Random(11);
-    final nodePaint = Paint()..style = PaintingStyle.fill;
-    final link = Paint()
-      ..strokeWidth = 0.8
-      ..color = Color.fromRGBO(255, 170, 70, 0.14 + 0.1 * t);
-    final nodes = <Offset>[];
-    for (var i = 0; i < 46; i++) {
-      nodes.add(Offset(rng.nextDouble() * w, rng.nextDouble() * h));
-    }
-    for (var i = 0; i < nodes.length; i++) {
-      for (var j = i + 1; j < nodes.length; j++) {
-        if ((nodes[i] - nodes[j]).distance < w * 0.18) {
-          canvas.drawLine(nodes[i], nodes[j], link);
-        }
-      }
-    }
-    for (final n in nodes) {
-      final hot = rng.nextDouble() > 0.72;
-      nodePaint.color = hot
-          ? Color.fromRGBO(255, 170, 70, 0.35 + 0.45 * glow)
-          : Color.fromRGBO(210, 170, 255, 0.22 + 0.28 * glow);
-      canvas.drawCircle(n, hot ? 2.4 : 1.6, nodePaint);
+    final rng = Random(4);
+    final dot = Paint()..style = PaintingStyle.fill;
+    for (var i = 0; i < 16; i++) {
+      final x = rng.nextDouble() * w;
+      final y = h * 0.45 + rng.nextDouble() * h * 0.55;
+      final hot = i.isEven;
+      dot.color = hot
+          ? Color.fromRGBO(255, 150, 60, 0.16 + 0.22 * breath)
+          : Color.fromRGBO(190, 160, 255, 0.10 + 0.16 * breath);
+      canvas.drawCircle(Offset(x, y), hot ? 1.8 : 1.3, dot);
     }
   }
 
   @override
-  bool shouldRepaint(covariant _VividMeshPainter old) => old.t != t;
+  bool shouldRepaint(covariant _CalmGridPainter old) => old.t != t;
 }

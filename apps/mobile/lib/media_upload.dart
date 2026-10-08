@@ -5,6 +5,7 @@ import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 
 import 'api/client.dart';
+import 'api/panel_client.dart';
 import 'data/vault.dart';
 import 'locate.dart';
 import 'scan.dart';
@@ -12,6 +13,7 @@ import 'scan.dart';
 /// Presign + PUT. Test / kamera yokken sahte id (canlıda gerçek dosya gerekir).
 Future<String?> uploadEvidence({
   required MobileApi? api,
+  PanelApi? panel,
   required List<int> bytes,
   required String kind,
   required String contentType,
@@ -23,6 +25,16 @@ Future<String?> uploadEvidence({
     if (inWidgetTest) return Vault.newUuid();
   } catch (_) {
     return Vault.newUuid();
+  }
+  if (panel != null && taskId != null && taskId.isNotEmpty) {
+    return await panel.uploadTaskEvidence(
+      shipmentId: taskId,
+      bytes: bytes,
+      filename: kind == 'signature' ? 'signature.png' : 'photo.jpg',
+      evidenceType: _evidenceType(kind),
+      contentType: contentType,
+      requirementCode: stepKey,
+    );
   }
   if (api == null) return Vault.newUuid();
 
@@ -63,8 +75,20 @@ Future<String?> uploadEvidence({
   return res.mediaId;
 }
 
+String _evidenceType(String kind) {
+  switch (kind) {
+    case 'signature':
+      return 'SIGNATURE';
+    case 'document':
+      return 'DOCUMENT';
+    default:
+      return 'PHOTO';
+  }
+}
+
 Future<String?> uploadFileEvidence({
   required MobileApi? api,
+  PanelApi? panel,
   required String? path,
   required String kind,
   String contentType = 'image/jpeg',
@@ -79,6 +103,7 @@ Future<String?> uploadFileEvidence({
     final bytes = await File(path).readAsBytes();
     return uploadEvidence(
       api: api,
+      panel: panel,
       bytes: bytes,
       kind: kind,
       contentType: contentType,

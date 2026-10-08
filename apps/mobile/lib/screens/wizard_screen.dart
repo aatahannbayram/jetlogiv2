@@ -37,6 +37,14 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
   String? error;
   bool done = false;
 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(sessionProvider).loadTaskRequirements(widget.taskId);
+    });
+  }
+
   // Getter, not `static const` — the tint/ink pair (Dg.violetBg, ...) reads
   // Dg.dark at call time, so this must re-evaluate on every access instead
   // of being frozen at first use (otherwise it'd go stale after a
@@ -119,7 +127,8 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
       }
       if (proof == 'sign') {
         signMediaId ??= await uploadEvidence(
-          api: s.api,
+          api: s.panelLoggedIn ? null : s.api,
+          panel: s.panelLoggedIn ? s.panel : null,
           bytes: tinyPng(),
           kind: 'signature',
           contentType: 'image/png',
@@ -362,12 +371,16 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
                       captured: photo,
                       onCapture: (path) async {
                         setState(() => photo = true);
+                        final session = ref.read(sessionProvider);
                         final id = await uploadFileEvidence(
-                          api: ref.read(sessionProvider).api,
+                          api: session.panelLoggedIn ? null : session.api,
+                          panel: session.panelLoggedIn ? session.panel : null,
                           path: path,
                           kind: 'photo',
                           taskId: widget.taskId,
-                          stepKey: 'teslim_fotografi',
+                          stepKey: session.taskRequirements == null
+                              ? 'teslim_fotografi'
+                              : null,
                         );
                         if (mounted) setState(() => photoMediaId = id);
                       },

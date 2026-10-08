@@ -32,6 +32,9 @@ const _demoAutostart = bool.fromEnvironment(
   defaultValue: false,
 );
 
+/// Giriş ekranını açılışta göstermek için. Release'te yok sayılır.
+const _openLogin = bool.fromEnvironment('OPEN_LOGIN', defaultValue: false);
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   FlutterError.onError = (details) {
@@ -107,7 +110,9 @@ Future<void> _bootstrap() async {
         ..storageOk = storageOk;
   await session.restoreUiPrefs();
   await session.restoreLocalShift();
-  if (_demoAutostart && !kReleaseMode) {
+  if (_openLogin && !kReleaseMode) {
+    session.phase = AppPhase.activation;
+  } else if (_demoAutostart && !kReleaseMode) {
     session.skipToDemo();
   }
   await DgLog.attach();

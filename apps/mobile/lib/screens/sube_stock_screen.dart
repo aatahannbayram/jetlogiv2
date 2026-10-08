@@ -1,26 +1,34 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../l10n.dart';
+import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
-class SubeStockScreen extends StatelessWidget {
+class SubeStockScreen extends ConsumerWidget {
   const SubeStockScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l = context.l10n;
-    final tiles = <(String, String)>[
-      (l.kpiBranchStock, '1.250'),
-      ('Kullanılabilir', '980'),
-      ('Kurye üzerinde', '200'),
-      ('Sevkiyat bekleyen', '50'),
-      ('Merkeze sevkiyatta', '12'),
-      ('Hasarlı', '4'),
-      ('Sayım farkında', '3'),
-      (l.kpiInField, '200'),
-    ];
+    final live = ref.watch(sessionProvider).branchStock;
+    final tiles = live.isEmpty
+        ? <(String, String)>[
+            (l.kpiBranchStock, '1.250'),
+            ('Kullanılabilir', '980'),
+            ('Kurye üzerinde', '200'),
+            ('Sevkiyat bekleyen', '50'),
+            ('Merkeze sevkiyatta', '12'),
+            ('Hasarlı', '4'),
+            ('Sayım farkında', '3'),
+            (l.kpiInField, '200'),
+          ]
+        : [
+            for (final row in live)
+              (row.title.isEmpty ? row.ref : row.title, row.detail.isEmpty ? row.ref : row.detail),
+          ];
     return Scaffold(
       appBar: AppBar(title: Text(l.subeStockTitle)),
       body: ListView(
@@ -31,7 +39,8 @@ class SubeStockScreen extends StatelessWidget {
               children: [
                 StatTile(label: tiles[i].$1, value: tiles[i].$2),
                 const SizedBox(width: 12),
-                StatTile(label: tiles[i + 1].$1, value: tiles[i + 1].$2),
+                if (i + 1 < tiles.length)
+                  StatTile(label: tiles[i + 1].$1, value: tiles[i + 1].$2),
               ],
             ),
             const SizedBox(height: 12),

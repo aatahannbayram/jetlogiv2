@@ -1,23 +1,32 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../l10n.dart';
+import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'sube_demo.dart';
 
-class SubeCouriersScreen extends StatelessWidget {
+class SubeCouriersScreen extends ConsumerWidget {
   const SubeCouriersScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l = context.l10n;
+    final live = ref.watch(sessionProvider).branchCouriers;
+    final couriers = live.isEmpty
+        ? kSubeDemoCouriers
+        : [
+            for (final row in live)
+              SubeDemoCourier(row.title.isEmpty ? row.ref : row.title, row.detail, 'lime', 0, 0, row.id),
+          ];
     return Scaffold(
       appBar: AppBar(title: Text(l.subeCouriersTitle)),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
         children: [
-          for (final courier in kSubeDemoCouriers)
+          for (final courier in couriers)
             Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: DgCard(

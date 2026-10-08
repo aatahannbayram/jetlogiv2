@@ -7,14 +7,14 @@ import '../tls_pinning.dart';
 import 'models.dart';
 import 'panel_models.dart';
 
-/// jetlogi-panel (`dijigoo-ops`) default local dev address per its own
-/// README §17 — there is no known staging/production domain yet (bkz.
-/// docs/05-panel-entegrasyonu.md, Açık Karar #1). Override with
-/// `--dart-define=PANEL_API_BASE=...` once one exists.
+/// JetDiji kurye mobil API (preprod). Canlı host `api-mobile.jetdiji.com`.
+/// Override: `--dart-define=PANEL_API_BASE=...`
 const kPanelApiBase = String.fromEnvironment(
   'PANEL_API_BASE',
-  defaultValue: 'http://localhost:3000/api/public/v1',
+  defaultValue: 'https://api-mobile.preprod.jetdiji.com/api/public/v1',
 );
+
+const kPanelBearerKey = 'dg.jetdiji.courier.token';
 
 /// Client for jetlogi-panel's courier-facing `public/v1/courier-*` API.
 ///
@@ -30,10 +30,26 @@ class PanelApi {
   /// Plain constructor for tests — inject a `Dio` with a mock interceptor
   /// (see `test/panel_client_test.dart`) and skip the cookie jar entirely,
   /// same pattern as `MobileApi(dio: dio)` / `CourierTaskClient(dio)`.
-  PanelApi(this.dio, [this._cookieJar]);
+  PanelApi(this.dio, [this._cookieJar, this._vault]) {
+    dio.interceptors.insert(
+      0,
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          options.headers['X-Client-Type'] = 'mobile';
+          final token = _accessToken;
+          if (token != null && token.isNotEmpty) {
+            options.headers['Authorization'] = 'Bearer $token';
+          }
+          handler.next(options);
+        },
+      ),
+    );
+  }
 
   final Dio dio;
   final CookieJar? _cookieJar;
+  final Vault? _vault;
+  String? _accessToken;
 
   /// Production factory — session cookie Keychain/Keystore'da.
   /// Release'de `PANEL_API_BASE` HTTPS olmak zorunda.
@@ -52,20 +68,30 @@ class PanelApi {
     );
     dio.interceptors.add(CookieManager(cookieJar));
     attachTlsPinning(dio);
-    return PanelApi(dio, cookieJar);
+    final api = PanelApi(dio, cookieJar, vault);
+    final saved = await vault.readSecret(kPanelBearerKey);
+    if (saved != null && saved.isNotEmpty) api._accessToken = saved;
+    return api;
   }
 
-  /// True once a login has produced a session cookie for [kPanelApiBase].
-  /// Cheap, local-only check — does not itself confirm the session is still
-  /// valid server-side (the 8h expiry in `courier-auth.ts` can have passed).
-  /// Call [fetchSession] to confirm. Always false when constructed without
-  /// a cookie jar (e.g. in tests).
+  /// True once a login has stored a Bearer or a session cookie.
+  /// Call [fetchSession] to confirm the server still accepts it.
   Future<bool> get hasStoredSession async {
+    if (_accessToken != null && _accessToken!.isNotEmpty) return true;
+    final saved = await _vault?.readSecret(kPanelBearerKey);
+    if (saved != null && saved.isNotEmpty) {
+      _accessToken = saved;
+      return true;
+    }
     final jar = _cookieJar;
     if (jar == null) return false;
     final uri = Uri.parse(dio.options.baseUrl);
     final cookies = await jar.loadForRequest(uri);
-    return cookies.any((c) => c.name == 'dijigoo_courier_session');
+    return cookies.any(
+      (c) =>
+          c.name == 'dijigoo_courier_session' ||
+          c.name == 'jetdiji_courier_session',
+    );
   }
 
   Future<PanelCourierProfileDto> login({
@@ -76,15 +102,26 @@ class PanelApi {
       'identifier': identifier,
       'password': password,
     });
-    final courier = (res.data?['data'] as Map?)?['courier'] as Map?;
+    final data = res.data?['data'] as Map?;
+    final token = data?['accessToken'] as String?;
+    if (token != null && token.isNotEmpty) {
+      _accessToken = token;
+      await _vault?.writeSecret(kPanelBearerKey, token);
+    }
+    final courier = data?['courier'] as Map?;
     return PanelCourierProfileDto.fromJson(
       Map<String, dynamic>.from(courier ?? const {}),
     );
   }
 
   Future<void> logout() async {
-    await _post('/courier-auth/logout', const {});
-    await _cookieJar?.deleteAll();
+    try {
+      await _post('/courier-auth/logout', const {});
+    } finally {
+      _accessToken = null;
+      await _vault?.deleteSecret(kPanelBearerKey);
+      await _cookieJar?.deleteAll();
+    }
   }
 
   /// `GET courier-auth/session` — confirms the stored cookie is still
@@ -130,6 +167,115 @@ class PanelApi {
     );
     return PanelCourierTaskDto.fromJson(
       Map<String, dynamic>.from(res.data?['data'] as Map? ?? const {}),
+    );
+  }
+
+  /// Depodan alım. Okutulan gönderi no, barkod veya takip no.
+  Future<void> acceptCustodyScan(String scanCode) async {
+    await _post('/courier-custody/accept', {
+      'scanCode': scanCode,
+      'scanType': 'AUTO',
+    });
+  }
+
+  Future<({String phone, String telUri})> callRecipient(String shipmentId) async {
+    final res = await _post('/courier-tasks/$shipmentId/call', const {});
+    final data = res.data?['data'] as Map? ?? const {};
+    return (
+      phone: data['phone'] as String? ?? '',
+      telUri: data['telUri'] as String? ?? '',
+    );
+  }
+
+  Future<String?> requestDeliveryOtp(String shipmentId) async {
+    final res = await _post('/courier-tasks/$shipmentId/otp', const {});
+    return (res.data?['data'] as Map?)?['challengeId'] as String?;
+  }
+
+  /// Doğrulandıysa `otpEvidenceId` olarak kullanılacak kanıt no.
+  Future<String?> verifyDeliveryOtp({
+    required String shipmentId,
+    required String challengeId,
+    required String code,
+  }) async {
+    final res = await _post('/courier-tasks/$shipmentId/otp/verify', {
+      'challengeId': challengeId,
+      'code': code,
+    });
+    final data = res.data?['data'] as Map? ?? const {};
+    if (data['verified'] != true) return null;
+    return data['evidenceId'] as String? ?? challengeId;
+  }
+
+  Future<List<({String code, String name})>> fetchDeliveryReasons() async {
+    final res = await _get('/courier-tasks/delivery-reasons', queryParameters: {'locale': 'tr'});
+    final failed = (res.data?['data'] as Map?)?['failed'] as List? ?? const [];
+    return [
+      for (final row in failed)
+        if (row is Map)
+          (
+            code: row['code'] as String? ?? '',
+            name: row['name'] as String? ?? '',
+          ),
+    ].where((row) => row.code.isNotEmpty && row.name.isNotEmpty).toList();
+  }
+
+  Future<Map<String, dynamic>> fetchRequirements(String shipmentId) async {
+    final res = await _get('/courier-tasks/$shipmentId/requirements');
+    return Map<String, dynamic>.from(res.data?['data'] as Map? ?? const {});
+  }
+
+  Future<String?> uploadTaskEvidence({
+    required String shipmentId,
+    required List<int> bytes,
+    required String filename,
+    required String evidenceType,
+    String contentType = 'image/jpeg',
+    String? requirementCode,
+  }) async {
+    final key = Vault.newUuid();
+    final form = FormData.fromMap({
+      'evidenceType': evidenceType,
+      'idempotencyKey': key,
+      if (requirementCode != null) 'requirementCode': requirementCode,
+      'file': MultipartFile.fromBytes(
+        bytes,
+        filename: filename,
+        contentType: DioMediaType.parse(contentType),
+      ),
+    });
+    final res = await dio.post<Map<String, dynamic>>(
+      '/courier-tasks/$shipmentId/evidence',
+      data: form,
+      options: Options(headers: {'Idempotency-Key': key}),
+    );
+    final data = res.data?['data'] as Map? ?? const {};
+    return data['evidenceId'] as String? ?? data['id'] as String?;
+  }
+
+  Future<({String? city, String? district, String? vehicle, String? status})>
+  fetchCourierProfile() async {
+    final res = await _get('/courier-profile');
+    final courier =
+        (res.data?['data'] as Map?)?['courier'] as Map? ?? const {};
+    final city = courier['city'];
+    final district = courier['district'];
+    return (
+      city: city is Map ? city['name'] as String? : null,
+      district: district is Map ? district['name'] as String? : null,
+      vehicle: courier['vehicleType'] as String?,
+      status: courier['status'] as String?,
+    );
+  }
+
+  Future<CourierDocumentListDto> fetchMyDocuments() async {
+    final res = await _get('/courier-my-documents');
+    final summary =
+        (res.data?['data'] as Map?)?['summary'] as Map? ?? const {};
+    return CourierDocumentListDto(
+      items: const [],
+      completedCount: (summary['approved'] as num?)?.toInt() ?? 0,
+      requiredCount: (summary['required'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -198,11 +344,15 @@ class PanelApi {
     required String outcome,
     String? reasonCode,
     String? receivedBy,
+    String? otpEvidenceId,
   }) async {
+    final delivered = outcome != 'FAILED' && outcome != 'DELIVERY_FAILED';
     final res = await _post('/courier-tasks/$shipmentId/finalize', {
-      'outcome': outcome,
-      if (reasonCode != null) 'reasonCode': reasonCode,
-      if (receivedBy != null) 'receivedBy': receivedBy,
+      'resultCode': delivered ? 'DELIVERED' : 'DELIVERY_FAILED',
+      'outcome': delivered ? 'DELIVERED' : 'FAILED',
+      if (!delivered && reasonCode != null) 'reasonCode': reasonCode,
+      if (delivered && receivedBy != null) 'receivedByName': receivedBy,
+      if (delivered && otpEvidenceId != null) 'otpEvidenceId': otpEvidenceId,
     });
     return PanelFinalizeResultDto.fromJson(
       Map<String, dynamic>.from(res.data?['data'] as Map? ?? const {}),
@@ -210,12 +360,15 @@ class PanelApi {
   }
 
   Future<List<CustodyItemDto>> fetchCustody() async {
-    final res = await _get('/courier-custody');
-    final raw = (res.data?['data'] as Map?)?['items'] as List? ?? const [];
+    final res = await _get('/courier-custody/pending');
+    final data = res.data?['data'] as Map? ?? const {};
+    final raw = <dynamic>[
+      ...((data['items'] as List?) ?? const []),
+      ...((data['held'] as List?) ?? const []),
+    ];
     return [
       for (final row in raw)
-        if (row is Map)
-          CustodyItemDto.fromJson(Map<String, dynamic>.from(row)),
+        if (row is Map) _custodyItem(Map<String, dynamic>.from(row)),
     ];
   }
 
@@ -224,8 +377,9 @@ class PanelApi {
     required String warehouseId,
     String? note,
   }) async {
-    final res = await _post('/courier-custody/$unitId/return', {
-      'warehouseId': warehouseId,
+    final res = await _post('/courier-custody/return', {
+      'shipmentIds': [unitId],
+      if (warehouseId.isNotEmpty) 'targetUnitId': warehouseId,
       if (note != null) 'note': note,
     });
     return PanelCustodyActionResultDto.fromJson(
@@ -238,9 +392,11 @@ class PanelApi {
     required String kind,
     String? note,
   }) async {
-    final res = await _post('/courier-custody/$unitId/report-issue', {
-      'kind': kind,
-      if (note != null) 'note': note,
+    final res = await _post('/courier-support/cases', {
+      'category': 'TICKET',
+      'subject': kind,
+      if (note != null) 'message': note,
+      'shipmentId': unitId,
     });
     return PanelCustodyActionResultDto.fromJson(
       Map<String, dynamic>.from(res.data?['data'] as Map? ?? const {}),
@@ -248,31 +404,16 @@ class PanelApi {
   }
 
   Future<List<SupportTicketDto>> fetchTickets() async {
-    final items = <SupportTicketDto>[];
-    var page = 1;
-    while (page <= 20) {
-      final res = await _get(
-        '/courier-tickets',
-        queryParameters: {'page': '$page', 'pageSize': '50'},
-      );
-      final data = Map<String, dynamic>.from(
-        res.data?['data'] as Map? ?? const {},
-      );
-      final raw = data['items'] as List? ?? const [];
-      for (final row in raw) {
-        if (row is Map) {
-          items.add(
-            SupportTicketDto.fromJson(Map<String, dynamic>.from(row)),
-          );
-        }
-      }
-      final total = (data['total'] as num?)?.toInt();
-      if (raw.length < 50 || (total != null && items.length >= total)) {
-        break;
-      }
-      page += 1;
-    }
-    return items;
+    final res = await _get('/courier-support/cases');
+    final data = Map<String, dynamic>.from(
+      res.data?['data'] as Map? ?? const {},
+    );
+    final raw = data['cases'] as List? ?? data['items'] as List? ?? const [];
+    return [
+      for (final row in raw)
+        if (row is Map)
+          SupportTicketDto.fromJson(Map<String, dynamic>.from(row)),
+    ];
   }
 
   Future<SupportTicketDto> createTicket({
@@ -282,18 +423,48 @@ class PanelApi {
     required String body,
     String? taskId,
   }) async {
-    final res = await _post('/courier-tickets', {
-      'clientEventId': clientEventId,
-      'category': category,
+    final res = await _post('/courier-support/cases', {
+      'category': _supportCategory(category),
       'subject': subject,
-      'body': body,
-      if (taskId != null) 'taskId': taskId,
+      'message': body,
+      'idempotencyKey': clientEventId,
+      if (taskId != null) 'shipmentId': taskId,
     });
     final data = Map<String, dynamic>.from(
       res.data?['data'] as Map? ?? const {},
     );
     final ticket = data['ticket'] as Map? ?? data;
     return SupportTicketDto.fromJson(Map<String, dynamic>.from(ticket));
+  }
+
+  CustodyItemDto _custodyItem(Map<String, dynamic> json) {
+    return CustodyItemDto(
+      id: json['itemId'] as String? ??
+          json['id'] as String? ??
+          json['shipmentId'] as String? ??
+          '',
+      type: json['type'] as String? ?? 'parcel',
+      barcode: json['barcode'] as String? ?? json['shipmentNumber'] as String?,
+      description: json['recipientName'] as String? ??
+          json['description'] as String? ??
+          '',
+      quantity: (json['quantity'] as num?)?.toInt() ?? 1,
+      taskId: json['shipmentId'] as String? ?? json['taskId'] as String?,
+      acquiredAt: json['since'] as String? ?? json['acquiredAt'] as String? ?? '',
+      warehouseId: json['warehouseId'] as String?,
+    );
+  }
+
+  String _supportCategory(String category) {
+    switch (category) {
+      case 'CALL_REQUEST':
+      case 'TICKET':
+      case 'LIVE_CHAT':
+      case 'SOS':
+        return category;
+      default:
+        return 'TICKET';
+    }
   }
 
   Future<Response<Map<String, dynamic>>> _get(

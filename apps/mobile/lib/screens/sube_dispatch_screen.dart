@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../l10n.dart';
+import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
@@ -14,23 +16,36 @@ class _Box {
   final items = <String>['İade evrak', 'Hasarlı ürün'];
 }
 
-class SubeDispatchScreen extends StatefulWidget {
+class SubeDispatchScreen extends ConsumerStatefulWidget {
   const SubeDispatchScreen({super.key});
 
   @override
-  State<SubeDispatchScreen> createState() => _SubeDispatchScreenState();
+  ConsumerState<SubeDispatchScreen> createState() => _SubeDispatchScreenState();
 }
 
-class _SubeDispatchScreenState extends State<SubeDispatchScreen> {
-  final _boxes = [
-    _Box('KL-2025-001', 'İade — 38 kayıt', 'Hazır', 'lo'),
-    _Box('KL-2025-002', 'Evrak — 15 kayıt', 'Hazır', 'lo'),
-    _Box('KL-2025-003', 'Stok — 42 kayıt', 'Taslak', 'mid'),
-  ];
+class _SubeDispatchScreenState extends ConsumerState<SubeDispatchScreen> {
+  List<_Box>? _boxes;
+
+  List<_Box> _source() {
+    if (_boxes != null) return _boxes!;
+    final live = ref.read(sessionProvider).branchTransfers;
+    if (live.isEmpty) {
+      return [
+        _Box('KL-2025-001', 'İade — 38 kayıt', 'Hazır', 'lo'),
+        _Box('KL-2025-002', 'Evrak — 15 kayıt', 'Hazır', 'lo'),
+        _Box('KL-2025-003', 'Stok — 42 kayıt', 'Taslak', 'mid'),
+      ];
+    }
+    return [
+      for (final row in live)
+        _Box(row.ref, row.title, row.detail.isEmpty ? 'Hazır' : row.detail, 'lo'),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
+    _boxes ??= _source();
     return Scaffold(
       appBar: AppBar(title: Text(l.subeDispatchTitle)),
       body: ListView(
@@ -40,11 +55,11 @@ class _SubeDispatchScreenState extends State<SubeDispatchScreen> {
             label: l.newPackage,
             icon: LucideIcons.plus,
             onPressed: () => setState(() {
-              _boxes.insert(0, _Box('KL-NEW-${_boxes.length}', 'Taslak koli', 'Taslak', 'mid'));
+              _boxes!.insert(0, _Box('KL-NEW-${_boxes!.length}', 'Taslak koli', 'Taslak', 'mid'));
             }),
           ),
           const SizedBox(height: 16),
-          for (final box in _boxes)
+          for (final box in _boxes!)
             Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: DgCard(

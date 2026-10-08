@@ -1,18 +1,20 @@
 class SubeDemoShipment {
-  const SubeDemoShipment(this.ref, this.recipient, this.filter, this.tone);
+  const SubeDemoShipment(this.ref, this.recipient, this.filter, this.tone, [this.id = '']);
   final String ref;
   final String recipient;
   final String filter;
   final String tone;
+  final String id;
 }
 
 class SubeDemoCourier {
-  const SubeDemoCourier(this.name, this.status, this.tone, this.onMe, this.left);
+  const SubeDemoCourier(this.name, this.status, this.tone, this.onMe, this.left, [this.id = '']);
   final String name;
   final String status;
   final String tone;
   final int onMe;
   final int left;
+  final String id;
 }
 
 const kSubeDemoShipments = [

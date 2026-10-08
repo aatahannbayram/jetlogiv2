@@ -86,7 +86,9 @@ class PanelCourierTaskDto {
       statusCode: json['statusCode'] as String? ?? 'CREATED',
       statusReasonCode: json['statusReasonCode'] as String?,
       recipientName: json['recipientName'] as String?,
-      recipientPhone: json['recipientPhone'] as String?,
+      recipientPhone:
+          json['recipientPhone'] as String? ??
+          json['recipientPhoneMasked'] as String?,
       destination: destination == null
           ? const PanelDestinationDto()
           : PanelDestinationDto.fromJson(Map<String, dynamic>.from(destination)),
@@ -238,7 +240,7 @@ class PanelCourierProfileDto {
 
   factory PanelCourierProfileDto.fromJson(Map<String, dynamic> json) =>
       PanelCourierProfileDto(
-        courierId: json['id'] as String? ?? '',
+        courierId: json['id'] as String? ?? json['courierId'] as String? ?? '',
         courierCode: json['courierCode'] as String? ?? '',
         fullName: json['fullName'] as String? ?? '',
       );

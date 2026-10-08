@@ -134,7 +134,12 @@ class _FailReasonPaneState extends ConsumerState<_FailReasonPane> {
           style: TextStyle(color: Dg.ink2, fontSize: 15, height: 1.4),
         ),
         const SizedBox(height: 16),
-        for (final r in reasons)
+        for (final r in (ref.watch(sessionProvider).deliveryFailReasons.isEmpty
+            ? reasons
+            : [
+                for (final row in ref.watch(sessionProvider).deliveryFailReasons)
+                  row.name,
+              ]))
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: DgChoiceSurface(
@@ -188,8 +193,10 @@ class _FailReasonPaneState extends ConsumerState<_FailReasonPane> {
               photo = true;
               uploading = true;
             });
+            final session = ref.read(sessionProvider);
             final id = await uploadFileEvidence(
-              api: ref.read(sessionProvider).api,
+              api: session.panelLoggedIn ? null : session.api,
+              panel: session.panelLoggedIn ? session.panel : null,
               path: path,
               kind: 'photo',
               taskId: widget.taskId,

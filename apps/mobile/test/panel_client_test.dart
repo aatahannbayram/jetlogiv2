@@ -189,10 +189,67 @@ void main() {
         outcome: 'FAILED',
         reasonCode: 'RECIPIENT_NOT_AT_ADDRESS',
       );
+      expect(seenBody!['resultCode'], 'DELIVERY_FAILED');
       expect(seenBody!['outcome'], 'FAILED');
       expect(seenBody!['reasonCode'], 'RECIPIENT_NOT_AT_ADDRESS');
+      expect(seenBody!.containsKey('otpEvidenceId'), isFalse);
       // FAILED terminal değil — motor REDELIVERY'ye düşürebilir (bkz. §2).
       expect(result.currentStateCode, 'REDELIVERY');
+    });
+
+    test('uploadTaskEvidence multipart evidence ucuna gider', () async {
+      String? path;
+      String? idem;
+      final dio = Dio();
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            path = options.path;
+            idem = options.headers['Idempotency-Key'] as String?;
+            expect(options.data, isA<FormData>());
+            handler.resolve(
+              Response<Map<String, dynamic>>(
+                requestOptions: options,
+                statusCode: 201,
+                data: {
+                  'success': true,
+                  'data': {'evidenceId': 'ev-9'},
+                },
+              ),
+            );
+          },
+        ),
+      );
+      final id = await PanelApi(dio).uploadTaskEvidence(
+        shipmentId: 's-1',
+        bytes: const [1, 2, 3],
+        filename: 'a.jpg',
+        evidenceType: 'PHOTO',
+      );
+      expect(path, '/courier-tasks/s-1/evidence');
+      expect(idem, isNotEmpty);
+      expect(id, 'ev-9');
+    });
+
+    test('finalizeTask teslimde otpEvidenceId gider', () async {
+      Map<String, dynamic>? seenBody;
+      final dio = _mockDio((options) {
+        seenBody = Map<String, dynamic>.from(options.data as Map);
+        return {
+          'success': true,
+          'data': {'alreadyFinalized': false, 'currentStateCode': 'DELIVERED'},
+        };
+      });
+      await PanelApi(dio).finalizeTask(
+        's-1',
+        outcome: 'DELIVERED',
+        otpEvidenceId: 'ev-1',
+        receivedBy: 'Kendisi',
+      );
+      expect(seenBody!['resultCode'], 'DELIVERED');
+      expect(seenBody!['otpEvidenceId'], 'ev-1');
+      expect(seenBody!['receivedByName'], 'Kendisi');
+      expect(seenBody!.containsKey('reasonCode'), isFalse);
     });
 
     test('canonical hata kodu PanelApiException olarak fırlatılır', () async {
@@ -303,7 +360,7 @@ void main() {
         };
       });
       final items = await PanelApi(dio).fetchCustody();
-      expect(seen.path, '/courier-custody');
+      expect(seen.path, '/courier-custody/pending');
       expect(items.single.id, 'u-1');
       expect(items.single.barcode, 'SN-1');
       expect(items.single.taskId, 's-1');
@@ -326,8 +383,9 @@ void main() {
         warehouseId: 'wh-1',
         note: 'şube',
       );
-      expect(seenPath, '/courier-custody/u-1/return');
-      expect(seenBody!['warehouseId'], 'wh-1');
+      expect(seenPath, '/courier-custody/return');
+      expect(seenBody!['shipmentIds'], ['u-1']);
+      expect(seenBody!['targetUnitId'], 'wh-1');
       expect(result.already, isFalse);
       expect(result.statusCode, 'RETURNED');
     });
@@ -361,9 +419,10 @@ void main() {
         body: 'Numara yok',
         taskId: 's-1',
       );
-      expect(seenBody!['clientEventId'], 'evt-1');
-      expect(seenBody!['category'], 'ADDRESS_PROBLEM');
-      expect(seenBody!['taskId'], 's-1');
+      expect(seenBody!['idempotencyKey'], 'evt-1');
+      expect(seenBody!['category'], 'TICKET');
+      expect(seenBody!['message'], 'Numara yok');
+      expect(seenBody!['shipmentId'], 's-1');
       expect(ticket.reference, 'TKT-260907-ABC');
       expect(ticket.status, 'open');
     });

@@ -19,22 +19,30 @@ class SubeHomeScreen extends ConsumerWidget {
     final s = ref.watch(sessionProvider);
     final user = s.agencyUser;
     final overview = s.agencyOverview;
+    final k = s.branchKpis;
+    String n(List<String> keys, String fallback) {
+      for (final key in keys) {
+        final value = k[key];
+        if (value != null) return '$value';
+      }
+      return fallback;
+    }
     final today = overview?.currentShipments ?? 42;
     final couriers = overview?.courierLinks ?? 12;
 
     final kpis = <(String, String)>[
-      (l.kpiToday, '$today'),
-      (l.kpiAssigned, '28'),
-      (l.kpiWaiting, '6'),
-      (l.kpiInField, '14'),
-      (l.kpiCompleted, '19'),
-      (l.kpiDelivered, '16'),
-      (l.kpiUndelivered, '3'),
-      (l.kpiOpen, '7'),
-      (l.kpiReturnPend, '3'),
-      (l.kpiSlaRisk, '2'),
-      (l.kpiActiveCouriers, '$couriers'),
-      (l.kpiBranchStock, '1.250'),
+      (l.kpiToday, n(const ['today', 'awaitingDelivery'], '$today')),
+      (l.kpiAssigned, n(const ['assigned', 'outForDelivery'], '28')),
+      (l.kpiWaiting, n(const ['waiting', 'pendingCustody', 'pendingItems'], '6')),
+      (l.kpiInField, n(const ['inField', 'outForDelivery'], '14')),
+      (l.kpiCompleted, n(const ['completed', 'deliveredToday'], '19')),
+      (l.kpiDelivered, n(const ['delivered', 'deliveredToday'], '16')),
+      (l.kpiUndelivered, n(const ['undelivered', 'failedToday'], '3')),
+      (l.kpiOpen, n(const ['open', 'toReturnToBranch'], '7')),
+      (l.kpiReturnPend, n(const ['returnPending', 'returnRequired'], '3')),
+      (l.kpiSlaRisk, n(const ['slaRisk', 'overdue'], '2')),
+      (l.kpiActiveCouriers, n(const ['activeCouriers'], '$couriers')),
+      (l.kpiBranchStock, n(const ['branchStock', 'stock'], '1.250')),
     ];
 
     return Scaffold(

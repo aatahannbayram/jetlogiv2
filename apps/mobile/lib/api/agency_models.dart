@@ -144,3 +144,88 @@ class AgencyOverviewDto {
     );
   }
 }
+
+class BranchRow {
+  const BranchRow({
+    required this.ref,
+    required this.title,
+    this.detail = '',
+    this.id = '',
+  });
+
+  final String ref;
+  final String title;
+  final String detail;
+  final String id;
+}
+
+List<BranchRow> branchRows(dynamic data, List<String> keys) {
+  final list = _firstList(data, keys);
+  return [
+    for (final row in list)
+      BranchRow(
+        ref: _text(row, const [
+          'shipmentNumber',
+          'transferNumber',
+          'code',
+          'countNumber',
+          'id',
+        ]),
+        title: _text(row, const [
+          'fullName',
+          'name',
+          'recipientName',
+          'title',
+          'shipmentNumber',
+          'transferNumber',
+        ]),
+        detail: _text(row, const ['status', 'statusCode', 'statusName', 'unitName']),
+        id: _text(row, const ['id', 'courierId', 'shipmentId']),
+      ),
+  ].where((row) => row.ref.isNotEmpty || row.title.isNotEmpty).toList();
+}
+
+Map<String, int> branchNumbers(dynamic data) {
+  final out = <String, int>{};
+  void walk(dynamic node) {
+    if (node is Map) {
+      node.forEach((key, value) {
+        if (value is num) {
+          out['$key'] = value.toInt();
+        } else if (value is Map) {
+          walk(value);
+        }
+      });
+    }
+  }
+  walk(data);
+  return out;
+}
+
+List<Map<String, dynamic>> _firstList(dynamic data, List<String> keys) {
+  if (data is! Map) return const [];
+  for (final key in keys) {
+    final value = data[key];
+    if (value is List) {
+      return [
+        for (final row in value)
+          if (row is Map) Map<String, dynamic>.from(row),
+      ];
+    }
+  }
+  for (final value in data.values) {
+    if (value is Map) {
+      final nested = _firstList(value, keys);
+      if (nested.isNotEmpty) return nested;
+    }
+  }
+  return const [];
+}
+
+String _text(Map<String, dynamic> row, List<String> keys) {
+  for (final key in keys) {
+    final value = row[key];
+    if (value is String && value.isNotEmpty) return value;
+  }
+  return '';
+}

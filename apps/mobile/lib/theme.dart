@@ -19,9 +19,8 @@ class Dg {
   static bool dark = true;
 
   // ---- Zemin / yüzey ----
-  /// Koyu tema: saf #000 + #737373 ikincil metin WCAG 2.2 SC 1.4.3'ü
-  /// (~4.1:1) kaçırıyordu. Material 3 yüzey tonu (#121212) + iOS grouped
-  /// #1C1C1E; saf siyah/beyaz parlamayı ve okunaksız griyi keser.
+  /// Koyu tema: JetLogi moru, neon parıltısız. Saf siyah yerine derin
+  /// indigo zemin; ikincil metin WCAG 2.2 SC 1.4.3 için açık lavanta gri.
   /// https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html
   /// https://m3.material.io/styles/color/system/overview
   static Color get ground => bg;
@@ -44,7 +43,7 @@ class Dg {
   static const primaryGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF7B61FF), Color(0xFFFF7A2F)],
+    colors: [Color(0xFF8A74E6), Color(0xFFE8893A)],
   );
 
   static Color get purpleActive => brand;
@@ -54,14 +53,14 @@ class Dg {
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
     colors: dark
-        ? const [Color(0xFF4B268F), Color(0xFF2A1360), Color(0xFF150A2E)]
+        ? const [Color(0xFF3A2A68), Color(0xFF241848), Color(0xFF141022)]
         : const [Color(0xFFEDE4FF), Color(0xFFF7F4FF), Color(0xFFF4F3F0)],
   );
-  static const heroAccentOrange = Color(0xFFF08A24);
+  static const heroAccentOrange = Color(0xFFFF7A18);
   static const emberGradient = LinearGradient(
     begin: Alignment.centerLeft,
     end: Alignment.centerRight,
-    colors: [Color(0xFFFFC15A), Color(0xFFF08A24), Color(0xFFE07010)],
+    colors: [Color(0xFFFFC15A), Color(0xFFFF7A18), Color(0xFFFF5C00)],
   );
 
   static Color get onHero => dark ? Colors.white : ink;
@@ -143,33 +142,37 @@ class Dg {
 
   // ---- Yeni görsel sistem (önce menü; diğer ekranlar sonra) ----
   static Color get bg =>
-      dark ? const Color(0xFF0B0B0F) : const Color(0xFFF7F7F9);
+      dark ? const Color(0xFF16141F) : const Color(0xFFF7F7F9);
   static Color get surface1 =>
-      dark ? const Color(0xFF141419) : const Color(0xFFFFFFFF);
+      dark ? const Color(0xFF221E30) : const Color(0xFFFFFFFF);
   static Color get surface2 =>
-      dark ? const Color(0xFF1C1C23) : const Color(0xFFF1F1F4);
+      dark ? const Color(0xFF2C273C) : const Color(0xFFF1F1F4);
   static Color get stroke =>
-      dark ? const Color(0xFF26262E) : const Color(0x14000000);
+      dark ? const Color(0xFF3D3752) : const Color(0x14000000);
   static Color get text1 =>
-      dark ? const Color(0xFFF5F5F7) : const Color(0xFF0B0B0F);
+      dark ? const Color(0xFFF6F4FA) : const Color(0xFF0B0B0F);
   static Color get text2 =>
-      dark ? const Color(0xFFA1A1AA) : const Color(0xFF52525B);
+      dark ? const Color(0xFFC9C3D6) : const Color(0xFF52525B);
   static Color get text3 =>
-      dark ? const Color(0xFF6B6B76) : const Color(0xFF8A8A94);
+      dark ? const Color(0xFF9A94A8) : const Color(0xFF8A8A94);
   static Color get brand =>
-      dark ? const Color(0xFF7B61FF) : const Color(0xFF7159EB);
+      dark ? const Color(0xFF8A74E6) : const Color(0xFF7159EB);
   static Color get warn =>
-      dark ? const Color(0xFFFF7A2F) : const Color(0xFFEA702B);
+      dark ? const Color(0xFFE8893A) : const Color(0xFFEA702B);
   static Color get ok =>
       dark ? const Color(0xFF22C55E) : const Color(0xFF1FB556);
   static Color get bad =>
       dark ? const Color(0xFFEF4444) : const Color(0xFFDC3E3E);
   static Color get hairline =>
       dark ? const Color(0x0FFFFFFF) : const Color(0x0F000000);
+
+  /// Kart kenarı. Üst çizgi yerine dört yanı kaplayan ince çerçeve.
+  static Color get cardEdge =>
+      dark ? const Color(0x18FFFFFF) : const Color(0x14000000);
   static Color get warnSoft => warn.withValues(alpha: 0.12);
   static Color get brandSoft => brand.withValues(alpha: 0.12);
   static Color get muteSoft =>
-      dark ? const Color(0xFF1C1C23) : const Color(0xFFF1F1F4);
+      dark ? const Color(0xFF2C273C) : const Color(0xFFF1F1F4);
 
   static const rSm = 10.0;
   static const rMd = 14.0;

@@ -273,7 +273,7 @@ class _MenuTile extends StatelessWidget {
               DgIconChip(
                 icon: row.icon,
                 accent: accent,
-                size: 36,
+                size: 40,
               ),
               const SizedBox(width: Dg.s12),
               Expanded(
@@ -328,7 +328,7 @@ class _Sheet extends StatelessWidget {
       decoration: BoxDecoration(
         color: Dg.surface1,
         borderRadius: BorderRadius.circular(Dg.rLg),
-        border: Border(top: BorderSide(color: Dg.hairline, width: 0.5)),
+        border: Border.all(color: Dg.cardEdge),
       ),
       child: child,
     );

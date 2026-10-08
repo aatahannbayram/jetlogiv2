@@ -150,7 +150,7 @@ class _NextStopCardState extends ConsumerState<NextStopCard> {
           decoration: BoxDecoration(
             color: Dg.surface1,
             borderRadius: BorderRadius.circular(Dg.rLg),
-            border: Border(top: BorderSide(color: Dg.hairline, width: 0.5)),
+            border: Border.all(color: Dg.cardEdge),
           ),
           clipBehavior: Clip.antiAlias,
           child: Column(
@@ -226,11 +226,13 @@ class _NextStopCardState extends ConsumerState<NextStopCard> {
                 child: Row(
                   children: [
                     _Ghost(
+                      icon: LucideIcons.phone,
                       label: l.call,
                       onTap: () => s.callTask(context, task),
                     ),
                     const SizedBox(width: 8),
                     _Ghost(
+                      icon: LucideIcons.circleX,
                       label: l.kpiFailed,
                       onTap: () => Navigator.of(context).push(
                         MaterialPageRoute<void>(
@@ -241,7 +243,6 @@ class _NextStopCardState extends ConsumerState<NextStopCard> {
                     const SizedBox(width: 8),
                     _Ghost(
                       icon: LucideIcons.ellipsis,
-                      label: l.moreActions,
                       onTap: () => _more(context, l),
                     ),
                     if (widget.offerArrive &&
@@ -250,6 +251,7 @@ class _NextStopCardState extends ConsumerState<NextStopCard> {
                       const SizedBox(width: 8),
                       _Ghost(
                         key: const Key('next-stop-arrived'),
+                        icon: LucideIcons.mapPin,
                         label: l.arrivedHere,
                         onTap: () {
                           HapticFeedback.mediumImpact();
@@ -270,7 +272,11 @@ class _NextStopCardState extends ConsumerState<NextStopCard> {
                     label: phase == NextStopPhase.arrived
                         ? l.startDelivery
                         : l.directions,
-                    color: phase == NextStopPhase.arrived ? Dg.ok : Dg.brand,
+                    icon: phase == NextStopPhase.arrived
+                        ? LucideIcons.packageCheck
+                        : LucideIcons.arrowRight,
+                    ember: phase != NextStopPhase.arrived,
+                    color: Dg.ok,
                     onTap: () {
                       HapticFeedback.mediumImpact();
                       if (phase == NextStopPhase.arrived) {
@@ -527,20 +533,29 @@ class _Ghost extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          height: 40,
+          height: 52,
           alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 4),
           decoration: BoxDecoration(
-            color: Dg.muteSoft,
-            borderRadius: BorderRadius.circular(Dg.rSm),
+            color: Dg.surface2,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Dg.cardEdge),
           ),
-          child: icon != null
-              ? DgIcon(icon!, size: 18, color: Dg.text2)
-              : Text(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (icon != null)
+                DgIcon(icon!, size: 16, color: Dg.text2, weight: 500),
+              if (icon != null && label != null) const SizedBox(height: 3),
+              if (label != null)
+                Text(
                   label!,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: Dg.ui(size: 13, weight: FontWeight.w600),
+                  style: Dg.ui(size: 11, weight: FontWeight.w600),
                 ),
+            ],
+          ),
         ),
       ),
     );
@@ -553,11 +568,15 @@ class _SolidCta extends StatelessWidget {
     required this.label,
     required this.color,
     required this.onTap,
+    this.icon,
+    this.ember = false,
   });
 
   final String label;
   final Color color;
   final VoidCallback onTap;
+  final IconData? icon;
+  final bool ember;
 
   @override
   Widget build(BuildContext context) {
@@ -567,15 +586,35 @@ class _SolidCta extends StatelessWidget {
         height: 52,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(Dg.radiusPill),
-          border: const Border(
-            top: BorderSide(color: Color(0x1FFFFFFF), width: 2),
-          ),
+          color: ember ? null : color,
+          gradient: ember ? Dg.emberGradient : null,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: ember
+              ? const [
+                  BoxShadow(
+                    color: Color(0x66FF7A18),
+                    blurRadius: 18,
+                    offset: Offset(0, 8),
+                  ),
+                ]
+              : null,
         ),
-        child: Text(
-          label,
-          style: Dg.ui(size: 15, weight: FontWeight.w700, color: Colors.white),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (!ember && icon != null) ...[
+              DgIcon(icon!, size: 18, color: Colors.white, weight: 600),
+              const SizedBox(width: 8),
+            ],
+            Text(
+              label,
+              style: Dg.ui(size: 16, weight: FontWeight.w700, color: Colors.white),
+            ),
+            if (ember && icon != null) ...[
+              const SizedBox(width: 8),
+              DgIcon(icon!, size: 18, color: Colors.white, weight: 600),
+            ],
+          ],
         ),
       ),
     );

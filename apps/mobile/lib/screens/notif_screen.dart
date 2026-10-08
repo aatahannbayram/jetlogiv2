@@ -128,30 +128,53 @@ class _NotifScreenState extends ConsumerState<NotifScreen> {
                         ],
                       ),
                     ),
-                    TextButton(
+                    GestureDetector(
                       key: const Key('notif-mark-all'),
-                      onPressed: unread == 0
+                      onTap: unread == 0
                           ? null
                           : () {
                               HapticFeedback.selectionClick();
                               s.markAllNotificationsRead();
                             },
-                      child: Text(l.markAllRead),
+                      child: Opacity(
+                        opacity: unread == 0 ? 0.4 : 1,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 7,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Dg.brandSoft,
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(
+                              color: Dg.brand.withValues(alpha: 0.28),
+                            ),
+                          ),
+                          child: Text(
+                            l.markAllRead,
+                            style: Dg.ui(
+                              size: 12,
+                              weight: FontWeight.w700,
+                              color: Dg.brand,
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ),
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+              padding: const EdgeInsets.fromLTRB(Dg.pagePad, 12, Dg.pagePad, 4),
               child: SegmentedTabs(
                 labels: [l.all, l.notifUnread, l.notifAlerts],
                 index: _filter.index,
+                soft: true,
                 onChanged: (i) =>
                     setState(() => _filter = NotifFilter.values[i]),
               ),
             ),
-            const DgDivider(),
             Expanded(
               child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 220),
@@ -198,17 +221,15 @@ class _NotifScreenState extends ConsumerState<NotifScreen> {
                               return Padding(
                                 padding: const EdgeInsets.fromLTRB(4, 12, 4, 6),
                                 child: Text(
-                                  switch (row) {
-                                    NotifDayGroup.today => l.today,
-                                    NotifDayGroup.yesterday => l.yesterday,
-                                    NotifDayGroup.earlier => l.earlier,
-                                  },
-                                  style: Dg.ui(
-                                    size: 12,
-                                    weight: FontWeight.w600,
-                                    color: Dg.ink3,
-                                    letterSpacing: 0.2,
+                                  localeUpper(
+                                    switch (row) {
+                                      NotifDayGroup.today => l.today,
+                                      NotifDayGroup.yesterday => l.yesterday,
+                                      NotifDayGroup.earlier => l.earlier,
+                                    },
+                                    l.code,
                                   ),
+                                  style: Dg.typeOverline(),
                                 ),
                               );
                             }

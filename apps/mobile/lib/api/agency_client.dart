@@ -15,8 +15,10 @@ import 'panel_client.dart' show VaultCookieStorage;
 /// exists.
 const kAgencyApiBase = String.fromEnvironment(
   'AGENCY_API_BASE',
-  defaultValue: 'http://localhost:3000/api/portal/v1',
+  defaultValue: 'https://api-mobile.preprod.jetdiji.com/api/portal/v1',
 );
+
+const kAgencyBearerKey = 'dg.jetdiji.agency.token';
 
 /// Client for dijigoo-ops's "Acente Portalı" (agency portal) — the backend
 /// for the Şube/Acente app role. Same shape as [PanelApi] on purpose (dio +
@@ -27,10 +29,26 @@ const kAgencyApiBase = String.fromEnvironment(
 /// [PanelApi] because a device could plausibly run both roles' sessions
 /// side by side, and the two portals' sessions must not be mixed.
 class AgencyPortalApi {
-  AgencyPortalApi(this.dio, [this._cookieJar]);
+  AgencyPortalApi(this.dio, [this._cookieJar, this._vault]) {
+    dio.interceptors.insert(
+      0,
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          options.headers['X-Client-Type'] = 'mobile';
+          final token = _accessToken;
+          if (token != null && token.isNotEmpty) {
+            options.headers['Authorization'] = 'Bearer $token';
+          }
+          handler.next(options);
+        },
+      ),
+    );
+  }
 
   final Dio dio;
   final CookieJar? _cookieJar;
+  final Vault? _vault;
+  String? _accessToken;
 
   static Future<AgencyPortalApi> create({required Vault vault}) async {
     assertHttpsInRelease(kAgencyApiBase, 'AGENCY_API_BASE');
@@ -47,13 +65,22 @@ class AgencyPortalApi {
     );
     dio.interceptors.add(CookieManager(cookieJar));
     attachTlsPinning(dio);
-    return AgencyPortalApi(dio, cookieJar);
+    final api = AgencyPortalApi(dio, cookieJar, vault);
+    final saved = await vault.readSecret(kAgencyBearerKey);
+    if (saved != null && saved.isNotEmpty) api._accessToken = saved;
+    return api;
   }
 
   /// Cheap, local-only check — mirrors [PanelApi.hasStoredSession]. Does not
   /// confirm the session is still valid server-side; call [fetchSession] for
   /// that.
   Future<bool> get hasStoredSession async {
+    if (_accessToken != null && _accessToken!.isNotEmpty) return true;
+    final saved = await _vault?.readSecret(kAgencyBearerKey);
+    if (saved != null && saved.isNotEmpty) {
+      _accessToken = saved;
+      return true;
+    }
     final jar = _cookieJar;
     if (jar == null) return false;
     final uri = Uri.parse(dio.options.baseUrl);
@@ -74,6 +101,11 @@ class AgencyPortalApi {
       'password': password,
       if (agencyId != null) 'agencyId': agencyId,
     });
+    final token = (res.data?['data'] as Map?)?['accessToken'] as String?;
+    if (token != null && token.isNotEmpty) {
+      _accessToken = token;
+      await _vault?.writeSecret(kAgencyBearerKey, token);
+    }
     final data = Map<String, dynamic>.from(res.data?['data'] as Map? ?? const {});
     final agency = AgencyDto.fromJson(
       Map<String, dynamic>.from(data['agency'] as Map? ?? const {}),
@@ -85,8 +117,13 @@ class AgencyPortalApi {
   }
 
   Future<void> logout() async {
-    await _post('/agency-auth/logout', const {});
-    await _cookieJar?.deleteAll();
+    try {
+      await _post('/agency-auth/logout', const {});
+    } finally {
+      _accessToken = null;
+      await _vault?.deleteSecret(kAgencyBearerKey);
+      await _cookieJar?.deleteAll();
+    }
   }
 
   /// `GET agency-auth/session` — confirms the stored cookie is still
@@ -115,6 +152,71 @@ class AgencyPortalApi {
     return AgencyOverviewDto.fromJson(
       Map<String, dynamic>.from(res.data?['data'] as Map? ?? const {}),
     );
+  }
+
+  Future<Map<String, dynamic>> fetchDashboard() async {
+    final res = await _get('/branch/dashboard');
+    return Map<String, dynamic>.from(res.data?['data'] as Map? ?? const {});
+  }
+
+  Future<void> handoverToCourier({
+    required String courierId,
+    required List<String> shipmentIds,
+  }) async {
+    final key = Vault.newUuid();
+    await _post('/branch/dispatch/handover', {
+      'courierId': courierId,
+      'shipmentIds': shipmentIds,
+      'idempotencyKey': key,
+    });
+  }
+
+  Future<List<BranchRow>> fetchCourierJobs() async {
+    final res = await _get('/branch/courier-jobs');
+    return branchRows(res.data?['data'], const [
+      'jobs',
+      'shipments',
+      'items',
+      'rows',
+    ]);
+  }
+
+  Future<List<BranchRow>> fetchPendingShipments() async {
+    final res = await _get('/branch/pending');
+    return branchRows(res.data?['data'], const [
+      'handovers',
+      'items',
+      'shipments',
+      'rows',
+    ]);
+  }
+
+  Future<List<BranchRow>> fetchCouriers() async {
+    final res = await _get('/agency/couriers');
+    return branchRows(res.data?['data'], const ['couriers', 'items', 'rows']);
+  }
+
+  Future<List<BranchRow>> fetchPreparation() async {
+    final res = await _get('/branch/preparation');
+    return branchRows(res.data?['data'], const [
+      'shipments',
+      'items',
+      'rows',
+    ]);
+  }
+
+  Future<List<BranchRow>> fetchCounts() async {
+    final res = await _get('/branch/counts');
+    return branchRows(res.data?['data'], const ['counts', 'items', 'warehouses']);
+  }
+
+  Future<List<BranchRow>> fetchOutgoingTransfers() async {
+    final res = await _get('/branch/transfers/outgoing');
+    return branchRows(res.data?['data'], const [
+      'transfers',
+      'recent',
+      'items',
+    ]);
   }
 
   Future<Response<Map<String, dynamic>>> _get(
