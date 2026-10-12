@@ -467,6 +467,13 @@ class SessionController extends ChangeNotifier {
     _persistNotifState();
     unawaited(FieldAlerts.dismissInbox(id));
     _syncNotifBadge();
+    if (_usesPanelTasks && id.startsWith(_serverNotifPrefix)) {
+      unawaited(
+        panel
+            ?.markNotificationRead(id.substring(_serverNotifPrefix.length))
+            .catchError((_) {}),
+      );
+    }
     if (liveApi && !_usesPanelTasks) {
       unawaited(api?.markNotificationsRead(ids: [id]));
     }
@@ -493,6 +500,9 @@ class SessionController extends ChangeNotifier {
       unawaited(FieldAlerts.dismissInbox(id));
     }
     _syncNotifBadge();
+    if (_usesPanelTasks) {
+      unawaited(panel?.markAllNotificationsRead().catchError((_) {}));
+    }
     if (liveApi && !_usesPanelTasks) {
       unawaited(api?.markNotificationsRead(all: true));
     }
@@ -1192,10 +1202,80 @@ class SessionController extends ChangeNotifier {
   /// `courier-dashboard` sayaçları; yüklenmediyse boş.
   Map<String, int> courierCounts = const {};
 
+  static const _serverNotifPrefix = 'srv-';
+
+  /// Backend bildirim kutusu (duyurular dahil). Cihazda üretilen yerel
+  /// uyarılar listede kalır; örnek bildirimler kaldırılır.
+  Future<void> loadCourierNotifications() async {
+    final client = panel;
+    if (!_usesPanelTasks || client == null) return;
+    try {
+      final remote = await client.fetchNotifications();
+      notifications.removeWhere(
+        (n) => n.id.startsWith(_serverNotifPrefix) || n.id.startsWith('demo-'),
+      );
+      for (final item in remote.reversed) {
+        final urgent = item.severity != 'INFO';
+        final id = '$_serverNotifPrefix${item.id}';
+        notifications.insert(
+          0,
+          AppNotification(
+            id: id,
+            kind: urgent ? NotifKind.slaRisk : NotifKind.shift,
+            title: _notifTitle(item.category),
+            body: item.body,
+            createdAt: item.createdAt ?? DateTime.now(),
+            icon: urgent ? LucideIcons.circleAlert : LucideIcons.bell,
+            tint: urgent ? Dg.hiBg : Dg.greenBg,
+            ink: urgent ? Dg.hi : Dg.green,
+          ),
+        );
+        if (item.read) _readNotificationIds.add(id);
+      }
+      _syncNotifBadge();
+      notifyListeners();
+    } catch (_) {
+      // Kutu gelmezse mevcut liste kalır.
+    }
+  }
+
+  String _notifTitle(String category) => switch (category) {
+    'ANNOUNCEMENT' => 'Duyuru',
+    'HANDOVER' || 'CUSTODY' => 'Zimmet',
+    'SHIFT' || 'SHIFT_AUTO_CLOSED' => 'Vardiya',
+    'LEAVE_REVIEWED' || 'LEAVE' => 'İzin',
+    'TRAINING' => 'Eğitim',
+    'SLA' => 'SLA uyarısı',
+    _ => 'Bildirim',
+  };
+
+  /// Cihazı backend'e kaydeder: push token ve bekleyen kayıt sayısı.
+  Future<void> registerCourierDevice() async {
+    final client = panel;
+    if (!_usesPanelTasks || client == null) return;
+    try {
+      final deviceId = await vault?.installationId();
+      if (deviceId == null) return;
+      await client.registerDevice(
+        deviceId: deviceId,
+        platform: defaultTargetPlatform == TargetPlatform.iOS
+            ? 'IOS'
+            : 'ANDROID',
+        appVersion: kAppVersion,
+        pushToken: FieldPush.token,
+        pendingOperationCount: outbox.pendingCount,
+      );
+    } catch (_) {
+      // Kayıt bir sonraki girişte / yenilemede tekrar denenir.
+    }
+  }
+
   /// Ana sayfa sayaçları ve vardiya/eğitim durumu backend'den.
   Future<void> loadCourierDashboard() async {
     final client = panel;
     if (!_usesPanelTasks || client == null) return;
+    unawaited(loadCourierNotifications());
+    unawaited(registerCourierDevice());
     try {
       courierCounts = await client.fetchDashboardCounts();
       final shift = await client.fetchCurrentShift();

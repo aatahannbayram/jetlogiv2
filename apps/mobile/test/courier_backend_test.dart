@@ -69,6 +69,26 @@ typedef _Call = ({String method, String path, Map body, String? key});
               {'id': 'tr2', 'title': 'KVKK', 'status': 'COMPLETED'},
             ],
           };
+        } else if (options.path == '/courier-notifications') {
+          data = {
+            'items': [
+              {
+                'id': 'n1',
+                'category': 'ANNOUNCEMENT',
+                'severity': 'INFO',
+                'body': 'Yarın depo 08:00\'de açılır.',
+                'read': false,
+                'createdAt': '2026-10-13T08:00:00.000Z',
+              },
+              {
+                'id': 'n2',
+                'category': 'SLA',
+                'severity': 'CRITICAL',
+                'body': 'JD-9 gecikiyor',
+                'read': true,
+              },
+            ],
+          };
         } else if (options.path == '/courier-trainings/tr1') {
           data = {'contentBody': 'Kask takın.'};
         }
@@ -206,5 +226,24 @@ void main() {
     );
     expect('${sent.body}', contains('1 koli eksik'));
     expect('${sent.body}', contains('JD-1'));
+  });
+
+  test('bildirim kutusu backend\'den gelir, okundu geri yazılır', () async {
+    final t = _server();
+    final s = _session(t.api);
+    await s.loadCourierNotifications();
+    final ids = [for (final n in s.notifications) n.id];
+    expect(ids, containsAll(['srv-n1', 'srv-n2']));
+    expect(ids.any((id) => id.startsWith('demo-')), isFalse);
+    expect(s.isNotifRead('srv-n2'), isTrue);
+    expect(s.isNotifRead('srv-n1'), isFalse);
+    expect(s.notificationById('srv-n1')?.title, 'Duyuru');
+
+    s.markNotificationRead('srv-n1');
+    await _settle();
+    expect(
+      t.calls.any((c) => c.path == '/courier-notifications/n1/read'),
+      isTrue,
+    );
   });
 }

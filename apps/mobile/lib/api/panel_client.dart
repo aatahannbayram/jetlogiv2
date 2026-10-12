@@ -1,6 +1,7 @@
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
+
 import '../data/vault.dart';
 import '../secure.dart';
 import '../tls_pinning.dart';
@@ -63,9 +64,7 @@ class PanelApi {
         headers: const {'accept': 'application/json'},
       ),
     );
-    final cookieJar = PersistCookieJar(
-      storage: VaultCookieStorage(vault),
-    );
+    final cookieJar = PersistCookieJar(storage: VaultCookieStorage(vault));
     dio.interceptors.add(CookieManager(cookieJar));
     attachTlsPinning(dio);
     final api = PanelApi(dio, cookieJar, vault);
@@ -178,7 +177,9 @@ class PanelApi {
     });
   }
 
-  Future<({String phone, String telUri})> callRecipient(String shipmentId) async {
+  Future<({String phone, String telUri})> callRecipient(
+    String shipmentId,
+  ) async {
     final res = await _post('/courier-tasks/$shipmentId/call', const {});
     final data = res.data?['data'] as Map? ?? const {};
     return (
@@ -208,7 +209,10 @@ class PanelApi {
   }
 
   Future<List<({String code, String name})>> fetchDeliveryReasons() async {
-    final res = await _get('/courier-tasks/delivery-reasons', queryParameters: {'locale': 'tr'});
+    final res = await _get(
+      '/courier-tasks/delivery-reasons',
+      queryParameters: {'locale': 'tr'},
+    );
     final failed = (res.data?['data'] as Map?)?['failed'] as List? ?? const [];
     return [
       for (final row in failed)
@@ -256,8 +260,7 @@ class PanelApi {
   Future<({String? city, String? district, String? vehicle, String? status})>
   fetchCourierProfile() async {
     final res = await _get('/courier-profile');
-    final courier =
-        (res.data?['data'] as Map?)?['courier'] as Map? ?? const {};
+    final courier = (res.data?['data'] as Map?)?['courier'] as Map? ?? const {};
     final city = courier['city'];
     final district = courier['district'];
     return (
@@ -270,8 +273,7 @@ class PanelApi {
 
   Future<CourierDocumentListDto> fetchMyDocuments() async {
     final res = await _get('/courier-my-documents');
-    final summary =
-        (res.data?['data'] as Map?)?['summary'] as Map? ?? const {};
+    final summary = (res.data?['data'] as Map?)?['summary'] as Map? ?? const {};
     return CourierDocumentListDto(
       items: const [],
       completedCount: (summary['approved'] as num?)?.toInt() ?? 0,
@@ -444,18 +446,21 @@ class PanelApi {
 
   CustodyItemDto _custodyItem(Map<String, dynamic> json) {
     return CustodyItemDto(
-      id: json['itemId'] as String? ??
+      id:
+          json['itemId'] as String? ??
           json['id'] as String? ??
           json['shipmentId'] as String? ??
           '',
       type: json['type'] as String? ?? 'parcel',
       barcode: json['barcode'] as String? ?? json['shipmentNumber'] as String?,
-      description: json['recipientName'] as String? ??
+      description:
+          json['recipientName'] as String? ??
           json['description'] as String? ??
           '',
       quantity: (json['quantity'] as num?)?.toInt() ?? 1,
       taskId: json['shipmentId'] as String? ?? json['taskId'] as String?,
-      acquiredAt: json['since'] as String? ?? json['acquiredAt'] as String? ?? '',
+      acquiredAt:
+          json['since'] as String? ?? json['acquiredAt'] as String? ?? '',
       warehouseId: json['warehouseId'] as String?,
     );
   }
@@ -480,6 +485,72 @@ class PanelApi {
       return await dio.get<Map<String, dynamic>>(
         path,
         queryParameters: queryParameters,
+      );
+    } on DioException catch (e) {
+      throw _panelException(e);
+    }
+  }
+
+  /// Bildirim kutusu (duyurular dahil), yeniden eskiye.
+  Future<
+    List<
+      ({
+        String id,
+        String category,
+        String severity,
+        String body,
+        bool read,
+        DateTime? createdAt,
+      })
+    >
+  >
+  fetchNotifications() async {
+    final res = await _get('/courier-notifications');
+    final items = (res.data?['data'] as Map?)?['items'] as List? ?? const [];
+    return [
+      for (final row in items)
+        if (row is Map)
+          (
+            id: row['id'] as String? ?? '',
+            category: row['category'] as String? ?? '',
+            severity: row['severity'] as String? ?? 'INFO',
+            body: row['body'] as String? ?? '',
+            read: row['read'] == true,
+            createdAt: DateTime.tryParse(row['createdAt'] as String? ?? ''),
+          ),
+    ];
+  }
+
+  Future<void> markNotificationRead(String id) async {
+    await _post('/courier-notifications/$id/read', const {});
+  }
+
+  Future<void> markAllNotificationsRead() async {
+    await _post('/courier-notifications/read-all', const {});
+  }
+
+  /// Cihaz kaydı: push token ve bekleyen işlem sayısı (merkezin senkron
+  /// izlemesi için). İdempotent; girişte ve token yenilenince çağrılır.
+  Future<void> registerDevice({
+    required String deviceId,
+    required String platform,
+    required String appVersion,
+    String? pushToken,
+    int pendingOperationCount = 0,
+  }) async {
+    try {
+      await dio.put<Map<String, dynamic>>(
+        '/courier-devices',
+        data: {
+          'deviceId': deviceId,
+          'platform': platform,
+          'appVersion': appVersion,
+          if (pushToken != null && pushToken.isNotEmpty) ...{
+            'pushProvider': 'FCM',
+            'pushToken': pushToken,
+          },
+          'pendingOperationCount': pendingOperationCount,
+        },
       );
     } on DioException catch (e) {
       throw _panelException(e);
@@ -551,8 +622,7 @@ class PanelApi {
           TrainingModuleDto(
             id: row['id'] as String? ?? '',
             title: row['title'] as String? ?? '',
-            summary:
-                row['summary'] as String? ?? row['description'] as String?,
+            summary: row['summary'] as String? ?? row['description'] as String?,
             body: row['contentBody'] as String? ?? '',
             sortOrder: order++,
             completed: row['status'] == 'COMPLETED',
@@ -598,10 +668,8 @@ class PanelApi {
 
   PanelApiException _panelException(DioException e) {
     final code =
-        (e.response?.data is Map
-            ? (e.response?.data as Map)['error']
-            : null)
-        is Map
+        (e.response?.data is Map ? (e.response?.data as Map)['error'] : null)
+            is Map
         ? ((e.response?.data as Map)['error'] as Map)['code'] as String?
         : null;
     return PanelApiException(
@@ -659,6 +727,9 @@ class VaultCookieStorage implements Storage {
   Future<Set<String>> _keys() async {
     final raw = await _vault.readSecret(_index);
     if (raw == null || raw.isEmpty) return {};
-    return {for (final line in raw.split('\n')) if (line.isNotEmpty) line};
+    return {
+      for (final line in raw.split('\n'))
+        if (line.isNotEmpty) line,
+    };
   }
 }
