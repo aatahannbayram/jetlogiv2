@@ -182,7 +182,7 @@ class FieldAlerts {
         alert ? alertChannel : infoChannel,
         alert ? 'Uyarı' : 'Saha',
         channelDescription: alert
-            ? 'İptal, çekim ve senkron hataları'
+            ? 'İptaller, geri çekilen duraklar ve gönderilemeyen kayıtlar'
             : 'Durak, zimmet ve vardiya',
         importance: alert ? Importance.max : Importance.high,
         priority: alert ? Priority.max : Priority.high,

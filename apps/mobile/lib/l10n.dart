@@ -71,7 +71,7 @@ class L10n {
   String get subeOnboard3Title => _t('Stok gönderi değildir.', 'Stock is not a shipment.');
   String get subeOnboard3Body => _t('Sayım ve koli şube stoğu içindir.', 'Counts and parcels are for branch stock.');
   String get tipHomeTitle => _t('Bugünün özeti', 'Today at a glance');
-  String get tipHomeBody => _t('Kartlar zimmet, teslim ve SLA’yı gösterir. Altta Barkod Okut.', 'Cards show custody, delivery and SLA. Scan is in the tab bar.');
+  String get tipHomeBody => _t('Kartlarda elindeki paketler ve teslimatların var. Barkod okutmak için alttaki düğmeyi kullan.', 'Cards show the parcels you hold and your deliveries. Use the button below to scan.');
   String get tipGotIt => _t('Anladım', 'Got it');
   String get kpiOnMe => _t('Üzerime', 'On me');
   String get kpiDone => _t('Tamamlanan', 'Done');
@@ -80,7 +80,7 @@ class L10n {
   String get kpiLeftHint => _t('kalan durak', 'stops left');
   String get kpiAppt => _t('Randevu', 'Booked');
   String get kpiReturn => _t('İade', 'Return');
-  String get kpiSla => _t('SLA', 'SLA');
+  String get kpiSla => _t('Geciken', 'Late');
   String get eodTitle => _t('Gün sonu', 'End of day');
   String get eodOpen => _t('Açık görev', 'Open tasks');
   String get eodReturn => _t('Geri teslim', 'Return to branch');
@@ -116,7 +116,7 @@ class L10n {
   String get filterFailed => _t('Teslim Edilemedi', 'Failed');
   String get filterBooked => _t('Randevulu', 'Appointment');
   String get filterReturn => _t('İade Bekleyen', 'Return pending');
-  String get filterSla => _t('SLA Riskli', 'SLA risk');
+  String get filterSla => _t('Gecikme riski', 'At risk');
   String get kpiToday => _t('Bugün dağıtılacak', 'Due today');
   String get kpiAssigned => _t('Zimmetlenen', 'Assigned');
   String get kpiWaiting => _t('Zimmet bekleyen', 'Unassigned');
@@ -126,7 +126,7 @@ class L10n {
   String get kpiUndelivered => _t('Teslim edilemedi', 'Failed');
   String get kpiOpen => _t('Açık', 'Open');
   String get kpiReturnPend => _t('İade bekleyen', 'Return pending');
-  String get kpiSlaRisk => _t('SLA riskli', 'SLA risk');
+  String get kpiSlaRisk => _t('Gecikme riski', 'At risk');
   String get kpiActiveCouriers => _t('Aktif kurye', 'Active couriers');
   String get kpiBranchStock => _t('Şube stoğu', 'Branch stock');
   String get perfInstant => _t('Anlık', 'Now');
@@ -199,7 +199,7 @@ class L10n {
   String get permLocation => _t('Konum', 'Location');
   String get permLocationHint => _t('Adrese vardığınızı doğrulamak için.', 'To confirm you arrived at the address.');
   String get permCamera => _t('Kamera', 'Camera');
-  String get permCameraHint => _t('Barkod, teslim ve vardiya kanıtı. Galeri kapalı.', 'Barcode, delivery and shift proof. Gallery stays off.');
+  String get permCameraHint => _t('Barkod okutmak ve teslim fotoğrafı çekmek için. Galeri kapalı.', 'For scanning barcodes and delivery photos. Gallery stays off.');
   String get permPush => _t('Bildirim', 'Notifications');
   String get permPushHint => _t('Yeni görev ve zorunlu güncelleme.', 'New tasks and required updates.');
   String get grantAllThree => _t('Üç izni de ver', 'Allow all three');
@@ -211,9 +211,9 @@ class L10n {
       _t('Sizi ve alıcıyı arıyoruz', 'Calling you and the recipient');
 
   String get startShiftTitle => _t('Vardiya başlat', 'Start shift');
-  String get shiftSelfieHint => _t('Bu fotoğraf yalnız vardiya kanıtı. Yüz aranmaz.', 'This photo is shift proof only. Faces are not searched.');
+  String get shiftSelfieHint => _t('Bu fotoğraf yalnız vardiyaya başladığını gösterir. Yüz aranmaz.', 'This photo only shows you started your shift. Faces are not searched.');
   String get faceInFrame => _t('Yüzünüz kadrajda olsun.', 'Keep your face in frame.');
-  String get proofTaken => _t('Kanıt alındı', 'Proof captured');
+  String get proofTaken => _t('Fotoğraf alındı', 'Photo taken');
   String get openShift => _t('Vardiyayı aç', 'Open shift');
   String get takePhoto => _t('Fotoğraf çek', 'Take photo');
   String get selfieIntro => _t(
@@ -258,21 +258,21 @@ class L10n {
   String get deliveryCode => _t('Teslim kodu', 'Delivery code');
   String get required => _t('Gerekli', 'Required');
   String get note => _t('Not', 'Note');
-  String get queue => _t('Kuyruk', 'Queue');
+  String get queue => _t('Bekleyenler', 'Waiting');
   String get order => _t('Sıra', 'Order');
   String get openStop => _t('Açık durak', 'Open stops');
   String get next => _t('Sonraki', 'Next');
   String get none => _t('Yok', 'None');
-  String get sync => _t('Senkron', 'Sync');
+  String get sync => _t('Gönderim', 'Sending');
   String get clean => _t('Hepsi gönderildi', 'All sent');
   String pendingRecords(int n) => _t('$n kayıt bekliyor', '$n records waiting');
-  String get shipmentAndQueue => _t('Gönderi ve kuyruk', 'Shipment and queue');
+  String get shipmentAndQueue => _t('Gönderi ve bekleyenler', 'Shipment and waiting');
   String get fieldOn => _t('Müsait', 'Available');
   String get onBreak => _t('Mola', 'Break');
   String get syncTitle => _t('Gönderilecekler', 'To send');
   String get syncCleanBody => _t('Tüm kayıtlar merkeze iletildi.', 'All records were sent to the hub.');
   String syncPendingBody(int n) => _t(
-    '$n kayıt çevrimdışı kuyrukta, çevrimiçi olunca gönderilir.',
+    '$n kayıt bekliyor. İnternet gelince kendiliğinden gider.',
     '$n records are queued offline and will send when you are online.',
   );
   String pendingChip(int n) => _t('$n bekliyor', '$n waiting');
@@ -409,7 +409,7 @@ class L10n {
 
   String get waiting => _t('Bekliyor', 'Waiting');
   String get sending => _t('Gönderiliyor…', 'Sending…');
-  String get queueEmpty => _t('Kuyruk boş', 'Queue is empty');
+  String get queueEmpty => _t('Bekleyen yok', 'Nothing waiting');
   String get pushData => _t('Şimdi gönder', 'Send now');
 
   String get whoReceived => _t('Paketi kim aldı?', 'Who received the package?');
@@ -432,7 +432,7 @@ class L10n {
     'I confirm I received the shipment above complete and undamaged.',
   );
   String get doorAndParcel => _t('Kapıyı ve paketi kadraja alın.', 'Frame the door and the parcel.');
-  String get doorProof => _t('Kapı / teslim kanıtı', 'Door / delivery proof');
+  String get doorProof => _t('Kapı / teslim fotoğrafı', 'Door / delivery photo');
   String get codeRequired => _t('Kod gerekli', 'Code required');
 
   String get whyFailed => _t('Neden teslim edilemedi?', 'Why could it not be delivered?');
@@ -453,7 +453,7 @@ class L10n {
       _t('$n durak kaldı', '$n stops left');
   String stopsCount(int n) => _t('$n durak', '$n stops');
   String get slideToDeliver => _t('Teslim etmek için kaydır', 'Slide to deliver');
-  String get deliveryWindowLeft => _t('Teslim penceresi', 'Delivery window');
+  String get deliveryWindowLeft => _t('Kalan süre', 'Time left');
   String get callShort => _t('Ara', 'Call');
   String get routeShort => _t('Yol', 'Map');
 
@@ -494,7 +494,7 @@ class L10n {
 
   String get statusDelivered => _t('Teslim', 'Delivered');
   String get statusFailed => _t('İade', 'Returned');
-  String get statusQueued => _t('Kuyrukta', 'Queued');
+  String get statusQueued => _t('Gönderilmeyi bekliyor', 'Waiting to send');
   String get statusInProgress => _t('İşlemde', 'In progress');
   String get statusAssigned => _t('Bekliyor', 'Waiting');
   String get statusCancelled => _t('İptal', 'Cancelled');
@@ -538,18 +538,18 @@ class L10n {
   String get notifNewStop => _t('Yeni durak atandı', 'New stop assigned');
   String get notifCustody => _t('Zimmet onaylandı', 'Custody confirmed');
   String get notifCustodyTaken => _t('Zimmet size geçti', 'Custody transferred to you');
-  String get notifSyncFail => _t('Gönderim başarısız', 'Send failed');
+  String get notifSyncFail => _t('Kayıt gönderilemedi', 'Record not sent');
   String get notifBonus => _t('Prim güncellendi', 'Bonus updated');
   String get notifShift => _t('Vardiya hatırlatması', 'Shift reminder');
   String get notifShiftBody =>
       _t('Yarın 09:00 vardiyası atanmıştır.', 'A 09:00 shift is assigned tomorrow.');
   String get notifStopPulled => _t('Durak çekildi', 'Stop pulled');
   String get notifStopCancelled => _t('Durak iptal', 'Stop cancelled');
-  String get notifSlaRisk => _t('SLA riskte', 'SLA at risk');
-  String get notifSlaExtended => _t('SLA uzatıldı', 'SLA extended');
+  String get notifSlaRisk => _t('Teslimat gecikiyor', 'Delivery running late');
+  String get notifSlaExtended => _t('Süre uzatıldı', 'Time extended');
   String get yesterday => _t('Dün', 'Yesterday');
 
-  String get proof => _t('Kanıt', 'Proof');
+  String get proof => _t('Fotoğraf', 'Photo');
   String get photoFull => _t('Fotoğraf', 'Photo');
   String get recipientName => _t('Alıcı', 'Recipient');
   String get date => _t('Tarih', 'Date');
@@ -853,7 +853,7 @@ class L10n {
   String get perfDeliveryRate => _t('Teslim oranı', 'Delivery rate');
   String get perfFirstAttempt => _t('İlk denemede', 'First attempt');
   String get perfAvgMinutes => _t('Ort. süre (dk)', 'Avg. minutes');
-  String get perfSla => _t('SLA uyumu', 'SLA compliance');
+  String get perfSla => _t('Zamanında teslim', 'On-time delivery');
   String get perfAttempted => _t('Denenen gönderi', 'Attempted');
   String get perfFailed => _t('Başarısız deneme', 'Failed attempts');
   String get perfTruncated => _t(
@@ -1091,7 +1091,7 @@ class L10n {
     'Yeni durak atandı' => notifNewStop,
     'Zimmet onaylandı' => notifCustody,
     'Zimmet size geçti' => notifCustodyTaken,
-    'Gönderim başarısız' => notifSyncFail,
+    'Kayıt gönderilemedi' => notifSyncFail,
     'Prim güncellendi' => notifBonus,
     'Vardiya hatırlatması' => notifShift,
     'Durak çekildi' => notifStopPulled,

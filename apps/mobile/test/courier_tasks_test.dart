@@ -1647,7 +1647,7 @@ void main() {
   });
 
   test(
-    'reddedilen senkron olayı gerçek "Gönderim başarısız" bildirimi üretir',
+    'reddedilen senkron olayı gerçek "Kayıt gönderilemedi" bildirimi üretir',
     () async {
       final dio = Dio();
       dio.interceptors.add(
@@ -1689,7 +1689,7 @@ void main() {
       s.returnTask('t1', reason: 'Alıcı adreste yok');
       s.online = true;
       await s.pushSyncQueue();
-      expect(s.notifications.first.title, 'Gönderim başarısız');
+      expect(s.notifications.first.title, 'Kayıt gönderilemedi');
       expect(s.notifications.first.kind, NotifKind.syncFail);
       expect(s.notifications.first.taskId, 't1');
     },

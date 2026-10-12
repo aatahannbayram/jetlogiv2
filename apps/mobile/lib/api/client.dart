@@ -868,7 +868,7 @@ final _demoTaskSummaries = [
     status: 'ASSIGNED',
     lat: 38.1460,
     lng: 29.0488,
-    note: 'Alıcı yoktu · kapı fotoğrafı kuyrukta',
+    note: 'Alıcı yoktu · kapı fotoğrafı gönderilmeyi bekliyor',
     slotHour: 13,
   ),
 ];

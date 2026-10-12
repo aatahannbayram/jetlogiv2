@@ -306,22 +306,14 @@ class DgChoiceSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: selected ? Dg.action : Dg.rule,
+    // Çerçeve yok: seçili seçenek dolgu rengiyle ayrışır.
+    return Material(
+      color: selected ? Dg.warnSoft : Dg.surface,
+      borderRadius: BorderRadius.circular(Dg.radiusHero),
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(Dg.radiusHero),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(1.5),
-        child: Material(
-          color: Dg.surface,
-          borderRadius: BorderRadius.circular(Dg.radiusHero - 2),
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(Dg.radiusHero - 2),
-            child: child,
-          ),
-        ),
+        child: child,
       ),
     );
   }
@@ -2060,14 +2052,6 @@ class SegmentedTabs extends StatelessWidget {
                   vertical: 14,
                 ),
                 alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(
-                      color: index == i ? Dg.warn : Dg.rule,
-                      width: index == i ? 2 : 1,
-                    ),
-                  ),
-                ),
                 child: Text(
                   labels[i],
                   textAlign: TextAlign.center,

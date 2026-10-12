@@ -1245,7 +1245,7 @@ class SessionController extends ChangeNotifier {
     'SHIFT' || 'SHIFT_AUTO_CLOSED' => 'Vardiya',
     'LEAVE_REVIEWED' || 'LEAVE' => 'İzin',
     'TRAINING' => 'Eğitim',
-    'SLA' => 'SLA uyarısı',
+    'SLA' => 'Gecikme uyarısı',
     _ => 'Bildirim',
   };
 
@@ -3315,10 +3315,10 @@ class SessionController extends ChangeNotifier {
         if (event == null) continue;
         _prependNotification(
           kind: NotifKind.syncFail,
-          title: 'Gönderim başarısız',
+          title: 'Kayıt gönderilemedi',
           body: event.subjectId == null
-              ? 'Bir kayıt senkron edilemedi, kuyrukta bekliyor.'
-              : '${_taskName(event.subjectId)} senkron edilemedi, kuyrukta bekliyor.',
+              ? 'Bir kayıt gönderilemedi. İnternet gelince tekrar denenecek.'
+              : '${_taskName(event.subjectId)} gönderilemedi. İnternet gelince tekrar denenecek.',
           icon: LucideIcons.circleAlert,
           tint: Dg.redBg,
           ink: Dg.red,
@@ -3581,7 +3581,7 @@ List<DeliveryTask> _buildDemoTasks() => [
     window: '13:00–13:30',
     kind: TaskKind.delivery,
     status: TaskStatus.queued,
-    note: 'Alıcı yoktu · kapı fotoğrafı kuyrukta',
+    note: 'Alıcı yoktu · kapı fotoğrafı gönderilmeyi bekliyor',
     sequence: 4,
     lat: 38.1460,
     lng: 29.0488,
@@ -3615,8 +3615,8 @@ List<AppNotification> _buildDemoNotifications() {
     AppNotification(
       id: 'demo-sync',
       kind: NotifKind.syncFail,
-      title: 'Gönderim başarısız',
-      body: 'DGO-8839 senkron edilemedi, kuyrukta bekliyor.',
+      title: 'Kayıt gönderilemedi',
+      body: 'DGO-8839 gönderilemedi. İnternet gelince tekrar denenecek.',
       createdAt: now.subtract(const Duration(hours: 3, minutes: 39)),
       icon: LucideIcons.circleAlert,
       tint: Dg.redBg,
