@@ -598,6 +598,230 @@ class L10n {
   String get subeComingSoon =>
       _t('Bu modül yakında bağlanacak', 'This module is coming soon');
   String get subeHome => _t('Ana Sayfa', 'Home');
+  String get subeOpsTitle => _t('İşlemler', 'Operations');
+  // Alt menü etiketleri kısa tutulur: beş sekme 390 pt genişlikte tek
+  // satıra sığmalı.
+  String get subeTabHome => _t('Ana', 'Home');
+  String get subeTabShipments => _t('Gönderi', 'Parcels');
+  String get subeTabCouriers => _t('Kurye', 'Couriers');
+  String get subeTabStock => _t('Stok', 'Stock');
+  String get subeTabOps => _t('İşlem', 'Tasks');
+  String get subeInboxTitle => _t('Bildirimler', 'Notifications');
+  String get subeAnnouncements => _t('Duyurular', 'Announcements');
+  String get subeAlerts => _t('Operasyon uyarıları', 'Operational alerts');
+  String get subeShiftsTitle => _t('Vardiya & İzin', 'Shifts & leave');
+  String get subeShiftsTab => _t('Vardiya', 'Shifts');
+  String get subeLeavesTab => _t('İzin istekleri', 'Leave requests');
+  String get subeSmsTitle => _t('SMS', 'SMS');
+  String get onShiftNow => _t('Vardiyada', 'On shift');
+  String get plannedNotStarted => _t('Başlamadı', 'Not started');
+  String get onLeaveLabel => _t('İzinli', 'On leave');
+  String get plannedLabel => _t('Planlı', 'Planned');
+  String get noPlanLabel => _t('Plan yok', 'No plan');
+  String get offLabel => _t('Kapalı', 'Off');
+  String shiftFlag(String code) => switch (code) {
+    'PLANNED_NOT_STARTED' => _t('Planlı, başlamadı', 'Planned, not started'),
+    'OUT_OF_PLAN' => _t('Plan dışı', 'Out of plan'),
+    'WORKED_ON_LEAVE' => _t('İzinliyken çalıştı', 'Worked on leave'),
+    'AUTO_CLOSED' => _t('Otomatik kapandı', 'Auto-closed'),
+    _ => code,
+  };
+  String get approve => _t('Onayla', 'Approve');
+  String get reject => _t('Reddet', 'Reject');
+  String get rejectReason => _t('Ret nedeni', 'Rejection reason');
+  String get leaveApproved => _t('İzin onaylandı', 'Leave approved');
+  String get leaveRejected => _t('İzin reddedildi', 'Leave rejected');
+  String get leaveHoliday => _t('Tatil', 'Holiday');
+  String get leaveLeave => _t('İzin', 'Leave');
+  String get smsTemplate => _t('Şablon', 'Template');
+  String get smsToRecipients => _t('Gönderi alıcılarına', 'Shipment recipients');
+  String get smsToCouriers => _t('Kuryelere', 'Couriers');
+  String get smsSearchHint =>
+      _t('Gönderi no veya alıcı adı', 'Shipment no or recipient');
+  String get smsPreview => _t('Önizle', 'Preview');
+  String smsSendN(int n) => _t('$n alıcıya gönder', 'Send to $n');
+  String get smsQueued => _t('SMS kuyruğa alındı', 'SMS queued');
+  String smsReach(int ok, int all) =>
+      _t('$all alıcıdan $ok tanesine ulaşılabilir', '$ok of $all reachable');
+  String get smsNoPhone => _t('Telefon yok', 'No phone');
+  String get smsNoTemplates => _t('Tanımlı şablon yok', 'No templates defined');
+  String mandatoryTrainingPending(int n) => _t(
+    '$n zorunlu eğitim bekliyor. Eğitim menüsünden tamamlayın.',
+    '$n mandatory trainings pending. Complete them from Training.',
+  );
+  String get mandatoryLabel => _t('Zorunlu', 'Mandatory');
+  String get syncBranchCount => _t('Sayım okutması', 'Count scan');
+  String get syncBranchReturn =>
+      _t('Kurye dönüşü okutması', 'Courier return scan');
+  String get kpiCancelled => _t('Bugün iptal', 'Cancelled today');
+  String get kpiPendingOps => _t('Bekleyen işlem', 'Pending actions');
+  String get kpiReturnToCenter => _t('Merkeze iade', 'Return to HQ');
+  String get kpiUrgent => _t('Acil', 'Urgent');
+  String get kpiAwaitAccept =>
+      _t('Kurye kabulü bekleyen', 'Awaiting courier accept');
+  String get kpiAwaitReturn => _t('Dönüş bekleyen', 'Awaiting return');
+  String lastSyncAt(String time) => _t('Son güncelleme $time', 'Updated $time');
+  String get stageIncoming => _t('Geliyor', 'Incoming');
+  String get stageAwaiting => _t('Zimmet bekliyor', 'Unassigned');
+  String get stageInQueue => _t('Kabul bekliyor', 'Awaiting accept');
+  String get filterPriority => _t('Öncelikli', 'Priority');
+  String get filterLate => _t('Geciken', 'Late');
+  String get cancelHandover => _t('Zimmeti iptal et', 'Cancel assignment');
+  String get pickReason => _t('Neden seç', 'Pick a reason');
+  String get noteOptional => _t('Not (isteğe bağlı)', 'Note (optional)');
+  String get outOfRegion => _t('Bölge dışı', 'Out of region');
+  String get dispatchNotReady => _t(
+    'Gönderi dağıtıma hazır değil; atama reddedilebilir.',
+    'Shipment is not ready for dispatch; assignment may be rejected.',
+  );
+  String selectedCount(int n) => _t('$n seçili', '$n selected');
+  String get handoverCreated => _t(
+    'Zimmet oluşturuldu. Kurye okutup kabul edince kesinleşir.',
+    'Assignment created. It is final once the courier scans and accepts.',
+  );
+  String get courierChanged => _t(
+    'Kurye değişikliği kaydedildi. Yeni kurye kabul edince geçerli olur.',
+    'Courier change saved. It applies once the new courier accepts.',
+  );
+  String get handoverCancelled => _t(
+    'Zimmet iptal edildi; gönderi şubede.',
+    'Assignment cancelled; shipment stays at branch.',
+  );
+  String get noCouriersToPick =>
+      _t('Seçilebilecek kurye yok', 'No courier available');
+  String get emptyShipments =>
+      _t('Bugün için gönderi yok', 'No shipments for today');
+  String get emptyCouriers => _t('Bağlı kurye yok', 'No couriers linked');
+  String get noPermission =>
+      _t('Bu işlem için yetkiniz yok', 'You are not allowed to do this');
+  String get liveActive => _t('Aktif', 'Active');
+  String get liveBreak => _t('Mola', 'Break');
+  String get liveOffline => _t('Çevrimdışı', 'Offline');
+  String holdingCount(int n) => _t('Üzerinde $n', '$n holding');
+  String overdueCount(int n) => _t('$n geciken', '$n overdue');
+  String lastSeenAt(String time) => _t('Son görülme $time', 'Last seen $time');
+  String get awaitingAcceptTitle =>
+      _t('Kurye kabulü bekleyenler', 'Awaiting courier accept');
+  String get courierReturnsTitle => _t('Kurye dönüşleri', 'Courier returns');
+  String get scanCourierReturn =>
+      _t('Kurye dönüşü okut', 'Scan courier return');
+  String get incomingTransfersTitle =>
+      _t('Gelen transferler', 'Incoming transfers');
+  String get scanIncoming => _t('Gelen kalemi okut', 'Scan incoming item');
+  String get confirmTransfer => _t('Transferi onayla', 'Confirm transfer');
+  String get confirmTransferHint => _t(
+    'Okutulmayan kalemler eksik olarak kapatılır.',
+    'Items not scanned are closed as missing.',
+  );
+  String get nothingWaiting => _t('Bekleyen yok', 'Nothing waiting');
+  String get pickWarehouse => _t('Depo seç', 'Pick a warehouse');
+  String get noCountWarehouse =>
+      _t('Stok yönetimli depo tanımlı değil', 'No stock-managed warehouse');
+  String get resumeCount => _t('Devam et', 'Resume');
+  String get finishCount => _t('Sayımı tamamla', 'Finish count');
+  String get countInReview => _t('İncelemede', 'In review');
+  String get countInReviewHint => _t(
+    'Sayım tamamlandı. Farklı satırlara neden girin; onay merkezde yapılır.',
+    'Count finished. Add reasons to variance lines; approval happens at HQ.',
+  );
+  String get countSystem => _t('Sistem', 'System');
+  String get countCounted => _t('Sayılan', 'Counted');
+  String get countNoVariance => _t('Fark yok', 'No variance');
+  String get uncountedAsZero =>
+      _t('Sayılmayanları sıfır say', 'Treat uncounted as zero');
+  String pendingScans(int n) =>
+      _t('$n okutma gönderilmeyi bekliyor', '$n scans waiting to send');
+  String get recentScansTitle => _t('Son okutmalar', 'Recent scans');
+  String get transferTypeLabel => _t('Transfer türü', 'Transfer type');
+  String get transferCenter => _t('Merkez', 'Destination');
+  String get sendTransfer => _t('Transferi gönder', 'Send transfer');
+  String get draftEmpty => _t(
+    'Okutarak gönderi veya koli ekleyin.',
+    'Scan to add shipments or parcels.',
+  );
+  String get transferSent =>
+      _t('Transfer merkeze sevk edildi', 'Transfer dispatched to HQ');
+  String get recentTransfers => _t('Son transferler', 'Recent transfers');
+  String get parcelLabel => _t('Koli', 'Parcel');
+  String get eodAwaitingResult => _t('Sonuç bekleyenler', 'Awaiting result');
+  String get eodOverdueTitle => _t('Gecikenler', 'Overdue');
+  String get resultMissing => _t('Sonuç girilmemiş', 'No result entered');
+  String get scanDone => _t('Bitti', 'Done');
+  String get subeLabelsTitle => _t('Etiket', 'Labels');
+  String get subePerformanceTitle => _t('Performans', 'Performance');
+  String get labelType => _t('Etiket türü', 'Label type');
+  String get labelQuantity => _t('Adet', 'Quantity');
+  String get labelShipmentRef =>
+      _t('Gönderi no (isteğe bağlı)', 'Shipment no (optional)');
+  String get labelShipmentRefHint => _t(
+    'Boş bırakılırsa gönderiye bağlı olmayan koli / iç barkod üretilir.',
+    'Leave empty for a standalone parcel / internal barcode.',
+  );
+  String get generateLabels => _t('Etiket üret', 'Generate labels');
+  String get printerAddress => _t('Yazıcı adresi (IP)', 'Printer address (IP)');
+  String get printerHint => _t(
+    'Aynı ağdaki Zebra yazıcı, örn. 192.168.1.50',
+    'Zebra printer on the same network, e.g. 192.168.1.50',
+  );
+  String printLabelsN(int n) => _t('$n etiketi yazdır', 'Print $n labels');
+  String get printLabel => _t('Yazdır', 'Print');
+  String get labelsPrinted => _t('Yazıcıya gönderildi', 'Sent to printer');
+  String get newLabels => _t('Yeni etiketler', 'New labels');
+  String get recentLabels => _t('Son etiketler', 'Recent labels');
+  String printedTimes(int n) => _t('$n kez basıldı', 'Printed $n times');
+  String get notPrinted => _t('Basılmadı', 'Not printed');
+  String labelTypeName(String code) => switch (code) {
+    'CASE' => _t('Koli', 'Case'),
+    'PACKAGE' => _t('Paket', 'Package'),
+    'ITEM' => _t('Ürün', 'Item'),
+    _ => code,
+  };
+  String get rangeToday => _t('Bugün', 'Today');
+  String get range7d => _t('7 gün', '7 days');
+  String get range30d => _t('30 gün', '30 days');
+  String get perfDeliveryRate => _t('Teslim oranı', 'Delivery rate');
+  String get perfFirstAttempt => _t('İlk denemede', 'First attempt');
+  String get perfAvgMinutes => _t('Ort. süre (dk)', 'Avg. minutes');
+  String get perfSla => _t('SLA uyumu', 'SLA compliance');
+  String get perfAttempted => _t('Denenen gönderi', 'Attempted');
+  String get perfFailed => _t('Başarısız deneme', 'Failed attempts');
+  String get perfTruncated => _t(
+    'Kayıt sınırı aşıldı; rakamlar eksik olabilir.',
+    'Record limit exceeded; figures may be partial.',
+  );
+  String get perfByCourier => _t('Kurye bazında', 'By courier');
+  String get perfDaily => _t('Günlük', 'Daily');
+  String get acceptScanned => _t('İçeri al', 'Take in');
+  String acceptScannedN(int n) => _t('İçeri al · $n', 'Take in · $n');
+  String remainingItems(int n) =>
+      _t('$n kalem okutulmadı', '$n items not scanned');
+  String transferLineState(String code) => switch (code) {
+    'IN' => _t('İçeride', 'In'),
+    'SCANNED' => _t('Okundu', 'Scanned'),
+    'PENDING' => _t('Bekliyor', 'Pending'),
+    'MISSING' => _t('Eksik', 'Missing'),
+    'EXCEPTION' => _t('Sorunlu', 'Exception'),
+    _ => code,
+  };
+  String transferTypeName(String code) => switch (code) {
+    'RETURN' => _t('İade', 'Return'),
+    'EQUIPMENT' => _t('Ekipman', 'Equipment'),
+    'PHYSICAL_DOCUMENT' => _t('Evrak', 'Documents'),
+    'CARD_RETURN' => _t('Kart iadesi', 'Card return'),
+    'BRANCH_TRANSFER' => _t('Şube transferi', 'Branch transfer'),
+    'OTHER' => _t('Diğer', 'Other'),
+    _ => code,
+  };
+  String countReasonName(String code) => switch (code) {
+    'MISCOUNT' => _t('Sayım hatası', 'Miscount'),
+    'DAMAGE' => _t('Hasar', 'Damage'),
+    'LOSS' => _t('Kayıp', 'Loss'),
+    'RECORD_ERROR' => _t('Kayıt hatası', 'Record error'),
+    'FOUND' => _t('Bulundu', 'Found'),
+    'RETURN_PENDING' => _t('İade bekliyor', 'Return pending'),
+    'OTHER' => _t('Diğer', 'Other'),
+    _ => code,
+  };
   String get subeLogout => _t('Çıkış yap', 'Sign out');
   String get openProfile => _t('Profili aç', 'Open profile');
   String get fieldAppVersion =>

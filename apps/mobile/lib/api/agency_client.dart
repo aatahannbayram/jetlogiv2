@@ -6,6 +6,7 @@ import '../data/vault.dart';
 import '../secure.dart';
 import '../tls_pinning.dart';
 import 'agency_models.dart';
+import 'branch_models.dart';
 import 'panel_client.dart' show VaultCookieStorage;
 
 /// dijigoo-ops default local dev address — same base host as [kPanelApiBase]
@@ -106,7 +107,9 @@ class AgencyPortalApi {
       _accessToken = token;
       await _vault?.writeSecret(kAgencyBearerKey, token);
     }
-    final data = Map<String, dynamic>.from(res.data?['data'] as Map? ?? const {});
+    final data = Map<String, dynamic>.from(
+      res.data?['data'] as Map? ?? const {},
+    );
     final agency = AgencyDto.fromJson(
       Map<String, dynamic>.from(data['agency'] as Map? ?? const {}),
     );
@@ -131,7 +134,9 @@ class AgencyPortalApi {
   Future<AgencyPortalUserDto?> fetchSession() async {
     try {
       final res = await dio.get<Map<String, dynamic>>('/agency-auth/session');
-      final data = Map<String, dynamic>.from(res.data?['data'] as Map? ?? const {});
+      final data = Map<String, dynamic>.from(
+        res.data?['data'] as Map? ?? const {},
+      );
       final user = data['user'] as Map?;
       if (user == null) return null;
       final userMap = Map<String, dynamic>.from(user);
@@ -154,69 +159,459 @@ class AgencyPortalApi {
     );
   }
 
-  Future<Map<String, dynamic>> fetchDashboard() async {
-    final res = await _get('/branch/dashboard');
-    return Map<String, dynamic>.from(res.data?['data'] as Map? ?? const {});
-  }
+  Future<BranchDashboard> fetchDashboard() async =>
+      BranchDashboard.fromJson(await _data(_get('/branch/dashboard')));
 
-  Future<void> handoverToCourier({
+  /// `GET branch/dispatch` — birimdeki 4010 + 4020 gönderiler (en fazla 500).
+  Future<DispatchBoard> fetchDispatchBoard() async =>
+      DispatchBoard.fromJson(await _data(_get('/branch/dispatch')));
+
+  /// Çoklu seçimde ilk seçili gönderinin kimliği gönderilir (web de böyle).
+  Future<DispatchOptions> fetchDispatchOptions(String shipmentId) async =>
+      DispatchOptions.fromJson(
+        await _data(
+          _get(
+            '/branch/dispatch/options',
+            queryParameters: {'shipmentId': shipmentId},
+          ),
+        ),
+      );
+
+  /// Gönderi 4010'da kalır; kurye kendi uygulamasında okutup kabul edince
+  /// zimmet kesinleşir. [idempotencyKey] yeniden denemede aynı kalmalı.
+  Future<HandoverResult> handoverToCourier({
     required String courierId,
     required List<String> shipmentIds,
+    required String idempotencyKey,
+  }) async => HandoverResult.fromJson(
+    await _data(
+      _post('/branch/dispatch/handover', {
+        'courierId': courierId,
+        'shipmentIds': shipmentIds,
+      }, idempotencyKey: idempotencyKey),
+    ),
+  );
+
+  /// Kuryenin henüz okutmadığı zimmeti (`IN_QUEUE`) başka kuryeye çevirir.
+  Future<void> changeHandover({
+    required String courierId,
+    required List<String> shipmentIds,
+    required String idempotencyKey,
   }) async {
-    final key = Vault.newUuid();
-    await _post('/branch/dispatch/handover', {
+    await _post('/branch/dispatch/handover/change', {
       'courierId': courierId,
       'shipmentIds': shipmentIds,
-      'idempotencyKey': key,
-    });
+    }, idempotencyKey: idempotencyKey);
   }
 
-  Future<List<BranchRow>> fetchCourierJobs() async {
-    final res = await _get('/branch/courier-jobs');
-    return branchRows(res.data?['data'], const [
-      'jobs',
-      'shipments',
-      'items',
-      'rows',
-    ]);
+  /// [reasonCode], [fetchCancelReasons] kataloğundan olmalı.
+  Future<void> cancelHandover({
+    required String shipmentId,
+    required String reasonCode,
+    required String idempotencyKey,
+  }) async {
+    await _post('/branch/dispatch/handover/cancel', {
+      'shipmentId': shipmentId,
+      'reasonCode': reasonCode,
+    }, idempotencyKey: idempotencyKey);
   }
 
-  Future<List<BranchRow>> fetchPendingShipments() async {
-    final res = await _get('/branch/pending');
-    return branchRows(res.data?['data'], const [
-      'handovers',
-      'items',
-      'shipments',
-      'rows',
-    ]);
+  Future<List<ReasonOption>> fetchCancelReasons() async {
+    final data = await _data(_get('/branch/courier-jobs'));
+    return [
+      for (final row in data['cancelReasons'] as List? ?? const [])
+        if (row is Map) ReasonOption.fromJson(Map<String, dynamic>.from(row)),
+    ];
   }
 
-  Future<List<BranchRow>> fetchCouriers() async {
-    final res = await _get('/agency/couriers');
-    return branchRows(res.data?['data'], const ['couriers', 'items', 'rows']);
+  /// Dağıtımdaki (4020) gönderi için seçilebilecek kuryeler; mevcut kurye
+  /// hariç.
+  Future<List<CourierOption>> fetchReassignOptions(String shipmentId) async {
+    final data = await _data(
+      _get(
+        '/branch/dispatch/reassign',
+        queryParameters: {'shipmentId': shipmentId},
+      ),
+    );
+    return [
+      for (final row in data['couriers'] as List? ?? const [])
+        if (row is Map) CourierOption.fromJson(Map<String, dynamic>.from(row)),
+    ];
   }
 
-  Future<List<BranchRow>> fetchPreparation() async {
-    final res = await _get('/branch/preparation');
-    return branchRows(res.data?['data'], const [
-      'shipments',
-      'items',
-      'rows',
-    ]);
+  /// Zimmet ve görev, yeni kurye okutarak kabul edene kadar eski kuryede
+  /// kalır.
+  Future<void> reassign({
+    required String shipmentId,
+    required String courierId,
+    required String idempotencyKey,
+    String? note,
+  }) async {
+    await _post('/branch/dispatch/reassign', {
+      'shipmentId': shipmentId,
+      'courierId': courierId,
+      if (note != null && note.isNotEmpty) 'note': note,
+    }, idempotencyKey: idempotencyKey);
   }
 
-  Future<List<BranchRow>> fetchCounts() async {
-    final res = await _get('/branch/counts');
-    return branchRows(res.data?['data'], const ['counts', 'items', 'warehouses']);
+  Future<PendingData> fetchPending() async =>
+      PendingData.fromJson(await _data(_get('/branch/pending')));
+
+  /// Kuryeden dönen gönderiyi şubede okutarak teslim alır; zimmet birime
+  /// geçer.
+  Future<CourierReturnScanResult> scanCourierReturn({
+    required String code,
+    required String idempotencyKey,
+  }) async => CourierReturnScanResult.fromJson(
+    await _data(
+      _post('/branch/pending/courier-return-scan', {
+        'scanCode': code,
+        'scanType': 'AUTO',
+        'clientEventId': idempotencyKey,
+      }, idempotencyKey: idempotencyKey),
+    ),
+  );
+
+  Future<CountsData> fetchCounts() async =>
+      CountsData.fromJson(await _data(_get('/branch/counts')));
+
+  /// Depoda açık sayım varsa 409 `COUNT_OPERATION_REJECTED`. Dönen değer
+  /// yeni sayımın kimliği.
+  Future<String> startCount({
+    required String warehouseId,
+    required String idempotencyKey,
+  }) async {
+    final data = await _data(
+      _post('/branch/counts', {
+        'warehouseId': warehouseId,
+      }, idempotencyKey: idempotencyKey),
+    );
+    return data['id'] as String? ?? '';
   }
 
-  Future<List<BranchRow>> fetchOutgoingTransfers() async {
-    final res = await _get('/branch/transfers/outgoing');
-    return branchRows(res.data?['data'], const [
-      'transfers',
-      'recent',
-      'items',
-    ]);
+  Future<CountDetail> fetchCount(String countId) async =>
+      CountDetail.fromJson(await _data(_get('/branch/counts/$countId')));
+
+  /// [clientScanId] sayım servisinin kendi tekrar korumasıdır (aynı id
+  /// adedi ikinci kez eklemez); web gibi `Idempotency-Key` olarak da gider.
+  Future<CountScanResult> scanCount({
+    required String countId,
+    required String barcode,
+    required String clientScanId,
+  }) async {
+    final data = await _data(
+      _post('/branch/counts/$countId', {
+        'action': 'scan',
+        'clientScanId': clientScanId,
+        'barcode': barcode,
+        'deviceTypeCode': 'HANDHELD',
+      }, idempotencyKey: clientScanId),
+    );
+    final result = data['result'];
+    return CountScanResult.fromJson(
+      result is Map ? Map<String, dynamic>.from(result) : data,
+    );
+  }
+
+  /// Yalnız kapatılmış (REVIEW) sayımın satırına fark nedeni yazar.
+  Future<void> setCountLineReason({
+    required String countId,
+    required String lineId,
+    required String reasonCode,
+    required String idempotencyKey,
+    String? note,
+  }) async {
+    await _post('/branch/counts/$countId', {
+      'action': 'line-reason',
+      'lineId': lineId,
+      'reasonCode': reasonCode,
+      'reasonNote': note,
+    }, idempotencyKey: idempotencyKey);
+  }
+
+  /// "Sayımı Tamamla" → REVIEW. [uncountedAsZero] false iken sayılmamış
+  /// ürün varsa 409 döner.
+  Future<void> closeCount({
+    required String countId,
+    required String idempotencyKey,
+    bool uncountedAsZero = false,
+  }) async {
+    await _post('/branch/counts/$countId', {
+      'action': 'close',
+      'uncountedAsZero': uncountedAsZero,
+    }, idempotencyKey: idempotencyKey);
+  }
+
+  Future<OutgoingOptions> fetchOutgoing() async =>
+      OutgoingOptions.fromJson(await _data(_get('/branch/transfers/outgoing')));
+
+  /// Yan etkisiz: okutulan kodu transfere eklenebilecek adaya çevirir.
+  /// `PARCEL_BARCODE` sunucunun otomatik çözümleyicisine gider.
+  Future<DispatchCandidate> resolveOutgoing(String code) async =>
+      DispatchCandidate.fromJson(
+        await _data(
+          _post('/branch/transfers/outgoing/resolve', {
+            'scanType': 'PARCEL_BARCODE',
+            'scannedValue': code,
+          }),
+        ),
+      );
+
+  /// Sevk başarısızsa taslak sunucuda kalır (409 `TRANSFER_DISPATCH_FAILED`).
+  Future<OutgoingDispatchResult> dispatchOutgoing({
+    required String transferType,
+    required String destinationWarehouseId,
+    required List<DispatchCandidate> candidates,
+    required String idempotencyKey,
+  }) async {
+    final byShipment = <String, List<String>>{};
+    for (final c in candidates) {
+      if (!c.isPackage) (byShipment[c.shipmentId] ??= []).add(c.barcode);
+    }
+    return OutgoingDispatchResult.fromJson(
+      await _data(
+        _post('/branch/transfers/outgoing', {
+          'transferType': transferType,
+          'destinationWarehouseId': destinationWarehouseId,
+          'lines': [
+            for (final e in byShipment.entries)
+              {'shipmentId': e.key, 'barcodes': e.value},
+          ],
+          'packageBarcodes': [
+            for (final c in candidates)
+              if (c.isPackage) c.barcode,
+          ],
+        }, idempotencyKey: idempotencyKey),
+      ),
+    );
+  }
+
+  Future<IncomingTransfers> fetchIncoming() async => IncomingTransfers.fromJson(
+    await _data(_get('/branch/transfers/incoming')),
+  );
+
+  Future<TransferScanResult> scanIncoming({
+    required String code,
+    required String clientEventId,
+  }) async => TransferScanResult.fromJson(
+    await _data(
+      _post('/branch/transfers/incoming/scan', {
+        'scanType': 'PARCEL_BARCODE',
+        'scannedValue': code,
+        'clientEventId': clientEventId,
+      }, idempotencyKey: clientEventId),
+    ),
+  );
+
+  Future<IncomingTransferDetail> fetchIncomingDetail(String transferId) async =>
+      IncomingTransferDetail.fromJson(
+        await _data(_get('/branch/transfers/incoming/$transferId')),
+      );
+
+  /// "İçeri Al": okutulmuş kalemleri kabul eder, transferi kapatmaz.
+  Future<TransferAcceptResult> acceptIncoming({
+    required String transferId,
+    required String idempotencyKey,
+  }) async => TransferAcceptResult.fromJson(
+    await _data(
+      _post(
+        '/branch/transfers/incoming/$transferId/accept',
+        const {},
+        idempotencyKey: idempotencyKey,
+      ),
+    ),
+  );
+
+  Future<LabelWorkspace> fetchLabels() async =>
+      LabelWorkspace.fromJson(await _data(_get('/branch/labels')));
+
+  /// Şube deposunda [quantity] adet etiket üretir; tekrar istekte yeni
+  /// etiket üretilmez.
+  Future<List<PrintableLabel>> generateLabels({
+    required String labelTypeCode,
+    required int quantity,
+    required String warehouseId,
+    required String idempotencyKey,
+    String? shipmentReference,
+  }) async {
+    final data = await _data(
+      _post('/branch/labels', {
+        'action': 'generate',
+        'labelTypeCode': labelTypeCode,
+        'quantity': quantity,
+        'warehouseId': warehouseId,
+        if (shipmentReference != null && shipmentReference.isNotEmpty)
+          'shipmentReference': shipmentReference,
+      }, idempotencyKey: idempotencyKey),
+    );
+    return [
+      for (final row in data['labels'] as List? ?? const [])
+        if (row is Map) PrintableLabel.fromJson(Map<String, dynamic>.from(row)),
+    ];
+  }
+
+  /// Başarılı baskıdan sonra çağrılır; basım sayacını artırır.
+  Future<void> markLabelsPrinted({
+    required List<String> labelIds,
+    required String printer,
+    required String idempotencyKey,
+  }) async {
+    await _post('/branch/labels', {
+      'action': 'printed',
+      'labelIds': labelIds,
+      'printer': printer,
+    }, idempotencyKey: idempotencyKey);
+  }
+
+  /// [range]: today | 7d | 30d.
+  Future<PerformanceData> fetchPerformance(String range) async =>
+      PerformanceData.fromJson(
+        await _data(
+          _get('/branch/performance', queryParameters: {'range': range}),
+        ),
+      );
+
+  /// Okutulan kalemleri içeri alır, kalanları EKSİK olarak kapatır.
+  Future<TransferAcceptResult> confirmIncoming({
+    required String transferId,
+    required String idempotencyKey,
+  }) async => TransferAcceptResult.fromJson(
+    await _data(
+      _post(
+        '/branch/transfers/incoming/$transferId/confirm',
+        const {},
+        idempotencyKey: idempotencyKey,
+      ),
+    ),
+  );
+
+  Future<({List<InboxItem> items, int unread})> fetchNotifications() async {
+    final data = await _data(_get('/branch/notifications'));
+    final unread = data['unread'];
+    return (
+      items: [
+        for (final row in data['items'] as List? ?? const [])
+          if (row is Map) InboxItem.fromJson(Map<String, dynamic>.from(row)),
+      ],
+      unread: unread is Map ? (unread['total'] as num?)?.toInt() ?? 0 : 0,
+    );
+  }
+
+  Future<void> markNotificationRead(String id) async {
+    await _post('/branch/notifications/$id/read', const {});
+  }
+
+  Future<AnnouncementsData> fetchAnnouncements() async =>
+      AnnouncementsData.fromJson(await _data(_get('/branch/announcements')));
+
+  /// Kuryelerin bugünkü planı ve vardiyaları.
+  Future<BranchShiftDay> fetchCourierShifts() async =>
+      BranchShiftDay.fromJson(await _data(_get('/branch/courier-shifts')));
+
+  Future<List<LeaveRequest>> fetchLeaveRequests() async {
+    final res = await _get('/branch/courier-leave-requests');
+    final rows = res.data?['data'];
+    return [
+      for (final row in rows is List ? rows : const [])
+        if (row is Map) LeaveRequest.fromJson(Map<String, dynamic>.from(row)),
+    ];
+  }
+
+  /// Yetki: `manage`. Redde [note] zorunlu.
+  Future<void> reviewLeave({
+    required String id,
+    required bool approve,
+    required String idempotencyKey,
+    String? note,
+  }) async {
+    await _post('/branch/courier-leave-requests/$id/review', {
+      'decision': approve ? 'APPROVE' : 'REJECT',
+      if (note != null && note.isNotEmpty) 'note': note,
+    }, idempotencyKey: idempotencyKey);
+  }
+
+  Future<List<SmsTemplate>> fetchSmsTemplates() async {
+    final data = await _data(_get('/branch/sms/templates'));
+    return [
+      for (final row in data['templates'] as List? ?? const [])
+        if (row is Map) SmsTemplate.fromJson(Map<String, dynamic>.from(row)),
+    ];
+  }
+
+  /// [type]: SHIPMENTS (alıcıya gider, [query] ile aranır) | COURIERS.
+  Future<List<SmsTarget>> fetchSmsTargets({
+    required String type,
+    String? query,
+  }) async {
+    final data = await _data(
+      _get(
+        '/branch/sms/targets',
+        queryParameters: {
+          'type': type,
+          if (query != null && query.isNotEmpty) 'q': query,
+        },
+      ),
+    );
+    return [
+      for (final row in data['items'] as List? ?? const [])
+        if (row is Map)
+          type == 'COURIERS'
+              ? SmsTarget.courier(Map<String, dynamic>.from(row))
+              : SmsTarget.shipment(Map<String, dynamic>.from(row)),
+    ];
+  }
+
+  Map<String, Object?> _smsBody(
+    String targetType,
+    List<String> targetIds,
+    String templateKey,
+    Map<String, String> variables,
+  ) => {
+    'targetType': targetType,
+    'targetIds': targetIds,
+    'channel': 'SMS',
+    'templateKey': templateKey,
+    if (variables.isNotEmpty) 'variables': variables,
+  };
+
+  /// Yan etkisiz; eksik değişkenler `missingVariables` içinde döner.
+  Future<SmsPreview> previewSms({
+    required String targetType,
+    required List<String> targetIds,
+    required String templateKey,
+    Map<String, String> variables = const {},
+  }) async => SmsPreview.fromJson(
+    await _data(
+      _post(
+        '/branch/sms/preview',
+        _smsBody(targetType, targetIds, templateKey, variables),
+      ),
+    ),
+  );
+
+  /// Dönen değer kuyruğa alınan alıcı sayısı.
+  Future<int> sendSms({
+    required String targetType,
+    required List<String> targetIds,
+    required String templateKey,
+    required String idempotencyKey,
+    Map<String, String> variables = const {},
+  }) async {
+    final data = await _data(
+      _post(
+        '/branch/sms/send',
+        _smsBody(targetType, targetIds, templateKey, variables),
+        idempotencyKey: idempotencyKey,
+      ),
+    );
+    return (data['recipientCount'] as num?)?.toInt() ?? targetIds.length;
+  }
+
+  Future<Map<String, dynamic>> _data(
+    Future<Response<Map<String, dynamic>>> call,
+  ) async {
+    final res = await call;
+    return Map<String, dynamic>.from(res.data?['data'] as Map? ?? const {});
   }
 
   Future<Response<Map<String, dynamic>>> _get(
@@ -235,10 +630,17 @@ class AgencyPortalApi {
 
   Future<Response<Map<String, dynamic>>> _post(
     String path,
-    Map<String, Object?> data,
-  ) async {
+    Map<String, Object?> data, {
+    String? idempotencyKey,
+  }) async {
     try {
-      return await dio.post<Map<String, dynamic>>(path, data: data);
+      return await dio.post<Map<String, dynamic>>(
+        path,
+        data: data,
+        options: idempotencyKey == null
+            ? null
+            : Options(headers: {'Idempotency-Key': idempotencyKey}),
+      );
     } on DioException catch (e) {
       throw _agencyException(e);
     }
@@ -246,13 +648,24 @@ class AgencyPortalApi {
 
   AgencyApiException _agencyException(DioException e) {
     final body = e.response?.data;
-    final code = body is Map ? body['code'] as String? : null;
+    final error = body is Map && body['error'] is Map
+        ? body['error'] as Map
+        : const {};
+    final code =
+        error['code'] as String? ??
+        (body is Map ? body['code'] as String? : null);
     final nested = body is Map ? body['data'] as Map? : null;
-    final agenciesRaw = nested?['agencies'] as List?;
+    final agenciesRaw =
+        error['agencies'] as List? ?? nested?['agencies'] as List?;
     return AgencyApiException(
       code ?? 'AGENCY_REQUEST_FAILED',
       statusCode: e.response?.statusCode,
       message: e.message,
+      serverMessage:
+          error['message'] as String? ??
+          (body is Map ? body['message'] as String? : null),
+      reason: error['reason'] as String?,
+      shipmentNumber: error['shipmentNumber'] as String?,
       agencies: [
         for (final row in agenciesRaw ?? const [])
           if (row is Map) AgencyDto.fromJson(Map<String, dynamic>.from(row)),

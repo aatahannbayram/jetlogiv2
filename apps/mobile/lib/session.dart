@@ -16,6 +16,8 @@ import 'api/courier_tasks.dart';
 import 'api/models.dart';
 import 'api/agency_client.dart';
 import 'api/agency_models.dart';
+import 'api/branch_models.dart';
+import 'branch_workspace.dart';
 import 'api/panel_client.dart';
 import 'api/panel_models.dart';
 import 'data/outbox.dart';
@@ -23,6 +25,7 @@ import 'data/vault.dart';
 import 'geo.dart';
 import 'l10n.dart';
 import 'launchers.dart';
+import 'live_location.dart';
 import 'locate.dart';
 import 'log.dart';
 import 'media_upload.dart';
@@ -48,7 +51,9 @@ class SessionController extends ChangeNotifier {
     AppPhase? initialPhase,
     Future<PushPermit> Function()? requestPush,
     Future<PushPermit> Function()? readPush,
+    Stream<LiveFix> Function()? liveFixes,
   }) : outbox = outbox ?? OutboxStore(),
+       liveFixes = liveFixes ?? liveFixStream,
        phase = initialPhase ?? AppPhase.onboard,
        requestPush = requestPush ?? requestPushPermit,
        readPush = readPush ?? readPushPermit {
@@ -90,6 +95,7 @@ class SessionController extends ChangeNotifier {
   final bool waitForConfig;
   final Future<PushPermit> Function() requestPush;
   final Future<PushPermit> Function() readPush;
+  final Stream<LiveFix> Function() liveFixes;
 
   bool get _usesPanelTasks => panelLoggedIn && panel != null;
 
@@ -109,13 +115,16 @@ class SessionController extends ChangeNotifier {
   /// cookie-session (bkz. docs/08-sube-acente-entegrasyonu.md). Kurye
   /// oturumundan tamamen bağımsız: aynı cihazda ikisi bir arada tutulabilir.
   AgencyPortalUserDto? agencyUser;
-  AgencyOverviewDto? agencyOverview;
-  Map<String, int> branchKpis = const {};
-  List<BranchRow> branchShipments = const [];
-  List<BranchRow> branchCouriers = const [];
-  List<BranchRow> branchStock = const [];
-  List<BranchRow> branchCounts = const [];
-  List<BranchRow> branchTransfers = const [];
+
+  /// Şube çalışma alanı: özet, gönderi/zimmet, sayım, merkeze sevk ve ortak
+  /// barkod yönlendirmesi. Okutmaları kurye ile aynı [outbox]'a yazar.
+  late final BranchWorkspace branch = BranchWorkspace(
+    outbox: outbox,
+    api: agency,
+    vault: vault,
+    onChanged: notifyListeners,
+    onSessionExpired: _agencySessionExpired,
+  );
   String? lastAgencyError;
   bool agencyLoginBusy = false;
   List<AgencyDto> agencySelectionOptions = const [];
@@ -1176,12 +1185,48 @@ class SessionController extends ChangeNotifier {
   final trainingModules = <TrainingModuleDto>[];
   bool trainingBusy = false;
 
+  /// Bekleyen zorunlu eğitim sayısı (backend). Hiçbir işlemi engellemez;
+  /// yalnız uyarı gösterilir.
+  int pendingMandatoryTrainings = 0;
+
+  /// `courier-dashboard` sayaçları; yüklenmediyse boş.
+  Map<String, int> courierCounts = const {};
+
+  /// Ana sayfa sayaçları ve vardiya/eğitim durumu backend'den.
+  Future<void> loadCourierDashboard() async {
+    final client = panel;
+    if (!_usesPanelTasks || client == null) return;
+    try {
+      courierCounts = await client.fetchDashboardCounts();
+      final shift = await client.fetchCurrentShift();
+      pendingMandatoryTrainings = shift.pendingMandatoryTrainings;
+      notifyListeners();
+    } on PanelApiException catch (e) {
+      if (e.statusCode == 401) expirePanelSession();
+    } catch (_) {
+      // Sayaçlar gelmezse ekran yerel sayılarla kalır.
+    }
+  }
+
   Future<void> loadTrainingModules() async {
     if (_usesPanelTasks) {
-      if (trainingModules.isEmpty) {
-        trainingModules.addAll(_demoTrainingModulesSeed());
-        notifyListeners();
+      final client = panel;
+      if (client == null) return;
+      trainingBusy = true;
+      notifyListeners();
+      try {
+        final remote = await client.fetchTrainings();
+        trainingModules
+          ..clear()
+          ..addAll(remote);
+        pendingMandatoryTrainings = remote
+            .where((m) => m.mandatory && !m.completed)
+            .length;
+      } catch (_) {
+        // Ağ hatası: mevcut liste korunur; örnek eğitim gösterilmez.
       }
+      trainingBusy = false;
+      notifyListeners();
       return;
     }
     final client = api;
@@ -1209,6 +1254,34 @@ class SessionController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Eğitim metni listede gelmez; detay açılırken backend'den alınır.
+  Future<void> loadTrainingBody(String moduleId) async {
+    final client = panel;
+    if (!_usesPanelTasks || client == null) return;
+    final i = trainingModules.indexWhere((m) => m.id == moduleId);
+    if (i == -1 || trainingModules[i].body.isNotEmpty) return;
+    try {
+      final body = await client.fetchTrainingBody(moduleId);
+      final j = trainingModules.indexWhere((m) => m.id == moduleId);
+      if (j == -1 || body.isEmpty) return;
+      final m = trainingModules[j];
+      trainingModules[j] = TrainingModuleDto(
+        id: m.id,
+        title: m.title,
+        summary: m.summary,
+        body: body,
+        sortOrder: m.sortOrder,
+        completed: m.completed,
+        completedAt: m.completedAt,
+        mandatory: m.mandatory,
+        overdue: m.overdue,
+      );
+      notifyListeners();
+    } catch (_) {
+      // Metin gelmezse başlık ve özet görünür kalır.
+    }
+  }
+
   Future<void> completeTrainingModule(String moduleId) async {
     final i = trainingModules.indexWhere((m) => m.id == moduleId);
     if (i == -1 || trainingModules[i].completed) return;
@@ -1223,7 +1296,16 @@ class SessionController extends ChangeNotifier {
       completedAt: now,
     );
     notifyListeners();
-    if (_usesPanelTasks) return;
+    if (_usesPanelTasks) {
+      try {
+        await panel?.completeTraining(moduleId);
+      } catch (_) {
+        // Sunucu kabul etmediyse (ör. en kısa izleme süresi dolmadı) gerçek
+        // durum geri yüklenir; tamamlandı gösterilmez.
+      }
+      await loadTrainingModules();
+      return;
+    }
     final client = api;
     if (client == null) return;
     try {
@@ -1320,6 +1402,7 @@ class SessionController extends ChangeNotifier {
     await restoreUiPrefs();
     await restoreLocalShift();
     await restorePanelSession();
+    await restoreAgencySession();
     await restoreOpenShift();
     final token = await vault?.accessToken;
     final liveAuth =
@@ -1336,6 +1419,29 @@ class SessionController extends ChangeNotifier {
       'bootstrap live=$liveApi demo=$demo phase=${phase.name}',
     );
     notifyListeners();
+  }
+
+  /// Saklı şube oturumu varsa (8 saatlik bearer) sunucuda doğrular ve
+  /// doğrudan şube ana sayfasını açar. Kurye oturumu açıksa ona dokunmaz.
+  Future<void> restoreAgencySession() async {
+    final client = agency;
+    if (client == null || panelLoggedIn || agencyUser != null) return;
+    try {
+      if (!await client.hasStoredSession) return;
+      final user = await client.fetchSession();
+      if (user == null) {
+        // Süresi dolmuş: saklı anahtarı temizle, giriş ekranı açılır.
+        await client.logout().catchError((_) {});
+        return;
+      }
+      agencyUser = user;
+      branch.reset();
+      phase = AppPhase.subeMain;
+      notifyListeners();
+      unawaited(branch.refresh());
+    } catch (_) {
+      // Ağ yoksa oturum silinmez; kullanıcı giriş ekranından devam eder.
+    }
   }
 
   /// Cookie jar’da panel oturumu varsa profili ve görev listesini yükle.
@@ -1357,6 +1463,7 @@ class SessionController extends ChangeNotifier {
       }
       applyPanelProfile(profile);
       await loadPanelTasks();
+      unawaited(loadCourierDashboard());
       await Future.wait([loadTickets(), loadCustody()]);
     } catch (_) {
       panelLoggedIn = false;
@@ -1621,6 +1728,7 @@ class SessionController extends ChangeNotifier {
       final profile = await client.login(identifier: id, password: password);
       applyPanelProfile(profile);
       await loadPanelTasks();
+      unawaited(loadCourierDashboard());
       await Future.wait([
         loadTickets(),
         loadCustody(),
@@ -1661,14 +1769,12 @@ class SessionController extends ChangeNotifier {
         email: agencyDemoEmail,
         fullName: 'Acente Demo',
         agency: const AgencyDto(id: 'demo-agency', name: 'Güney Acente'),
+        capabilities: BranchCapabilities.all,
       );
-      agencyOverview = const AgencyOverviewDto(
-        agency: AgencyDto(id: 'demo-agency', name: 'Güney Acente'),
-        courierLinks: 12,
-        regionLinks: 3,
-        nodeLinks: 1,
-        currentShipments: 186,
-      );
+      branch
+        ..reset()
+        ..demo = true;
+      await branch.refresh();
       agencyLoginBusy = false;
       phase = AppPhase.subeMain;
       notifyListeners();
@@ -1687,8 +1793,15 @@ class SessionController extends ChangeNotifier {
         password: password,
         agencyId: agencyId,
       );
-      await loadAgencyOverview();
-      await loadBranchWorkspace();
+      branch.reset();
+      // `login` yanıtı yetkileri taşımaz; düğmeler `session`'daki
+      // `capabilities` ile açılır.
+      try {
+        agencyUser = await client.fetchSession() ?? agencyUser;
+      } catch (_) {
+        // Yetkiler gelmezse gönderi listesinin kendi `capabilities`'i kullanılır.
+      }
+      await branch.refresh();
       agencyLoginBusy = false;
       phase = AppPhase.subeMain;
       notifyListeners();
@@ -1707,54 +1820,29 @@ class SessionController extends ChangeNotifier {
     }
   }
 
-  Future<void> loadAgencyOverview() async {
-    final client = agency;
-    if (client == null || agencyUser == null) return;
-    try {
-      agencyOverview = await client.fetchOverview();
-      notifyListeners();
-    } on AgencyApiException {
-      // Genel bakış olmadan da Ana Sayfa gösterilebilir; sessizce yut.
-    }
-  }
-
-  Future<void> loadBranchWorkspace() async {
-    final client = agency;
-    if (client == null || agencyUser == null) return;
-    Future<T?> read<T>(Future<T> call) async {
-      try {
-        return await call;
-      } catch (_) {
-        return null;
-      }
-    }
-    final dashboard = await read(client.fetchDashboard());
-    if (dashboard != null) branchKpis = branchNumbers(dashboard);
-    final pending = await read(client.fetchPendingShipments());
-    final jobs = await read(client.fetchCourierJobs());
-    if (pending != null || jobs != null) {
-      branchShipments = [...?pending, ...?jobs];
-    }
-    branchCouriers = await read(client.fetchCouriers()) ?? branchCouriers;
-    branchStock = await read(client.fetchPreparation()) ?? branchStock;
-    branchCounts = await read(client.fetchCounts()) ?? branchCounts;
-    branchTransfers = await read(client.fetchOutgoingTransfers()) ?? branchTransfers;
-    notifyListeners();
-  }
-
   Future<void> logoutAgency() async {
-    await agency?.logout();
+    try {
+      await agency?.logout();
+    } catch (_) {
+      // Çıkış isteği düşse de yerel oturum kapatılır.
+    }
     agencyUser = null;
-    agencyOverview = null;
-    branchKpis = const {};
-    branchShipments = const [];
-    branchCouriers = const [];
-    branchStock = const [];
-    branchCounts = const [];
-    branchTransfers = const [];
+    await branch.clearStored();
+    branch.reset();
     lastAgencyError = null;
     phase = AppPhase.activation;
     notifyListeners();
+  }
+
+  /// Sunucu 401 döndü: yerel oturumu kapatıp girişe döner.
+  void _agencySessionExpired() {
+    if (agencyUser == null) return;
+    agencyUser = null;
+    branch.reset();
+    lastAgencyError = 'AGENCY_SESSION_EXPIRED';
+    phase = AppPhase.activation;
+    notifyListeners();
+    unawaited(agency?.logout().catchError((_) {}));
   }
 
   Future<bool> verifyLoginOtp(String code) async {
@@ -1860,6 +1948,81 @@ class SessionController extends ChangeNotifier {
     };
   }
 
+  // ── Canlı konum ────────────────────────────────────────────────────────
+  // Başlatılmış (dağıtımdaki) görev varken kuryenin konumu panele akar;
+  // şube ve merkez kuryeleri haritada buradan görür. Görev bitince durur.
+
+  StreamSubscription<LiveFix>? _liveSub;
+  String? _liveTaskId;
+  LiveFix? _lastLiveSent;
+
+  /// Panelin en son kabul ettiği canlı konumun zamanı.
+  DateTime? lastLiveLocationAt;
+
+  @override
+  void notifyListeners() {
+    super.notifyListeners();
+    _syncLiveTracking();
+  }
+
+  @override
+  void dispose() {
+    unawaited(_liveSub?.cancel());
+    super.dispose();
+  }
+
+  void _syncLiveTracking() {
+    String? target;
+    if (_usesPanelTasks) {
+      for (final t in tasks) {
+        if (t.status == TaskStatus.inProgress) {
+          target = t.id;
+          break;
+        }
+      }
+    }
+    if (target == _liveTaskId) return;
+    _liveTaskId = target;
+    _lastLiveSent = null;
+    if (target == null) {
+      unawaited(_liveSub?.cancel());
+      _liveSub = null;
+      return;
+    }
+    _liveSub ??= liveFixes().listen(_onLiveFix, onError: (_) {});
+  }
+
+  Future<void> _onLiveFix(LiveFix fix) async {
+    final id = _liveTaskId;
+    final client = panel;
+    if (id == null || client == null) return;
+    if (!isFreshLiveFix(fix, DateTime.now())) return;
+    if (!shouldSendLiveFix(_lastLiveSent, fix)) return;
+    // Yanıt beklenirken gelen ölçümler aynı konumu ikinci kez göndermesin.
+    _lastLiveSent = fix;
+    try {
+      await client.sendLocation(
+        id,
+        purposeCode: 'ACTIVE_TASK',
+        latitude: fix.lat,
+        longitude: fix.lng,
+        accuracy: fix.accuracy,
+        heading: fix.heading,
+        speed: fix.speed,
+        capturedAt: fix.at,
+      );
+      lastLiveLocationAt = fix.at;
+    } catch (e) {
+      // Kuyruğa alınmaz: sunucu eski konumu kabul etmez, sıradaki ölçüm gider.
+      DgLog.w(LogLayer.route, 'live location rejected: $e');
+    }
+    if (_gpsFitsStops(fix.lat, fix.lng)) {
+      selfLat = fix.lat;
+      selfLng = fix.lng;
+      selfLocated = true;
+    }
+  }
+
   Future<void> refreshSelfPosition() async {
     final here = await readDeviceLocation();
     if (here == null) return;
@@ -1919,7 +2082,22 @@ class SessionController extends ChangeNotifier {
   }
 
   void _enqueueShift({required bool start}) {
-    if (_usesPanelTasks) return;
+    if (_usesPanelTasks) {
+      // Vardiya backend'de tutulur (`courier-shifts/start|end`); konum
+      // zorunlu. Çevrimdışıysa kuyrukta bekler, olay zamanı korunur.
+      outbox.enqueue(
+        operation: start
+            ? SyncOperation.panelShiftStart
+            : SyncOperation.panelShiftEnd,
+        payload: {
+          'latitude': selfLat,
+          'longitude': selfLng,
+          'idempotencyKey': Vault.newUuid(),
+        },
+      );
+      if (online) unawaited(_flushPanelOutbox());
+      return;
+    }
     final event = outbox.enqueue(
       operation: start ? SyncOperation.shiftStart : SyncOperation.shiftEnd,
       payload: start
@@ -2395,6 +2573,7 @@ class SessionController extends ChangeNotifier {
 
   Future<void> refreshField() async {
     await Future.wait([
+      loadCourierDashboard(),
       refreshSelfPosition(),
       pullTasks(),
       loadTickets(),
@@ -2447,6 +2626,34 @@ class SessionController extends ChangeNotifier {
       ..clear()
       ..addAll(remote)
       ..addAll(keep);
+  }
+
+  /// Zimmet kabulünde eksik / fazla: okutulanlarla birlikte destek kaydı
+  /// olarak merkeze gider (backend'de ayrı uyuşmazlık ucu yok).
+  void reportCustodyDiscrepancy(String note) {
+    final codes = [for (final scan in zimmetScans) scan.code];
+    createSupportTicket(
+      category: 'OTHER',
+      subject: 'Zimmet uyuşmazlığı',
+      body: [
+        note.trim(),
+        'Okutulan (${codes.length}): ${codes.join(', ')}',
+        'Beklenen kalem: ${custodyItems.length}',
+      ].where((line) => line.isNotEmpty).join('\n'),
+    );
+  }
+
+  /// Vardiyayı kapatır. Önce bekleyen kayıtları göndermeyi dener; hâlâ
+  /// gönderilemeyen kayıt varsa kapatmaz ve nedenini döner.
+  Future<String?> closeShiftChecked() async {
+    if (outbox.pendingCount > 0) await pushSyncQueue();
+    final waiting = outbox.pendingCount;
+    if (waiting > 0) {
+      return '$waiting kayıt henüz gönderilemedi. '
+          'Bağlantı gelince tekrar deneyin; vardiya açık kalır.';
+    }
+    setShiftOpen(false);
+    return null;
   }
 
   void createSupportTicket({
@@ -2592,10 +2799,45 @@ class SessionController extends ChangeNotifier {
       throw PanelApiException('PANEL_UNAVAILABLE');
     }
     final id = event.subjectId;
-    if (id == null && event.operation != SyncOperation.panelTicketCreate) {
+    final needsTask =
+        event.operation != SyncOperation.panelTicketCreate &&
+        event.operation != SyncOperation.panelShiftStart &&
+        event.operation != SyncOperation.panelShiftEnd;
+    if (id == null && needsTask) {
       throw PanelApiException('PANEL_UNAVAILABLE');
     }
     switch (event.operation) {
+      case SyncOperation.panelShiftStart:
+      case SyncOperation.panelShiftEnd:
+        final start = event.operation == SyncOperation.panelShiftStart;
+        final key =
+            event.payload['idempotencyKey'] as String? ?? event.clientEventId;
+        final lat = _asDouble(event.payload['latitude']) ?? selfLat;
+        final lng = _asDouble(event.payload['longitude']) ?? selfLng;
+        try {
+          if (start) {
+            await client.startShift(
+              latitude: lat,
+              longitude: lng,
+              idempotencyKey: key,
+              occurredAt: event.occurredAt,
+            );
+          } else {
+            await client.endShift(
+              latitude: lat,
+              longitude: lng,
+              idempotencyKey: key,
+              occurredAt: event.occurredAt,
+            );
+          }
+        } on PanelApiException catch (e) {
+          // Sunucu zaten istenen durumda (açık vardiya var / otomatik
+          // kapanmış): yeniden denemenin anlamı yok, kayıt tamam sayılır.
+          final settled = start
+              ? e.code == 'SHIFT_ALREADY_OPEN'
+              : e.code == 'NO_OPEN_SHIFT';
+          if (!settled) rethrow;
+        }
       case SyncOperation.panelAccept:
         await client.acceptTask(id!);
       case SyncOperation.panelStart:
@@ -2908,6 +3150,7 @@ class SessionController extends ChangeNotifier {
       for (final e in outbox.events)
         if (e.pending &&
             !e.operation.isPanel &&
+            !e.operation.isBranch &&
             !(_usesPanelTasks &&
                 (e.operation.isFastifyTaskWrite ||
                     e.operation == SyncOperation.supportTicketCreate ||

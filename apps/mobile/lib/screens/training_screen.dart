@@ -37,7 +37,10 @@ class _TrainingScreenState extends ConsumerState<TrainingScreen> {
       appBar: AppBar(title: Text(l.trainingTitle)),
       body: modules.isEmpty
           ? Center(
-              child: Text(l.trainingEmpty, style: Dg.ui(size: 15, color: Dg.ink3)),
+              child: Text(
+                l.trainingEmpty,
+                style: Dg.ui(size: 15, color: Dg.ink3),
+              ),
             )
           : ListView(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
@@ -48,12 +51,15 @@ class _TrainingScreenState extends ConsumerState<TrainingScreen> {
                     child: Padding(
                       padding: const EdgeInsets.only(bottom: 10),
                       child: DgCard(
-                        onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                TrainingDetailScreen(moduleId: module.id),
-                          ),
-                        ),
+                        onTap: () {
+                          s.loadTrainingBody(module.id);
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  TrainingDetailScreen(moduleId: module.id),
+                            ),
+                          );
+                        },
                         child: Row(
                           children: [
                             DgIconChip(

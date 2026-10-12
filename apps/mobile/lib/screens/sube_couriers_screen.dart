@@ -6,130 +6,85 @@ import '../l10n.dart';
 import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
-import 'sube_demo.dart';
+import 'sube_widgets.dart';
 
+/// Kurye havuzu: canlı durum, üzerindeki ve geciken adet, son görülme.
 class SubeCouriersScreen extends ConsumerWidget {
   const SubeCouriersScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l = context.l10n;
-    final live = ref.watch(sessionProvider).branchCouriers;
-    final couriers = live.isEmpty
-        ? kSubeDemoCouriers
-        : [
-            for (final row in live)
-              SubeDemoCourier(row.title.isEmpty ? row.ref : row.title, row.detail, 'lime', 0, 0, row.id),
-          ];
+    final branch = ref.watch(sessionProvider).branch;
+    final couriers = branch.dashboard?.courierList ?? const [];
     return Scaffold(
       appBar: AppBar(title: Text(l.subeCouriersTitle)),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-        children: [
-          for (final courier in couriers)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: DgCard(
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => _CourierDetail(courier: courier),
+      body: RefreshIndicator(
+        onRefresh: branch.refresh,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 96),
+          children: [
+            SubeStatusBanner(branch: branch),
+            if (couriers.isEmpty && !branch.loading)
+              DgEmptyState(icon: LucideIcons.users, title: l.emptyCouriers),
+            for (final c in couriers)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: DgCard(
+                  child: Row(
+                    children: [
+                      InitialsAvatar(
+                        name: c.name,
+                        size: 40,
+                        online: c.liveStatus == 'ACTIVE',
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              c.name,
+                              style: Dg.ui(size: 15, weight: FontWeight.w600),
+                            ),
+                            Text(
+                              [
+                                l.holdingCount(c.holdingCount),
+                                if (c.overdueCount > 0)
+                                  l.overdueCount(c.overdueCount),
+                              ].join(' · '),
+                              style: Dg.ui(
+                                size: 12,
+                                color: c.overdueCount > 0 ? Dg.hi : Dg.ink3,
+                              ),
+                            ),
+                            if (c.lastSeenAt != null)
+                              Text(
+                                l.lastSeenAt(subeClock(c.lastSeenAt!)),
+                                style: Dg.ui(size: 12, color: Dg.ink3),
+                              ),
+                          ],
+                        ),
+                      ),
+                      StatusChip(
+                        label: switch (c.liveStatus) {
+                          'ACTIVE' => l.liveActive,
+                          'BREAK' => l.liveBreak,
+                          _ => l.liveOffline,
+                        },
+                        tone: switch (c.liveStatus) {
+                          'ACTIVE' => 'lo',
+                          'BREAK' => 'mid',
+                          _ => '',
+                        },
+                      ),
+                    ],
                   ),
                 ),
-                child: Row(
-                  children: [
-                    InitialsAvatar(name: courier.name, size: 40),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(courier.name, style: Dg.ui(size: 15, weight: FontWeight.w600)),
-                          Text(
-                            '${courier.onMe} / ${courier.left}',
-                            style: Dg.ui(size: 12, color: Dg.ink3),
-                          ),
-                        ],
-                      ),
-                    ),
-                    StatusChip(label: l.availableStatus, tone: courier.tone),
-                  ],
-                ),
               ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CourierDetail extends StatefulWidget {
-  const _CourierDetail({required this.courier});
-  final SubeDemoCourier courier;
-
-  @override
-  State<_CourierDetail> createState() => _CourierDetailState();
-}
-
-class _CourierDetailState extends State<_CourierDetail> {
-  int _tab = 0;
-
-  @override
-  Widget build(BuildContext context) {
-    final l = context.l10n;
-    final tabs = [l.perfInstant, l.perfDay, l.perfMonth];
-    return Scaffold(
-      appBar: AppBar(title: Text(widget.courier.name)),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-        children: [
-          StatusChip(label: l.availableStatus, tone: 'lime'),
-          const SizedBox(height: 12),
-          SegmentedTabs(
-            labels: tabs,
-            index: _tab,
-            onChanged: (i) => setState(() => _tab = i),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              StatTile(label: l.kpiOnMe, value: '${widget.courier.onMe}'),
-              const SizedBox(width: 12),
-              StatTile(label: l.kpiLeft, value: '${widget.courier.left}'),
-            ],
-          ),
-          const SizedBox(height: 20),
-          DgButton(
-            label: l.reassign,
-            icon: LucideIcons.repeat,
-            onPressed: () => _reassign(context, l),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _reassign(BuildContext context, L10n l) async {
-    final reason = TextEditingController();
-    await showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Dg.surface,
-      isScrollControlled: true,
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.fromLTRB(20, 16, 20, 16 + MediaQuery.viewInsetsOf(ctx).bottom),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(l.reassign, style: Dg.ui(size: 17, weight: FontWeight.w700)),
-            TextField(controller: reason, decoration: InputDecoration(hintText: l.reason)),
-            const SizedBox(height: 12),
-            DgButton(
-              label: l.confirmAssign,
-              onPressed: () => Navigator.pop(ctx),
-            ),
           ],
         ),
       ),
     );
-    reason.dispose();
   }
 }

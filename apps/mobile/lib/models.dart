@@ -265,6 +265,10 @@ enum SyncOperation {
   panelFinalize,
   panelTicketCreate,
   panelCustodyReturn,
+  panelShiftStart,
+  panelShiftEnd,
+  branchCountScan,
+  branchReturnScan,
 }
 
 extension SyncOperationWire on SyncOperation {
@@ -282,6 +286,10 @@ extension SyncOperationWire on SyncOperation {
     SyncOperation.panelFinalize => 'PANEL_FINALIZE',
     SyncOperation.panelTicketCreate => 'PANEL_TICKET_CREATE',
     SyncOperation.panelCustodyReturn => 'PANEL_CUSTODY_RETURN',
+    SyncOperation.panelShiftStart => 'PANEL_SHIFT_START',
+    SyncOperation.panelShiftEnd => 'PANEL_SHIFT_END',
+    SyncOperation.branchCountScan => 'BRANCH_COUNT_SCAN',
+    SyncOperation.branchReturnScan => 'BRANCH_RETURN_SCAN',
   };
 
   bool get isPanel => switch (this) {
@@ -290,7 +298,16 @@ extension SyncOperationWire on SyncOperation {
     SyncOperation.panelLocation ||
     SyncOperation.panelFinalize ||
     SyncOperation.panelTicketCreate ||
-    SyncOperation.panelCustodyReturn => true,
+    SyncOperation.panelCustodyReturn ||
+    SyncOperation.panelShiftStart ||
+    SyncOperation.panelShiftEnd => true,
+    _ => false,
+  };
+
+  /// Şube rolünün okutmaları — acente portalına gider, kurye
+  /// kuyruklarının (panel / Fastify) hiçbirine karışmaz.
+  bool get isBranch => switch (this) {
+    SyncOperation.branchCountScan || SyncOperation.branchReturnScan => true,
     _ => false,
   };
 
@@ -318,6 +335,10 @@ extension SyncOperationWire on SyncOperation {
     'PANEL_FINALIZE' => SyncOperation.panelFinalize,
     'PANEL_TICKET_CREATE' => SyncOperation.panelTicketCreate,
     'PANEL_CUSTODY_RETURN' => SyncOperation.panelCustodyReturn,
+    'PANEL_SHIFT_START' => SyncOperation.panelShiftStart,
+    'PANEL_SHIFT_END' => SyncOperation.panelShiftEnd,
+    'BRANCH_COUNT_SCAN' => SyncOperation.branchCountScan,
+    'BRANCH_RETURN_SCAN' => SyncOperation.branchReturnScan,
     _ => throw ArgumentError('Bilinmeyen sync operation: $wire'),
   };
 }

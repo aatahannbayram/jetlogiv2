@@ -40,11 +40,13 @@ Future<void> _showBranchHandoverDone(BuildContext context, int count) {
             Container(
               width: 64,
               height: 64,
-              decoration: BoxDecoration(
-                color: Dg.loBg,
-                shape: BoxShape.circle,
+              decoration: BoxDecoration(color: Dg.loBg, shape: BoxShape.circle),
+              child: DgIcon(
+                LucideIcons.checkCheck,
+                color: Dg.ok,
+                size: 30,
+                weight: 600,
               ),
-              child: DgIcon(LucideIcons.checkCheck, color: Dg.ok, size: 30, weight: 600),
             ),
             const SizedBox(height: 18),
             Text(
@@ -83,9 +85,8 @@ class _ZimmetScreenState extends ConsumerState<ZimmetScreen> {
     final ok = await s.completeZimmet();
     if (!context.mounted) return;
     if (!ok) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l.handoverFailed)),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(l.handoverFailed)));
       return;
     }
     if (mode == 'sube') {
@@ -121,7 +122,10 @@ class _ZimmetScreenState extends ConsumerState<ZimmetScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(l.discrepancy, style: Dg.ui(size: 17, weight: FontWeight.w700)),
+            Text(
+              l.discrepancy,
+              style: Dg.ui(size: 17, weight: FontWeight.w700),
+            ),
             TextField(
               controller: note,
               decoration: InputDecoration(hintText: l.discrepancyNote),
@@ -137,8 +141,10 @@ class _ZimmetScreenState extends ConsumerState<ZimmetScreen> {
         ),
       ),
     );
+    final text = note.text;
     note.dispose();
     if (saved == true && context.mounted) {
+      s.reportCustodyDiscrepancy(text);
       await _finish(context, s, l);
     }
   }
@@ -212,7 +218,7 @@ class _ZimmetScreenState extends ConsumerState<ZimmetScreen> {
                                 ? LucideIcons.volume2
                                 : LucideIcons.volumeX,
                             size: 15,
-                            color: s.beepEnabled ? Colors.white : Dg.ink,
+                            color: s.beepEnabled ? Dg.onAction : Dg.ink,
                           ),
                           const SizedBox(width: 6),
                           Text(
@@ -220,7 +226,7 @@ class _ZimmetScreenState extends ConsumerState<ZimmetScreen> {
                             style: Dg.ui(
                               size: 12,
                               weight: FontWeight.w700,
-                              color: s.beepEnabled ? Colors.white : Dg.ink,
+                              color: s.beepEnabled ? Dg.onAction : Dg.ink,
                             ),
                           ),
                         ],

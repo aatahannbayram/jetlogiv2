@@ -5,6 +5,8 @@
 /// dijigoo-ops repo, not our own `apps/api` shapes.
 library;
 
+import 'branch_models.dart';
+
 class AgencyDto {
   const AgencyDto({
     required this.id,
@@ -54,6 +56,7 @@ class AgencyPortalUserDto {
     required this.agency,
     this.mustChangePassword = false,
     this.roles = const [],
+    this.capabilities = const BranchCapabilities(),
   });
 
   final String id;
@@ -62,6 +65,9 @@ class AgencyPortalUserDto {
   final AgencyDto agency;
   final bool mustChangePassword;
   final List<AgencyRoleDto> roles;
+
+  /// Yalnız `agency-auth/session` yanıtında gelir; `login` yanıtında yoktur.
+  final BranchCapabilities capabilities;
 
   factory AgencyPortalUserDto.fromJson(
     Map<String, dynamic> json,
@@ -83,6 +89,7 @@ class AgencyPortalUserDto {
         for (final row in rolesRaw)
           if (row is Map) AgencyRoleDto.fromJson(Map<String, dynamic>.from(row)),
       ],
+      capabilities: BranchCapabilities.fromJson(json['capabilities']),
     );
   }
 }
@@ -92,19 +99,30 @@ class AgencyPortalUserDto {
 /// `INVALID_CREDENTIALS`, `ACCOUNT_TEMPORARILY_LOCKED`,
 /// `AGENCY_SELECTION_REQUIRED`). `agencies` is only populated for the
 /// selection-required case (`login` returns 409 with a candidate list when
-/// a user belongs to more than one agency).
+/// a user belongs to more than one agency). [serverMessage] is the API's
+/// own Turkish `error.message` (present on most 409s) and is safe to show.
 class AgencyApiException implements Exception {
   AgencyApiException(
     this.code, {
     this.statusCode,
     this.message,
+    this.serverMessage,
+    this.reason,
+    this.shipmentNumber,
     this.agencies = const [],
   });
 
   final String code;
   final int? statusCode;
   final String? message;
+  final String? serverMessage;
+
+  /// 403 `FORBIDDEN` için: BRANCH_OPERATE_REQUIRED | BRANCH_MANAGE_REQUIRED.
+  final String? reason;
+  final String? shipmentNumber;
   final List<AgencyDto> agencies;
+
+  bool get unauthenticated => statusCode == 401;
 
   bool get isRetryable {
     final s = statusCode;
@@ -143,89 +161,4 @@ class AgencyOverviewDto {
       currentShipments: (summary['currentShipments'] as num?)?.toInt() ?? 0,
     );
   }
-}
-
-class BranchRow {
-  const BranchRow({
-    required this.ref,
-    required this.title,
-    this.detail = '',
-    this.id = '',
-  });
-
-  final String ref;
-  final String title;
-  final String detail;
-  final String id;
-}
-
-List<BranchRow> branchRows(dynamic data, List<String> keys) {
-  final list = _firstList(data, keys);
-  return [
-    for (final row in list)
-      BranchRow(
-        ref: _text(row, const [
-          'shipmentNumber',
-          'transferNumber',
-          'code',
-          'countNumber',
-          'id',
-        ]),
-        title: _text(row, const [
-          'fullName',
-          'name',
-          'recipientName',
-          'title',
-          'shipmentNumber',
-          'transferNumber',
-        ]),
-        detail: _text(row, const ['status', 'statusCode', 'statusName', 'unitName']),
-        id: _text(row, const ['id', 'courierId', 'shipmentId']),
-      ),
-  ].where((row) => row.ref.isNotEmpty || row.title.isNotEmpty).toList();
-}
-
-Map<String, int> branchNumbers(dynamic data) {
-  final out = <String, int>{};
-  void walk(dynamic node) {
-    if (node is Map) {
-      node.forEach((key, value) {
-        if (value is num) {
-          out['$key'] = value.toInt();
-        } else if (value is Map) {
-          walk(value);
-        }
-      });
-    }
-  }
-  walk(data);
-  return out;
-}
-
-List<Map<String, dynamic>> _firstList(dynamic data, List<String> keys) {
-  if (data is! Map) return const [];
-  for (final key in keys) {
-    final value = data[key];
-    if (value is List) {
-      return [
-        for (final row in value)
-          if (row is Map) Map<String, dynamic>.from(row),
-      ];
-    }
-  }
-  for (final value in data.values) {
-    if (value is Map) {
-      final nested = _firstList(value, keys);
-      if (nested.isNotEmpty) return nested;
-    }
-  }
-  return const [];
-}
-
-String _text(Map<String, dynamic> row, List<String> keys) {
-  for (final key in keys) {
-    final value = row[key];
-    if (value is String && value.isNotEmpty) return value;
-  }
-  return '';
 }

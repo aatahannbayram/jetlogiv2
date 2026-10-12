@@ -53,7 +53,10 @@ SyncQueueView describeOutboxEvent(
 ) {
   final task = taskForSubject(tasks, event.subjectId);
   final person = switch (event.operation) {
-    SyncOperation.shiftStart || SyncOperation.shiftEnd => l.shiftRecord,
+    SyncOperation.shiftStart ||
+    SyncOperation.shiftEnd ||
+    SyncOperation.panelShiftStart ||
+    SyncOperation.panelShiftEnd => l.shiftRecord,
     SyncOperation.supportTicketCreate ||
     SyncOperation.panelTicketCreate =>
       _str(event.payload, 'subject') ?? l.supportTicket,
@@ -77,11 +80,15 @@ SyncQueueView describeOutboxEvent(
 SyncEventKind _kind(OutboxEvent event) {
   switch (event.operation) {
     case SyncOperation.shiftStart:
+    case SyncOperation.panelShiftStart:
       return SyncEventKind.shiftOn;
     case SyncOperation.shiftEnd:
+    case SyncOperation.panelShiftEnd:
       return SyncEventKind.shiftOff;
     case SyncOperation.custodyHandover:
     case SyncOperation.panelCustodyReturn:
+    case SyncOperation.branchCountScan:
+    case SyncOperation.branchReturnScan:
       return SyncEventKind.custody;
     case SyncOperation.supportTicketCreate:
     case SyncOperation.panelTicketCreate:
@@ -113,12 +120,18 @@ SyncEventKind _kind(OutboxEvent event) {
 String _action(OutboxEvent event, L10n l) {
   switch (event.operation) {
     case SyncOperation.shiftStart:
+    case SyncOperation.panelShiftStart:
       return l.syncShiftStart;
     case SyncOperation.shiftEnd:
+    case SyncOperation.panelShiftEnd:
       return l.syncShiftEnd;
     case SyncOperation.custodyHandover:
     case SyncOperation.panelCustodyReturn:
       return l.syncCustodyHandover;
+    case SyncOperation.branchCountScan:
+      return l.syncBranchCount;
+    case SyncOperation.branchReturnScan:
+      return l.syncBranchReturn;
     case SyncOperation.supportTicketCreate:
     case SyncOperation.panelTicketCreate:
       return l.syncSupportTicket;

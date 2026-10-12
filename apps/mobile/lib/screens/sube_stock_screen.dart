@@ -2,71 +2,173 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../api/branch_models.dart';
 import '../l10n.dart';
+import '../scan_router.dart';
 import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import 'sube_incoming_screen.dart';
+import 'sube_scan_sheet.dart';
+import 'sube_widgets.dart';
 
-class SubeStockScreen extends ConsumerWidget {
+/// Stok & Zimmet: fiziksel sorumluluğun el değiştirdiği üç kuyruk —
+/// kuryenin kabulünü bekleyen zimmetler, kuryeden şubeye dönüşler ve
+/// şubeye gelen transferler. Her kabul barkodla yapılır.
+class SubeStockScreen extends ConsumerStatefulWidget {
   const SubeStockScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SubeStockScreen> createState() => _SubeStockScreenState();
+}
+
+class _SubeStockScreenState extends ConsumerState<SubeStockScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(sessionProvider).branch.loadIncoming();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final l = context.l10n;
-    final live = ref.watch(sessionProvider).branchStock;
-    final tiles = live.isEmpty
-        ? <(String, String)>[
-            (l.kpiBranchStock, '1.250'),
-            ('Kullanılabilir', '980'),
-            ('Kurye üzerinde', '200'),
-            ('Sevkiyat bekleyen', '50'),
-            ('Merkeze sevkiyatta', '12'),
-            ('Hasarlı', '4'),
-            ('Sayım farkında', '3'),
-            (l.kpiInField, '200'),
-          ]
-        : [
-            for (final row in live)
-              (row.title.isEmpty ? row.ref : row.title, row.detail.isEmpty ? row.ref : row.detail),
-          ];
+    final branch = ref.watch(sessionProvider).branch;
+    final canOperate = branch.capabilities.operate;
+    final pending = branch.pending;
+    final incoming = branch.incoming?.transfers ?? const <BranchTransfer>[];
     return Scaffold(
       appBar: AppBar(title: Text(l.subeStockTitle)),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-        children: [
-          for (var i = 0; i < tiles.length; i += 2) ...[
-            Row(
-              children: [
-                StatTile(label: tiles[i].$1, value: tiles[i].$2),
-                const SizedBox(width: 12),
-                if (i + 1 < tiles.length)
-                  StatTile(label: tiles[i + 1].$1, value: tiles[i + 1].$2),
-              ],
+      body: RefreshIndicator(
+        onRefresh: () async {
+          await branch.refresh();
+          await branch.loadIncoming();
+        },
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 96),
+          children: [
+            SubeStatusBanner(branch: branch),
+            SubeSection(
+              l.courierReturnsTitle,
+              trailing: '${pending?.returns.length ?? 0}',
             ),
-            const SizedBox(height: 12),
+            for (final item in pending?.returns ?? const <PendingItem>[])
+              _PendingTile(item: item),
+            if (canOperate)
+              DgButton(
+                label: l.scanCourierReturn,
+                icon: LucideIcons.undo2,
+                onPressed: () => showSubeScanSheet(
+                  context,
+                  scanContext: ScanContext.courierReturn,
+                  hint: 'Kuryeden dönen gönderiyi okutun',
+                ),
+              ),
+            const SizedBox(height: 16),
+            SubeSection(
+              l.awaitingAcceptTitle,
+              trailing: '${pending?.handovers.length ?? 0}',
+            ),
+            if (pending != null && pending.handovers.isEmpty)
+              Text(l.nothingWaiting, style: Dg.ui(size: 13, color: Dg.ink3)),
+            for (final item in pending?.handovers ?? const <PendingItem>[])
+              _PendingTile(item: item),
+            const SizedBox(height: 16),
+            SubeSection(
+              l.incomingTransfersTitle,
+              trailing: '${incoming.length}',
+            ),
+            if (branch.incoming != null && incoming.isEmpty)
+              Text(l.nothingWaiting, style: Dg.ui(size: 13, color: Dg.ink3)),
+            for (final t in incoming)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: DgCard(
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => SubeIncomingScreen(transfer: t),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Mono(
+                              t.transferNumber,
+                              size: 13,
+                              weight: FontWeight.w700,
+                            ),
+                            Text(
+                              t.partyName,
+                              style: Dg.ui(size: 14, color: Dg.ink2),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Mono('${t.acceptedItemCount} / ${t.itemCount}'),
+                    ],
+                  ),
+                ),
+              ),
+            if (canOperate) ...[
+              const SizedBox(height: 4),
+              DgButton(
+                label: l.scanIncoming,
+                icon: LucideIcons.packagePlus,
+                tone: DgButtonTone.secondary,
+                onPressed: () => showSubeScanSheet(
+                  context,
+                  scanContext: ScanContext.stockIn,
+                  hint: 'Gelen koli veya gönderi barkodunu okutun',
+                ),
+              ),
+            ],
           ],
-          Text('Hareketler', style: Dg.ui(size: 15, weight: FontWeight.w700)),
-          const SizedBox(height: 8),
-          DgCard(
-            child: Text('KL-2025-001 · giriş · 38 adet', style: Dg.ui(size: 14, color: Dg.ink2)),
-          ),
-          const SizedBox(height: 16),
-          DgButton(label: l.stockIn, icon: LucideIcons.packagePlus, onPressed: () {}),
-          const SizedBox(height: 8),
-          DgButton(
-            label: l.stockToCourier,
-            icon: LucideIcons.userPlus,
-            tone: DgButtonTone.secondary,
-            onPressed: () {},
-          ),
-          const SizedBox(height: 8),
-          DgButton(
-            label: l.stockFromCourier,
-            icon: LucideIcons.undo2,
-            tone: DgButtonTone.secondary,
-            onPressed: () {},
-          ),
-        ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PendingTile extends StatelessWidget {
+  const _PendingTile({required this.item});
+
+  final PendingItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final who = [
+      if (item.recipientName.isNotEmpty) item.recipientName,
+      if (item.courierName.isNotEmpty) item.courierName,
+    ].join(' · ');
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: DgCard(
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Mono(item.shipmentNumber, size: 13, weight: FontWeight.w700),
+                  if (who.isNotEmpty)
+                    Text(who, style: Dg.ui(size: 14, color: Dg.ink2)),
+                ],
+              ),
+            ),
+            if (item.overdue)
+              StatusChip(label: l.filterLate, tone: 'hi')
+            else if (item.since != null)
+              Text(
+                subeClock(item.since!),
+                style: Dg.ui(size: 12, color: Dg.ink3),
+              ),
+          ],
+        ),
       ),
     );
   }

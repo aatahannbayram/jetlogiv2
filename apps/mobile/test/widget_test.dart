@@ -7,12 +7,28 @@ import 'package:dijigoo_kurye/screens/return_screen.dart';
 import 'package:dijigoo_kurye/screens/sync_screen.dart';
 import 'package:dijigoo_kurye/session.dart';
 import 'package:dijigoo_kurye/theme.dart';
+
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 void main() {
+  setUpAll(() async {
+    final manifest = jsonDecode(
+      await rootBundle.loadString('FontManifest.json'),
+    ) as List<dynamic>;
+    for (final entry in manifest) {
+      final loader = FontLoader(entry['family'] as String);
+      for (final font in entry['fonts'] as List<dynamic>) {
+        loader.addFont(rootBundle.load(font['asset'] as String));
+      }
+      await loader.load();
+    }
+  });
   Future<void> bindPhone(WidgetTester tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
@@ -137,10 +153,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('durak kaldı'), findsOneWidget);
     expect(find.text('Ahmet Yılmaz'), findsWidgets);
-    expect(
-      find.text('Elif Koç', skipOffstage: false),
-      findsWidgets,
-    );
+    expect(find.text('Elif Koç', skipOffstage: false), findsWidgets);
   });
 
   testWidgets('görev detayı rota özeti ve kuryeleri gösterir', (tester) async {
@@ -158,7 +171,9 @@ void main() {
     expect(find.text('Ahmet Yılmaz'), findsWidgets);
   });
 
-  testWidgets('dağıtım listesi sekmeleri durak sayısını gösterir', (tester) async {
+  testWidgets('dağıtım listesi sekmeleri durak sayısını gösterir', (
+    tester,
+  ) async {
     await bindPhone(tester);
     await openDemo(tester);
 
@@ -168,7 +183,9 @@ void main() {
     expect(find.textContaining('Açık '), findsWidgets);
   });
 
-  testWidgets('panel görevi listede ve detayda gönderi no gösterir', (tester) async {
+  testWidgets('panel görevi listede ve detayda gönderi no gösterir', (
+    tester,
+  ) async {
     await bindPhone(tester);
     final session = SessionController();
     session.skipToDemo();
@@ -243,7 +260,9 @@ void main() {
     expect(find.text('Henüz destek talebin yok.'), findsNothing);
   });
 
-  testWidgets('aktivasyon açık panel oturumunda izinlere geçer', (tester) async {
+  testWidgets('aktivasyon açık panel oturumunda izinlere geçer', (
+    tester,
+  ) async {
     await bindPhone(tester);
     final session = SessionController();
     session.finishOnboard();
@@ -369,7 +388,9 @@ void main() {
     expect(find.text('Yeni kimlik ön yüz'), findsOneWidget);
   });
 
-  testWidgets('profil koduna 5 dokunuş mühendis katmanını açar', (tester) async {
+  testWidgets('profil koduna 5 dokunuş mühendis katmanını açar', (
+    tester,
+  ) async {
     await bindPhone(tester);
     await openDemo(tester);
 
@@ -529,7 +550,19 @@ void main() {
     await tester.tap(find.byKey(const Key('sube-login')));
     await tester.pumpAndSettle();
     expect(find.text('Güney Acente'), findsOneWidget);
+    expect(find.text('Bugün dağıtılacak'), findsOneWidget);
+
+    await tester.tap(find.text('Gönderi'));
+    await tester.pumpAndSettle();
+    expect(find.text('JL100238546'), findsOneWidget);
+    await tester.tap(find.text('JL100238546'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Kuryeye zimmetle'), findsOneWidget);
+
+    await tester.tap(find.text('İşlem'));
+    await tester.pumpAndSettle();
     expect(find.text('Merkeze Sevk'), findsOneWidget);
+    expect(find.text('Sayım'), findsOneWidget);
   });
 
   testWidgets('menüde gün sonu açılır', (tester) async {

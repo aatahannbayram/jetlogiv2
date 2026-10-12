@@ -554,6 +554,8 @@ class TrainingModuleDto {
     required this.completed,
     this.summary,
     this.completedAt,
+    this.mandatory = false,
+    this.overdue = false,
   });
 
   final String id;
@@ -563,6 +565,11 @@ class TrainingModuleDto {
   final int sortOrder;
   final bool completed;
   final String? completedAt;
+
+  /// Zorunlu eğitim. Tamamlanmamış olması hiçbir işlemi engellemez
+  /// (backend kuralı); yalnız uyarı gösterilir.
+  final bool mandatory;
+  final bool overdue;
 
   factory TrainingModuleDto.fromJson(Map<String, dynamic> json) =>
       TrainingModuleDto(

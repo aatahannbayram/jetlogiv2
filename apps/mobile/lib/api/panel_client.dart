@@ -320,13 +320,18 @@ class PanelApi {
     required double latitude,
     required double longitude,
     double? accuracy,
+    double? heading,
+    double? speed,
+    DateTime? capturedAt,
   }) async {
     await _post('/courier-tasks/$shipmentId/location', {
       'purposeCode': purposeCode,
       'latitude': latitude,
       'longitude': longitude,
       if (accuracy != null) 'accuracy': accuracy,
-      'capturedAt': DateTime.now().toUtc().toIso8601String(),
+      if (heading != null) 'heading': heading,
+      if (speed != null) 'speed': speed,
+      'capturedAt': (capturedAt ?? DateTime.now()).toUtc().toIso8601String(),
     });
   }
 
@@ -481,12 +486,111 @@ class PanelApi {
     }
   }
 
+  /// `GET courier-dashboard` sayaçları: awaitingDelivery, appointment,
+  /// outForDelivery, overdue, deliveredToday, failedToday, toReturnToBranch,
+  /// pendingCustody.
+  Future<Map<String, int>> fetchDashboardCounts() async {
+    final res = await _get('/courier-dashboard');
+    final counts = (res.data?['data'] as Map?)?['counts'] as Map? ?? const {};
+    return {
+      for (final e in counts.entries)
+        if (e.value is num) '${e.key}': (e.value as num).toInt(),
+    };
+  }
+
+  /// Açık vardiya var mı ve bekleyen zorunlu eğitim sayısı.
+  Future<({bool open, int pendingMandatoryTrainings})>
+  fetchCurrentShift() async {
+    final res = await _get('/courier-shifts/current');
+    final data = res.data?['data'] as Map? ?? const {};
+    return (
+      open: data['shift'] is Map,
+      pendingMandatoryTrainings:
+          (data['pendingMandatoryTrainings'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  /// Konum zorunlu. [idempotencyKey] yeniden denemede aynı kalmalı.
+  Future<void> startShift({
+    required double latitude,
+    required double longitude,
+    required String idempotencyKey,
+    DateTime? occurredAt,
+  }) => _shift('start', latitude, longitude, idempotencyKey, occurredAt);
+
+  Future<void> endShift({
+    required double latitude,
+    required double longitude,
+    required String idempotencyKey,
+    DateTime? occurredAt,
+  }) => _shift('end', latitude, longitude, idempotencyKey, occurredAt);
+
+  Future<void> _shift(
+    String action,
+    double latitude,
+    double longitude,
+    String idempotencyKey,
+    DateTime? occurredAt,
+  ) async {
+    await _post('/courier-shifts/$action', {
+      'latitude': latitude,
+      'longitude': longitude,
+      if (occurredAt != null)
+        'occurredAt': occurredAt.toUtc().toIso8601String(),
+    }, idempotencyKey: idempotencyKey);
+  }
+
+  /// `GET courier-trainings` — zorunlular en üstte gelir.
+  Future<List<TrainingModuleDto>> fetchTrainings() async {
+    final res = await _get('/courier-trainings');
+    final items = (res.data?['data'] as Map?)?['items'] as List? ?? const [];
+    var order = 0;
+    return [
+      for (final row in items)
+        if (row is Map)
+          TrainingModuleDto(
+            id: row['id'] as String? ?? '',
+            title: row['title'] as String? ?? '',
+            summary:
+                row['summary'] as String? ?? row['description'] as String?,
+            body: row['contentBody'] as String? ?? '',
+            sortOrder: order++,
+            completed: row['status'] == 'COMPLETED',
+            completedAt: (row['progress'] as Map?)?['completedAt'] as String?,
+            mandatory: row['isMandatory'] == true,
+            overdue: row['overdue'] == true,
+          ),
+    ];
+  }
+
+  /// Eğitim metni yalnız detayda gelir.
+  Future<String> fetchTrainingBody(String trainingId) async {
+    final res = await _get('/courier-trainings/$trainingId');
+    final data = res.data?['data'] as Map? ?? const {};
+    return data['contentBody'] as String? ?? '';
+  }
+
+  /// "Okudum/izledim ve anladım" onayıyla tamamlar.
+  Future<void> completeTraining(String trainingId) async {
+    await _post('/courier-trainings/$trainingId/complete', {
+      'acknowledged': true,
+      'occurredAt': DateTime.now().toUtc().toIso8601String(),
+    });
+  }
+
   Future<Response<Map<String, dynamic>>> _post(
     String path,
-    Map<String, Object?> data,
-  ) async {
+    Map<String, Object?> data, {
+    String? idempotencyKey,
+  }) async {
     try {
-      return await dio.post<Map<String, dynamic>>(path, data: data);
+      return await dio.post<Map<String, dynamic>>(
+        path,
+        data: data,
+        options: idempotencyKey == null
+            ? null
+            : Options(headers: {'Idempotency-Key': idempotencyKey}),
+      );
     } on DioException catch (e) {
       throw _panelException(e);
     }
