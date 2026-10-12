@@ -36,7 +36,10 @@ class _ReturnScreenState extends ConsumerState<ReturnScreen> {
     final s = ref.watch(sessionProvider);
     final task = s.taskOrNull(widget.taskId);
     if (task == null) {
-      return Scaffold(appBar: AppBar(), body: Center(child: Text(l.stopGone)));
+      return Scaffold(
+        appBar: AppBar(),
+        body: Center(child: Text(l.stopGone)),
+      );
     }
 
     if (_failClosed) {
@@ -52,7 +55,12 @@ class _ReturnScreenState extends ConsumerState<ReturnScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Mono(task.ref, size: 13, weight: FontWeight.w700, color: Dg.ink2),
+        title: Mono(
+          task.ref,
+          size: 13,
+          weight: FontWeight.w700,
+          color: Dg.ink2,
+        ),
       ),
       body: SafeArea(
         top: false,
@@ -131,22 +139,27 @@ class _FailReasonPaneState extends ConsumerState<_FailReasonPane> {
       children: [
         Text(
           l.whyFailedBody,
-          style: TextStyle(color: Dg.ink2, fontSize: 15, height: 1.4),
+          style: TextStyle(color: Dg.ink2, fontSize: 16, height: 1.4),
         ),
         const SizedBox(height: 16),
-        for (final r in (ref.watch(sessionProvider).deliveryFailReasons.isEmpty
-            ? reasons
-            : [
-                for (final row in ref.watch(sessionProvider).deliveryFailReasons)
-                  row.name,
-              ]))
+        for (final r
+            in (ref.watch(sessionProvider).deliveryFailReasons.isEmpty
+                ? reasons
+                : [
+                    for (final row
+                        in ref.watch(sessionProvider).deliveryFailReasons)
+                      row.name,
+                  ]))
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: DgChoiceSurface(
               selected: picked == r,
               onTap: () => setState(() => picked = r),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
                 child: Row(
                   children: [
                     Expanded(
@@ -179,7 +192,10 @@ class _FailReasonPaneState extends ConsumerState<_FailReasonPane> {
                   isDense: true,
                   hintText: l.optionalNote,
                 ),
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ],
           ),
@@ -221,12 +237,14 @@ class _FailReasonPaneState extends ConsumerState<_FailReasonPane> {
             busy: uploading,
             onPressed: _canSubmit
                 ? () {
-                    ref.read(sessionProvider).returnTask(
-                      widget.taskId,
-                      reason: picked!,
-                      note: note.text.trim(),
-                      photoMediaId: photoMediaId,
-                    );
+                    ref
+                        .read(sessionProvider)
+                        .returnTask(
+                          widget.taskId,
+                          reason: picked!,
+                          note: note.text.trim(),
+                          photoMediaId: photoMediaId,
+                        );
                     widget.onClosed();
                   }
                 : null,
@@ -285,7 +303,7 @@ class _GeriTeslimPaneState extends ConsumerState<_GeriTeslimPane> {
       children: [
         Text(
           l.branchHandoverHint,
-          style: TextStyle(color: Dg.ink2, fontSize: 15, height: 1.4),
+          style: TextStyle(color: Dg.ink2, fontSize: 16, height: 1.4),
         ),
         const SizedBox(height: 16),
         if (item != null)
@@ -298,7 +316,10 @@ class _GeriTeslimPaneState extends ConsumerState<_GeriTeslimPane> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(item.description, style: Dg.ui(size: 15, weight: FontWeight.w600)),
+                      Text(
+                        item.description,
+                        style: Dg.ui(size: 15, weight: FontWeight.w600),
+                      ),
                       if (item.barcode != null) ...[
                         const SizedBox(height: 2),
                         Mono(item.barcode!, size: 12, color: Dg.ink3),
@@ -306,15 +327,17 @@ class _GeriTeslimPaneState extends ConsumerState<_GeriTeslimPane> {
                     ],
                   ),
                 ),
-                if (_done)
-                  Icon(LucideIcons.checkCircle2, color: Dg.ok),
+                if (_done) Icon(LucideIcons.checkCircle2, color: Dg.ok),
               ],
             ),
           )
         else if (s.custodyLoading)
           const Center(child: CircularProgressIndicator())
         else
-          Text(l.branchHandoverNotFound, style: Dg.ui(size: 14, color: Dg.ink3)),
+          Text(
+            l.branchHandoverNotFound,
+            style: Dg.ui(size: 14, color: Dg.ink3),
+          ),
         if (_failed) ...[
           const SizedBox(height: 12),
           Text(l.handoverFailed, style: Dg.ui(size: 13, color: Dg.hi)),

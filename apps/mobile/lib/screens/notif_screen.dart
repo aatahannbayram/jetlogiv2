@@ -34,9 +34,8 @@ Future<void> openAppNotification(
           MaterialPageRoute<void>(builder: (_) => TaskDetailScreen(taskId: id)),
         );
       } else if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(context.l10n.notifStopGone)));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(context.l10n.notifStopGone)));
       }
     case NotifOpenTarget.sync:
       await nav.push(
@@ -95,7 +94,12 @@ class _NotifScreenState extends ConsumerState<NotifScreen> {
           children: [
             Appear(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(Dg.pagePad, 8, Dg.pagePad, 0),
+                padding: const EdgeInsets.fromLTRB(
+                  Dg.pagePad,
+                  8,
+                  Dg.pagePad,
+                  0,
+                ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -221,14 +225,11 @@ class _NotifScreenState extends ConsumerState<NotifScreen> {
                               return Padding(
                                 padding: const EdgeInsets.fromLTRB(4, 12, 4, 6),
                                 child: Text(
-                                  localeUpper(
-                                    switch (row) {
-                                      NotifDayGroup.today => l.today,
-                                      NotifDayGroup.yesterday => l.yesterday,
-                                      NotifDayGroup.earlier => l.earlier,
-                                    },
-                                    l.code,
-                                  ),
+                                  localeUpper(switch (row) {
+                                    NotifDayGroup.today => l.today,
+                                    NotifDayGroup.yesterday => l.yesterday,
+                                    NotifDayGroup.earlier => l.earlier,
+                                  }, l.code),
                                   style: Dg.typeOverline(),
                                 ),
                               );
@@ -352,9 +353,15 @@ class _SwipeCue extends StatelessWidget {
           if (start) ...[
             DgIcon(icon, size: 16, color: ink),
             const SizedBox(width: 6),
-            Text(label, style: Dg.ui(size: 13, weight: FontWeight.w600, color: ink)),
+            Text(
+              label,
+              style: Dg.ui(size: 13, weight: FontWeight.w600, color: ink),
+            ),
           ] else ...[
-            Text(label, style: Dg.ui(size: 13, weight: FontWeight.w600, color: ink)),
+            Text(
+              label,
+              style: Dg.ui(size: 13, weight: FontWeight.w600, color: ink),
+            ),
             const SizedBox(width: 6),
             DgIcon(icon, size: 16, color: ink),
           ],

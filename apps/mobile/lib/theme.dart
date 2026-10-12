@@ -1,17 +1,8 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-/// Saha uygulaması design tokens.
-///
-/// [Dg]'nin renk alanları artık `static const` değil, `static Color get` —
-/// çünkü aynı isim (`Dg.ink`, `Dg.surface`, ...) hem koyu hem açık temada
-/// geçerli kalsın istedik: her çağrı yerini `Theme.of(context)` kullanacak
-/// şekilde yeniden yazmak (100+ yer) yerine, [Dg.dark] bayrağını
-/// [DijigooApp.build] içinde `s.darkModeUi`'ye göre bir kez set ediyoruz;
-/// mevcut her `Dg.xxx` referansı otomatik doğru temayı okur. Bedeli:
-/// `const BoxDecoration(color: Dg.ink)` gibi compile-time-const kullanımlar
-/// artık derlenmez — `const` anahtar kelimesi kaldırılmalı (flutter analyze
-/// bunları tek tek gösterir).
+/// Kurye ve şube ekranlarının ortak görsel sistemi.
+/// Renkler uygulamanın kayıtlı açık/koyu tema tercihinden okunur.
 class Dg {
   Dg._();
 
@@ -33,17 +24,42 @@ class Dg {
 
   /// Koşulsuz koyu — temadan bağımsız gerçek siyah/gece yüzeyler için
   /// (giriş/tören ekranı gradyanının tabanı, PhoneShell çerçevesi).
-  static const night = Color(0xFF0C0C0F);
+  static const night = Color(0xFF100C22);
+  static const onNight = Color(0xFFFAF7FF);
+  static const mutedOnNight = Color(0xFFE0D5EF);
+  static const action = Color(0xFFFF8A24);
+  static const onAction = Color(0xFF211035);
+  static const touchMin = 48.0;
+  static const buttonMin = 56.0;
+  static Color get onStatus => dark ? night : Colors.white;
+
+  /// Soft depth for content surfaces; outlines remain reserved for inputs.
+  static List<BoxShadow> get cardShadow => [
+    BoxShadow(
+      color: (dark ? const Color(0xFF080310) : const Color(0xFF362052))
+          .withValues(alpha: dark ? 0.24 : 0.07),
+      blurRadius: 24,
+      offset: const Offset(0, 8),
+      spreadRadius: -6,
+    ),
+  ];
+  static List<BoxShadow> get dockShadow => [
+    BoxShadow(
+      color: night.withValues(alpha: dark ? 0.40 : 0.12),
+      blurRadius: 28,
+      offset: const Offset(0, 6),
+      spreadRadius: -4,
+    ),
+  ];
 
   // ---- Marka moru ----
-  /// Birincil eylem gradyanı — buton/CTA ve seçili halka.
-  /// Pastel lila yerine doygun, koyu zeminle uyumlu marka moru.
-  static Color get primaryGradientStart => brand;
-  static Color get primaryGradientEnd => warn;
+  /// Turuncu birincil eylem; marka ve içerik yüzeyleri mor kalır.
+  static Color get primaryGradientStart => action;
+  static Color get primaryGradientEnd => heroAccentOrange;
   static const primaryGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF8A74E6), Color(0xFFE8893A)],
+    colors: [Color(0xFFFFC15A), Color(0xFFFF7A18), Color(0xFFFF5C00)],
   );
 
   static Color get purpleActive => brand;
@@ -53,8 +69,8 @@ class Dg {
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
     colors: dark
-        ? const [Color(0xFF3A2A68), Color(0xFF241848), Color(0xFF141022)]
-        : const [Color(0xFFEDE4FF), Color(0xFFF7F4FF), Color(0xFFF4F3F0)],
+        ? const [Color(0xFF4E2C96), Color(0xFF241248), Color(0xFF100C22)]
+        : const [Color(0xFFEDE4FF), Color(0xFFF7F4FF), Color(0xFFF6F2FC)],
   );
   static const heroAccentOrange = Color(0xFFFF7A18);
   static const emberGradient = LinearGradient(
@@ -64,8 +80,7 @@ class Dg {
   );
 
   static Color get onHero => dark ? Colors.white : ink;
-  static Color get onHeroMuted =>
-      dark ? const Color(0xFFCBBEEE) : ink2;
+  static Color get onHeroMuted => dark ? const Color(0xFFCBBEEE) : ink2;
 
   /// Giriş/tören ekranındaki cam-efekti kart yüzeyi.
   static Color get heroGlass =>
@@ -78,7 +93,7 @@ class Dg {
   static Color get purpleDeep => brand;
   static Color get purpleBright => brand;
   static Color get accent => brand;
-  static const accentSoft = Color(0xFFEAF6B8);
+  static Color get accentSoft => brandSoft;
 
   // ---- Durum vurguları: 6px nokta + nötr metin, dolgulu rozet yok ----
   /// Olumlu / tamamlandı (ör. teslim edildi, doğrulandı).
@@ -140,39 +155,38 @@ class Dg {
   /// simüle eder (Flutter'ın `BoxShadow`'u gerçek inset desteklemiyor).
   static const insetHighlight = Color(0x1FFFFFFF);
 
-  // ---- Yeni görsel sistem (önce menü; diğer ekranlar sonra) ----
+  // ---- Kurye ve şube için ortak mor–turuncu saha paleti ----
   static Color get bg =>
-      dark ? const Color(0xFF16141F) : const Color(0xFFF7F7F9);
+      dark ? const Color(0xFF160E29) : const Color(0xFFF6F2FC);
   static Color get surface1 =>
-      dark ? const Color(0xFF221E30) : const Color(0xFFFFFFFF);
+      dark ? const Color(0xFF26183F) : const Color(0xFFFFFFFF);
   static Color get surface2 =>
-      dark ? const Color(0xFF2C273C) : const Color(0xFFF1F1F4);
+      dark ? const Color(0xFF35234F) : const Color(0xFFEDE6F5);
   static Color get stroke =>
-      dark ? const Color(0xFF3D3752) : const Color(0x14000000);
+      dark ? const Color(0xFF8876A3) : const Color(0xFF82728F);
   static Color get text1 =>
-      dark ? const Color(0xFFF6F4FA) : const Color(0xFF0B0B0F);
+      dark ? const Color(0xFFFAF7FF) : const Color(0xFF211035);
   static Color get text2 =>
-      dark ? const Color(0xFFC9C3D6) : const Color(0xFF52525B);
+      dark ? const Color(0xFFE0D5EF) : const Color(0xFF574466);
   static Color get text3 =>
-      dark ? const Color(0xFF9A94A8) : const Color(0xFF8A8A94);
+      dark ? const Color(0xFFC4B4D8) : const Color(0xFF685675);
   static Color get brand =>
-      dark ? const Color(0xFF8A74E6) : const Color(0xFF7159EB);
+      dark ? const Color(0xFFC5ADFF) : const Color(0xFF6540A0);
   static Color get warn =>
-      dark ? const Color(0xFFE8893A) : const Color(0xFFEA702B);
+      dark ? const Color(0xFFFFB568) : const Color(0xFF984000);
   static Color get ok =>
-      dark ? const Color(0xFF22C55E) : const Color(0xFF1FB556);
+      dark ? const Color(0xFF6EE7A0) : const Color(0xFF16733E);
   static Color get bad =>
-      dark ? const Color(0xFFEF4444) : const Color(0xFFDC3E3E);
+      dark ? const Color(0xFFFF9AAB) : const Color(0xFFB42340);
   static Color get hairline =>
       dark ? const Color(0x0FFFFFFF) : const Color(0x0F000000);
 
   /// Kart kenarı. Üst çizgi yerine dört yanı kaplayan ince çerçeve.
-  static Color get cardEdge =>
-      dark ? const Color(0x18FFFFFF) : const Color(0x14000000);
+  static Color get cardEdge => stroke.withValues(alpha: 0.55);
   static Color get warnSoft => warn.withValues(alpha: 0.12);
   static Color get brandSoft => brand.withValues(alpha: 0.12);
   static Color get muteSoft =>
-      dark ? const Color(0xFF2C273C) : const Color(0xFFF1F1F4);
+      dark ? const Color(0xFF35234F) : const Color(0xFFEDE6F5);
 
   static const rSm = 10.0;
   static const rMd = 14.0;
@@ -194,8 +208,10 @@ class Dg {
     height: 1.2,
     letterSpacing: 20 * -0.01,
   );
-  static TextStyle typeBody({Color? color, FontWeight weight = FontWeight.w500}) =>
-      ui(size: 16, weight: weight, color: color ?? text1);
+  static TextStyle typeBody({
+    Color? color,
+    FontWeight weight = FontWeight.w500,
+  }) => ui(size: 16, weight: weight, color: color ?? text1);
   static TextStyle typeLabel({Color? color}) =>
       ui(size: 14, weight: FontWeight.w500, color: color ?? text2);
   static TextStyle typeCaption({Color? color}) =>
@@ -224,7 +240,8 @@ class Dg {
   }) {
     return TextStyle(
       fontFamily: display,
-      fontSize: size,
+      fontFamilyFallback: const ['Inter'],
+      fontSize: size < 14 ? 14 : (size == 15 ? 16 : size),
       fontWeight: weight,
       fontStyle: italic ? FontStyle.italic : FontStyle.normal,
       color: color ?? ink,
@@ -245,7 +262,8 @@ class Dg {
   }) {
     return TextStyle(
       fontFamily: sans,
-      fontSize: size,
+      fontFamilyFallback: const ['Inter'],
+      fontSize: size < 14 ? 14 : (size == 15 ? 16 : size),
       fontWeight: weight,
       color: color ?? ink,
       height: height,
@@ -265,7 +283,8 @@ class Dg {
   }) {
     return TextStyle(
       fontFamily: statFamily,
-      fontSize: size,
+      fontFamilyFallback: const ['Inter'],
+      fontSize: size < 14 ? 14 : (size == 15 ? 16 : size),
       fontWeight: weight,
       color: color ?? ink,
       height: height,
@@ -288,27 +307,26 @@ class Dg {
   static double _wght(FontWeight w) => w.value.toDouble();
 
   static String lucideFamily({int weight = 500}) => switch (weight) {
-        100 => 'Lucide100',
-        200 => 'Lucide200',
-        300 => 'Lucide300',
-        400 => 'Lucide400',
-        600 => 'Lucide600',
-        _ => 'Lucide500',
-      };
+    100 => 'Lucide100',
+    200 => 'Lucide200',
+    300 => 'Lucide300',
+    400 => 'Lucide400',
+    600 => 'Lucide600',
+    _ => 'Lucide500',
+  };
 
   static TextStyle lucideStyle({
     required double size,
     Color? color,
     int weight = 500,
-  }) =>
-      TextStyle(
-        fontFamily: lucideFamily(weight: weight),
-        package: 'lucide_icons_flutter',
-        fontSize: size,
-        color: color,
-        height: 1,
-        leadingDistribution: TextLeadingDistribution.even,
-      );
+  }) => TextStyle(
+    fontFamily: lucideFamily(weight: weight),
+    package: 'lucide_icons_flutter',
+    fontSize: size,
+    color: color,
+    height: 1,
+    leadingDistribution: TextLeadingDistribution.even,
+  );
 
   static ThemeData theme() {
     final text = TextTheme(
@@ -321,11 +339,11 @@ class Dg {
         height: 1.25,
       ),
       bodyLarge: ui(size: 16, color: ink2),
-      bodyMedium: ui(size: 15, color: ink2),
+      bodyMedium: ui(size: 16, color: ink2),
       labelLarge: ui(
         size: 16,
         weight: FontWeight.w700,
-        color: dark ? night : Colors.white,
+        color: onAction,
         height: 1.1,
       ),
       labelMedium: ui(size: 12, weight: FontWeight.w600, color: ink2),
@@ -336,16 +354,55 @@ class Dg {
       fontFamily: sans,
       colorScheme: ColorScheme(
         brightness: dark ? Brightness.dark : Brightness.light,
-        primary: primaryGradientStart,
-        onPrimary: Colors.white,
+        primary: brand,
+        onPrimary: dark ? night : Colors.white,
         secondary: purpleActive,
         onSecondary: dark ? night : Colors.white,
         surface: surface,
         onSurface: ink,
         error: clay,
-        onError: Colors.white,
+        onError: onStatus,
       ),
       scaffoldBackgroundColor: ground,
+      materialTapTargetSize: MaterialTapTargetSize.padded,
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(
+          minimumSize: const Size(touchMin, touchMin),
+          foregroundColor: ink,
+        ),
+      ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: action,
+        foregroundColor: onAction,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(radiusPill)),
+        ),
+      ),
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: surface,
+        modalBackgroundColor: surface,
+        surfaceTintColor: Colors.transparent,
+        showDragHandle: true,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(radiusHero)),
+        ),
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: surface,
+        surfaceTintColor: Colors.transparent,
+        titleTextStyle: typeH2(),
+        contentTextStyle: typeBody(),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(radiusHero),
+        ),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: surface2,
+        contentTextStyle: typeBody(),
+        actionTextColor: brand,
+        behavior: SnackBarBehavior.floating,
+      ),
       textTheme: text,
       appBarTheme: AppBarTheme(
         backgroundColor: ground,
@@ -356,17 +413,14 @@ class Dg {
         titleTextStyle: serif(size: 20, weight: FontWeight.w600),
       ),
       dividerColor: rule,
-      // Düz renk (gradyan başlangıcı) — asıl mor gradyan, en öne çıkan
-      // birkaç "hero" CTA'da (SlideToAct, splash) doğrudan [Dg.primaryGradient]
-      // ile ayrıca uygulanıyor; her yerdeki FilledButton için gradyan
-      // render etmek pratik değil (ripple/disabled state karmaşıklaşır).
+      // Material butonları da ortak eylem paletini kullanır.
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          backgroundColor: primaryGradientStart,
-          foregroundColor: Colors.white,
+          backgroundColor: action,
+          foregroundColor: onAction,
           disabledBackgroundColor: primaryGradientStart.withValues(alpha: 0.35),
-          disabledForegroundColor: Colors.white,
-          minimumSize: const Size.fromHeight(52),
+          disabledForegroundColor: ink3,
+          minimumSize: const Size.fromHeight(buttonMin),
           padding: const EdgeInsets.symmetric(horizontal: 18),
           elevation: 0,
           shape: RoundedRectangleBorder(
@@ -375,7 +429,7 @@ class Dg {
           textStyle: ui(
             size: 15,
             weight: FontWeight.w700,
-            color: Colors.white,
+            color: onAction,
             height: 1.1,
           ),
         ),
@@ -384,7 +438,7 @@ class Dg {
         style: OutlinedButton.styleFrom(
           foregroundColor: ink,
           backgroundColor: surface,
-          minimumSize: const Size.fromHeight(52),
+          minimumSize: const Size.fromHeight(buttonMin),
           padding: const EdgeInsets.symmetric(horizontal: 18),
           side: BorderSide(color: rule),
           shape: RoundedRectangleBorder(
@@ -395,14 +449,21 @@ class Dg {
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: ink,
+          foregroundColor: brand,
+          minimumSize: const Size(touchMin, touchMin),
           textStyle: ui(size: 15, weight: FontWeight.w600),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: surface,
-        labelStyle: ui(size: 14, color: ink3),
+        labelStyle: ui(size: 14, color: ink2),
+        hintStyle: ui(size: 16, color: ink3),
+        constraints: const BoxConstraints(minHeight: buttonMin),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 18,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radiusHero),
           borderSide: BorderSide(color: rule),

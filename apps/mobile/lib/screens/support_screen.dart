@@ -77,12 +77,22 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(l.sos, style: Dg.ui(size: 16, weight: FontWeight.w700)),
+                        Text(
+                          l.sos,
+                          style: Dg.ui(size: 16, weight: FontWeight.w700),
+                        ),
                         Text(l.sosHint, style: Dg.ui(size: 13, color: Dg.ink2)),
                       ],
                     ),
                   ),
-                  Text(l.sosCall, style: Dg.ui(size: 13, weight: FontWeight.w700, color: Dg.red)),
+                  Text(
+                    l.sosCall,
+                    style: Dg.ui(
+                      size: 13,
+                      weight: FontWeight.w700,
+                      color: Dg.red,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -104,6 +114,9 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
                           onTap: () => setState(() => category = c),
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 160),
+                            constraints: const BoxConstraints(
+                              minHeight: Dg.touchMin,
+                            ),
                             padding: const EdgeInsets.symmetric(
                               horizontal: 12,
                               vertical: 8,
@@ -117,9 +130,9 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
                             child: Text(
                               l.categoryOf(c),
                               style: TextStyle(
-                                fontSize: 13,
+                                fontSize: 14,
                                 fontWeight: FontWeight.w600,
-                                color: category == c ? Colors.white : Dg.ink2,
+                                color: category == c ? Dg.onAction : Dg.ink2,
                               ),
                             ),
                           ),

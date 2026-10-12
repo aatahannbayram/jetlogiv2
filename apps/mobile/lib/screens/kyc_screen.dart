@@ -208,12 +208,7 @@ class _KycScreenState extends ConsumerState<KycScreen> {
           SafeArea(
             top: false,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(
-                Dg.pagePad,
-                8,
-                Dg.pagePad,
-                12,
-              ),
+              padding: const EdgeInsets.fromLTRB(Dg.pagePad, 8, Dg.pagePad, 12),
               child: DgButton(
                 label: s.nfcRead
                     ? l.done
@@ -356,7 +351,9 @@ class _PhotoSlot extends StatelessWidget {
       decoration: BoxDecoration(
         color: taken ? Dg.greenBg : Dg.surface,
         borderRadius: BorderRadius.circular(Dg.radiusHero),
-        border: Border.all(color: taken ? Dg.green.withValues(alpha: 0.35) : Dg.rule),
+        border: Border.all(
+          color: taken ? Dg.green.withValues(alpha: 0.35) : Dg.rule,
+        ),
       ),
       clipBehavior: Clip.antiAlias,
       child: Stack(
@@ -442,10 +439,7 @@ class _NfcCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  style: Dg.ui(size: 17, weight: FontWeight.w700),
-                ),
+                Text(title, style: Dg.ui(size: 17, weight: FontWeight.w700)),
                 const SizedBox(height: 4),
                 Text(
                   subtitle,

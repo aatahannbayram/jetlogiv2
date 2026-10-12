@@ -42,10 +42,7 @@ class SyncScreen extends ConsumerWidget {
           const SizedBox(height: 12),
           Row(
             children: [
-              StatTile(
-                label: l.pendingCaps,
-                value: '${pending.length}',
-              ),
+              StatTile(label: l.pendingCaps, value: '${pending.length}'),
               const SizedBox(width: 12),
               StatTile(
                 label: l.failedCaps,
@@ -65,7 +62,12 @@ class SyncScreen extends ConsumerWidget {
               child: DgCard(
                 child: Row(
                   children: [
-                    DgIcon(LucideIcons.circleCheck, color: Dg.ok, size: 22, weight: 600),
+                    DgIcon(
+                      LucideIcons.circleCheck,
+                      color: Dg.ok,
+                      size: 22,
+                      weight: 600,
+                    ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
@@ -152,10 +154,7 @@ class _HubLinkCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text(
-                l.hubLine,
-                style: Dg.ui(size: 16, weight: FontWeight.w600),
-              ),
+              Text(l.hubLine, style: Dg.ui(size: 16, weight: FontWeight.w600)),
               const Spacer(),
               DgSwitch(value: workerOn, onChanged: (_) => onToggle()),
             ],
@@ -284,7 +283,10 @@ class _PacketTrackState extends State<_PacketTrack>
   @override
   void initState() {
     super.initState();
-    _tick = AnimationController(vsync: this, duration: const Duration(seconds: 2));
+    _tick = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    );
   }
 
   @override
@@ -394,7 +396,10 @@ class _PacketPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _PacketPainter old) =>
-      old.t != t || old.color != color || old.dashed != dashed || old.live != live;
+      old.t != t ||
+      old.color != color ||
+      old.dashed != dashed ||
+      old.live != live;
 }
 
 class _LiveDot extends StatefulWidget {
@@ -407,7 +412,8 @@ class _LiveDot extends StatefulWidget {
   State<_LiveDot> createState() => _LiveDotState();
 }
 
-class _LiveDotState extends State<_LiveDot> with SingleTickerProviderStateMixin {
+class _LiveDotState extends State<_LiveDot>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _pulse;
 
   @override
@@ -462,7 +468,9 @@ class _LiveDotState extends State<_LiveDot> with SingleTickerProviderStateMixin 
             boxShadow: widget.live
                 ? [
                     BoxShadow(
-                      color: widget.color.withValues(alpha: 0.45 * _pulse.value),
+                      color: widget.color.withValues(
+                        alpha: 0.45 * _pulse.value,
+                      ),
                       blurRadius: 8 * scale,
                     ),
                   ]
@@ -579,8 +587,9 @@ IconData _icon(SyncEventKind kind) => switch (kind) {
 Color _tone(SyncEventKind kind) => switch (kind) {
   SyncEventKind.fail => Dg.clay,
   SyncEventKind.deliver => Dg.sage,
-  SyncEventKind.enRoute || SyncEventKind.arrived || SyncEventKind.start =>
-    Dg.purpleActive,
+  SyncEventKind.enRoute ||
+  SyncEventKind.arrived ||
+  SyncEventKind.start => Dg.purpleActive,
   SyncEventKind.shiftOn || SyncEventKind.shiftOff => Dg.sand,
   _ => Dg.blue,
 };

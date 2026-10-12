@@ -319,3 +319,71 @@ class ShakeError extends StatelessWidget {
         .shake(hz: 4, duration: 320.ms, curve: Curves.easeOut);
   }
 }
+
+/// Animates the entering tab while keeping each tab's state and scroll offset.
+class DgTabStack extends StatefulWidget {
+  const DgTabStack({super.key, required this.index, required this.children});
+  final int index;
+  final List<Widget> children;
+
+  @override
+  State<DgTabStack> createState() => _DgTabStackState();
+}
+
+class _DgTabStackState extends State<DgTabStack>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 280),
+    value: 1,
+  );
+  late final Animation<double> _fade = _controller.drive(
+    CurveTween(curve: Curves.easeOutCubic),
+  );
+  late final Animation<Offset> _slide = _fade.drive(
+    Tween(begin: const Offset(0, 0.025), end: Offset.zero),
+  );
+
+  @override
+  void didUpdateWidget(DgTabStack oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.index != widget.index) {
+      if (MediaQuery.disableAnimationsOf(context)) {
+        _controller.value = 1;
+      } else {
+        _controller.forward(from: 0);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    return IndexedStack(
+      index: widget.index,
+      children: [
+        for (var i = 0; i < widget.children.length; i++)
+          TickerMode(
+            enabled: i == widget.index,
+            child: FadeTransition(
+              opacity: i == widget.index && !reduceMotion
+                  ? _fade
+                  : const AlwaysStoppedAnimation(1),
+              child: SlideTransition(
+                position: i == widget.index && !reduceMotion
+                    ? _slide
+                    : const AlwaysStoppedAnimation(Offset.zero),
+                child: widget.children[i],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}

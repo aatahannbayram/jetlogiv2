@@ -34,16 +34,9 @@ class _EnvanterScreenState extends ConsumerState<EnvanterScreen> {
         children: [
           Row(
             children: [
-              Expanded(
-                child: StatTile(
-                  label: l.pendingCaps,
-                  value: '${s.inventoryPending}',
-                ),
-              ),
+              StatTile(label: l.pendingCaps, value: '${s.inventoryPending}'),
               const SizedBox(width: 12),
-              Expanded(
-                child: StatTile(label: l.deliveredCaps, value: '${s.inventoryDone}'),
-              ),
+              StatTile(label: l.deliveredCaps, value: '${s.inventoryDone}'),
             ],
           ),
           const SizedBox(height: 16),
@@ -74,8 +67,8 @@ class _EnvanterScreenState extends ConsumerState<EnvanterScreen> {
                     code.clear();
                   },
                   child: Container(
-                    width: 36,
-                    height: 36,
+                    width: 48,
+                    height: 48,
                     decoration: BoxDecoration(
                       color: Dg.brand,
                       shape: BoxShape.circle,
@@ -83,7 +76,7 @@ class _EnvanterScreenState extends ConsumerState<EnvanterScreen> {
                     child: DgIcon(
                       LucideIcons.plus,
                       size: 20,
-                      color: Colors.white,
+                      color: Dg.dark ? Dg.night : Colors.white,
                       weight: 600,
                     ),
                   ),
@@ -118,7 +111,7 @@ class _EnvanterScreenState extends ConsumerState<EnvanterScreen> {
                             item.name,
                             style: const TextStyle(
                               fontWeight: FontWeight.w600,
-                              fontSize: 15,
+                              fontSize: 16,
                             ),
                           ),
                           Mono(item.code, size: 12),

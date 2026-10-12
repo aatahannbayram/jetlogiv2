@@ -68,37 +68,47 @@ class _ListScreenState extends ConsumerState<ListScreen> {
           children: [
             Appear(
               child: Padding(
-              padding: const EdgeInsets.fromLTRB(Dg.pagePad, 8, Dg.pagePad, 0),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          l.distribution,
-                          style: Dg.ui(size: 22, weight: FontWeight.w600),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          l.listSummary(s.tasks.length, acik.length, kmLabel),
-                          style: Dg.ui(size: 13, color: Dg.ink3),
-                        ),
-                      ],
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const RouteScreen(),
+                padding: const EdgeInsets.fromLTRB(
+                  Dg.pagePad,
+                  8,
+                  Dg.pagePad,
+                  0,
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            l.distribution,
+                            style: Dg.ui(size: 22, weight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            l.listSummary(s.tasks.length, acik.length, kmLabel),
+                            style: Dg.ui(size: 13, color: Dg.ink3),
+                          ),
+                        ],
                       ),
                     ),
-                    child: DgIcon(LucideIcons.map, size: 22, color: Dg.ink, weight: 600),
-                  ),
-                ],
+                    GestureDetector(
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const RouteScreen(),
+                        ),
+                      ),
+                      child: DgIcon(
+                        LucideIcons.map,
+                        size: 22,
+                        color: Dg.ink,
+                        weight: 600,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
@@ -115,7 +125,12 @@ class _ListScreenState extends ConsumerState<ListScreen> {
             DgDivider(),
             if (s.showPanelFieldError)
               Padding(
-                padding: const EdgeInsets.fromLTRB(Dg.pagePad, 8, Dg.pagePad, 0),
+                padding: const EdgeInsets.fromLTRB(
+                  Dg.pagePad,
+                  8,
+                  Dg.pagePad,
+                  0,
+                ),
                 child: DgRetryBanner(
                   message: l.panelTasksFailed,
                   retryLabel: l.retryNow,
@@ -131,75 +146,78 @@ class _ListScreenState extends ConsumerState<ListScreen> {
                 child: KeyedSubtree(
                   key: ValueKey(tab),
                   child: RefreshIndicator(
-                onRefresh: () => s.refreshField(),
-                child: rows.isEmpty
-                    ? ListView(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        children: [
-                          DgEmptyState(
-                            icon: switch (tab) {
-                              0 => LucideIcons.circleCheck,
-                              1 => LucideIcons.package,
-                              _ => LucideIcons.undo2,
-                            },
-                            title: switch (tab) {
-                              0 => l.emptyOpenTitle,
-                              1 => l.emptyDeliveredTitle,
-                              _ => l.emptyReturnTitle,
-                            },
-                            body: switch (tab) {
-                              0 => l.emptyOpenBody,
-                              1 => l.emptyDeliveredBody,
-                              _ => l.emptyReturnBody,
-                            },
-                          ),
-                        ],
-                      )
-                    : Builder(
-                        builder: (context) {
-                          final items = groupTasksByDoor(rows);
-                          final visitAt = <String, int>{
-                            for (var i = 0; i < items.length; i++)
-                              for (final t in items[i]) t.id: i + 1,
-                          };
-                          return ListView.separated(
+                    onRefresh: () => s.refreshField(),
+                    child: rows.isEmpty
+                        ? ListView(
                             physics: const AlwaysScrollableScrollPhysics(),
-                            padding: const EdgeInsets.fromLTRB(
-                              Dg.pagePad,
-                              10,
-                              Dg.pagePad,
-                              24,
-                            ),
-                            itemCount: items.length,
-                            separatorBuilder: (context, i) =>
-                                const SizedBox(height: 8),
-                            itemBuilder: (context, i) {
-                              final item = items[i];
-                              void openTask(String id) =>
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute<void>(
-                                      builder: (_) =>
-                                          TaskDetailScreen(taskId: id),
-                                    ),
+                            children: [
+                              DgEmptyState(
+                                icon: switch (tab) {
+                                  0 => LucideIcons.circleCheck,
+                                  1 => LucideIcons.package,
+                                  _ => LucideIcons.undo2,
+                                },
+                                title: switch (tab) {
+                                  0 => l.emptyOpenTitle,
+                                  1 => l.emptyDeliveredTitle,
+                                  _ => l.emptyReturnTitle,
+                                },
+                                body: switch (tab) {
+                                  0 => l.emptyOpenBody,
+                                  1 => l.emptyDeliveredBody,
+                                  _ => l.emptyReturnBody,
+                                },
+                              ),
+                            ],
+                          )
+                        : Builder(
+                            builder: (context) {
+                              final items = groupTasksByDoor(rows);
+                              final visitAt = <String, int>{
+                                for (var i = 0; i < items.length; i++)
+                                  for (final t in items[i]) t.id: i + 1,
+                              };
+                              return ListView.separated(
+                                physics: const AlwaysScrollableScrollPhysics(),
+                                padding: const EdgeInsets.fromLTRB(
+                                  Dg.pagePad,
+                                  10,
+                                  Dg.pagePad,
+                                  24,
+                                ),
+                                itemCount: items.length,
+                                separatorBuilder: (context, i) =>
+                                    const SizedBox(height: 8),
+                                itemBuilder: (context, i) {
+                                  final item = items[i];
+                                  void openTask(String id) =>
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute<void>(
+                                          builder: (_) =>
+                                              TaskDetailScreen(taskId: id),
+                                        ),
+                                      );
+                                  return StaggerIn(
+                                    index: i,
+                                    child: item.length == 1
+                                        ? _RotaTaskCard(
+                                            task: item.single,
+                                            visitIndex: visitAt[item.single.id],
+                                            travel: s.roadToTask(
+                                              item.single.id,
+                                            ),
+                                            onTap: () =>
+                                                openTask(item.single.id),
+                                          )
+                                        : _GroupedTaskCard(
+                                            tasks: item,
+                                            onTapTask: openTask,
+                                          ),
                                   );
-                              return StaggerIn(
-                                index: i,
-                                child: item.length == 1
-                                    ? _RotaTaskCard(
-                                        task: item.single,
-                                        visitIndex: visitAt[item.single.id],
-                                        travel: s.roadToTask(item.single.id),
-                                        onTap: () => openTask(item.single.id),
-                                      )
-                                    : _GroupedTaskCard(
-                                        tasks: item,
-                                        onTapTask: openTask,
-                                      ),
+                                },
                               );
                             },
-                          );
-                        },
-                      ),
+                          ),
                   ),
                 ),
               ),
@@ -227,28 +245,28 @@ class _GroupedTaskCard extends StatelessWidget {
     return DgCard(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
       child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: 4),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                l.sameAddressCount(tasks.length),
-                style: Dg.ui(size: 13, weight: FontWeight.w600),
-              ),
-              Text(
-                first.address,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Dg.ui(size: 12, color: Dg.ink3),
-              ),
-              const SizedBox(height: 4),
-              StatusChip(label: l.deliverTogether, tone: 'lime'),
-            ],
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l.sameAddressCount(tasks.length),
+                  style: Dg.ui(size: 13, weight: FontWeight.w600),
+                ),
+                Text(
+                  first.address,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Dg.ui(size: 12, color: Dg.ink3),
+                ),
+                const SizedBox(height: 4),
+                StatusChip(label: l.deliverTogether, tone: 'lime'),
+              ],
+            ),
           ),
-        ),
           for (final t in tasks)
             InkWell(
               onTap: () => onTapTask(t.id),
@@ -277,7 +295,7 @@ class _GroupedTaskCard extends StatelessWidget {
                           ),
                           Text(
                             t.window,
-                            style: TextStyle(fontSize: 12, color: Dg.ink3),
+                            style: TextStyle(fontSize: 14, color: Dg.ink3),
                           ),
                         ],
                       ),
@@ -292,7 +310,7 @@ class _GroupedTaskCard extends StatelessWidget {
                 ),
               ),
             ),
-      ],
+        ],
       ),
     );
   }
@@ -322,82 +340,82 @@ class _RotaTaskCard extends StatelessWidget {
       onTap: onTap,
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
       child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 28,
-              height: 28,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: open ? Dg.violetBg : Dg.elev,
-                borderRadius: BorderRadius.circular(8),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 28,
+            height: 28,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: open ? Dg.violetBg : Dg.elev,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              '${visitIndex ?? taskBadgeNumber(task)}',
+              style: Dg.ui(
+                size: 12,
+                weight: FontWeight.w700,
+                color: open ? Dg.purpleActive : Dg.ink3,
               ),
-              child: Text(
-                '${visitIndex ?? taskBadgeNumber(task)}',
-                style: Dg.ui(
-                  size: 12,
-                  weight: FontWeight.w700,
-                  color: open ? Dg.purpleActive : Dg.ink3,
+            ),
+          ),
+          const SizedBox(width: 10),
+          InitialsAvatar(
+            name: task.recipient,
+            photoUrl: task.personPhoto,
+            size: 44,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        task.recipient,
+                        style: Dg.ui(size: 16, weight: FontWeight.w600),
+                      ),
+                    ),
+                    StatusChip(
+                      label: taskChipLabel(task, context.l10n),
+                      tone: taskChipTone(task),
+                    ),
+                  ],
                 ),
-              ),
+                const SizedBox(height: 3),
+                Text(
+                  task.address,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Dg.ui(size: 13, color: Dg.ink3),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  open
+                      ? [
+                          if (travel != null)
+                            context.l10n.routeKmMin(
+                              (travel!.meters / 1000).toStringAsFixed(1),
+                              travel!.minutes,
+                            ),
+                          task.window,
+                          if (task.custodyCount != null)
+                            l.itemsCount(task.custodyCount!),
+                          if (task.otpRequired) l.deliveryCode,
+                        ].join('  ·  ')
+                      : [
+                          task.window,
+                          if (task.signed) l.signature,
+                          if (task.otpRequired) l.codeShort,
+                        ].join('  ·  '),
+                  style: Dg.ui(size: 12, color: Dg.ink3),
+                ),
+              ],
             ),
-            const SizedBox(width: 10),
-            InitialsAvatar(
-              name: task.recipient,
-              photoUrl: task.personPhoto,
-              size: 44,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          task.recipient,
-                          style: Dg.ui(size: 16, weight: FontWeight.w600),
-                        ),
-                      ),
-                      StatusChip(
-                        label: taskChipLabel(task, context.l10n),
-                        tone: taskChipTone(task),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    task.address,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Dg.ui(size: 13, color: Dg.ink3),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    open
-                        ? [
-                            if (travel != null)
-                              context.l10n.routeKmMin(
-                                (travel!.meters / 1000).toStringAsFixed(1),
-                                travel!.minutes,
-                              ),
-                            task.window,
-                            if (task.custodyCount != null)
-                              l.itemsCount(task.custodyCount!),
-                            if (task.otpRequired) l.deliveryCode,
-                          ].join('  ·  ')
-                        : [
-                            task.window,
-                            if (task.signed) l.signature,
-                            if (task.otpRequired) l.codeShort,
-                          ].join('  ·  '),
-                    style: Dg.ui(size: 12, color: Dg.ink3),
-                  ),
-                ],
-              ),
-            ),
-          ],
+          ),
+        ],
       ),
     );
   }

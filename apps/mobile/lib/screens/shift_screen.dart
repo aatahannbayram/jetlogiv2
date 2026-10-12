@@ -30,13 +30,18 @@ class ShiftScreen extends ConsumerWidget {
                     color: Dg.violetBg,
                     shape: BoxShape.circle,
                   ),
-                  child: DgIcon(LucideIcons.camera, size: 20, color: Dg.brand, weight: 600),
+                  child: DgIcon(
+                    LucideIcons.camera,
+                    size: 20,
+                    color: Dg.brand,
+                    weight: 600,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     l.shiftSelfieHint,
-                    style: TextStyle(color: Dg.ink2, fontSize: 15, height: 1.4),
+                    style: TextStyle(color: Dg.ink2, fontSize: 16, height: 1.4),
                   ),
                 ),
               ],

@@ -106,7 +106,7 @@ class _BarcodeScanPaneState extends State<BarcodeScanPane> {
           children: [
             Text(
               message ?? l.openCameraHint,
-              style: Dg.ui(size: 14, color: const Color(0xCCF3F0E7)),
+              style: Dg.ui(size: 14, color: Dg.mutedOnNight),
             ),
             const Spacer(),
             TextField(
@@ -116,12 +116,10 @@ class _BarcodeScanPaneState extends State<BarcodeScanPane> {
                 fontWeight: FontWeight.w600,
               ),
               decoration: InputDecoration(
-                hintText: l.typeCode,
-                hintStyle: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.4),
-                ),
                 filled: true,
-                fillColor: Colors.white.withValues(alpha: 0.08),
+                fillColor: Dg.night,
+                hintText: l.typeCode,
+                hintStyle: const TextStyle(color: Dg.mutedOnNight),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
                   borderSide: BorderSide.none,
@@ -185,7 +183,7 @@ class _BarcodeScanPaneState extends State<BarcodeScanPane> {
                   context.l10n.bringBarcode,
                   style: Dg.ui(
                     size: 13,
-                    color: const Color(0xCCF3F0E7),
+                    color: Dg.mutedOnNight,
                     weight: FontWeight.w600,
                   ),
                 ),
@@ -223,12 +221,10 @@ class _BarcodeScanPaneState extends State<BarcodeScanPane> {
                     fontWeight: FontWeight.w600,
                   ),
                   decoration: InputDecoration(
-                    hintText: context.l10n.typeCodeSend,
-                    hintStyle: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.45),
-                    ),
                     filled: true,
-                    fillColor: const Color(0xE6150A2E),
+                    fillColor: Dg.night,
+                    hintText: context.l10n.typeCodeSend,
+                    hintStyle: const TextStyle(color: Dg.mutedOnNight),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
                       borderSide: BorderSide.none,
@@ -261,8 +257,8 @@ class _BarcodeScanPaneState extends State<BarcodeScanPane> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 40,
-        height: 40,
+        width: 48,
+        height: 48,
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: Dg.night.withValues(alpha: 0.72),

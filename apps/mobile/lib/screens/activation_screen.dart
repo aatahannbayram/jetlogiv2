@@ -32,8 +32,8 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
   bool _skipStoredPanel = false;
   String? _error;
 
-  static const _onHero = Colors.white;
-  static const _muted = Color(0xFFCBBEEE);
+  static Color get _onHero => Dg.onHero;
+  static Color get _muted => Dg.onHeroMuted;
 
   @override
   void dispose() {
@@ -44,7 +44,11 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
     super.dispose();
   }
 
-  String _activationError(L10n l, SessionController session, {bool verify = false}) {
+  String _activationError(
+    L10n l,
+    SessionController session, {
+    bool verify = false,
+  }) {
     final raw = session.lastActivationError;
     if (raw == 'NETWORK') return l.activationSendFailed;
     if (raw == 'OTP_RESEND_TOO_SOON' || raw == 'RATE_LIMITED') {
@@ -67,11 +71,11 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
     return InputDecoration(
       isDense: true,
       filled: true,
-      fillColor: Colors.white.withValues(alpha: 0.06),
+      fillColor: Dg.heroGlass,
       hintText: hint,
-      hintStyle: const TextStyle(color: Color(0x99CBBEEE), fontSize: 15),
+      hintStyle: TextStyle(color: Dg.onHeroMuted, fontSize: 16),
       prefixIcon: prefix,
-      prefixIconConstraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+      prefixIconConstraints: BoxConstraints(minWidth: 48, minHeight: 48),
       suffixIcon: suffix,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
@@ -79,19 +83,21 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.22)),
+        borderSide: BorderSide(color: Dg.rule),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(color: Dg.heroAccentOrange, width: 1.4),
+        borderSide: BorderSide(color: Dg.warn, width: 1.4),
       ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
     );
   }
 
   Future<void> _sendSms(L10n l) async {
     setState(() => _error = null);
-    final ok = await ref.read(sessionProvider).requestActivationCode(_phone.text);
+    final ok = await ref
+        .read(sessionProvider)
+        .requestActivationCode(_phone.text);
     if (!mounted) return;
     if (!ok) {
       setState(() => _error = _activationError(l, ref.read(sessionProvider)));
@@ -105,10 +111,9 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
       _panelBusy = true;
       _error = null;
     });
-    final ok = await ref.read(sessionProvider).loginWithPanel(
-      identifier: _identifier.text,
-      password: _password.text,
-    );
+    final ok = await ref
+        .read(sessionProvider)
+        .loginWithPanel(identifier: _identifier.text, password: _password.text);
     if (!mounted) return;
     setState(() => _panelBusy = false);
     if (!ok) {
@@ -127,10 +132,7 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
   Widget build(BuildContext context) {
     final l = context.l10n;
     final session = ref.watch(sessionProvider);
-    final storedPanel = session.panelLoggedIn &&
-        !_panelMode &&
-        !_sent &&
-        !_skipStoredPanel;
+    final storedPanel = session.panelLoggedIn && !_sent && !_skipStoredPanel;
 
     return PrivacyGate(
       active: _sent || _panelMode,
@@ -141,52 +143,57 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
             child: LayoutBuilder(
               builder: (context, constraints) {
                 return SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
+                  padding: EdgeInsets.fromLTRB(24, 12, 24, 16),
                   child: ConstrainedBox(
-                    constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                    constraints: BoxConstraints(
+                      minHeight: (constraints.maxHeight - 28).clamp(
+                        0.0,
+                        double.infinity,
+                      ),
+                    ),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const SizedBox(height: 12),
-                        const Appear(
-                          child: DijigooWordmark(height: 56, onDark: true),
-                        ),
-                        const SizedBox(height: 14),
+                        SizedBox(height: 12),
                         Appear(
-                          delay: const Duration(milliseconds: 80),
+                          child: DijigooWordmark(height: 56, onDark: Dg.dark),
+                        ),
+                        SizedBox(height: 14),
+                        Appear(
+                          delay: Duration(milliseconds: 80),
                           child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(
-                              width: 14,
-                              height: 1,
-                              color: _muted.withValues(alpha: 0.45),
-                            ),
-                            const SizedBox(width: 8),
-                            Flexible(
-                              child: Text(
-                                l.loginTagline,
-                                textAlign: TextAlign.center,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: _muted,
-                                  fontSize: 12,
-                                  letterSpacing: 0.4,
-                                  fontWeight: FontWeight.w500,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                width: 14,
+                                height: 1,
+                                color: _muted.withValues(alpha: 0.45),
+                              ),
+                              SizedBox(width: 8),
+                              Flexible(
+                                child: Text(
+                                  l.loginTagline,
+                                  textAlign: TextAlign.center,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: _muted,
+                                    fontSize: 14,
+                                    letterSpacing: 0.4,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                            Container(
-                              width: 14,
-                              height: 1,
-                              color: _muted.withValues(alpha: 0.45),
-                            ),
-                          ],
+                              SizedBox(width: 8),
+                              Container(
+                                width: 14,
+                                height: 1,
+                                color: _muted.withValues(alpha: 0.45),
+                              ),
+                            ],
+                          ),
                         ),
-                        ),
-                        const SizedBox(height: 28),
+                        SizedBox(height: 28),
                         if (storedPanel)
                           _storedPanelCard(l)
                         else if (_sent)
@@ -194,29 +201,29 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
                         else ...[
                           if (_panelMode) ...[
                             TextField(
-                              key: const Key('panel-identifier'),
+                              key: Key('panel-identifier'),
                               controller: _identifier,
                               keyboardType: TextInputType.emailAddress,
                               autocorrect: false,
-                              style: const TextStyle(color: _onHero),
+                              style: TextStyle(color: _onHero),
                               decoration: _glassDecoration(
                                 hint: l.loginIdentifierHint,
-                                prefix: const Icon(
+                                prefix: Icon(
                                   LucideIcons.user,
                                   size: 18,
                                   color: _muted,
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 12),
+                            SizedBox(height: 12),
                             TextField(
-                              key: const Key('panel-password'),
+                              key: Key('panel-password'),
                               controller: _password,
                               obscureText: _obscurePassword,
-                              style: const TextStyle(color: _onHero),
+                              style: TextStyle(color: _onHero),
                               decoration: _glassDecoration(
                                 hint: l.password,
-                                prefix: const Icon(
+                                prefix: Icon(
                                   LucideIcons.lock,
                                   size: 18,
                                   color: _muted,
@@ -239,89 +246,93 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
                             TextField(
                               controller: _phone,
                               keyboardType: TextInputType.phone,
-                              style: const TextStyle(color: _onHero),
+                              style: TextStyle(color: _onHero),
                               decoration: _glassDecoration(
                                 hint: '+90 5xx xxx xx xx',
-                                prefix: const Icon(
+                                prefix: Icon(
                                   LucideIcons.user,
                                   size: 18,
                                   color: _muted,
                                 ),
                               ),
                             ),
-                          const SizedBox(height: 16),
+                          SizedBox(height: 16),
                           Appear(
-                            delay: const Duration(milliseconds: 160),
+                            delay: Duration(milliseconds: 160),
                             child: Row(
-                            children: [
-                              Expanded(
-                                child: _MethodTile(
-                                  key: const Key('login-method-sms'),
-                                  icon: LucideIcons.messageCircle,
-                                  label: l.loginSmsTile,
-                                  selected: !_panelMode,
-                                  onTap: () => setState(() {
-                                    _panelMode = false;
-                                    _skipStoredPanel = true;
-                                    _error = null;
-                                  }),
+                              children: [
+                                Expanded(
+                                  child: _MethodTile(
+                                    key: Key('login-method-sms'),
+                                    icon: LucideIcons.messageCircle,
+                                    label: l.loginSmsTile,
+                                    selected: !_panelMode,
+                                    onTap: () => setState(() {
+                                      _panelMode = false;
+                                      _skipStoredPanel = true;
+                                      _error = null;
+                                    }),
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: _MethodTile(
-                                  key: const Key('login-method-password'),
-                                  icon: LucideIcons.lock,
-                                  label: l.loginPasswordTile,
-                                  selected: _panelMode,
-                                  onTap: () => setState(() {
-                                    _panelMode = true;
-                                    _sent = false;
-                                    _skipStoredPanel = true;
-                                    _error = null;
-                                  }),
+                                SizedBox(width: 10),
+                                Expanded(
+                                  child: _MethodTile(
+                                    key: Key('login-method-password'),
+                                    icon: LucideIcons.lock,
+                                    label: l.loginPasswordTile,
+                                    selected: _panelMode,
+                                    onTap: () => setState(() {
+                                      _panelMode = true;
+                                      _sent = false;
+                                      _skipStoredPanel = true;
+                                      _error = null;
+                                    }),
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                          ),
-                          const SizedBox(height: 16),
-                          Row(
+                          SizedBox(height: 16),
+                          Wrap(
+                            alignment: WrapAlignment.spaceBetween,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 12,
                             children: [
                               GestureDetector(
                                 onTap: () =>
                                     setState(() => _remember = !_remember),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      _remember
-                                          ? LucideIcons.checkSquare
-                                          : LucideIcons.square,
-                                      size: 18,
-                                      color: _remember
-                                          ? Dg.heroAccentOrange
-                                          : _muted,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      l.rememberMe,
-                                      style: const TextStyle(
-                                        color: _muted,
-                                        fontSize: 13,
+                                child: Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 14),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        _remember
+                                            ? LucideIcons.checkSquare
+                                            : LucideIcons.square,
+                                        size: 18,
+                                        color: _remember ? Dg.warn : _muted,
                                       ),
-                                    ),
-                                  ],
+                                      SizedBox(width: 8),
+                                      Text(
+                                        l.rememberMe,
+                                        style: TextStyle(
+                                          color: _muted,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
-                              const Spacer(),
                               if (_panelMode)
                                 TextButton(
                                   style: TextButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(
+                                    padding: EdgeInsets.symmetric(
                                       horizontal: 4,
                                     ),
-                                    minimumSize: Size.zero,
-                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    minimumSize: Size(48, 48),
+                                    tapTargetSize: MaterialTapTargetSize.padded,
                                   ),
                                   onPressed: () {
                                     ScaffoldMessenger.of(context).showSnackBar(
@@ -330,9 +341,9 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
                                   },
                                   child: Text(
                                     l.forgotPassword,
-                                    style: const TextStyle(
-                                      color: Dg.heroAccentOrange,
-                                      fontSize: 13,
+                                    style: TextStyle(
+                                      color: Dg.warn,
+                                      fontSize: 14,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -341,81 +352,74 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
                           ),
                           if (_error != null)
                             Padding(
-                              padding: const EdgeInsets.only(top: 8),
+                              padding: EdgeInsets.only(top: 8),
                               child: Text(
                                 _error!,
-                                style: TextStyle(
-                                  color: Dg.clay,
-                                  fontSize: 14,
-                                ),
+                                style: TextStyle(color: Dg.clay, fontSize: 14),
                               ),
                             ),
-                          const SizedBox(height: 14),
+                          SizedBox(height: 14),
                           Appear(
-                            delay: const Duration(milliseconds: 240),
+                            delay: Duration(milliseconds: 240),
                             child: DgButton(
-                            key: _panelMode
-                                ? const Key('panel-login')
-                                : const Key('sms-login'),
-                            label: _panelMode
-                                ? (_panelBusy ? l.signingIn : l.signInCta)
-                                : l.signInCta,
-                            trailing: LucideIcons.arrowRight,
-                            tone: DgButtonTone.ember,
-                            height: 54,
-                            busy: _panelMode
-                                ? _panelBusy
-                                : session.activationBusy,
-                            onPressed: (_panelMode
-                                    ? _panelBusy
-                                    : session.activationBusy)
-                                ? null
-                                : () => _panelMode ? _loginPanel(l) : _sendSms(l),
-                          ),
+                              key: _panelMode
+                                  ? Key('panel-login')
+                                  : Key('sms-login'),
+                              label: _panelMode
+                                  ? (_panelBusy ? l.signingIn : l.signInCta)
+                                  : l.signInCta,
+                              trailing: LucideIcons.arrowRight,
+                              tone: DgButtonTone.ember,
+                              height: 54,
+                              busy: _panelMode
+                                  ? _panelBusy
+                                  : session.activationBusy,
+                              onPressed:
+                                  (_panelMode
+                                      ? _panelBusy
+                                      : session.activationBusy)
+                                  ? null
+                                  : () => _panelMode
+                                        ? _loginPanel(l)
+                                        : _sendSms(l),
+                            ),
                           ),
                         ],
-                        const SizedBox(height: 18),
+                        SizedBox(height: 18),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(
-                              LucideIcons.lock,
-                              size: 13,
-                              color: _onHero.withValues(alpha: 0.45),
-                            ),
-                            const SizedBox(width: 6),
+                            Icon(LucideIcons.lock, size: 13, color: _muted),
+                            SizedBox(width: 6),
                             Text(
                               l.secureLoginSsl,
                               style: TextStyle(
-                                color: _onHero.withValues(alpha: 0.5),
-                                fontSize: 12,
+                                color: _muted,
+                                fontSize: 14,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 8),
+                        SizedBox(height: 8),
                         Text(
                           l.fieldAppVersion,
-                          style: TextStyle(
-                            color: _onHero.withValues(alpha: 0.32),
-                            fontSize: 11,
-                          ),
+                          style: TextStyle(color: _muted, fontSize: 14),
                         ),
-                        const SizedBox(height: 6),
+                        SizedBox(height: 6),
                         Center(
                           child: TextButton(
-                            key: const Key('sube-login-link'),
+                            key: Key('sube-login-link'),
                             onPressed: () => Navigator.of(context).push(
                               MaterialPageRoute(
-                                builder: (_) => const SubeLoginScreen(),
+                                builder: (_) => SubeLoginScreen(),
                               ),
                             ),
                             child: Text(
                               l.subeLoginTitle,
                               style: TextStyle(
-                                color: _onHero.withValues(alpha: 0.6),
-                                fontSize: 12,
+                                color: _muted,
+                                fontSize: 14,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -438,23 +442,23 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
       children: [
         Text(
           l.panelSessionOn,
-          key: const Key('panel-session-ready'),
+          key: Key('panel-session-ready'),
           textAlign: TextAlign.center,
-          style: const TextStyle(
+          style: TextStyle(
             color: _onHero,
             fontSize: 16,
             fontWeight: FontWeight.w700,
           ),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: 8),
         Text(
           l.panelReadyHint,
           textAlign: TextAlign.center,
-          style: const TextStyle(color: _muted, fontSize: 14, height: 1.4),
+          style: TextStyle(color: _muted, fontSize: 14, height: 1.4),
         ),
-        const SizedBox(height: 18),
+        SizedBox(height: 18),
         DgButton(
-          key: const Key('panel-continue'),
+          key: Key('panel-continue'),
           label: l.goToPermissions,
           trailing: LucideIcons.arrowRight,
           tone: DgButtonTone.ember,
@@ -463,9 +467,10 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
         TextButton(
           onPressed: () => setState(() {
             _panelMode = true;
+            _skipStoredPanel = true;
             _error = null;
           }),
-          child: Text(l.otherAccount, style: const TextStyle(color: _muted)),
+          child: Text(l.otherAccount, style: TextStyle(color: _muted)),
         ),
         TextButton(
           onPressed: () => setState(() {
@@ -473,7 +478,7 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
             _sent = false;
             _error = null;
           }),
-          child: Text(l.smsLogin, style: const TextStyle(color: _muted)),
+          child: Text(l.smsLogin, style: TextStyle(color: _muted)),
         ),
       ],
     );
@@ -485,36 +490,37 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
         Text(
           l.askFourDigit,
           textAlign: TextAlign.center,
-          style: const TextStyle(
+          style: TextStyle(
             color: _onHero,
             fontSize: 16,
             fontWeight: FontWeight.w700,
           ),
         ),
-        const SizedBox(height: 6),
+        SizedBox(height: 6),
         Text(
           l.codeNotDelivery,
           textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 13, color: _muted),
+          style: TextStyle(fontSize: 14, color: _muted),
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: 16),
         OtpPin(controller: _otp, error: _error != null),
         if (_error != null)
           Padding(
-            padding: const EdgeInsets.only(top: 10),
+            padding: EdgeInsets.only(top: 10),
             child: Text(
               _error!,
               style: TextStyle(color: Dg.clay, fontSize: 14),
             ),
           ),
-        const SizedBox(height: 16),
+        SizedBox(height: 16),
         DgButton(
           label: l.verifyCode,
           trailing: LucideIcons.arrowRight,
           tone: DgButtonTone.ember,
           onPressed: () async {
-            final ok =
-                await ref.read(sessionProvider).verifyLoginOtp(_otp.text.trim());
+            final ok = await ref
+                .read(sessionProvider)
+                .verifyLoginOtp(_otp.text.trim());
             if (!ok) {
               setState(
                 () => _error = _activationError(
@@ -529,7 +535,8 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
           },
         ),
         TextButton(
-          onPressed: session.activationBusy ||
+          onPressed:
+              session.activationBusy ||
                   (session.otpResendAt != null &&
                       DateTime.now().isBefore(session.otpResendAt!))
               ? null
@@ -548,7 +555,7 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
                     );
                   }
                 },
-          child: Text(l.resendCode, style: const TextStyle(color: _muted)),
+          child: Text(l.resendCode, style: TextStyle(color: _muted)),
         ),
       ],
     );
@@ -574,20 +581,19 @@ class _MethodTile extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
+        duration: Duration(milliseconds: 220),
         curve: Curves.easeOutCubic,
-        height: 96,
+        constraints: BoxConstraints(minHeight: 104),
+        padding: EdgeInsets.symmetric(vertical: 16, horizontal: 8),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: selected ? 0.10 : 0.05),
+          color: selected ? Dg.warnSoft : Dg.heroGlass,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: selected
-                ? Dg.heroAccentOrange
-                : Colors.white.withValues(alpha: 0.16),
+            color: selected ? Dg.warn : Dg.rule,
             width: selected ? 1.6 : 1,
           ),
           boxShadow: selected
-              ? const [
+              ? [
                   BoxShadow(
                     color: Color(0x55FF7A18),
                     blurRadius: 16,
@@ -602,17 +608,17 @@ class _MethodTile extends StatelessWidget {
             Icon(
               icon,
               size: 22,
-              color: selected ? Dg.heroAccentOrange : _ActivationScreenState._muted,
+              color: selected ? Dg.warn : _ActivationScreenState._muted,
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             Text(
               label,
               textAlign: TextAlign.center,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                color: selected ? Colors.white : _ActivationScreenState._muted,
-                fontSize: 12,
+                color: selected ? Dg.onHero : _ActivationScreenState._muted,
+                fontSize: 14,
                 fontWeight: FontWeight.w600,
                 height: 1.2,
               ),

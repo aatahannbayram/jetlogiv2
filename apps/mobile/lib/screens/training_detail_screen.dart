@@ -34,10 +34,7 @@ class TrainingDetailScreen extends ConsumerWidget {
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
         children: [
           if (module.summary != null && module.summary!.isNotEmpty) ...[
-            Text(
-              module.summary!,
-              style: Dg.ui(size: 14, color: Dg.ink2),
-            ),
+            Text(module.summary!, style: Dg.ui(size: 14, color: Dg.ink2)),
             const SizedBox(height: 16),
           ],
           DgCard(
@@ -51,11 +48,20 @@ class TrainingDetailScreen extends ConsumerWidget {
             DgCard(
               child: Row(
                 children: [
-                  DgIcon(LucideIcons.circleCheck, size: 20, color: Dg.ok, weight: 600),
+                  DgIcon(
+                    LucideIcons.circleCheck,
+                    size: 20,
+                    color: Dg.ok,
+                    weight: 600,
+                  ),
                   const SizedBox(width: 10),
                   Text(
                     l.trainingCompleted,
-                    style: Dg.ui(size: 14, weight: FontWeight.w600, color: Dg.lo),
+                    style: Dg.ui(
+                      size: 14,
+                      weight: FontWeight.w600,
+                      color: Dg.lo,
+                    ),
                   ),
                 ],
               ),

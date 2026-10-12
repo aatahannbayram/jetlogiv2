@@ -241,7 +241,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             color: Dg.ink2,
-                            fontSize: 13,
+                            fontSize: 14,
                             height: 1.3,
                           ),
                         ),
@@ -369,8 +369,9 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                                             ReturnScreen(taskId: t.id),
                                       ),
                                     );
-                                if (failed == true && context.mounted)
+                                if (failed == true && context.mounted) {
                                   Navigator.of(context).pop();
+                                }
                               },
                               child: Text(
                                 l.couldNotDeliverShort,
@@ -430,7 +431,14 @@ class _InfoCard extends StatelessWidget {
             ),
             const SizedBox(width: 6),
           ],
-          Text(value, style: Dg.ui(size: 14, weight: FontWeight.w600)),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: Dg.ui(size: 14, weight: FontWeight.w600),
+            ),
+          ),
         ],
       ),
     );
@@ -452,13 +460,6 @@ class _RouteChip extends StatelessWidget {
       decoration: BoxDecoration(
         gradient: Dg.primaryGradient,
         borderRadius: BorderRadius.circular(18),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x4D5B3FBF),
-            blurRadius: 14,
-            offset: Offset(0, 4),
-          ),
-        ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -466,7 +467,7 @@ class _RouteChip extends StatelessWidget {
           DgIcon(
             LucideIcons.navigation,
             size: 13,
-            color: Colors.white,
+            color: Dg.onAction,
             weight: 600,
           ),
           const SizedBox(width: 6),
@@ -477,8 +478,8 @@ class _RouteChip extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 fontFamily: Dg.mono,
-                color: Colors.white,
-                fontSize: 12,
+                color: Dg.onAction,
+                fontSize: 14,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -524,15 +525,15 @@ class _FleetToggle extends StatelessWidget {
               Icon(
                 LucideIcons.users,
                 size: 14,
-                color: on ? Colors.white : Dg.ink,
+                color: on ? Dg.onStatus : Dg.ink,
               ),
               const SizedBox(width: 6),
               Text(
                 label,
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 14,
                   fontWeight: FontWeight.w700,
-                  color: on ? Colors.white : Dg.ink,
+                  color: on ? Dg.onStatus : Dg.ink,
                 ),
               ),
             ],
@@ -565,8 +566,8 @@ class _SheetBack extends StatelessWidget {
             onTap: onTap,
             customBorder: const CircleBorder(),
             child: SizedBox(
-              width: 36,
-              height: 36,
+              width: 48,
+              height: 48,
               child: DgIcon(LucideIcons.arrowLeft, size: 17, color: Dg.ink),
             ),
           ),

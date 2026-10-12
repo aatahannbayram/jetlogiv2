@@ -142,7 +142,7 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen> {
                           const SizedBox(height: 4),
                           Text(
                             item.$3,
-                            style: TextStyle(color: Dg.ink2, fontSize: 15),
+                            style: TextStyle(color: Dg.ink2, fontSize: 16),
                           ),
                         ],
                       ),

@@ -119,8 +119,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 child: DefaultTextStyle(
                   style: const TextStyle(
                     fontFamily: Dg.mono,
-                    color: Color(0xFFB7C7C5),
-                    fontSize: 13,
+                    color: Color(0xFFE0D5EF),
+                    fontSize: 14,
                     height: 1.45,
                   ),
                   child: Column(
@@ -161,7 +161,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       ),
                       const SizedBox(height: 8),
                       for (final rec in DgLog.snapshot(last: 16))
-                        Text(rec.line, maxLines: 2, overflow: TextOverflow.ellipsis),
+                        Text(
+                          rec.line,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       const SizedBox(height: 14),
                       GestureDetector(
                         onTap: () {
@@ -174,7 +178,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             vertical: 10,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1F2622),
+                            color: const Color(0xFF26183F),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(
@@ -210,42 +214,42 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: Dg.rowMin),
         child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Mono(label, size: 12, color: Dg.ink2),
-                const SizedBox(height: 6),
-                isEditing
-                    ? TextField(
-                        controller: controller,
-                        autofocus: true,
-                        style: textStyle,
-                        decoration: const InputDecoration(
-                          border: InputBorder.none,
-                          isDense: true,
-                        ),
-                        onSubmitted: (_) => _saveField(key),
-                      )
-                    : Text(controller.text, style: textStyle),
-              ],
-            ),
-          ),
-          Pressable(
-            onTap: () => isEditing ? _saveField(key) : _startEditing(key),
-            child: Padding(
-              padding: const EdgeInsets.only(left: 8),
-              child: DgIcon(
-                isEditing ? LucideIcons.circleCheck : LucideIcons.pencil,
-                size: 20,
-                color: isEditing ? Dg.brand : Dg.ink3,
-                weight: 600,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Mono(label, size: 12, color: Dg.ink2),
+                  const SizedBox(height: 6),
+                  isEditing
+                      ? TextField(
+                          controller: controller,
+                          autofocus: true,
+                          style: textStyle,
+                          decoration: const InputDecoration(
+                            border: InputBorder.none,
+                            isDense: true,
+                          ),
+                          onSubmitted: (_) => _saveField(key),
+                        )
+                      : Text(controller.text, style: textStyle),
+                ],
               ),
             ),
-          ),
-        ],
+            Pressable(
+              onTap: () => isEditing ? _saveField(key) : _startEditing(key),
+              child: Padding(
+                padding: const EdgeInsets.only(left: 8),
+                child: DgIcon(
+                  isEditing ? LucideIcons.circleCheck : LucideIcons.pencil,
+                  size: 20,
+                  color: isEditing ? Dg.brand : Dg.ink3,
+                  weight: 600,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -302,7 +306,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               padding: const EdgeInsets.symmetric(vertical: 14),
               child: Row(
                 children: [
-                  _stat('${s.deliveredCount}', context.l10n.deliveredShort, Dg.ink),
+                  _stat(
+                    '${s.deliveredCount}',
+                    context.l10n.deliveredShort,
+                    Dg.ink,
+                  ),
                   Container(width: 1, height: 36, color: Dg.rule),
                   _stat('${s.openCount}', context.l10n.openShort, Dg.ink),
                   Container(width: 1, height: 36, color: Dg.rule),
@@ -311,10 +319,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
             ),
             const SizedBox(height: 18),
-            Text(
-              context.l10n.userSection,
-              style: Dg.kicker(color: Dg.ink2),
-            ),
+            Text(context.l10n.userSection, style: Dg.kicker(color: Dg.ink2)),
             const SizedBox(height: 6),
             Text(
               context.l10n.editFieldsHint,
@@ -340,17 +345,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
             ),
             const SizedBox(height: 18),
-            Text(
-              context.l10n.appSection,
-              style: Dg.kicker(color: Dg.ink2),
-            ),
+            Text(context.l10n.appSection, style: Dg.kicker(color: Dg.ink2)),
             const SizedBox(height: 10),
             DgCard(
               child: Column(
                 children: [
                   _settingRow(
                     context.l10n.appearance,
-                    s.darkModeUi ? context.l10n.darkTheme : context.l10n.lightTheme,
+                    s.darkModeUi
+                        ? context.l10n.darkTheme
+                        : context.l10n.lightTheme,
                     icon: LucideIcons.palette,
                     trailing: GestureDetector(
                       onTap: s.toggleDarkModeUi,
@@ -363,8 +367,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         child: Row(
                           children: [
                             Container(
-                              width: 44,
-                              height: 34,
+                              width: 48,
+                              constraints: const BoxConstraints(minHeight: 48),
                               alignment: Alignment.center,
                               decoration: BoxDecoration(
                                 color: s.darkModeUi
@@ -380,8 +384,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               ),
                             ),
                             Container(
-                              width: 44,
-                              height: 34,
+                              width: 48,
+                              constraints: const BoxConstraints(minHeight: 48),
                               alignment: Alignment.center,
                               decoration: BoxDecoration(
                                 color: s.darkModeUi
@@ -392,7 +396,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               child: DgIcon(
                                 LucideIcons.moon,
                                 size: 17,
-                                color: s.darkModeUi ? Colors.white : Dg.ink,
+                                color: s.darkModeUi ? Dg.night : Dg.ink,
                                 weight: 600,
                               ),
                             ),
@@ -409,7 +413,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         : context.l10n.languageTr,
                     icon: LucideIcons.languages,
                     trailing: GestureDetector(
-                      onTap: () => s.setLocale(s.localeCode == 'en' ? 'tr' : 'en'),
+                      onTap: () =>
+                          s.setLocale(s.localeCode == 'en' ? 'tr' : 'en'),
                       child: Container(
                         padding: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
@@ -419,8 +424,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         child: Row(
                           children: [
                             Container(
-                              width: 44,
-                              height: 34,
+                              width: 48,
+                              constraints: const BoxConstraints(minHeight: 48),
                               alignment: Alignment.center,
                               decoration: BoxDecoration(
                                 color: s.localeCode == 'tr'
@@ -431,17 +436,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               child: Text(
                                 'TR',
                                 style: TextStyle(
-                                  fontSize: 12,
+                                  fontSize: 14,
                                   fontWeight: FontWeight.w800,
                                   color: s.localeCode == 'tr'
-                                      ? Colors.white
+                                      ? (Dg.dark ? Dg.night : Colors.white)
                                       : Dg.ink,
                                 ),
                               ),
                             ),
                             Container(
-                              width: 44,
-                              height: 34,
+                              width: 48,
+                              constraints: const BoxConstraints(minHeight: 48),
                               alignment: Alignment.center,
                               decoration: BoxDecoration(
                                 color: s.localeCode == 'en'
@@ -452,10 +457,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               child: Text(
                                 'EN',
                                 style: TextStyle(
-                                  fontSize: 12,
+                                  fontSize: 14,
                                   fontWeight: FontWeight.w800,
                                   color: s.localeCode == 'en'
-                                      ? Colors.white
+                                      ? (Dg.dark ? Dg.night : Colors.white)
                                       : Dg.ink,
                                 ),
                               ),
@@ -579,29 +584,29 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: Dg.rowMin),
         child: Row(
-        children: [
-          if (icon != null) ...[
-            IconTintBadge(icon: icon, tint: Dg.elev, ink: Dg.ink2, size: 36),
-            const SizedBox(width: 12),
-          ],
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 16,
+          children: [
+            if (icon != null) ...[
+              IconTintBadge(icon: icon, tint: Dg.elev, ink: Dg.ink2, size: 36),
+              const SizedBox(width: 12),
+            ],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 3),
-                Text(sub, style: Dg.ui(size: 13, color: Dg.ink2)),
-              ],
+                  const SizedBox(height: 3),
+                  Text(sub, style: Dg.ui(size: 13, color: Dg.ink2)),
+                ],
+              ),
             ),
-          ),
-          trailing,
-        ],
+            trailing,
+          ],
         ),
       ),
     );
@@ -640,8 +645,8 @@ class _BackButton extends StatelessWidget {
         onTap: onTap,
         customBorder: const CircleBorder(),
         child: SizedBox(
-          width: 36,
-          height: 36,
+          width: 48,
+          height: 48,
           child: DgIcon(LucideIcons.arrowLeft, size: 20, color: Dg.ink),
         ),
       ),

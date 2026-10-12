@@ -119,7 +119,8 @@ class EarningsScreen extends ConsumerWidget {
           const SizedBox(height: 14),
           DgCard(
             child: SizedBox(
-              height: 142,
+              height:
+                  142 + (MediaQuery.textScalerOf(context).scale(14) - 14) * 8,
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -183,7 +184,7 @@ class EarningsScreen extends ConsumerWidget {
                                 b.label,
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w600,
-                                  fontSize: 15,
+                                  fontSize: 16,
                                 ),
                               ),
                             ),

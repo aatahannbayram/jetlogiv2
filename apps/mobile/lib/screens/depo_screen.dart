@@ -22,10 +22,7 @@ class DepoScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
         children: [
-          Text(
-            l.pickDepot,
-            style: Dg.ui(size: 15, color: Dg.ink2),
-          ),
+          Text(l.pickDepot, style: Dg.ui(size: 15, color: Dg.ink2)),
           const SizedBox(height: 16),
           for (var i = 0; i < s.depots.length; i++) ...[
             _DepotRow(
@@ -60,7 +57,7 @@ class DepoScreen extends ConsumerWidget {
                               p.name,
                               style: const TextStyle(
                                 fontWeight: FontWeight.w600,
-                                fontSize: 15,
+                                fontSize: 16,
                               ),
                             ),
                             Mono(p.code, size: 12),
@@ -130,15 +127,15 @@ class _DepotRow extends StatelessWidget {
                         style: TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 17,
-                          color: selected ? Colors.white : Dg.ink,
+                          color: selected ? Dg.onAction : Dg.ink,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         depot.meta,
                         style: TextStyle(
-                          fontSize: 13,
-                          color: selected ? const Color(0xFFE3D9F2) : Dg.ink2,
+                          fontSize: 14,
+                          color: selected ? Dg.onAction : Dg.ink2,
                         ),
                       ),
                     ],
@@ -157,7 +154,7 @@ class _DepotRow extends StatelessWidget {
                     '${depot.count}',
                     style: TextStyle(
                       fontFamily: Dg.mono,
-                      fontSize: 12,
+                      fontSize: 14,
                       fontWeight: FontWeight.w700,
                       color: selected ? Dg.purpleBright : Dg.ink3,
                     ),

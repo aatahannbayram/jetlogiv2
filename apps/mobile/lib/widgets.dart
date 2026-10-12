@@ -35,6 +35,23 @@ EdgeInsets mapRouteFitPadding({
   return EdgeInsets.fromLTRB(44, topInset + 64, 44, height * 0.42 + 12);
 }
 
+/// Metin ve ikon kısayollarının görsel boyutundan bağımsız saha dokunma alanı.
+class DgTapTarget extends StatelessWidget {
+  const DgTapTarget({super.key, required this.child});
+  final Widget child;
+  @override
+  Widget build(BuildContext context) => ConstrainedBox(
+    constraints: const BoxConstraints(
+      minWidth: Dg.touchMin,
+      minHeight: Dg.touchMin,
+    ),
+    child: Listener(
+      behavior: HitTestBehavior.opaque,
+      child: Align(widthFactor: 1, heightFactor: 1, child: child),
+    ),
+  );
+}
+
 class Display extends StatelessWidget {
   const Display(
     this.text, {
@@ -132,10 +149,7 @@ class DgIconChip extends StatelessWidget {
       width: size,
       height: size,
       alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: bg,
-        shape: BoxShape.circle,
-      ),
+      decoration: BoxDecoration(color: bg, shape: BoxShape.circle),
       child: DgIcon(icon, size: size * 0.44, color: tone, weight: 500),
     );
   }
@@ -165,10 +179,8 @@ class DgProgressRing extends StatelessWidget {
         tween: Tween(begin: 0, end: target),
         duration: const Duration(milliseconds: 720),
         curve: Curves.easeOutCubic,
-        builder: (_, value, inner) => CustomPaint(
-          painter: _RingPainter(value, stroke),
-          child: inner,
-        ),
+        builder: (_, value, inner) =>
+            CustomPaint(painter: _RingPainter(value, stroke), child: inner),
         child: child == null ? null : Center(child: child),
       ),
     );
@@ -197,10 +209,10 @@ class _RingPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = stroke
       ..strokeCap = StrokeCap.round
-      ..shader = const SweepGradient(
+      ..shader = SweepGradient(
         startAngle: -pi / 2,
         endAngle: 3 * pi / 2,
-        colors: [Color(0xFF8A74E6), Color(0xFFE8893A), Color(0xFF8A74E6)],
+        colors: [Dg.brand, Dg.action, Dg.brand],
       ).createShader(rect);
     canvas.drawArc(rect, -pi / 2, 2 * pi * progress, false, sweep);
   }
@@ -238,13 +250,31 @@ class StatusChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: Dg.s8, vertical: 4),
       decoration: BoxDecoration(
-        color: bg ?? ink.withValues(alpha: 0.12),
+        color: bg ?? Colors.transparent,
         borderRadius: BorderRadius.circular(Dg.rSm),
       ),
-      child: Text(
-        label,
-        overflow: TextOverflow.ellipsis,
-        style: Dg.typeCaption(color: ink).copyWith(fontWeight: FontWeight.w600),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          DgIcon(
+            switch (tone) {
+              'hi' => LucideIcons.circleAlert,
+              'mid' => LucideIcons.clock,
+              'lo' => LucideIcons.circleCheck,
+              _ => LucideIcons.info,
+            },
+            size: 16,
+            color: ink,
+          ),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              label,
+              style: Dg.typeCaption(color: ink)
+                  .copyWith(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -257,7 +287,8 @@ class DgDivider extends StatelessWidget {
   const DgDivider({super.key});
 
   @override
-  Widget build(BuildContext context) => Container(height: 0.5, color: Dg.stroke);
+  Widget build(BuildContext context) =>
+      Container(height: 0.5, color: Dg.stroke);
 }
 
 /// Seçili satır: 2px marka gradyanı çerçeve.
@@ -277,7 +308,7 @@ class DgChoiceSurface extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: selected ? Dg.ink : Dg.rule,
+        color: selected ? Dg.action : Dg.rule,
         borderRadius: BorderRadius.circular(Dg.radiusHero),
       ),
       child: Padding(
@@ -310,12 +341,12 @@ class DgSelectMark extends StatelessWidget {
     return Container(
       width: size,
       height: size,
-      decoration: BoxDecoration(shape: BoxShape.circle, color: Dg.ink),
+      decoration: const BoxDecoration(shape: BoxShape.circle, color: Dg.action),
       alignment: Alignment.center,
       child: DgIcon(
         LucideIcons.check,
         size: size * 0.58,
-        color: Dg.dark ? Dg.night : Colors.white,
+        color: Dg.onAction,
         weight: 600,
       ),
     );
@@ -336,7 +367,7 @@ class DgButton extends StatefulWidget {
     this.trailing,
     this.tone = DgButtonTone.primary,
     this.expand = true,
-    this.height = 52,
+    this.height = 56,
     this.busy = false,
   }) : iconOnly = false,
        iconColor = null,
@@ -348,7 +379,7 @@ class DgButton extends StatefulWidget {
     required this.onPressed,
     this.iconColor,
     this.fillColor,
-    this.height = 52,
+    this.height = 56,
   }) : label = '',
        trailing = null,
        tone = DgButtonTone.secondary,
@@ -384,23 +415,24 @@ class _DgButtonState extends State<DgButton> {
     final onDark = widget.tone == DgButtonTone.onDark;
     final danger = widget.tone == DgButtonTone.danger;
     final success = widget.tone == DgButtonTone.success;
+    final action = primary || brand || ember;
     final ink =
         widget.iconColor ??
-        (brand || onDark || danger || ember || success
+        (action
+            ? Dg.onAction
+            : danger || success
+            ? Dg.onStatus
+            : onDark
             ? Colors.white
-            : primary
-            ? (Dg.dark ? Dg.night : Colors.white)
             : Dg.ink);
     final fill =
         widget.fillColor ??
         (danger
-            ? Dg.red
+            ? Dg.bad
             : success
-            ? Dg.green
+            ? Dg.ok
             : onDark
-            ? Colors.white.withValues(alpha: 0.1)
-            : widget.iconOnly
-            ? Dg.elev
+            ? Dg.night
             : Dg.surface);
 
     final body = widget.busy
@@ -426,7 +458,7 @@ class _DgButtonState extends State<DgButton> {
                   style: TextStyle(
                     fontFamily: Dg.sans,
                     color: ink,
-                    fontSize: 15,
+                    fontSize: 16,
                     fontWeight: FontWeight.w700,
                     height: 1.1,
                     letterSpacing: -0.15,
@@ -449,43 +481,27 @@ class _DgButtonState extends State<DgButton> {
         opacity: enabled ? 1 : 0.42,
         child: DecoratedBox(
           decoration: BoxDecoration(
-            gradient: ember && enabled
-                ? Dg.emberGradient
-                : brand && enabled
-                ? Dg.primaryGradient
-                : null,
-            color: ember || brand
+            gradient: action && enabled ? Dg.emberGradient : null,
+            color: action && enabled ? null : fill,
+            borderRadius: BorderRadius.circular(Dg.radiusPill),
+            border: action
+                ? (Dg.dark ? null : Border.all(color: Dg.onAction))
+                : danger || success
                 ? null
-                : primary && enabled
-                ? Dg.ink
-                : fill,
-            borderRadius: BorderRadius.circular(ember ? 16 : Dg.radiusPill),
-            border: primary || danger || brand || ember || success
-                ? null
-                : Border.all(
-                    color: onDark
-                        ? Colors.white.withValues(alpha: 0.18)
-                        : Dg.rule,
-                  ),
-            boxShadow: ember && enabled
-                ? const [
-                    BoxShadow(
-                      color: Color(0x66FF7A18),
-                      blurRadius: 22,
-                      offset: Offset(0, 8),
-                    ),
-                  ]
-                : null,
+                : Border.all(color: Dg.rule),
           ),
           child: ConstrainedBox(
             constraints: BoxConstraints(
-              minHeight: widget.height,
-              minWidth: widget.iconOnly ? widget.height : 0,
+              minHeight: max(
+                widget.height,
+                widget.iconOnly ? Dg.touchMin : Dg.buttonMin,
+              ),
+              minWidth: widget.iconOnly ? max(widget.height, Dg.touchMin) : 0,
             ),
             child: Padding(
               padding: widget.iconOnly
                   ? EdgeInsets.zero
-                  : const EdgeInsets.symmetric(horizontal: 16),
+                  : const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               child: Center(child: body),
             ),
           ),
@@ -539,33 +555,14 @@ class DgSwitch extends StatelessWidget {
   final Color? thumbColor;
 
   @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => onChanged(!value),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        width: 58,
-        height: 34,
-        decoration: BoxDecoration(
-          color: value ? (activeColor ?? Dg.ink) : (inactiveColor ?? Dg.rule),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: AnimatedAlign(
-          duration: const Duration(milliseconds: 200),
-          alignment: value ? Alignment.centerRight : Alignment.centerLeft,
-          child: Container(
-            margin: const EdgeInsets.all(4),
-            width: 26,
-            height: 26,
-            decoration: BoxDecoration(
-              color: thumbColor ?? Dg.surface,
-              shape: BoxShape.circle,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Switch(
+    value: value,
+    onChanged: onChanged,
+    activeTrackColor: activeColor ?? Dg.action,
+    activeThumbColor: thumbColor ?? Dg.onAction,
+    inactiveTrackColor: inactiveColor ?? Dg.surface2,
+    materialTapTargetSize: MaterialTapTargetSize.padded,
+  );
 }
 
 class Mono extends StatelessWidget {
@@ -588,7 +585,7 @@ class Mono extends StatelessWidget {
       text,
       style: TextStyle(
         fontFamily: Dg.mono,
-        fontSize: size,
+        fontSize: max(14, size),
         fontWeight: weight,
         color: color ?? Dg.ink3,
       ),
@@ -613,10 +610,7 @@ class DgCard extends StatelessWidget {
   final bool hero;
   final bool lime;
 
-  /// Dg.night surface with a white@18% hairline border, matching the
-  /// glass-pill language already used on task_detail_screen/home's hero
-  /// cards — lets dark-surface stat pills (e.g. task_detail's former
-  /// private `_StatPill`) reuse this shape instead of a bespoke widget.
+  /// A permanently dark surface, with the same soft depth as other cards.
   final bool dark;
 
   @override
@@ -628,9 +622,9 @@ class DgCard extends StatelessWidget {
       width: double.infinity,
       padding: padding ?? const EdgeInsets.all(Dg.s16),
       decoration: BoxDecoration(
-        color: dark ? Dg.night : (lime ? Dg.ink : Dg.surface1),
+        color: dark ? Dg.night : (lime ? Dg.surface2 : Dg.surface1),
         borderRadius: BorderRadius.circular(radius),
-        border: Border.all(color: Dg.cardEdge),
+        boxShadow: Dg.cardShadow,
       ),
       child: child,
     );
@@ -745,7 +739,7 @@ class NotifCard extends StatelessWidget {
             decoration: BoxDecoration(
               color: Dg.surface1,
               borderRadius: BorderRadius.circular(Dg.rLg),
-              border: Border.all(color: Dg.cardEdge),
+              boxShadow: Dg.cardShadow,
             ),
             child: row,
           );
@@ -922,7 +916,7 @@ class MapStrip extends StatelessWidget {
                     style: const TextStyle(
                       fontFamily: Dg.mono,
                       color: Colors.white,
-                      fontSize: 12,
+                      fontSize: 14,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -1132,7 +1126,12 @@ class _DestinationPin extends StatelessWidget {
         ],
       ),
       alignment: Alignment.center,
-      child: DgIcon(LucideIcons.mapPin, color: Colors.white, size: 15, weight: 600),
+      child: DgIcon(
+        LucideIcons.mapPin,
+        color: Dg.onAction,
+        size: 15,
+        weight: 600,
+      ),
     );
   }
 }
@@ -1152,7 +1151,11 @@ class _StopNumber extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fill = next ? Dg.purple : (last ? Dg.night : Dg.surface);
-    final ink = next || last ? Colors.white : Dg.ink;
+    final ink = next
+        ? Dg.onAction
+        : last
+        ? Dg.onStatus
+        : Dg.ink;
     return Container(
       alignment: Alignment.center,
       decoration: BoxDecoration(
@@ -1174,7 +1177,7 @@ class _StopNumber extends StatelessWidget {
         '$index',
         style: TextStyle(
           fontFamily: Dg.mono,
-          fontSize: 11,
+          fontSize: 14,
           fontWeight: FontWeight.w800,
           color: ink,
         ),
@@ -1295,7 +1298,7 @@ class _ViewfinderState extends State<Viewfinder> {
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
-                        colors: [Color(0xFF2A3435), Color(0xFF0E1213)],
+                        colors: [Color(0xFF35234F), Color(0xFF100C22)],
                       ),
                     ),
                   ),
@@ -1304,7 +1307,7 @@ class _ViewfinderState extends State<Viewfinder> {
                   Center(
                     child: DgIcon(
                       LucideIcons.doorOpen,
-                      color: const Color(0xFF3FB3A8),
+                      color: Dg.ok,
                       size: 48,
                       weight: 600,
                     ),
@@ -1364,7 +1367,7 @@ class _ViewfinderState extends State<Viewfinder> {
             padding: const EdgeInsets.only(top: 10),
             child: Text(
               'Konum eklenecek. Galeri kapalı.',
-              style: TextStyle(color: Dg.ink2, fontSize: 13),
+              style: TextStyle(color: Dg.ink2, fontSize: 14),
             ),
           ),
       ],
@@ -1461,14 +1464,20 @@ class SquareAction extends StatelessWidget {
     return Expanded(
       child: InkWell(
         onTap: onTap,
-        child: SizedBox(
-          height: 56,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 56),
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
               DgIcon(icon, color: Dg.ink, size: 20),
               const SizedBox(height: 6),
-              Text(label, style: Dg.ui(size: 12, weight: FontWeight.w600)),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: Dg.ui(size: 12, weight: FontWeight.w600),
+              ),
             ],
           ),
         ),
@@ -1500,7 +1509,7 @@ class DemoPill extends StatelessWidget {
           style: TextStyle(
             fontFamily: Dg.mono,
             color: Dg.ink,
-            fontSize: 10,
+            fontSize: 14,
             fontWeight: FontWeight.w700,
             letterSpacing: 1.2,
           ),
@@ -1582,13 +1591,11 @@ class _SlideToActState extends State<SlideToAct>
     return LayoutBuilder(
       builder: (context, c) {
         const thumb = 52.0;
-        final max = (c.maxWidth - thumb - 8).clamp(80.0, 400.0);
+        final maxDrag = (c.maxWidth - thumb - 8).clamp(80.0, 400.0);
         return Container(
-          height: 58,
+          height: max(64, MediaQuery.textScalerOf(context).scale(16) * 2 + 24),
           decoration: BoxDecoration(
-            // Teslim onayı — bilinçli olarak yeşil (toplantı maddesi 9:
-            // "teslim etmek için kaydır aksiyonu yeşil renkte olacak").
-            color: Dg.green,
+            gradient: Dg.emberGradient,
             borderRadius: BorderRadius.circular(Dg.radiusPill),
           ),
           child: Stack(
@@ -1600,7 +1607,7 @@ class _SlideToActState extends State<SlideToAct>
                   style: Dg.ui(
                     size: 15,
                     weight: FontWeight.w600,
-                    color: Colors.white,
+                    color: Dg.onAction,
                   ),
                 ),
               ),
@@ -1614,10 +1621,10 @@ class _SlideToActState extends State<SlideToAct>
                   onHorizontalDragStart: (_) =>
                       setState(() => _dragging = true),
                   onHorizontalDragUpdate: (d) {
-                    setState(() => _x = (_x + d.delta.dx).clamp(0, max));
+                    setState(() => _x = (_x + d.delta.dx).clamp(0, maxDrag));
                   },
                   onHorizontalDragEnd: (_) {
-                    if (_x > max * 0.82) {
+                    if (_x > maxDrag * 0.82) {
                       HapticFeedback.mediumImpact();
                       widget.onConfirm();
                     }
@@ -1630,10 +1637,14 @@ class _SlideToActState extends State<SlideToAct>
                     width: thumb,
                     height: thumb,
                     decoration: const BoxDecoration(
-                      color: Colors.white,
+                      color: Dg.onAction,
                       shape: BoxShape.circle,
                     ),
-                    child: DgIcon(LucideIcons.chevronsRight, color: Dg.ok, weight: 600),
+                    child: DgIcon(
+                      LucideIcons.chevronsRight,
+                      color: Dg.action,
+                      weight: 600,
+                    ),
                   ),
                 ),
               ),
@@ -1661,71 +1672,129 @@ class DgPillNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Dg.bg,
-        border: Border(top: BorderSide(color: Dg.stroke, width: 0.5)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: SizedBox(
-          height: 56,
-          child: Row(
-            children: [
-              for (var i = 0; i < items.length; i++)
-                Expanded(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () {
-                      HapticFeedback.selectionClick();
-                      onChanged(i);
-                    },
-                    child: AnimatedScale(
-                      scale: index == i ? 1.0 : 0.94,
-                      duration: const Duration(milliseconds: 250),
-                      curve: Curves.easeOutBack,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          SizedBox(
-                            width: 28,
-                            height: 24,
-                            child: Stack(
-                              clipBehavior: Clip.none,
-                              children: [
-                                Center(
-                                  child: DgIcon(
-                                    index == i ? items[i].$2 : items[i].$1,
-                                    color: index == i ? Dg.brand : Dg.text3,
-                                    size: 22,
-                                    weight: index == i ? 600 : 400,
-                                  ),
-                                ),
-                                if (i < badges.length && badges[i] > 0)
-                                  Positioned(
-                                    top: -2,
-                                    right: -2,
-                                    child: _NavBadge(count: badges[i]),
-                                  ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            items[i].$3,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Dg.typeOverline(
-                              color: index == i ? Dg.brand : Dg.text3,
-                            ).copyWith(fontSize: 10, letterSpacing: 0),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-            ],
+    final duration = MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero
+        : const Duration(milliseconds: 240);
+    Widget item(int i) => Semantics(
+      selected: index == i,
+      button: true,
+      label: items[i].$3,
+      child: Padding(
+        padding: const EdgeInsets.all(2),
+        child: AnimatedContainer(
+          duration: duration,
+          curve: Curves.easeOutCubic,
+          decoration: BoxDecoration(
+            color: index == i ? Dg.warnSoft : Colors.transparent,
+            borderRadius: BorderRadius.circular(20),
           ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: () {
+                if (index == i) return;
+                HapticFeedback.selectionClick();
+                onChanged(i);
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 1,
+                  vertical: 10,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        AnimatedScale(
+                          scale: index == i ? 1.08 : 1,
+                          duration: duration,
+                          curve: Curves.easeOutCubic,
+                          child: DgIcon(
+                            index == i ? items[i].$2 : items[i].$1,
+                            color: index == i ? Dg.warn : Dg.text2,
+                            size: 23,
+                            weight: index == i ? 600 : 400,
+                          ),
+                        ),
+                        if (i < badges.length && badges[i] > 0)
+                          Positioned(
+                            top: -8,
+                            right: -10,
+                            child: _NavBadge(count: badges[i]),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    AnimatedDefaultTextStyle(
+                      duration: duration,
+                      style: Dg.ui(
+                        size: 14,
+                        weight: index == i ? FontWeight.w700 : FontWeight.w500,
+                        color: index == i ? Dg.warn : Dg.text2,
+                      ),
+                      child: Text(items[i].$3, textAlign: TextAlign.center),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    return SafeArea(
+      top: false,
+      minimum: const EdgeInsets.fromLTRB(10, 6, 10, 8),
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: Dg.surface2,
+          borderRadius: BorderRadius.circular(26),
+          boxShadow: Dg.dockShadow,
+        ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            var minWidth = Dg.touchMin;
+            for (final entry in items) {
+              final painter = TextPainter(
+                text: TextSpan(
+                  text: entry.$3,
+                  style: Dg.ui(size: 14, weight: FontWeight.w700),
+                ),
+                textDirection: Directionality.of(context),
+                textScaler: MediaQuery.textScalerOf(context),
+              )..layout();
+              minWidth = max(minWidth, painter.width + 6);
+              painter.dispose();
+            }
+            final columns = (constraints.maxWidth / minWidth).floor().clamp(
+              1,
+              items.length,
+            );
+            if (columns == items.length) {
+              return IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (var i = 0; i < items.length; i++)
+                      Expanded(child: item(i)),
+                  ],
+                ),
+              );
+            }
+            return Wrap(
+              children: [
+                for (var i = 0; i < items.length; i++)
+                  SizedBox(
+                    width: constraints.maxWidth / columns,
+                    child: item(i),
+                  ),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -1741,7 +1810,7 @@ class _NavBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final label = count > 9 ? '9+' : '$count';
     return Container(
-      constraints: const BoxConstraints(minWidth: 14, minHeight: 14),
+      constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
       padding: const EdgeInsets.symmetric(horizontal: 3),
       alignment: Alignment.center,
       decoration: BoxDecoration(
@@ -1751,9 +1820,9 @@ class _NavBadge extends StatelessWidget {
       child: Text(
         label,
         style: const TextStyle(
-          fontSize: 8,
+          fontSize: 14,
           fontWeight: FontWeight.w700,
-          color: Colors.white,
+          color: Dg.onAction,
           height: 1,
         ),
       ),
@@ -1770,9 +1839,14 @@ class DgOnlineChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
+        constraints: const BoxConstraints(
+          minHeight: Dg.touchMin,
+          minWidth: Dg.touchMin,
+        ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -1894,7 +1968,7 @@ class InitialsAvatar extends StatelessWidget {
       width: size,
       height: size,
       alignment: Alignment.center,
-      decoration: BoxDecoration(shape: BoxShape.circle, color: Dg.ink),
+      decoration: const BoxDecoration(shape: BoxShape.circle, color: Dg.action),
       child: Text(
         initials,
         style: TextStyle(
@@ -1949,91 +2023,71 @@ class SegmentedTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (soft) {
-      return Container(
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          color: Dg.surface2,
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Row(
-          children: [
-            for (var i = 0; i < labels.length; i++)
-              Expanded(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => onChanged(i),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 220),
-                    curve: Curves.easeOutCubic,
-                    height: 34,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: index == i ? Dg.surface1 : Colors.transparent,
-                      borderRadius: BorderRadius.circular(10),
-                      border: index == i
-                          ? Border.all(color: Dg.cardEdge)
-                          : null,
-                    ),
-                    child: Text(
-                      labels[i],
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Dg.ui(
-                        size: 13,
-                        weight: index == i ? FontWeight.w700 : FontWeight.w500,
-                        color: index == i ? Dg.text1 : Dg.text3,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      );
-    }
-    return Row(
-      children: [
-        for (var i = 0; i < labels.length; i++)
-          Expanded(
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final style = Dg.ui(size: 14, weight: FontWeight.w600);
+        final widths = labels.map((label) {
+          final painter = TextPainter(
+            text: TextSpan(text: label, style: style),
+            textDirection: Directionality.of(context),
+            textScaler: MediaQuery.textScalerOf(context),
+          )..layout();
+          final width = max(96.0, painter.width + 32);
+          painter.dispose();
+          return width;
+        }).toList();
+        final scroll =
+            labels.length > 2 &&
+            widths.fold<double>(0, (a, b) => a + b) > constraints.maxWidth;
+        Widget tab(int i) => Semantics(
+          selected: index == i,
+          button: true,
+          child: Material(
+            color: index == i ? Dg.warnSoft : Dg.surface,
+            borderRadius: BorderRadius.circular(Dg.rSm),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(Dg.rSm),
               onTap: () => onChanged(i),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeOutCubic,
-                height: 40,
+              child: Container(
+                constraints: const BoxConstraints(minHeight: Dg.touchMin),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 14,
+                ),
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   border: Border(
                     bottom: BorderSide(
-                      color: index == i
-                          ? (glass ? Colors.white : Dg.ink)
-                          : Colors.transparent,
-                      width: 2,
+                      color: index == i ? Dg.warn : Dg.rule,
+                      width: index == i ? 2 : 1,
                     ),
                   ),
                 ),
-                child: AnimatedDefaultTextStyle(
-                  duration: const Duration(milliseconds: 220),
-                  curve: Curves.easeOutCubic,
-                  style: Dg.ui(
-                    size: 14,
-                    weight: index == i ? FontWeight.w600 : FontWeight.w500,
-                    color: index == i
-                        ? (glass ? Colors.white : Dg.ink)
-                        : (glass ? const Color(0xFFCBBEEE) : Dg.ink3),
-                  ),
-                  child: Text(
-                    labels[i],
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                child: Text(
+                  labels[i],
+                  textAlign: TextAlign.center,
+                  style: style.copyWith(color: index == i ? Dg.warn : Dg.ink2),
                 ),
               ),
             ),
           ),
-      ],
+        );
+        final row = Row(
+          children: [
+            for (var i = 0; i < labels.length; i++)
+              if (scroll)
+                SizedBox(width: widths[i], child: tab(i))
+              else
+                Expanded(child: tab(i)),
+          ],
+        );
+        return scroll
+            ? SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: row,
+              )
+            : row;
+      },
     );
   }
 }
@@ -2070,7 +2124,7 @@ class StatTile extends StatelessWidget {
               label,
               size: 11,
               weight: FontWeight.w500,
-              color: dark ? const Color(0xFFDCCFEF) : Dg.ink3,
+              color: dark ? Dg.mutedOnNight : Dg.ink3,
             ),
             const SizedBox(height: 8),
             Text(
@@ -2083,7 +2137,7 @@ class StatTile extends StatelessWidget {
                 sub!,
                 style: Dg.ui(
                   size: 13,
-                  color: subColor ?? (dark ? const Color(0xFFE3D9F2) : Dg.ink2),
+                  color: subColor ?? (dark ? Dg.mutedOnNight : Dg.ink2),
                 ),
               ),
             ],
@@ -2137,8 +2191,9 @@ String taskStatusTone(TaskStatus s) => switch (s) {
 
 /// Durak rozeti — SLA'sı kaçmış açık duraklarda normal durum yerine
 /// "Gecikti" gösterir (toplantı maddesi 7: gecikme görünür olsun).
-String taskChipLabel(DeliveryTask task, [L10n? l10n]) =>
-    task.isLate ? (l10n ?? const L10n('tr')).lateStop : taskStatusLabel(task.status, l10n);
+String taskChipLabel(DeliveryTask task, [L10n? l10n]) => task.isLate
+    ? (l10n ?? const L10n('tr')).lateStop
+    : taskStatusLabel(task.status, l10n);
 
 String taskChipTone(DeliveryTask task) =>
     task.isLate ? 'hi' : taskStatusTone(task.status);
@@ -2183,7 +2238,11 @@ class DgRetryBanner extends StatelessWidget {
               Expanded(
                 child: Text(
                   message,
-                  style: Dg.ui(size: 13, weight: FontWeight.w600, color: Dg.red),
+                  style: Dg.ui(
+                    size: 13,
+                    weight: FontWeight.w600,
+                    color: Dg.red,
+                  ),
                 ),
               ),
               Text(
@@ -2244,7 +2303,7 @@ class TaskListTile extends StatelessWidget {
                 Expanded(
                   child: Text(
                     '${L10n.of(context).kindOf(task.kind)}  ·  ${task.window}',
-                    style: TextStyle(fontSize: 13, color: Dg.ink2),
+                    style: TextStyle(fontSize: 14, color: Dg.ink2),
                   ),
                 ),
                 if (task.otpRequired)
@@ -2433,7 +2492,7 @@ class _ShiftSelfieSheetState extends State<_ShiftSelfieSheet> {
                     _shot
                         ? L10n.of(context).faceOk
                         : L10n.of(context).faceAlign,
-                    style: TextStyle(color: Dg.ink2, fontSize: 13, height: 1.4),
+                    style: TextStyle(color: Dg.ink2, fontSize: 14, height: 1.4),
                   ),
                 ),
               ],
@@ -2544,25 +2603,13 @@ class _VividHeroState extends State<_VividHero>
     return Stack(
       fit: StackFit.expand,
       children: [
-        const DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Color(0xFF4E2C96),
-                Color(0xFF32186C),
-                Color(0xFF1A1038),
-                Color(0xFF100C22),
-              ],
-              stops: [0, 0.28, 0.62, 1],
-            ),
-          ),
-        ),
+        DecoratedBox(decoration: BoxDecoration(gradient: Dg.heroGradient)),
         AnimatedBuilder(
           animation: _pulse,
           builder: (context, _) => CustomPaint(
-            painter: _CalmGridPainter(t: _pulse.value),
+            painter: _CalmGridPainter(
+              t: MediaQuery.disableAnimationsOf(context) ? 0.35 : _pulse.value,
+            ),
             child: const SizedBox.expand(),
           ),
         ),
@@ -2586,30 +2633,38 @@ class _CalmGridPainter extends CustomPainter {
     canvas.drawRect(
       Offset.zero & size,
       Paint()
-        ..shader = RadialGradient(
-          colors: [
-            Color.fromRGBO(255, 255, 255, 0.10 * breath),
-            Color.fromRGBO(170, 120, 255, 0.08 * breath),
-            const Color(0x00000000),
-          ],
-          stops: const [0, 0.22, 1],
-        ).createShader(
-          Rect.fromCircle(center: Offset(w * 0.5, -h * 0.02), radius: w * 0.95),
-        ),
+        ..shader =
+            RadialGradient(
+              colors: [
+                Color.fromRGBO(255, 255, 255, 0.10 * breath),
+                Color.fromRGBO(170, 120, 255, 0.08 * breath),
+                const Color(0x00000000),
+              ],
+              stops: const [0, 0.22, 1],
+            ).createShader(
+              Rect.fromCircle(
+                center: Offset(w * 0.5, -h * 0.02),
+                radius: w * 0.95,
+              ),
+            ),
     );
 
     canvas.drawCircle(
       Offset(w * 0.82, h * 0.92),
       w * 0.55,
       Paint()
-        ..shader = RadialGradient(
-          colors: [
-            Color.fromRGBO(255, 122, 24, 0.07 * breath),
-            const Color(0x00000000),
-          ],
-        ).createShader(
-          Rect.fromCircle(center: Offset(w * 0.82, h * 0.92), radius: w * 0.55),
-        ),
+        ..shader =
+            RadialGradient(
+              colors: [
+                Color.fromRGBO(255, 122, 24, 0.07 * breath),
+                const Color(0x00000000),
+              ],
+            ).createShader(
+              Rect.fromCircle(
+                center: Offset(w * 0.82, h * 0.92),
+                radius: w * 0.55,
+              ),
+            ),
     );
 
     final horizon = h * 0.58;

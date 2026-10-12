@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -100,9 +101,7 @@ class _ShellScreenState extends ConsumerState<ShellScreen>
 
   @override
   Widget build(BuildContext context) {
-    final unread = ref.watch(
-      sessionProvider.select((s) => s.unreadNotifCount),
-    );
+    final unread = ref.watch(sessionProvider.select((s) => s.unreadNotifCount));
     ref.listen<SessionController>(sessionProvider, (prev, next) {
       if (_seenUnread < 0) {
         _seenUnread = next.unreadNotifCount;
@@ -131,26 +130,9 @@ class _ShellScreenState extends ConsumerState<ShellScreen>
     final l = context.l10n;
     return Scaffold(
       extendBody: false,
-      // IndexedStack keeps all 5 tabs mounted so switching tabs no longer
-      // resets scroll position or in-progress state (e.g. ListScreen's
-      // search field) — previously this was a plain `pages[index]` swap,
-      // rebuilding the destination tab from scratch every time. The
-      // AnimatedOpacity per-page gives a soft cross-fade cue without
-      // wrapping in AnimatedSwitcher, which would dispose+rebuild the whole
-      // stack on every switch and defeat the point of IndexedStack.
       body: Stack(
         children: [
-          IndexedStack(
-            index: index,
-            children: [
-              for (var i = 0; i < pages.length; i++)
-                AnimatedOpacity(
-                  opacity: index == i ? 1 : 0,
-                  duration: const Duration(milliseconds: 220),
-                  child: pages[i],
-                ),
-            ],
-          ),
+          DgTabStack(index: index, children: pages),
           if (_banner != null)
             Positioned(
               left: Dg.pagePad,
@@ -302,7 +284,12 @@ class _RouteScreenState extends ConsumerState<RouteScreen> {
               onTap: () => setState(() => _fitEpoch++),
               child: Tooltip(
                 message: context.l10n.recenterRoute,
-                child: DgIcon(LucideIcons.locate, size: 18, color: Dg.ink, weight: 600),
+                child: DgIcon(
+                  LucideIcons.locate,
+                  size: 18,
+                  color: Dg.ink,
+                  weight: 600,
+                ),
               ),
             ),
           ),
@@ -414,7 +401,7 @@ class _RouteTopBar extends ConsumerWidget {
                   style: Dg.ui(
                     size: 13,
                     weight: FontWeight.w700,
-                    color: Colors.white,
+                    color: Dg.onAction,
                   ),
                 ),
               ),
@@ -426,7 +413,9 @@ class _RouteTopBar extends ConsumerWidget {
               child: Icon(
                 LucideIcons.users,
                 size: 18,
-                color: s.showFleet ? Colors.white : Dg.ink,
+                color: s.showFleet
+                    ? (Dg.dark ? Dg.night : Colors.white)
+                    : Dg.ink,
               ),
             ),
             const SizedBox(width: 8),
@@ -457,8 +446,8 @@ class _MapChip extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 40,
-        height: 40,
+        width: 48,
+        height: 48,
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: on ? Dg.night : Dg.surface,
@@ -509,7 +498,7 @@ class _RouteSheet extends ConsumerWidget {
             children: [
               Center(
                 child: Container(
-                  width: 36,
+                  width: 48,
                   height: 4,
                   margin: const EdgeInsets.only(bottom: 12),
                   decoration: BoxDecoration(
@@ -650,7 +639,8 @@ class _StopNode extends StatelessWidget {
       return Container(
         padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
         decoration: BoxDecoration(
-          gradient: Dg.primaryGradient,
+          color: Dg.surface2,
+          border: Border.all(color: Dg.warn),
           borderRadius: BorderRadius.circular(16),
         ),
         child: Column(
@@ -669,7 +659,7 @@ class _StopNode extends StatelessWidget {
                     style: Dg.ui(
                       size: 17,
                       weight: FontWeight.w700,
-                      color: Colors.white,
+                      color: Dg.ink,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -677,11 +667,7 @@ class _StopNode extends StatelessWidget {
                     task.address,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: Dg.ui(
-                      size: 13,
-                      color: Colors.white.withValues(alpha: 0.82),
-                      height: 1.3,
-                    ),
+                    style: Dg.ui(size: 13, color: Dg.ink2, height: 1.3),
                   ),
                   if (meta.isNotEmpty || extras.isNotEmpty) ...[
                     const SizedBox(height: 8),
@@ -694,7 +680,7 @@ class _StopNode extends StatelessWidget {
                       style: Dg.ui(
                         size: 12,
                         weight: FontWeight.w600,
-                        color: Colors.white.withValues(alpha: 0.72),
+                        color: Dg.ink2,
                       ),
                     ),
                   ],
@@ -704,11 +690,14 @@ class _StopNode extends StatelessWidget {
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
-              height: 44,
+              height: max(
+                56,
+                MediaQuery.textScalerOf(context).scale(16) * 2 + 20,
+              ),
               child: FilledButton.icon(
                 style: FilledButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: Dg.primaryGradientStart,
+                  backgroundColor: Dg.action,
+                  foregroundColor: Dg.onAction,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -806,9 +795,7 @@ class _TravelSegment extends StatelessWidget {
     final minutes = ((seconds ?? 0) / 60).clamp(1, 180).round();
     final travel =
         '${(distanceMeters / 1000).toStringAsFixed(1)} km · $minutes dk';
-    final label = fromYou
-        ? '${context.l10n.youToNext}  ·  $travel'
-        : travel;
+    final label = fromYou ? '${context.l10n.youToNext}  ·  $travel' : travel;
     return Padding(
       padding: const EdgeInsets.fromLTRB(11, 2, 0, 2),
       child: Row(

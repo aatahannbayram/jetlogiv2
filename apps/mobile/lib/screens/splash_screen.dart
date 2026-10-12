@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -110,7 +109,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                             l.panelSessionOn,
                             style: TextStyle(
                               color: muted,
-                              fontSize: 11,
+                              fontSize: 14,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -165,7 +164,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                                           '${s.courier.district} / ${s.courier.city}',
                                           style: TextStyle(
                                             color: muted,
-                                            fontSize: 13,
+                                            fontSize: 14,
                                           ),
                                         ),
                                       ],
@@ -211,7 +210,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                                                 : l.todayFieldHint,
                                             style: TextStyle(
                                               color: onHero,
-                                              fontSize: 15,
+                                              fontSize: 16,
                                               fontWeight: FontWeight.w600,
                                               height: 1.3,
                                             ),
@@ -226,7 +225,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                                                   ),
                                             style: TextStyle(
                                               color: muted,
-                                              fontSize: 12,
+                                              fontSize: 14,
                                             ),
                                           ),
                                         ],

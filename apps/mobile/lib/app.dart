@@ -98,7 +98,7 @@ class _StorageLockedPage extends StatelessWidget {
               Text(
                 l.storageLockedBody,
                 style: const TextStyle(
-                  color: Color(0xFFB7C7C5),
+                  color: Color(0xFFE0D5EF),
                   fontSize: 16,
                   height: 1.45,
                 ),

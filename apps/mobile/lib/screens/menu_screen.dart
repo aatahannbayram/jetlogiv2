@@ -124,7 +124,7 @@ class MenuScreen extends ConsumerWidget {
       backgroundColor: Dg.bg,
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(Dg.s20, Dg.s12, Dg.s20, 108),
+          padding: const EdgeInsets.fromLTRB(Dg.s20, Dg.s12, Dg.s20, Dg.s28),
           children: [
             Appear(child: DijigooWordmark(height: 22, onDark: Dg.dark)),
             const SizedBox(height: Dg.s28),
@@ -162,9 +162,9 @@ class _ProfileCard extends StatelessWidget {
 
     return Pressable(
       onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute<void>(builder: (_) => const ProfileScreen()),
-        );
+        Navigator.of(
+          context,
+        ).push(MaterialPageRoute<void>(builder: (_) => const ProfileScreen()));
       },
       child: _Sheet(
         child: Padding(
@@ -191,9 +191,7 @@ class _ProfileCard extends StatelessWidget {
                           : expired
                           ? const Key('panel-session-expired')
                           : null,
-                      style: Dg.typeCaption(
-                        color: expired ? Dg.bad : Dg.text2,
-                      ),
+                      style: Dg.typeCaption(color: expired ? Dg.bad : Dg.text2),
                     ),
                   ],
                 ),
@@ -237,7 +235,10 @@ class _Section extends StatelessWidget {
                 if (i > 0)
                   Padding(
                     padding: const EdgeInsets.only(left: 64),
-                    child: Container(height: 0.5, color: Dg.stroke),
+                    child: Container(
+                      height: 0.5,
+                      color: Dg.text2.withValues(alpha: 0.10),
+                    ),
                   ),
                 _MenuTile(row: m, index: start + i),
               ],
@@ -260,25 +261,29 @@ class _MenuTile extends StatelessWidget {
     final accent = row.tone == _ChipTone.accent;
     final tile = Pressable(
       onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute<void>(builder: (_) => row.open()),
-        );
+        Navigator.of(context)
+            .push(MaterialPageRoute<void>(builder: (_) => row.open()));
       },
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: Dg.menuRow),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: Dg.s16),
+          padding: const EdgeInsets.symmetric(
+            horizontal: Dg.s16,
+            vertical: Dg.s12,
+          ),
           child: Row(
             children: [
-              DgIconChip(
-                icon: row.icon,
-                accent: accent,
-                size: 40,
+              SizedBox(
+                width: 32,
+                height: 32,
+                child: DgIcon(
+                  row.icon,
+                  size: 22,
+                  color: accent ? Dg.warn : Dg.text2,
+                ),
               ),
               const SizedBox(width: Dg.s12),
-              Expanded(
-                child: Text(row.label, style: Dg.typeBody()),
-              ),
+              Expanded(child: Text(row.label, style: Dg.typeBody())),
               if (row.badge != null) ...[
                 _Badge(row.badge!),
                 const SizedBox(width: Dg.s8),
@@ -306,12 +311,12 @@ class _Badge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: Dg.s8, vertical: 2),
       decoration: BoxDecoration(
-        color: Dg.warnSoft,
+        color: Dg.surface2,
         borderRadius: BorderRadius.circular(Dg.rSm),
       ),
       child: Text(
         value,
-        style: Dg.typeNum(size: 12, weight: FontWeight.w600, color: Dg.warn),
+        style: Dg.typeNum(size: 12, weight: FontWeight.w600, color: Dg.text2),
       ),
     );
   }
@@ -328,7 +333,7 @@ class _Sheet extends StatelessWidget {
       decoration: BoxDecoration(
         color: Dg.surface1,
         borderRadius: BorderRadius.circular(Dg.rLg),
-        border: Border.all(color: Dg.cardEdge),
+        boxShadow: Dg.cardShadow,
       ),
       child: child,
     );

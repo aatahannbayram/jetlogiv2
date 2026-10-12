@@ -53,13 +53,7 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
     ('recipient', l.recipientSelf, LucideIcons.user, Dg.violetBg, Dg.violet),
     ('relative', l.familyMember, LucideIcons.users, Dg.blueBg, Dg.blue),
     ('neighbor', l.neighbor, LucideIcons.doorOpen, Dg.amberBg, Dg.amber),
-    (
-      'workplace',
-      l.workplace,
-      LucideIcons.building2,
-      Dg.greenBg,
-      Dg.green,
-    ),
+    ('workplace', l.workplace, LucideIcons.building2, Dg.greenBg, Dg.green),
   ];
 
   @override
@@ -191,8 +185,9 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
         builder: (_) => ReturnScreen(taskId: widget.taskId),
       ),
     );
-    if (failed == true && mounted)
+    if (failed == true && mounted) {
       Navigator.popUntil(context, (r) => r.isFirst);
+    }
   }
 
   @override
@@ -231,371 +226,371 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
     return PrivacyGate(
       active: otpSent,
       child: Scaffold(
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(titles[step]),
-            Text(
-              '${l.stepOf(step + 1, 3)}  ·  ${task.ref}',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: Dg.ink3,
-              ),
-            ),
-          ],
-        ),
-      ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
-            child: Row(
-              children: [
-                for (var i = 0; i < 3; i++) ...[
-                  if (i > 0) const SizedBox(width: 6),
-                  Expanded(
-                    child: Container(
-                      height: 4,
-                      decoration: BoxDecoration(
-                        gradient: i <= step ? Dg.primaryGradient : null,
-                        color: i <= step ? null : Dg.elev,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-              children: [
-                DgCard(
-                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-                  child: Row(
-                    children: [
-                      InitialsAvatar(
-                        name: task.recipient,
-                        photoUrl: task.personPhoto,
-                        size: 44,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              task.recipient,
-                              style: Dg.ui(size: 16, weight: FontWeight.w700),
-                            ),
-                            const SizedBox(height: 2),
-                            Mono(
-                              '${task.ref}  ·  ${task.window}',
-                              size: 12,
-                              color: Dg.ink3,
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              task.address,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: Dg.ui(size: 12, color: Dg.ink3),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+        appBar: AppBar(
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(titles[step]),
+              Text(
+                '${l.stepOf(step + 1, 3)}  ·  ${task.ref}',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: Dg.ink3,
                 ),
-                const SizedBox(height: 14),
-                if (step == 0) ...[
-                  Text(
-                    l.whoReceived,
-                    style: Dg.ui(
-                      size: 14,
-                      weight: FontWeight.w600,
-                      color: Dg.ink2,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  for (final (i, o) in optionsFor(l).indexed)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: StaggerIn(
-                        index: i,
-                        child: DgChoiceSurface(
-                          selected: recipient == o.$1,
-                          onTap: () => setState(() => recipient = o.$1),
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Row(
-                              children: [
-                                IconTintBadge(
-                                  icon: o.$3,
-                                  tint: o.$4,
-                                  ink: o.$5,
-                                  size: 40,
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    o.$2,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                ),
-                                DgSelectMark(selected: recipient == o.$1),
-                              ],
-                            ),
-                          ),
+              ),
+            ],
+          ),
+        ),
+        body: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+              child: Row(
+                children: [
+                  for (var i = 0; i < 3; i++) ...[
+                    if (i > 0) const SizedBox(width: 6),
+                    Expanded(
+                      child: Container(
+                        height: 4,
+                        decoration: BoxDecoration(
+                          gradient: i <= step ? Dg.primaryGradient : null,
+                          color: i <= step ? null : Dg.elev,
+                          borderRadius: BorderRadius.circular(2),
                         ),
                       ),
                     ),
-                ],
-                if (step == 1) ...[
-                  SegmentedTabs(
-                    labels: [l.photoFull, l.signature],
-                    index: proof == 'photo' ? 0 : 1,
-                    onChanged: (i) =>
-                        setState(() => proof = i == 0 ? 'photo' : 'sign'),
-                  ),
-                  const SizedBox(height: 16),
-                  if (proof == 'photo') ...[
-                    Viewfinder(
-                      captured: photo,
-                      onCapture: (path) async {
-                        setState(() => photo = true);
-                        final session = ref.read(sessionProvider);
-                        final id = await uploadFileEvidence(
-                          api: session.panelLoggedIn ? null : session.api,
-                          panel: session.panelLoggedIn ? session.panel : null,
-                          path: path,
-                          kind: 'photo',
-                          taskId: widget.taskId,
-                          stepKey: session.taskRequirements == null
-                              ? 'teslim_fotografi'
-                              : null,
-                        );
-                        if (mounted) setState(() => photoMediaId = id);
-                      },
-                    ),
-                    if (photo)
-                      TextButton(
-                        onPressed: () => setState(() => photo = false),
-                        child: Text(l.retake),
-                      ),
-                  ] else ...[
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      margin: const EdgeInsets.only(bottom: 12),
-                      decoration: BoxDecoration(
-                        color: Dg.elev,
-                        borderRadius: BorderRadius.circular(Dg.radius),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            l.declaration,
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Dg.ink2,
-                              height: 1.4,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          const DgDivider(),
-                          const SizedBox(height: 10),
-                          _declarationRow(l.shipmentNo, task.ref),
-                          _declarationRow(l.recipientName, task.recipient),
-                          _declarationRow(l.date, _now()),
-                        ],
-                      ),
-                    ),
-                    SignaturePad(
-                      key: _pad,
-                      hint: l.signHere,
-                      onChanged: (cap) => setState(() => signature = cap),
-                    ),
-                    if (proofDone) ...[
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          Container(
-                            width: 6,
-                            height: 6,
-                            decoration: BoxDecoration(
-                              color: Dg.sage,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              l.signedOnField,
-                              style: Dg.ui(size: 13, color: Dg.ink2),
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: () {
-                              _pad.currentState?.clear();
-                              setState(() => signature = null);
-                            },
-                            child: Text(l.clear),
-                          ),
-                        ],
-                      ),
-                    ],
                   ],
                 ],
-                if (step == 2) ...[
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                children: [
                   DgCard(
-                    dark: true,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                    child: Row(
                       children: [
-                        Container(
-                          width: 44,
-                          height: 44,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: DgIcon(
-                            LucideIcons.key,
-                            size: 20,
-                            color: Colors.white,
-                            weight: 600,
-                          ),
+                        InitialsAvatar(
+                          name: task.recipient,
+                          photoUrl: task.personPhoto,
+                          size: 44,
                         ),
-                        const SizedBox(height: 12),
-                        Text(
-                          l.askFourDigit,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 17,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          otpSent ? l.otpSentToRecipient : l.otpWillSend,
-                          style: const TextStyle(
-                            color: Color(0xFF9A9E90),
-                            fontSize: 13,
-                            height: 1.4,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                task.recipient,
+                                style: Dg.ui(size: 16, weight: FontWeight.w700),
+                              ),
+                              const SizedBox(height: 2),
+                              Mono(
+                                '${task.ref}  ·  ${task.window}',
+                                size: 12,
+                                color: Dg.ink3,
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                task.address,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Dg.ui(size: 12, color: Dg.ink3),
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
                   ),
-                  if (otpSent) ...[
-                    const SizedBox(height: 16),
-                    OtpPin(controller: otp, error: error != null),
-                    const SizedBox(height: 16),
-                    GestureDetector(
-                      onTap: () => setState(() {}),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              l.resendCode,
-                              style: Dg.ui(
-                                size: 14,
-                                weight: FontWeight.w600,
-                                color: Dg.primaryGradientStart,
+                  const SizedBox(height: 14),
+                  if (step == 0) ...[
+                    Text(
+                      l.whoReceived,
+                      style: Dg.ui(
+                        size: 14,
+                        weight: FontWeight.w600,
+                        color: Dg.ink2,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    for (final (i, o) in optionsFor(l).indexed)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: StaggerIn(
+                          index: i,
+                          child: DgChoiceSurface(
+                            selected: recipient == o.$1,
+                            onTap: () => setState(() => recipient = o.$1),
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Row(
+                                children: [
+                                  IconTintBadge(
+                                    icon: o.$3,
+                                    tint: o.$4,
+                                    ink: o.$5,
+                                    size: 40,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      o.$2,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                  ),
+                                  DgSelectMark(selected: recipient == o.$1),
+                                ],
                               ),
                             ),
                           ),
-                          Mono('00:24', size: 13, color: Dg.ink3),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    const DgDivider(),
-                    const SizedBox(height: 10),
-                    GestureDetector(
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const KycScreen(),
                         ),
                       ),
-                      child: Row(
+                  ],
+                  if (step == 1) ...[
+                    SegmentedTabs(
+                      labels: [l.photoFull, l.signature],
+                      index: proof == 'photo' ? 0 : 1,
+                      onChanged: (i) =>
+                          setState(() => proof = i == 0 ? 'photo' : 'sign'),
+                    ),
+                    const SizedBox(height: 16),
+                    if (proof == 'photo') ...[
+                      Viewfinder(
+                        captured: photo,
+                        onCapture: (path) async {
+                          setState(() => photo = true);
+                          final session = ref.read(sessionProvider);
+                          final id = await uploadFileEvidence(
+                            api: session.panelLoggedIn ? null : session.api,
+                            panel: session.panelLoggedIn ? session.panel : null,
+                            path: path,
+                            kind: 'photo',
+                            taskId: widget.taskId,
+                            stepKey: session.taskRequirements == null
+                                ? 'teslim_fotografi'
+                                : null,
+                          );
+                          if (mounted) setState(() => photoMediaId = id);
+                        },
+                      ),
+                      if (photo)
+                        TextButton(
+                          onPressed: () => setState(() => photo = false),
+                          child: Text(l.retake),
+                        ),
+                    ] else ...[
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        margin: const EdgeInsets.only(bottom: 12),
+                        decoration: BoxDecoration(
+                          color: Dg.elev,
+                          borderRadius: BorderRadius.circular(Dg.radius),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              l.declaration,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Dg.ink2,
+                                height: 1.4,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            const DgDivider(),
+                            const SizedBox(height: 10),
+                            _declarationRow(l.shipmentNo, task.ref),
+                            _declarationRow(l.recipientName, task.recipient),
+                            _declarationRow(l.date, _now()),
+                          ],
+                        ),
+                      ),
+                      SignaturePad(
+                        key: _pad,
+                        hint: l.signHere,
+                        onChanged: (cap) => setState(() => signature = cap),
+                      ),
+                      if (proofDone) ...[
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Container(
+                              width: 6,
+                              height: 6,
+                              decoration: BoxDecoration(
+                                color: Dg.sage,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                l.signedOnField,
+                                style: Dg.ui(size: 13, color: Dg.ink2),
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                _pad.currentState?.clear();
+                                setState(() => signature = null);
+                              },
+                              child: Text(l.clear),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ],
+                  if (step == 2) ...[
+                    DgCard(
+                      dark: true,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: Text(
-                              l.verifyWithId,
-                              style: Dg.ui(size: 14, color: Dg.ink2),
+                          Container(
+                            width: 44,
+                            height: 44,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: DgIcon(
+                              LucideIcons.key,
+                              size: 20,
+                              color: Colors.white,
+                              weight: 600,
                             ),
                           ),
-                          DgIcon(
-                            LucideIcons.chevronRight,
-                            size: 16,
-                            color: Dg.ink3,
+                          const SizedBox(height: 12),
+                          Text(
+                            l.askFourDigit,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 17,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            otpSent ? l.otpSentToRecipient : l.otpWillSend,
+                            style: const TextStyle(
+                              color: Color(0xFFC4B4D8),
+                              fontSize: 14,
+                              height: 1.4,
+                            ),
                           ),
                         ],
                       ),
                     ),
+                    if (otpSent) ...[
+                      const SizedBox(height: 16),
+                      OtpPin(controller: otp, error: error != null),
+                      const SizedBox(height: 16),
+                      GestureDetector(
+                        onTap: () => setState(() {}),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                l.resendCode,
+                                style: Dg.ui(
+                                  size: 14,
+                                  weight: FontWeight.w600,
+                                  color: Dg.primaryGradientStart,
+                                ),
+                              ),
+                            ),
+                            Mono('00:24', size: 13, color: Dg.ink3),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      const DgDivider(),
+                      const SizedBox(height: 10),
+                      GestureDetector(
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const KycScreen(),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                l.verifyWithId,
+                                style: Dg.ui(size: 14, color: Dg.ink2),
+                              ),
+                            ),
+                            DgIcon(
+                              LucideIcons.chevronRight,
+                              size: 16,
+                              color: Dg.ink3,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
+                  if (error != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: ShakeError(
+                        trigger: error,
+                        child: Text(
+                          error!,
+                          style: TextStyle(
+                            color: Dg.hi,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
-                if (error != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: ShakeError(
-                      trigger: error,
-                      child: Text(
-                        error!,
-                        style: TextStyle(
-                          color: Dg.hi,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
+              ),
             ),
-          ),
-          Material(
-            color: Dg.surface,
-            elevation: 8,
-            shadowColor: const Color(0x1412191A),
-            child: SafeArea(
-              top: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-                child: Column(
-                  children: [
-                    DgButton(
-                      label: cta(l),
-                      trailing: LucideIcons.arrowRight,
-                      onPressed: _next,
-                    ),
-                    TextButton(
-                      onPressed: _goFail,
-                      child: Text(
-                        l.couldNotDeliver,
-                        style: TextStyle(
-                          color: Dg.hi,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 16,
+            Material(
+              color: Dg.surface,
+              elevation: 8,
+              shadowColor: const Color(0x1412191A),
+              child: SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+                  child: Column(
+                    children: [
+                      DgButton(
+                        label: cta(l),
+                        trailing: LucideIcons.arrowRight,
+                        onPressed: _next,
+                      ),
+                      TextButton(
+                        onPressed: _goFail,
+                        child: Text(
+                          l.couldNotDeliver,
+                          style: TextStyle(
+                            color: Dg.hi,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
-      ),
+          ],
+        ),
       ),
     );
   }
@@ -606,11 +601,11 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
       child: Row(
         children: [
           Expanded(
-            child: Text(label, style: TextStyle(fontSize: 12, color: Dg.ink3)),
+            child: Text(label, style: TextStyle(fontSize: 14, color: Dg.ink3)),
           ),
           Text(
             value,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
           ),
         ],
       ),

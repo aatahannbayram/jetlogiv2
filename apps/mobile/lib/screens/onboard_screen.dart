@@ -77,9 +77,11 @@ class _OnboardScreenState extends ConsumerState<OnboardScreen> {
               padding: const EdgeInsets.fromLTRB(8, 8, 16, 0),
               child: Row(
                 children: [
-                  const Padding(
-                    padding: EdgeInsets.only(left: 16),
-                    child: Appear(child: DijigooWordmark(height: 26)),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 16),
+                    child: Appear(
+                      child: DijigooWordmark(height: 26, onDark: Dg.dark),
+                    ),
                   ),
                   const Spacer(),
                   TextButton(
@@ -115,10 +117,7 @@ class _OnboardScreenState extends ConsumerState<OnboardScreen> {
                               key: ValueKey(i),
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  s.$1,
-                                  style: Dg.kicker(color: Dg.ink3),
-                                ),
+                                Text(s.$1, style: Dg.kicker(color: Dg.ink3)),
                                 const SizedBox(height: 8),
                                 Text(
                                   s.$2,
@@ -225,32 +224,35 @@ class _Art extends StatelessWidget {
                     children: [
                       Row(
                         children: [
-                          const Mono('DGO-8841', color: Colors.white),
+                          Mono('DGO-8841', color: Dg.ink),
                           const Spacer(),
-                          StatusChip(label: L10n.of(context).inQueue, tone: 'lime'),
+                          StatusChip(
+                            label: L10n.of(context).inQueue,
+                            tone: 'lime',
+                          ),
                         ],
                       ),
                       const SizedBox(height: 6),
                       Text(
                         'Ahmet Yılmaz',
-                        style: Dg.serif(size: 26, color: Colors.white),
+                        style: Dg.serif(size: 26, color: Dg.ink),
                       ),
                       const SizedBox(height: 4),
-                      const Text(
+                      Text(
                         'Kayalık Mah. No:14, Güney',
                         style: TextStyle(
                           fontFamily: Dg.sans,
-                          fontSize: 15,
-                          color: Color(0xFFE3D9F2),
+                          fontSize: 16,
+                          color: Dg.ink2,
                         ),
                       ),
                       const SizedBox(height: 4),
-                      const Text(
+                      Text(
                         'Teslimat  ·  14:30–15:00',
                         style: TextStyle(
                           fontFamily: Dg.sans,
-                          fontSize: 13,
-                          color: Color(0xFFE3D9F2),
+                          fontSize: 14,
+                          color: Dg.ink2,
                         ),
                       ),
                     ],
@@ -311,7 +313,7 @@ class _Art extends StatelessWidget {
           const SizedBox(width: 10),
           Text(
             t,
-            style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15),
+            style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 16),
           ),
         ],
       ),

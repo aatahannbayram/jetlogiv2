@@ -48,7 +48,7 @@ class _NextStopPagerState extends ConsumerState<NextStopPager> {
     final stops = s.orderedOpenTasks;
     if (stops.isEmpty) return const _NoOpenStop();
     return SizedBox(
-      height: 380,
+      height: 480 + (MediaQuery.textScalerOf(context).scale(16) - 16) * 24,
       child: PageView.builder(
         controller: _pages,
         padEnds: false,
@@ -146,14 +146,16 @@ class _NextStopCardState extends ConsumerState<NextStopCard> {
     ].join(' · ');
 
     return RepaintBoundary(
-      child: Container(
+      child: SingleChildScrollView(
+        child: Container(
           decoration: BoxDecoration(
             color: Dg.surface1,
             borderRadius: BorderRadius.circular(Dg.rLg),
-            border: Border.all(color: Dg.cardEdge),
+            boxShadow: Dg.cardShadow,
           ),
           clipBehavior: Clip.antiAlias,
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _MapShot(
@@ -176,11 +178,14 @@ class _NextStopCardState extends ConsumerState<NextStopCard> {
                             self: true,
                           ),
                         ],
-                        fitTo: keepNearStops([
-                          LatLng(s.selfLat, s.selfLng),
-                          LatLng(task.lat, task.lng),
-                          ...?slice?.points,
-                        ], [LatLng(task.lat, task.lng)]),
+                        fitTo: keepNearStops(
+                          [
+                            LatLng(s.selfLat, s.selfLng),
+                            LatLng(task.lat, task.lng),
+                            ...?slice?.points,
+                          ],
+                          [LatLng(task.lat, task.lng)],
+                        ),
                       )
                     : null,
                 indexLabel: l.stopIndexOf(index, total),
@@ -220,17 +225,18 @@ class _NextStopCardState extends ConsumerState<NextStopCard> {
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
                 child: _MetaLine(task: task),
               ),
-              const Spacer(),
+              const SizedBox(height: 12),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
-                child: Row(
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
                     _Ghost(
                       icon: LucideIcons.phone,
                       label: l.call,
                       onTap: () => s.callTask(context, task),
                     ),
-                    const SizedBox(width: 8),
                     _Ghost(
                       icon: LucideIcons.circleX,
                       label: l.kpiFailed,
@@ -240,7 +246,6 @@ class _NextStopCardState extends ConsumerState<NextStopCard> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
                     _Ghost(
                       icon: LucideIcons.ellipsis,
                       onTap: () => _more(context, l),
@@ -248,7 +253,6 @@ class _NextStopCardState extends ConsumerState<NextStopCard> {
                     if (widget.offerArrive &&
                         !s.selfLocated &&
                         !arrivedManual) ...[
-                      const SizedBox(width: 8),
                       _Ghost(
                         key: const Key('next-stop-arrived'),
                         icon: LucideIcons.mapPin,
@@ -296,6 +300,7 @@ class _NextStopCardState extends ConsumerState<NextStopCard> {
             ],
           ),
         ),
+      ),
     );
   }
 
@@ -358,9 +363,7 @@ class _MapShot extends StatelessWidget {
             else if (map != null)
               map!
             else
-              Center(
-                child: DgIcon(LucideIcons.map, color: Dg.text3, size: 22),
-              ),
+              Center(child: DgIcon(LucideIcons.map, color: Dg.text3, size: 22)),
             Positioned(
               top: 10,
               right: 10,
@@ -431,16 +434,22 @@ class _ApptPillState extends State<_ApptPill> {
         : '${l.appointment.toUpperCase()} $clock';
     return Align(
       alignment: Alignment.centerLeft,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-        decoration: BoxDecoration(
-          color: ink.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(Dg.rSm),
-        ),
-        child: Text(
-          text,
-          style: Dg.typeOverline(color: ink),
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          DgIcon(
+            danger ? LucideIcons.circleAlert : LucideIcons.clock,
+            size: 16,
+            color: ink,
+          ),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              text,
+              style: Dg.ui(size: 14, weight: FontWeight.w600, color: ink),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -469,20 +478,25 @@ class _MetaLine extends StatelessWidget {
             task.ref,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: Dg.ui(size: 15, color: Dg.text2).copyWith(fontFamily: Dg.mono),
+            style: Dg.ui(
+              size: 15,
+              color: Dg.text2,
+            ).copyWith(fontFamily: Dg.mono),
           ),
         ),
         if (task.custodyCount != null) ...[
           Text(' · ', style: Dg.ui(size: 15, color: Dg.text2)),
           GestureDetector(
             onTap: () => _sheet(context, l),
-            child: Text(
-              l.itemsCount(task.custodyCount!),
-              style: Dg.ui(
-                size: 15,
-                weight: FontWeight.w600,
-                color: Dg.text2,
-              ).copyWith(decoration: TextDecoration.underline),
+            child: DgTapTarget(
+              child: Text(
+                l.itemsCount(task.custodyCount!),
+                style: Dg.ui(
+                  size: 15,
+                  weight: FontWeight.w600,
+                  color: Dg.text2,
+                ).copyWith(decoration: TextDecoration.underline),
+              ),
             ),
           ),
         ],
@@ -522,44 +536,41 @@ class _MetaLine extends StatelessWidget {
 
 class _Ghost extends StatelessWidget {
   const _Ghost({super.key, required this.onTap, this.label, this.icon});
-
   final VoidCallback onTap;
   final String? label;
   final IconData? icon;
 
   @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: GestureDetector(
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    label: label == null
+        ? MaterialLocalizations.of(context).moreButtonTooltip
+        : null,
+    child: Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
         onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
         child: Container(
-          height: 52,
-          alignment: Alignment.center,
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          decoration: BoxDecoration(
-            color: Dg.surface2,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Dg.cardEdge),
+          constraints: const BoxConstraints(
+            minHeight: Dg.touchMin,
+            minWidth: Dg.touchMin,
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              if (icon != null)
-                DgIcon(icon!, size: 16, color: Dg.text2, weight: 500),
-              if (icon != null && label != null) const SizedBox(height: 3),
+              if (icon != null) DgIcon(icon!, size: 18, color: Dg.ink2),
+              if (icon != null && label != null) const SizedBox(width: 7),
               if (label != null)
-                Text(
-                  label!,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Dg.ui(size: 11, weight: FontWeight.w600),
-                ),
+                Text(label!, style: Dg.ui(size: 14, weight: FontWeight.w600)),
             ],
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
 }
 
 class _SolidCta extends StatelessWidget {
@@ -579,46 +590,13 @@ class _SolidCta extends StatelessWidget {
   final bool ember;
 
   @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 52,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: ember ? null : color,
-          gradient: ember ? Dg.emberGradient : null,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: ember
-              ? const [
-                  BoxShadow(
-                    color: Color(0x66FF7A18),
-                    blurRadius: 18,
-                    offset: Offset(0, 8),
-                  ),
-                ]
-              : null,
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (!ember && icon != null) ...[
-              DgIcon(icon!, size: 18, color: Colors.white, weight: 600),
-              const SizedBox(width: 8),
-            ],
-            Text(
-              label,
-              style: Dg.ui(size: 16, weight: FontWeight.w700, color: Colors.white),
-            ),
-            if (ember && icon != null) ...[
-              const SizedBox(width: 8),
-              DgIcon(icon!, size: 18, color: Colors.white, weight: 600),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => DgButton(
+    label: label,
+    onPressed: onTap,
+    icon: ember ? null : icon,
+    trailing: ember ? icon : null,
+    tone: DgButtonTone.primary,
+  );
 }
 
 class _NoOpenStop extends StatelessWidget {

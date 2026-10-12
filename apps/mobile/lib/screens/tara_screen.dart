@@ -39,7 +39,11 @@ class TaraScreen extends StatelessWidget {
                       color: Dg.elev,
                       shape: BoxShape.circle,
                     ),
-                    child: DgIcon(LucideIcons.arrowLeft, size: 17, color: Dg.ink),
+                    child: DgIcon(
+                      LucideIcons.arrowLeft,
+                      size: 17,
+                      color: Dg.ink,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 14),
@@ -48,10 +52,7 @@ class TaraScreen extends StatelessWidget {
               const SizedBox(height: 4),
               Appear(
                 delay: const Duration(milliseconds: 40),
-                child: Text(
-                  l.scanHint,
-                  style: Dg.ui(size: 14, color: Dg.ink2),
-                ),
+                child: Text(l.scanHint, style: Dg.ui(size: 14, color: Dg.ink2)),
               ),
               const SizedBox(height: 24),
               StaggerIn(

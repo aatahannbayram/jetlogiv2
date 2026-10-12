@@ -44,12 +44,7 @@ class HomeScreen extends ConsumerWidget {
           onRefresh: () => s.refreshField(),
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(
-              0,
-              8,
-              0,
-              Dg.bottomNavClearance,
-            ),
+            padding: const EdgeInsets.fromLTRB(0, 8, 0, Dg.bottomNavClearance),
             children: [
               Appear(
                 child: Padding(
@@ -65,13 +60,17 @@ class HomeScreen extends ConsumerWidget {
                             onTap: s.shiftOpen ? s.toggleOnline : () {},
                           ),
                           const SizedBox(width: 10),
-                          GestureDetector(
-                            onTap: () =>
+                          IconButton(
+                            onPressed: () =>
                                 ref.read(shellNavProvider).go(ShellNav.notif),
-                            child: Stack(
+                            icon: Stack(
                               clipBehavior: Clip.none,
                               children: [
-                                DgIcon(LucideIcons.bell, size: 22, color: Dg.ink),
+                                DgIcon(
+                                  LucideIcons.bell,
+                                  size: 22,
+                                  color: Dg.ink,
+                                ),
                                 if (s.unreadNotifCount > 0)
                                   Positioned(
                                     top: -2,
@@ -141,7 +140,12 @@ class HomeScreen extends ConsumerWidget {
               const SizedBox(height: 14),
               if (!s.tipsSeen)
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(Dg.pagePad, 0, Dg.pagePad, 12),
+                  padding: const EdgeInsets.fromLTRB(
+                    Dg.pagePad,
+                    0,
+                    Dg.pagePad,
+                    12,
+                  ),
                   child: CoachBanner(
                     title: l.tipHomeTitle,
                     body: l.tipHomeBody,
@@ -165,12 +169,14 @@ class HomeScreen extends ConsumerWidget {
                             builder: (_) => const RouteScreen(),
                           ),
                         ),
-                        child: Text(
-                          l.seeRoute,
-                          style: Dg.ui(
-                            size: 14,
-                            weight: FontWeight.w700,
-                            color: Dg.purpleActive,
+                        child: DgTapTarget(
+                          child: Text(
+                            l.seeRoute,
+                            style: Dg.ui(
+                              size: 14,
+                              weight: FontWeight.w700,
+                              color: Dg.purpleActive,
+                            ),
                           ),
                         ),
                       ),
@@ -179,9 +185,7 @@ class HomeScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 10),
                 Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: Dg.pagePad,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: Dg.pagePad),
                   child: hero != null
                       ? const NextStopPager()
                       : const _NoStopCard(),
@@ -241,14 +245,16 @@ class HomeScreen extends ConsumerWidget {
                   child: Row(
                     children: [
                       Expanded(
-                        child: Row(
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
+                          crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             Text(
                               l.notifications,
                               style: Dg.ui(size: 16, weight: FontWeight.w700),
                             ),
                             if (s.unreadNotifCount > 0) ...[
-                              const SizedBox(width: 8),
                               Text(
                                 l.unreadLeft(s.unreadNotifCount),
                                 style: Dg.ui(size: 13, color: Dg.ink3),
@@ -260,12 +266,14 @@ class HomeScreen extends ConsumerWidget {
                       GestureDetector(
                         onTap: () =>
                             ref.read(shellNavProvider).go(ShellNav.notif),
-                        child: Text(
-                          l.all,
-                          style: Dg.ui(
-                            size: 14,
-                            weight: FontWeight.w700,
-                            color: Dg.brand,
+                        child: DgTapTarget(
+                          child: Text(
+                            l.all,
+                            style: Dg.ui(
+                              size: 14,
+                              weight: FontWeight.w700,
+                              color: Dg.brand,
+                            ),
                           ),
                         ),
                       ),
@@ -288,8 +296,7 @@ class HomeScreen extends ConsumerWidget {
                               notification: n,
                               unread: !s.isNotifRead(n.id),
                               compact: true,
-                              onTap: () =>
-                                  openAppNotification(context, s, n),
+                              onTap: () => openAppNotification(context, s, n),
                               onLongPress: () {
                                 if (s.isNotifRead(n.id)) {
                                   s.markNotificationUnread(n.id);
@@ -334,7 +341,12 @@ class _ShiftClosedCard extends StatelessWidget {
                   color: Dg.amberBg,
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: DgIcon(LucideIcons.sun, size: 18, color: Dg.warn, weight: 600),
+                child: DgIcon(
+                  LucideIcons.sun,
+                  size: 18,
+                  color: Dg.warn,
+                  weight: 600,
+                ),
               ),
               const SizedBox(width: 10),
               Text(
@@ -386,10 +398,7 @@ class _ShiftOpenCard extends StatelessWidget {
               Container(
                 width: 7,
                 height: 7,
-                decoration: BoxDecoration(
-                  color: Dg.ok,
-                  shape: BoxShape.circle,
-                ),
+                decoration: BoxDecoration(color: Dg.ok, shape: BoxShape.circle),
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -416,7 +425,12 @@ class _ShiftOpenCard extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    DgIcon(LucideIcons.moon, size: 14, color: Dg.text3, weight: 500),
+                    DgIcon(
+                      LucideIcons.moon,
+                      size: 14,
+                      color: Dg.text3,
+                      weight: 500,
+                    ),
                     const SizedBox(width: 6),
                     Text(
                       l.eodTitle,
@@ -533,7 +547,6 @@ class _ShiftOpenCard extends StatelessWidget {
     );
   }
 }
-
 
 class _NoStopCard extends StatelessWidget {
   const _NoStopCard();
