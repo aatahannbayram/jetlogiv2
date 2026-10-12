@@ -250,11 +250,32 @@ class PanelCourierProfileDto {
 /// (the panel's canonical error codes, e.g. `COURIER_TASK_NOT_FOUND`,
 /// `WORKFLOW_SHIPMENT_STATUS_REASON_REQUIRED`) without parsing Dio internals.
 class PanelApiException implements Exception {
-  PanelApiException(this.code, {this.statusCode, this.message});
+  PanelApiException(
+    this.code, {
+    this.statusCode,
+    this.message,
+    this.serverMessage,
+    this.remainingAttempts,
+    this.lockedUntil,
+    this.missing = const [],
+  });
 
   final String code;
   final int? statusCode;
   final String? message;
+
+  /// Sunucunun `error.message` metni (çoğunlukla Türkçe); her hatada gelmez.
+  final String? serverMessage;
+
+  /// Giriş ve OTP hatalarında kalan deneme hakkı.
+  final int? remainingAttempts;
+
+  /// 423 `ACCOUNT_TEMPORARILY_LOCKED`: kilidin açılacağı an.
+  final DateTime? lockedUntil;
+
+  /// 422 `DELIVERY_REQUIREMENTS_MISSING`: PHOTO | SIGNATURE | OTP | FORM |
+  /// LOCATION.
+  final List<String> missing;
 
   /// Ağ, zaman aşımı, 408/429 ve 5xx — kuyrukta bırakıp tekrar dene.
   /// 401 ayrı ele alınır (oturum düşer); diğer 4xx kalıcı reddir.

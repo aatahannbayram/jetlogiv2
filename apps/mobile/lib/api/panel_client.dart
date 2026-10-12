@@ -146,7 +146,7 @@ class PanelApi {
     String? status,
     String? search,
   }) async {
-    final res = await dio.get<Map<String, dynamic>>(
+    final res = await _get(
       '/courier-tasks',
       queryParameters: {
         'page': '$page',
@@ -161,9 +161,7 @@ class PanelApi {
   }
 
   Future<PanelCourierTaskDto> fetchTaskDetail(String shipmentId) async {
-    final res = await dio.get<Map<String, dynamic>>(
-      '/courier-tasks/$shipmentId',
-    );
+    final res = await _get('/courier-tasks/$shipmentId');
     return PanelCourierTaskDto.fromJson(
       Map<String, dynamic>.from(res.data?['data'] as Map? ?? const {}),
     );
@@ -248,11 +246,16 @@ class PanelApi {
         contentType: DioMediaType.parse(contentType),
       ),
     });
-    final res = await dio.post<Map<String, dynamic>>(
-      '/courier-tasks/$shipmentId/evidence',
-      data: form,
-      options: Options(headers: {'Idempotency-Key': key}),
-    );
+    final Response<Map<String, dynamic>> res;
+    try {
+      res = await dio.post<Map<String, dynamic>>(
+        '/courier-tasks/$shipmentId/evidence',
+        data: form,
+        options: Options(headers: {'Idempotency-Key': key}),
+      );
+    } on DioException catch (e) {
+      throw _panelException(e);
+    }
     final data = res.data?['data'] as Map? ?? const {};
     return data['evidenceId'] as String? ?? data['id'] as String?;
   }
@@ -337,30 +340,27 @@ class PanelApi {
     });
   }
 
-  /// PROVISIONAL — `finalize` is being built on the panel side in parallel
-  /// (docs/05-panel-entegrasyonu.md §2). `outcome` must be `DELIVERED` or
-  /// `FAILED`; `reasonCode` is required by the panel when `FAILED` (it
-  /// validates against `ShipmentReasonDefinition`, not a fixed client-side
-  /// list — an invalid or missing code comes back as
-  /// `WORKFLOW_SHIPMENT_STATUS_REASON_REQUIRED` /
-  /// `WORKFLOW_SHIPMENT_STATUS_REASON_INVALID`). A `FAILED` result is not
-  /// necessarily terminal — read `currentStateCode` in the response rather
-  /// than assuming the shipment is closed.
+  /// `outcome`: `DELIVERED` ya da `FAILED`. Teslim edilemedi'de [reasonCode]
+  /// zorunlu ve `delivery-reasons` listesinden olmalı. `Idempotency-Key`
+  /// zorunlu (8–200); kuyruktan yeniden denemede aynı anahtar gider, gövde
+  /// değiştiyse (eksik gereksinim giderildi) yeni anahtar gerekir.
   Future<PanelFinalizeResultDto> finalizeTask(
     String shipmentId, {
     required String outcome,
+    required String idempotencyKey,
     String? reasonCode,
     String? receivedBy,
     String? otpEvidenceId,
+    String? note,
   }) async {
     final delivered = outcome != 'FAILED' && outcome != 'DELIVERY_FAILED';
     final res = await _post('/courier-tasks/$shipmentId/finalize', {
       'resultCode': delivered ? 'DELIVERED' : 'DELIVERY_FAILED',
-      'outcome': delivered ? 'DELIVERED' : 'FAILED',
       if (!delivered && reasonCode != null) 'reasonCode': reasonCode,
       if (delivered && receivedBy != null) 'receivedByName': receivedBy,
       if (delivered && otpEvidenceId != null) 'otpEvidenceId': otpEvidenceId,
-    });
+      if (note != null && note.isNotEmpty) 'note': note,
+    }, idempotencyKey: idempotencyKey);
     return PanelFinalizeResultDto.fromJson(
       Map<String, dynamic>.from(res.data?['data'] as Map? ?? const {}),
     );
@@ -522,11 +522,19 @@ class PanelApi {
   }
 
   Future<void> markNotificationRead(String id) async {
-    await _post('/courier-notifications/$id/read', const {});
+    await _post(
+      '/courier-notifications/$id/read',
+      const {},
+      idempotencyKey: Vault.newUuid(),
+    );
   }
 
   Future<void> markAllNotificationsRead() async {
-    await _post('/courier-notifications/read-all', const {});
+    await _post(
+      '/courier-notifications/read-all',
+      const {},
+      idempotencyKey: Vault.newUuid(),
+    );
   }
 
   /// Cihaz kaydı: push token ve bekleyen işlem sayısı (merkezin senkron
@@ -657,7 +665,7 @@ class PanelApi {
     await _post('/courier-trainings/$trainingId/complete', {
       'acknowledged': true,
       'occurredAt': DateTime.now().toUtc().toIso8601String(),
-    });
+    }, idempotencyKey: Vault.newUuid());
   }
 
   Future<Response<Map<String, dynamic>>> _post(
@@ -679,15 +687,22 @@ class PanelApi {
   }
 
   PanelApiException _panelException(DioException e) {
-    final code =
-        (e.response?.data is Map ? (e.response?.data as Map)['error'] : null)
-            is Map
-        ? ((e.response?.data as Map)['error'] as Map)['code'] as String?
-        : null;
+    final body = e.response?.data;
+    final error = body is Map && body['error'] is Map
+        ? body['error'] as Map
+        : const {};
+    final locked = error['lockedUntil'];
     return PanelApiException(
-      code ?? 'PANEL_REQUEST_FAILED',
+      error['code'] as String? ?? 'PANEL_REQUEST_FAILED',
       statusCode: e.response?.statusCode,
       message: e.message,
+      serverMessage: error['message'] as String?,
+      remainingAttempts: (error['remainingAttempts'] as num?)?.toInt(),
+      lockedUntil: locked is String ? DateTime.tryParse(locked) : null,
+      missing: [
+        for (final row in error['missing'] as List? ?? const [])
+          if (row is Map && row['type'] is String) row['type'] as String,
+      ],
     );
   }
 }

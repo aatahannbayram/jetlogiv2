@@ -109,6 +109,8 @@ class AgencyApiException implements Exception {
     this.serverMessage,
     this.reason,
     this.shipmentNumber,
+    this.remainingAttempts,
+    this.lockedUntil,
     this.agencies = const [],
   });
 
@@ -120,6 +122,12 @@ class AgencyApiException implements Exception {
   /// 403 `FORBIDDEN` için: BRANCH_OPERATE_REQUIRED | BRANCH_MANAGE_REQUIRED.
   final String? reason;
   final String? shipmentNumber;
+
+  /// Girişte yanlış şifre: kalan deneme hakkı.
+  final int? remainingAttempts;
+
+  /// 423 `ACCOUNT_TEMPORARILY_LOCKED`: kilidin açılacağı an.
+  final DateTime? lockedUntil;
   final List<AgencyDto> agencies;
 
   bool get unauthenticated => statusCode == 401;

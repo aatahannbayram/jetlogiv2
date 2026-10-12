@@ -325,7 +325,7 @@ class AgencyPortalApi {
       'action': 'line-reason',
       'lineId': lineId,
       'reasonCode': reasonCode,
-      'reasonNote': note,
+      if (note != null && note.isNotEmpty) 'reasonNote': note,
     }, idempotencyKey: idempotencyKey);
   }
 
@@ -498,7 +498,11 @@ class AgencyPortalApi {
   }
 
   Future<void> markNotificationRead(String id) async {
-    await _post('/branch/notifications/$id/read', const {});
+    await _post(
+      '/branch/notifications/$id/read',
+      const {},
+      idempotencyKey: Vault.newUuid(),
+    );
   }
 
   Future<AnnouncementsData> fetchAnnouncements() async =>
@@ -637,8 +641,10 @@ class AgencyPortalApi {
 
   /// Şubenin yönettiği kurye eğitimleri.
   Future<List<ManagedTraining>> fetchManagedTrainings() async {
-    final data = await _data(_get('/branch/training'));
-    final rows = data['managed'] ?? data['items'] ?? data['trainings'];
+    final data = await _data(
+      _get('/branch/training', queryParameters: {'targetType': 'COURIER'}),
+    );
+    final rows = data['trainings'];
     return [
       for (final row in rows is List ? rows : const [])
         if (row is Map)
@@ -746,6 +752,10 @@ class AgencyPortalApi {
           (body is Map ? body['message'] as String? : null),
       reason: error['reason'] as String?,
       shipmentNumber: error['shipmentNumber'] as String?,
+      remainingAttempts: (error['remainingAttempts'] as num?)?.toInt(),
+      lockedUntil: error['lockedUntil'] is String
+          ? DateTime.tryParse(error['lockedUntil'] as String)
+          : null,
       agencies: [
         for (final row in agenciesRaw ?? const [])
           if (row is Map) AgencyDto.fromJson(Map<String, dynamic>.from(row)),

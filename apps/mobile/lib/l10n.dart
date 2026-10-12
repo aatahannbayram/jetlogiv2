@@ -512,23 +512,23 @@ class L10n {
   String get weekdaySat => _t('Cmt', 'Sat');
   String get weekdaySun => _t('Paz', 'Sun');
 
-  String get nfcRead => _t('NFC ile oku', 'Read with NFC');
+  String get nfcRead => _t('Kimliği telefona okut', 'Tap ID to phone');
   String get verified => _t('Doğrulandı', 'Verified');
   String get calling => _t('Aranıyor…', 'Calling…');
   String get openingDirections => _t('Yol tarifi açılıyor…', 'Opening directions…');
   String get kycTitle => _t('Kimlik doğrulama', 'Identity check');
   String get kycLead => _t(
-    'Belgeyi seç, fotoğrafını çek, çipi oku.',
-    'Pick a document, take a photo, then read the chip.',
+    'Belgeyi seç, fotoğrafını çek, kimliği telefona yaklaştır.',
+    'Pick a document, take a photo, then hold the ID to the phone.',
   );
   String get kycDocsKicker => _t('BELGE', 'DOCUMENT');
   String get kycPhotoKicker => _t('FOTOĞRAF', 'PHOTO');
-  String get kycChipKicker => _t('ÇİP', 'CHIP');
-  String get kycMrzKicker => _t('MRZ', 'MRZ');
+  String get kycChipKicker => _t('KİMLİĞİ OKUT', 'TAP ID');
+  String get kycMrzKicker => _t('KİMLİK BİLGİLERİ', 'ID DETAILS');
   String get kycPhotoHint =>
-      _t('Belgeyi çerçeveye al', 'Frame the document');
+      _t('Belgenin fotoğrafını çek', 'Take a photo of the document');
   String get kycPhotoTaken => _t('Fotoğraf alındı', 'Photo captured');
-  String get kycScanning => _t('Çip okunuyor…', 'Reading chip…');
+  String get kycScanning => _t('Kimlik okunuyor…', 'Reading ID…');
   String kycDocAt(int i) => switch (i) {
     0 => _t('Yeni kimlik ön yüz', 'New ID front'),
     1 => _t('Yeni kimlik arka yüz', 'New ID back'),
@@ -1041,10 +1041,10 @@ class L10n {
   String get failed => _t('Gönderilemedi', 'Not sent');
   String get pickDocType =>
       _t('Doğrulanacak belge türünü seç.', 'Choose the document type to verify.');
-  String get chipRead => _t('Çip okundu', 'Chip read');
-  String get nfcReady => _t('NFC hazır', 'NFC ready');
+  String get chipRead => _t('Kimlik okundu', 'ID read');
+  String get nfcReady => _t('Hazır', 'Ready');
   String get mrzVerified =>
-      _t('MRZ ile şifre çözüldü · doğrulandı', 'Decrypted with MRZ · verified');
+      _t('Kimlik bilgileri doğrulandı', 'ID details verified');
   String get holdIdBack =>
       _t('Kimliği telefonun arkasına yaklaştır', 'Hold the ID to the back of the phone');
   String get docNo => _t('BELGE NO', 'DOC NO');

@@ -2332,7 +2332,7 @@ class SessionController extends ChangeNotifier {
     final client = panel;
     if (client == null || !panelLoggedIn) return;
     try {
-      final list = await client.fetchTasks(pageSize: 50);
+      final list = await client.fetchTasks(pageSize: 500);
       lastPanelError = null;
       final pendingIds = {
         for (final e in outbox.events)
@@ -2800,6 +2800,7 @@ class SessionController extends ChangeNotifier {
         if (taskId != null) 'taskId': taskId,
         'mediaIds': const <String>[],
         'attachDiagnostics': false,
+        if (_usesPanelTasks) 'idempotencyKey': Vault.newUuid(),
       },
     );
     tickets.insert(
@@ -2898,6 +2899,9 @@ class SessionController extends ChangeNotifier {
       operation: SyncOperation.panelFinalize,
       subjectId: id,
       payload: {
+        // Sıra numaralı olay kimliği yeniden kurulumda tekrar edebilir;
+        // sunucu anahtarı başka gönderide görürse reddeder.
+        'idempotencyKey': Vault.newUuid(),
         'outcome': outcome,
         if (reasonCode != null) 'reasonCode': reasonCode,
         if (receivedBy != null) 'receivedBy': receivedBy,
@@ -3002,6 +3006,9 @@ class SessionController extends ChangeNotifier {
         final res = await client.finalizeTask(
           id!,
           outcome: (event.payload['outcome'] as String?) ?? 'DELIVERED',
+          idempotencyKey:
+              event.payload['idempotencyKey'] as String? ??
+              event.clientEventId,
           reasonCode: event.payload['reasonCode'] as String?,
           receivedBy: event.payload['receivedBy'] as String?,
           otpEvidenceId: event.payload['otpEvidenceId'] as String?,
@@ -3014,7 +3021,9 @@ class SessionController extends ChangeNotifier {
         }
       case SyncOperation.panelTicketCreate:
         final created = await client.createTicket(
-          clientEventId: event.clientEventId,
+          clientEventId:
+              event.payload['idempotencyKey'] as String? ??
+              event.clientEventId,
           category: (event.payload['category'] as String?) ?? 'OTHER',
           subject: (event.payload['subject'] as String?) ?? '',
           body: (event.payload['body'] as String?) ?? '',

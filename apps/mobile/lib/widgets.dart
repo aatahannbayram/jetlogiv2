@@ -1966,10 +1966,15 @@ class InitialsAvatar extends StatelessWidget {
             fit: BoxFit.cover,
             errorBuilder: (_, _, _) => fallback,
           );
+    // Fotoğraf yüklenirken ya da gelmezse yer boş kalmasın: baş harfler
+    // altta durur, fotoğraf üstüne biner.
     return SizedBox(
       width: size,
       height: size,
-      child: ClipOval(child: image),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [fallback, ClipOval(child: image)],
+      ),
     );
   }
 }

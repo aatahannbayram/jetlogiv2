@@ -187,10 +187,12 @@ void main() {
       final result = await PanelApi(dio).finalizeTask(
         's-1',
         outcome: 'FAILED',
+        idempotencyKey: 'key-finalize-1',
         reasonCode: 'RECIPIENT_NOT_AT_ADDRESS',
       );
       expect(seenBody!['resultCode'], 'DELIVERY_FAILED');
-      expect(seenBody!['outcome'], 'FAILED');
+      // Eski `outcome` alanı yeni istemcide gönderilmez.
+      expect(seenBody!.containsKey('outcome'), isFalse);
       expect(seenBody!['reasonCode'], 'RECIPIENT_NOT_AT_ADDRESS');
       expect(seenBody!.containsKey('otpEvidenceId'), isFalse);
       // FAILED terminal değil — motor REDELIVERY'ye düşürebilir (bkz. §2).
@@ -243,6 +245,7 @@ void main() {
       await PanelApi(dio).finalizeTask(
         's-1',
         outcome: 'DELIVERED',
+        idempotencyKey: 'key-finalize-2',
         otpEvidenceId: 'ev-1',
         receivedBy: 'Kendisi',
       );

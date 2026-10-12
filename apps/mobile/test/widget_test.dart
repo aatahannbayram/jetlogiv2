@@ -381,7 +381,7 @@ void main() {
     await tester.tap(find.text('Kimlik doğrulama'));
     await tester.pumpAndSettle();
     expect(
-      find.text('Belgeyi seç, fotoğrafını çek, çipi oku.'),
+      find.text('Belgeyi seç, fotoğrafını çek, kimliği telefona yaklaştır.'),
       findsOneWidget,
     );
     expect(find.text('Fotoğraf çek'), findsOneWidget);
