@@ -117,7 +117,7 @@ class _BarcodeScanPaneState extends State<BarcodeScanPane> {
               ),
               decoration: InputDecoration(
                 filled: true,
-                fillColor: Dg.night,
+                fillColor: Dg.surface2,
                 hintText: l.typeCode,
                 hintStyle: const TextStyle(color: Dg.mutedOnNight),
                 border: OutlineInputBorder(
@@ -222,7 +222,7 @@ class _BarcodeScanPaneState extends State<BarcodeScanPane> {
                   ),
                   decoration: InputDecoration(
                     filled: true,
-                    fillColor: Dg.night,
+                    fillColor: Dg.surface2,
                     hintText: context.l10n.typeCodeSend,
                     hintStyle: const TextStyle(color: Dg.mutedOnNight),
                     border: OutlineInputBorder(

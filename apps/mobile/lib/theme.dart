@@ -467,7 +467,7 @@ class Dg {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: surface,
+        fillColor: surface2,
         labelStyle: ui(size: 14, color: ink2),
         hintStyle: ui(size: 16, color: ink3),
         constraints: const BoxConstraints(minHeight: buttonMin),

@@ -197,7 +197,7 @@ class L10n {
   String get permissionsIntro => _t('Vardiya ancak bunlar tamamsa açılır.', 'The shift opens only when these are ready.');
   String readyOf(int n, int total) => _t('$n / $total hazır', '$n / $total ready');
   String get permLocation => _t('Konum', 'Location');
-  String get permLocationHint => _t('Adrese vardığınızı doğrulamak için.', 'To confirm you arrived at the address.');
+  String get permLocationHint => _t('Adrese vardığını doğrulamak ve teslimatta konumunu paylaşmak için.', 'To confirm you arrived and share your location during deliveries.');
   String get permCamera => _t('Kamera', 'Camera');
   String get permCameraHint => _t('Barkod okutmak ve teslim fotoğrafı çekmek için. Galeri kapalı.', 'For scanning barcodes and delivery photos. Gallery stays off.');
   String get permPush => _t('Bildirim', 'Notifications');
@@ -599,6 +599,22 @@ class L10n {
       _t('Bu modül yakında bağlanacak', 'This module is coming soon');
   String get subeHome => _t('Ana Sayfa', 'Home');
   String get subeOpsTitle => _t('İşlemler', 'Operations');
+  // Backend durum kodları ekranda ham hâliyle gösterilmez.
+  String transferStatus(String code) => switch (code) {
+    'DISPATCHED' => _t('Yolda', 'On the way'),
+    'ACCEPTANCE_PENDING' => _t('Kabul bekliyor', 'Awaiting acceptance'),
+    'ACCEPTED' => _t('Teslim alındı', 'Received'),
+    'PARTIALLY_ACCEPTED' => _t('Eksik teslim alındı', 'Partly received'),
+    'REJECTED' => _t('Reddedildi', 'Rejected'),
+    _ => code,
+  };
+  String smsStatus(String code) => switch (code) {
+    'SENT' || 'DELIVERED' => _t('Gönderildi', 'Sent'),
+    'QUEUED' || 'PENDING' => _t('Sırada', 'Queued'),
+    'SKIPPED' => _t('Atlandı', 'Skipped'),
+    'FAILED' => _t('Gönderilemedi', 'Failed'),
+    _ => code,
+  };
   String get newAnnouncement => _t('Yeni duyuru', 'New announcement');
   String get announceTitle => _t('Başlık', 'Title');
   String get announceBody => _t('Duyuru metni', 'Announcement text');
@@ -768,7 +784,7 @@ class L10n {
   String get liveActive => _t('Aktif', 'Active');
   String get liveBreak => _t('Mola', 'Break');
   String get liveOffline => _t('Çevrimdışı', 'Offline');
-  String holdingCount(int n) => _t('Üzerinde $n', '$n holding');
+  String holdingCount(int n) => _t('Üzerinde $n paket', 'Holding $n');
   String overdueCount(int n) => _t('$n geciken', '$n overdue');
   String lastSeenAt(String time) => _t('Son görülme $time', 'Last seen $time');
   String get awaitingAcceptTitle =>
@@ -925,7 +941,7 @@ class L10n {
       _t('İade ve iptaller burada durur.', 'Returns and cancellations stay here.');
   String get codeShort => _t('Kod', 'Code');
   String get noOpenTasksLeft => _t(
-    'Açık göreviniz kalmadı — yeni bir durak atandığında burada görünecek.',
+    'Şu an bekleyen durağın yok. Yenisi atanınca burada göreceksin.',
     'No open tasks left — a new stop will show up here.',
   );
   String slaLeft(String label) => _t('$label kaldı', '$label left');
@@ -946,7 +962,7 @@ class L10n {
     'Pricing is managed by the agency.',
   );
   String get fixedMonthlyHint => _t(
-    'Sabit aylık ücretlisiniz, teslimat başına tutar gösterilmez.',
+    'Sabit aylık ücret alıyorsun. Teslimat başına tutar gösterilmez.',
     'You are on a fixed monthly rate. Per-delivery amounts are hidden.',
   );
   String get pickDepot => _t('Teslim alacağın depoyu seç.', 'Pick the depot you will collect from.');

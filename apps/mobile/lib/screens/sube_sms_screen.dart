@@ -274,7 +274,7 @@ class _SubeSmsScreenState extends ConsumerState<SubeSmsScreen> {
                         Text(
                           [
                             for (final e in b.statusCounts.entries)
-                              '${e.key} ${e.value}',
+                              '${l.smsStatus(e.key)} ${e.value}',
                           ].join(' · '),
                           style: Dg.ui(size: 12, color: Dg.ink3),
                         ),

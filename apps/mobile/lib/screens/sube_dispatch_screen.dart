@@ -165,7 +165,7 @@ class _SubeDispatchScreenState extends ConsumerState<SubeDispatchScreen> {
                         ),
                       ),
                       StatusChip(
-                        label: t.statusCode,
+                        label: l.transferStatus(t.statusCode),
                         tone: t.statusCode == 'ACCEPTED' ? 'lo' : 'mid',
                       ),
                     ],
