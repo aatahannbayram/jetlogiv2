@@ -611,6 +611,18 @@ class PanelApi {
     }, idempotencyKey: idempotencyKey);
   }
 
+  /// Mola başlat / bitir. Açık vardiya gerekir; aynı anda tek mola.
+  Future<void> setBreak({
+    required bool start,
+    required String idempotencyKey,
+  }) async {
+    await _post(
+      '/courier-shifts/breaks/${start ? 'start' : 'end'}',
+      const {},
+      idempotencyKey: idempotencyKey,
+    );
+  }
+
   /// `GET courier-trainings` — zorunlular en üstte gelir.
   Future<List<TrainingModuleDto>> fetchTrainings() async {
     final res = await _get('/courier-trainings');

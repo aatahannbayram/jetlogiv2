@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -15,6 +16,7 @@ class LiveFix {
     this.accuracy,
     this.heading,
     this.speed,
+    this.mocked = false,
   });
 
   final double lat;
@@ -23,6 +25,9 @@ class LiveFix {
   final double? accuracy;
   final double? heading;
   final double? speed;
+
+  /// Android'de sahte konum sağlayıcısından geldi.
+  final bool mocked;
 }
 
 /// Kurye API kuralı: canlı konum en fazla 30 sn'de bir ve yaklaşık 50 m
@@ -56,12 +61,34 @@ Stream<LiveFix> liveFixStream() async* {
   } catch (_) {
     return;
   }
-  yield* Geolocator.getPositionStream(
-    locationSettings: const LocationSettings(
+  // Görev sürerken ekran kilitlense ya da uygulama arka plana geçse de
+  // konum akmaya devam eder: Android'de kalıcı bildirimli ön plan servisi,
+  // iOS'ta arka plan konum güncellemesi (mavi durum çubuğu göstergesiyle).
+  final LocationSettings settings = switch (defaultTargetPlatform) {
+    TargetPlatform.android => AndroidSettings(
+      accuracy: LocationAccuracy.high,
+      distanceFilter: 25,
+      intervalDuration: const Duration(seconds: 15),
+      foregroundNotificationConfig: const ForegroundNotificationConfig(
+        notificationTitle: 'JetLogi teslimat sürüyor',
+        notificationText: 'Aktif görev boyunca konumunuz paylaşılıyor.',
+        enableWakeLock: true,
+      ),
+    ),
+    TargetPlatform.iOS => AppleSettings(
+      accuracy: LocationAccuracy.high,
+      distanceFilter: 25,
+      activityType: ActivityType.automotiveNavigation,
+      allowBackgroundLocationUpdates: true,
+      showBackgroundLocationIndicator: true,
+      pauseLocationUpdatesAutomatically: false,
+    ),
+    _ => const LocationSettings(
       accuracy: LocationAccuracy.high,
       distanceFilter: 25,
     ),
-  ).map(
+  };
+  yield* Geolocator.getPositionStream(locationSettings: settings).map(
     (p) => LiveFix(
       lat: p.latitude,
       lng: p.longitude,
@@ -69,6 +96,7 @@ Stream<LiveFix> liveFixStream() async* {
       accuracy: p.accuracy,
       heading: p.heading,
       speed: p.speed,
+      mocked: p.isMocked,
     ),
   );
 }

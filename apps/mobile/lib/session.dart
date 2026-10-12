@@ -2076,6 +2076,15 @@ class SessionController extends ChangeNotifier {
     final id = _liveTaskId;
     final client = panel;
     if (id == null || client == null) return;
+    if (fix.mocked) {
+      // Sahte konum uygulaması: kuryenin gerçek yeri değil, gönderilmez.
+      if (!mockLocationDetected) {
+        mockLocationDetected = true;
+        DgLog.w(LogLayer.route, 'mock location ignored');
+        notifyListeners();
+      }
+      return;
+    }
     if (!isFreshLiveFix(fix, DateTime.now())) return;
     if (!shouldSendLiveFix(_lastLiveSent, fix)) return;
     // Yanıt beklenirken gelen ölçümler aynı konumu ikinci kez göndermesin.
@@ -2722,6 +2731,42 @@ class SessionController extends ChangeNotifier {
       ].where((line) => line.isNotEmpty).join('\n'),
     );
   }
+
+  /// Kurye molada mı (backend'e bildirilir; şube vardiya ekranında görür).
+  bool onBreak = false;
+
+  /// Molaya çıkar / moladan döner. Başarıda null, aksi halde neden döner;
+  /// sunucu kabul etmeden durum değişmez.
+  Future<String?> toggleBreak() async {
+    final client = panel;
+    if (!_usesPanelTasks || client == null) {
+      onBreak = !onBreak;
+      notifyListeners();
+      return null;
+    }
+    final start = !onBreak;
+    try {
+      await client.setBreak(start: start, idempotencyKey: Vault.newUuid());
+    } on PanelApiException catch (e) {
+      // Sunucu zaten istenen durumdaysa yerel durumu ona eşitle.
+      final settled = start
+          ? e.code == 'BREAK_ALREADY_OPEN'
+          : e.code == 'NO_OPEN_BREAK';
+      if (!settled) {
+        return e.code == 'NO_OPEN_SHIFT'
+            ? 'Mola için önce vardiyayı başlatın.'
+            : 'Mola kaydedilemedi. Bağlantıyı kontrol edin.';
+      }
+    } catch (_) {
+      return 'Mola kaydedilemedi. Bağlantıyı kontrol edin.';
+    }
+    onBreak = start;
+    notifyListeners();
+    return null;
+  }
+
+  /// Cihaz sahte (mock) konum bildirdi: bu ölçümler panele gönderilmez.
+  bool mockLocationDetected = false;
 
   /// Vardiyayı kapatır. Önce bekleyen kayıtları göndermeyi dener; hâlâ
   /// gönderilemeyen kayıt varsa kapatmaz ve nedenini döner.

@@ -246,4 +246,25 @@ void main() {
       isTrue,
     );
   });
+
+  test('mola backend\'e bildirilir; vardiya yoksa durum değişmez', () async {
+    final t = _server();
+    final s = _session(t.api);
+    expect(await s.toggleBreak(), isNull);
+    expect(s.onBreak, isTrue);
+    final start = t.calls.singleWhere(
+      (c) => c.path == '/courier-shifts/breaks/start',
+    );
+    expect(start.key, isNotNull);
+    expect(await s.toggleBreak(), isNull);
+    expect(s.onBreak, isFalse);
+    expect(
+      t.calls.where((c) => c.path == '/courier-shifts/breaks/end'),
+      hasLength(1),
+    );
+
+    t.state['shiftError'] = 'NO_OPEN_SHIFT';
+    expect(await s.toggleBreak(), contains('vardiyayı başlatın'));
+    expect(s.onBreak, isFalse);
+  });
 }

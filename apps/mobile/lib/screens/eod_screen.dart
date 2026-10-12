@@ -65,6 +65,29 @@ class EodScreen extends ConsumerWidget {
             const SizedBox(height: 12),
           ],
           const SizedBox(height: 12),
+          if (s.mockLocationDetected)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(
+                l.mockLocationWarning,
+                style: Dg.ui(size: 13, color: Dg.hi),
+              ),
+            ),
+          if (s.shiftOpen) ...[
+            DgButton(
+              label: s.onBreak ? l.breakEnd : l.breakStart,
+              icon: s.onBreak ? LucideIcons.play : LucideIcons.coffee,
+              tone: DgButtonTone.secondary,
+              onPressed: () async {
+                final error = await s.toggleBreak();
+                if (error != null && context.mounted) {
+                  ScaffoldMessenger.of(context)
+                      .showSnackBar(SnackBar(content: Text(error)));
+                }
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
           DgButton(
             label: l.eodClose,
             icon: LucideIcons.moon,

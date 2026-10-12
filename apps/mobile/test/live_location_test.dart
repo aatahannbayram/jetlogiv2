@@ -95,6 +95,19 @@ void main() {
     expect(sent.last['latitude'], 38.002);
     expect(s.lastLiveLocationAt, isNotNull);
 
+    // Sahte konum sağlayıcısından gelen ölçüm panele gitmez.
+    fixes.add(
+      LiveFix(
+        lat: 39.5,
+        lng: 29.0,
+        at: now.add(const Duration(seconds: 90)),
+        mocked: true,
+      ),
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    expect(sent, hasLength(2));
+    expect(s.mockLocationDetected, isTrue);
+
     task.status = TaskStatus.delivered;
     s.notifyListeners();
     fixes.add(_fix(38.01, 120, base: now));

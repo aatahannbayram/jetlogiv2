@@ -682,6 +682,12 @@ class L10n {
     '$n mandatory trainings pending. Complete them from Training.',
   );
   String get mandatoryLabel => _t('Zorunlu', 'Mandatory');
+  String get breakStart => _t('Molaya çık', 'Start break');
+  String get breakEnd => _t('Moladan dön', 'End break');
+  String get mockLocationWarning => _t(
+    'Sahte konum uygulaması algılandı; konumunuz paylaşılmıyor.',
+    'Mock location detected; your location is not being shared.',
+  );
   String get syncBranchCount => _t('Sayım okutması', 'Count scan');
   String get syncBranchReturn =>
       _t('Kurye dönüşü okutması', 'Courier return scan');

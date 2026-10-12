@@ -100,7 +100,7 @@
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Adrese varış doğrulaması (geofence) için konum gerekir.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Vardiya boyunca rota kaydı için konum gerekir. v1.1.</string>
+	<string>Aktif teslimat sırasında konumunuz şube ve merkezle paylaşılır.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Teslim kanıtı için fotoğraf gerekir. Galeri varsayılan kapalıdır.</string>
 	<key>LSApplicationQueriesSchemes</key>
@@ -111,6 +111,7 @@
 	</array>
 	<key>UIBackgroundModes</key>
 	<array>
+		<string>location</string>
 		<string>remote-notification</string>
 	</array>
 	<key>UISupportedInterfaceOrientations</key>
