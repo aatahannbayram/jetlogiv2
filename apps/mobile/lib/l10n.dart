@@ -363,11 +363,11 @@ class L10n {
   String get branchCustodyHint => _t('Şubeye teslim ettiğin paketleri okut', 'Scan parcels you are handing to the branch');
   String get courier => _t('Kurye', 'Courier');
   String get branch => _t('Şube', 'Branch');
-  String get bringBarcode => _t('Barkodu çerçeveye getir', 'Bring the barcode into the frame');
+  String get bringBarcode => _t('Barkodu kameraya göster', 'Show the barcode to the camera');
   String get typeCode => _t('Kodu yaz', 'Type the code');
   String get typeCodeSend => _t('Kodu yaz ve gönder', 'Type the code and send');
   String get cameraFailed => _t('Kamera açılamadı. Kodu yazabilirsin.', 'Camera failed. You can type the code.');
-  String get openCameraHint => _t('Kamerayı açıp barkodu çerçeveye getir.', 'Open the camera and bring the barcode into the frame.');
+  String get openCameraHint => _t('Barkodu kameraya göster ya da kodu yaz.', 'Show the barcode to the camera or type the code.');
   String readCount(int n) => _t('$n okundu', '$n read');
   String get beep => _t('Bip', 'Beep');
   String get noScansYet => _t('Henüz taranan gönderi yok', 'No scanned shipments yet');

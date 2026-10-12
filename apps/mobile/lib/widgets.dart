@@ -1289,7 +1289,6 @@ class _ViewfinderState extends State<Viewfinder> {
                       ),
                     ),
                   ),
-                CustomPaint(painter: _CornerBrackets()),
                 if (widget.captured)
                   Center(
                     child: DgIcon(
@@ -1360,31 +1359,6 @@ class _ViewfinderState extends State<Viewfinder> {
       ],
     );
   }
-}
-
-class _CornerBrackets extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = const Color(0xCCFFFFFF)
-      ..strokeWidth = 2
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.square;
-    const l = 28.0;
-    const m = 14.0;
-    void corner(double x, double y, double dx, double dy) {
-      canvas.drawLine(Offset(x, y + dy * l), Offset(x, y), p);
-      canvas.drawLine(Offset(x, y), Offset(x + dx * l, y), p);
-    }
-
-    corner(m, m, 1, 1);
-    corner(size.width - m, m, -1, 1);
-    corner(m, size.height - m, 1, -1);
-    corner(size.width - m, size.height - m, -1, -1);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class OtpPin extends StatelessWidget {

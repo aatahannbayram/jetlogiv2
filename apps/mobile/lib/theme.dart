@@ -454,6 +454,17 @@ class Dg {
           textStyle: ui(size: 15, weight: FontWeight.w600),
         ),
       ),
+      // Süzgeç çipleri çerçevesiz; seçili olan dolgu rengiyle ayrışır.
+      chipTheme: ChipThemeData(
+        side: BorderSide.none,
+        backgroundColor: surface2,
+        selectedColor: warnSoft,
+        showCheckmark: false,
+        labelStyle: ui(size: 14, weight: FontWeight.w600, color: ink),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(radiusPill),
+        ),
+      ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: surface,

@@ -174,20 +174,20 @@ class _BarcodeScanPaneState extends State<BarcodeScanPane> {
                 placeholderBuilder: (_) => const ColoredBox(color: Dg.night),
               ),
             if (showCameraOverlay) ...[
-              IgnorePointer(child: CustomPaint(painter: _ScanFramePainter())),
-              Positioned(
-                left: 14,
-                right: 14,
-                bottom: 12,
-                child: Text(
-                  context.l10n.bringBarcode,
-                  style: Dg.ui(
-                    size: 13,
-                    color: Dg.mutedOnNight,
-                    weight: FontWeight.w600,
+              if (controller != null)
+                Positioned(
+                  left: 14,
+                  right: 14,
+                  bottom: 12,
+                  child: Text(
+                    context.l10n.bringBarcode,
+                    style: Dg.ui(
+                      size: 13,
+                      color: Dg.mutedOnNight,
+                      weight: FontWeight.w600,
+                    ),
                   ),
                 ),
-              ),
               Positioned(
                 top: 10,
                 right: 10,
@@ -268,29 +268,4 @@ class _BarcodeScanPaneState extends State<BarcodeScanPane> {
       ),
     );
   }
-}
-
-class _ScanFramePainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = const Color(0xCCFFFFFF)
-      ..strokeWidth = 2.4
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-    const l = 26.0;
-    const m = 18.0;
-    void corner(double x, double y, double dx, double dy) {
-      canvas.drawLine(Offset(x, y + dy * l), Offset(x, y), p);
-      canvas.drawLine(Offset(x, y), Offset(x + dx * l, y), p);
-    }
-
-    corner(m, m, 1, 1);
-    corner(size.width - m, m, -1, 1);
-    corner(m, size.height - m, 1, -1);
-    corner(size.width - m, size.height - m, -1, -1);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

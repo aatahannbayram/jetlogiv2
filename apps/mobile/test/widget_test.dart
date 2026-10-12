@@ -232,7 +232,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Kurye Zimmet'));
     await tester.pumpAndSettle();
-    expect(find.text('Barkodu çerçeveye getir'), findsOneWidget);
+    expect(find.text('Barkodu kameraya göster ya da kodu yaz.'), findsOneWidget);
     expect(find.text('Henüz taranan gönderi yok'), findsOneWidget);
     await tester.enterText(find.byType(TextField), 'DGO-9107');
     await tester.testTextInput.receiveAction(TextInputAction.done);
