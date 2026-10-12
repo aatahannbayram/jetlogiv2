@@ -71,6 +71,9 @@ class BranchWorkspace {
   BranchShiftDay? shiftDay;
   List<LeaveRequest>? leaves;
   List<SmsTemplate>? smsTemplates;
+  List<SmsBatch>? smsHistory;
+  List<ManagedTraining>? trainings;
+  List<CourierCompliance>? compliance;
 
   /// Bu oturumda üretilen, henüz basılmamış olabilecek etiketler.
   List<PrintableLabel> freshLabels = const [];
@@ -129,6 +132,9 @@ class BranchWorkspace {
     shiftDay = null;
     leaves = null;
     smsTemplates = null;
+    smsHistory = null;
+    trainings = null;
+    compliance = null;
     freshLabels = const [];
     _restored = false;
     error = null;
@@ -405,10 +411,135 @@ class BranchWorkspace {
   Future<void> loadSmsTemplates() async {
     if (demo) {
       smsTemplates ??= kSubeDemoSmsTemplates;
+      smsHistory ??= const [];
       onChanged();
       return;
     }
-    await _run(() async => smsTemplates = await api!.fetchSmsTemplates());
+    await _run(() async {
+      smsTemplates = await api!.fetchSmsTemplates();
+      smsHistory = await api!.fetchSmsHistory();
+    });
+  }
+
+  /// Duyuruyu yayımlar; alıcıların kutusuna bildirim düşer (yetki: `manage`).
+  Future<String?> publishAnnouncement({
+    required String title,
+    required String body,
+    String severity = 'INFO',
+    String audience = 'COURIER',
+    bool requiresAck = false,
+  }) {
+    if (title.trim().isEmpty || body.trim().isEmpty) {
+      return Future.value('Başlık ve metin yazın.');
+    }
+    return _action('announce|$title|$body|$severity|$audience|$requiresAck', (
+      key,
+    ) async {
+      if (demo) return;
+      await api!.publishAnnouncement(
+        title: title.trim(),
+        body: body.trim(),
+        severity: severity,
+        audience: audience,
+        requiresAck: requiresAck,
+        idempotencyKey: key,
+      );
+      announcements = await api!.fetchAnnouncements();
+    }, refreshAfter: false);
+  }
+
+  Future<void> loadTrainings() async {
+    if (demo) {
+      trainings ??= kSubeDemoTrainings;
+      onChanged();
+      return;
+    }
+    await _run(() async => trainings = await api!.fetchManagedTrainings());
+  }
+
+  Future<String?> createTraining({
+    required String title,
+    required String body,
+    bool mandatory = false,
+  }) {
+    if (title.trim().isEmpty || body.trim().isEmpty) {
+      return Future.value('Başlık ve içerik yazın.');
+    }
+    return _action('training|$title|$body|$mandatory', (key) async {
+      if (demo) {
+        trainings = [
+          ManagedTraining(
+            id: _newId(),
+            title: title.trim(),
+            mandatory: mandatory,
+            editable: true,
+          ),
+          ...?trainings,
+        ];
+        return;
+      }
+      await api!.createTraining(
+        title: title.trim(),
+        body: body.trim(),
+        mandatory: mandatory,
+        idempotencyKey: key,
+      );
+      trainings = await api!.fetchManagedTrainings();
+    }, refreshAfter: false);
+  }
+
+  Future<void> loadCompliance() async {
+    if (demo) {
+      compliance ??= kSubeDemoCompliance;
+      onChanged();
+      return;
+    }
+    await _run(() async => compliance = await api!.fetchCompliance());
+  }
+
+  /// Sayım yönetici işlemi (yetki: `manage`): barkod için elle adet girer.
+  Future<String?> countManual({
+    required String barcode,
+    required num quantity,
+    required String reasonNote,
+  }) {
+    if (reasonNote.trim().length < 3) {
+      return Future.value('Elle giriş için neden yazın.');
+    }
+    return _countManage('manual|$barcode|$quantity', {
+      'action': 'manual',
+      'clientScanId': _newId(),
+      'barcode': barcode.trim(),
+      'quantity': quantity,
+      'reasonNote': reasonNote.trim(),
+    });
+  }
+
+  /// Sayımı onaylar; stok hareketleri oluşur ve sayım kapanır.
+  Future<String?> postCount() => _countManage('post', {'action': 'post'});
+
+  Future<String?> cancelCount(String reason) {
+    if (reason.trim().isEmpty) return Future.value('İptal nedeni yazın.');
+    return _countManage('cancel|$reason', {
+      'action': 'cancel',
+      'reason': reason.trim(),
+    });
+  }
+
+  Future<String?> _countManage(String signature, Map<String, Object?> action) {
+    final id = count?.count.id;
+    if (id == null) return Future.value('Açık sayım yok');
+    return _action('count-manage|$id|$signature', (key) async {
+      if (demo) {
+        if (action['action'] != 'manual') count = null;
+        return;
+      }
+      await api!.countManage(countId: id, action: action, idempotencyKey: key);
+      final next = await api!.fetchCounts();
+      counts = next;
+      final open = next.openCount;
+      count = open == null ? null : await api!.fetchCount(open.id);
+    }, refreshAfter: false);
   }
 
   Future<List<SmsTarget>> smsTargets(String type, {String? query}) async {

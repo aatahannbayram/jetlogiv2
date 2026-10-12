@@ -607,6 +607,86 @@ class AgencyPortalApi {
     return (data['recipientCount'] as num?)?.toInt() ?? targetIds.length;
   }
 
+  /// Yetki: `manage`. Hedef her zaman kendi acentesidir; [audience]
+  /// COURIER | BRANCH_USER | ALL.
+  Future<void> publishAnnouncement({
+    required String title,
+    required String body,
+    required String severity,
+    required String audience,
+    required bool requiresAck,
+    required String idempotencyKey,
+  }) async {
+    await _post('/branch/announcements', {
+      'title': title,
+      'body': body,
+      'severity': severity,
+      'audience': audience,
+      'requiresAck': requiresAck,
+      'publish': true,
+    }, idempotencyKey: idempotencyKey);
+  }
+
+  Future<List<SmsBatch>> fetchSmsHistory() async {
+    final data = await _data(_get('/branch/sms/history'));
+    return [
+      for (final row in data['batches'] as List? ?? const [])
+        if (row is Map) SmsBatch.fromJson(Map<String, dynamic>.from(row)),
+    ];
+  }
+
+  /// Şubenin yönettiği kurye eğitimleri.
+  Future<List<ManagedTraining>> fetchManagedTrainings() async {
+    final data = await _data(_get('/branch/training'));
+    final rows = data['managed'] ?? data['items'] ?? data['trainings'];
+    return [
+      for (final row in rows is List ? rows : const [])
+        if (row is Map)
+          ManagedTraining.fromJson(Map<String, dynamic>.from(row)),
+    ];
+  }
+
+  /// Metin içerikli kurye eğitimi oluşturur ve yayımlar (yetki: `manage`).
+  Future<void> createTraining({
+    required String title,
+    required String body,
+    required bool mandatory,
+    required String idempotencyKey,
+  }) async {
+    await _post('/branch/training', {
+      'title': title,
+      'contentType': 'TEXT',
+      'contentBody': body,
+      'category': 'OPERATION',
+      'isMandatory': mandatory,
+      'publish': true,
+    }, idempotencyKey: idempotencyKey);
+  }
+
+  /// Kuryelerin evrak / onay durumu.
+  Future<List<CourierCompliance>> fetchCompliance() async {
+    final data = await _data(_get('/branch/compliance'));
+    return [
+      for (final row in data['couriers'] as List? ?? const [])
+        if (row is Map)
+          CourierCompliance.fromJson(Map<String, dynamic>.from(row)),
+    ];
+  }
+
+  /// Sayım yönetici işlemleri (yetki: `manage`): `manual` (adet + neden),
+  /// `post` (onay; stok hareketleri oluşur), `cancel` (neden zorunlu).
+  Future<void> countManage({
+    required String countId,
+    required Map<String, Object?> action,
+    required String idempotencyKey,
+  }) async {
+    await _post(
+      '/branch/counts/$countId',
+      action,
+      idempotencyKey: idempotencyKey,
+    );
+  }
+
   Future<Map<String, dynamic>> _data(
     Future<Response<Map<String, dynamic>>> call,
   ) async {

@@ -256,6 +256,33 @@ class _SubeSmsScreenState extends ConsumerState<SubeSmsScreen> {
                   ? null
                   : () => _send(branch, template),
             ),
+            if (branch.smsHistory?.isNotEmpty ?? false) ...[
+              const SizedBox(height: 16),
+              SubeSection(l.smsHistoryTitle),
+              for (final b in branch.smsHistory!.take(10))
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: DgCard(
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            b.templateName,
+                            style: Dg.ui(size: 14, weight: FontWeight.w600),
+                          ),
+                        ),
+                        Text(
+                          [
+                            for (final e in b.statusCounts.entries)
+                              '${e.key} ${e.value}',
+                          ].join(' · '),
+                          style: Dg.ui(size: 12, color: Dg.ink3),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
           ],
         ],
       ),

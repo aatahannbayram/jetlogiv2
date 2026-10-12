@@ -1316,3 +1316,99 @@ class SmsPreview {
     reachableCount: _int(j, 'reachableCount'),
   );
 }
+
+/// Şubenin yayımladığı ya da merkezin atadığı eğitim (yönetim görünümü).
+class ManagedTraining {
+  const ManagedTraining({
+    required this.id,
+    this.title = '',
+    this.mandatory = false,
+    this.status = 'PUBLISHED',
+    this.editable = false,
+    this.learners = 0,
+    this.completed = 0,
+  });
+
+  final String id;
+  final String title;
+  final bool mandatory;
+
+  /// DRAFT | PUBLISHED.
+  final String status;
+
+  /// Yalnız şubenin kendi eğitimi düzenlenebilir.
+  final bool editable;
+  final int learners;
+  final int completed;
+
+  factory ManagedTraining.fromJson(Map<String, dynamic> j) {
+    final stats = _map(j['stats']);
+    return ManagedTraining(
+      id: _str(j, 'id'),
+      title: _strOrNull(j, 'title') ?? _str(j, 'summary'),
+      mandatory: _bool(j, 'isMandatory'),
+      status: _strOrNull(j, 'status') ?? 'PUBLISHED',
+      editable: _bool(j, 'editable'),
+      learners: _int(stats, 'learners'),
+      completed: _int(stats, 'completed'),
+    );
+  }
+}
+
+/// Kuryenin evrak ve onay durumu. `documentStatus`: COMPLETE | IN_REVIEW |
+/// MISSING | NO_PACKAGE.
+class CourierCompliance {
+  const CourierCompliance({
+    required this.id,
+    this.name = '',
+    this.documentStatus = 'NO_PACKAGE',
+    this.missing = 0,
+    this.inReview = 0,
+    this.operationReady = false,
+  });
+
+  final String id;
+  final String name;
+  final String documentStatus;
+  final int missing;
+  final int inReview;
+  final bool operationReady;
+
+  factory CourierCompliance.fromJson(Map<String, dynamic> j) {
+    final docs = _map(j['documents']);
+    return CourierCompliance(
+      id: _str(j, 'id'),
+      name: _strOrNull(j, 'fullName') ?? _str(j, 'courierCode'),
+      documentStatus: _strOrNull(docs, 'status') ?? 'NO_PACKAGE',
+      missing: _int(docs, 'missing'),
+      inReview: _int(docs, 'inReview'),
+      operationReady: _bool(j, 'operationReady'),
+    );
+  }
+}
+
+class SmsBatch {
+  const SmsBatch({
+    required this.id,
+    this.templateName = '',
+    this.createdAt,
+    this.statusCounts = const {},
+  });
+
+  final String id;
+  final String templateName;
+  final DateTime? createdAt;
+
+  /// Durum → alıcı sayısı (ör. SENT, SKIPPED, FAILED).
+  final Map<String, int> statusCounts;
+
+  factory SmsBatch.fromJson(Map<String, dynamic> j) => SmsBatch(
+    id: _str(j, 'batchId'),
+    templateName: _strOrNull(j, 'templateName') ?? _str(j, 'templateKey'),
+    createdAt: _date(j, 'createdAt'),
+    statusCounts: {
+      for (final e in _map(j['statusCounts']).entries)
+        if (e.value is num) e.key: (e.value as num).toInt(),
+    },
+  );
+}

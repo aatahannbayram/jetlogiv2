@@ -599,6 +599,38 @@ class L10n {
       _t('Bu modül yakında bağlanacak', 'This module is coming soon');
   String get subeHome => _t('Ana Sayfa', 'Home');
   String get subeOpsTitle => _t('İşlemler', 'Operations');
+  String get newAnnouncement => _t('Yeni duyuru', 'New announcement');
+  String get announceTitle => _t('Başlık', 'Title');
+  String get announceBody => _t('Duyuru metni', 'Announcement text');
+  String get announceToCouriers => _t('Kuryelere', 'To couriers');
+  String get announceToAll => _t('Herkese', 'To everyone');
+  String get announceRequiresAck =>
+      _t('"Okudum, anladım" onayı iste', 'Require acknowledgement');
+  String get announceImportant => _t('Önemli', 'Important');
+  String get publish => _t('Yayımla', 'Publish');
+  String get announcePublished => _t('Duyuru yayımlandı', 'Announcement published');
+  String get smsHistoryTitle => _t('Gönderim geçmişi', 'Send history');
+  String get subeTrainingTitle => _t('Kurye eğitimleri', 'Courier trainings');
+  String get newTraining => _t('Yeni eğitim', 'New training');
+  String get trainingContent => _t('Eğitim içeriği', 'Training content');
+  String get trainingMandatory => _t('Zorunlu eğitim', 'Mandatory training');
+  String get trainingCreated => _t('Eğitim yayımlandı', 'Training published');
+  String trainingProgress(int done, int all) =>
+      _t('$all kuryeden $done tamamladı', '$done of $all completed');
+  String get subeComplianceTitle => _t('Kurye evrakları', 'Courier documents');
+  String get docsComplete => _t('Tamam', 'Complete');
+  String get docsInReview => _t('İncelemede', 'In review');
+  String docsMissing(int n) => _t('$n evrak eksik', '$n documents missing');
+  String get docsNoPackage => _t('Evrak paketi yok', 'No document package');
+  String get operationReady => _t('Sahaya hazır', 'Ready for field');
+  String get countManual => _t('Elle adet gir', 'Enter quantity');
+  String get countApprove => _t('Sayımı onayla', 'Approve count');
+  String get countCancel => _t('Sayımı iptal et', 'Cancel count');
+  String get countApproveHint => _t(
+    'Onayla stok hareketleri oluşur; geri alınamaz.',
+    'Approval posts stock movements and cannot be undone.',
+  );
+  String get barcodeLabel => _t('Barkod', 'Barcode');
   // Alt menü etiketleri kısa tutulur: beş sekme 390 pt genişlikte tek
   // satıra sığmalı.
   String get subeTabHome => _t('Ana', 'Home');

@@ -9,6 +9,7 @@ import '../widgets.dart';
 import 'sube_count_screen.dart';
 import 'sube_dispatch_screen.dart';
 import 'sube_eod_screen.dart';
+import 'sube_manage_screens.dart';
 import 'sube_inbox_screen.dart';
 import 'sube_shifts_screen.dart';
 import 'sube_sms_screen.dart';
@@ -67,6 +68,16 @@ class SubeOpsScreen extends ConsumerWidget {
             icon: LucideIcons.messageSquare,
             label: l.subeSmsTitle,
             onTap: () => open(const SubeSmsScreen()),
+          ),
+          _OpTile(
+            icon: LucideIcons.graduationCap,
+            label: l.subeTrainingTitle,
+            onTap: () => open(const SubeTrainingScreen()),
+          ),
+          _OpTile(
+            icon: LucideIcons.fileCheck,
+            label: l.subeComplianceTitle,
+            onTap: () => open(const SubeComplianceScreen()),
           ),
           _OpTile(
             icon: LucideIcons.sunset,

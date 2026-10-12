@@ -7,6 +7,7 @@ import '../l10n.dart';
 import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import 'sube_manage_screens.dart';
 import 'sube_widgets.dart';
 
 /// Şube kullanıcısının bildirim kutusu, duyurular ve operasyon uyarıları.
@@ -26,6 +27,28 @@ class _SubeInboxScreenState extends ConsumerState<SubeInboxScreen> {
     });
   }
 
+  Future<void> _announce() async {
+    final l = context.l10n;
+    final input = await showSubeComposeSheet(
+      context,
+      heading: l.newAnnouncement,
+      titleHint: l.announceTitle,
+      bodyHint: l.announceBody,
+      flagLabel: l.announceRequiresAck,
+      submitLabel: l.publish,
+    );
+    if (input == null || !mounted) return;
+    final error = await ref
+        .read(sessionProvider)
+        .branch
+        .publishAnnouncement(
+          title: input.title,
+          body: input.body,
+          requiresAck: input.flag,
+        );
+    if (mounted) subeSnack(context, error ?? l.announcePublished);
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
@@ -40,6 +63,15 @@ class _SubeInboxScreenState extends ConsumerState<SubeInboxScreen> {
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
           children: [
             SubeStatusBanner(branch: branch, onRetry: branch.loadInbox),
+            if (branch.capabilities.manage) ...[
+              DgButton(
+                label: l.newAnnouncement,
+                icon: LucideIcons.megaphone,
+                tone: DgButtonTone.secondary,
+                onPressed: _announce,
+              ),
+              const SizedBox(height: 12),
+            ],
             if (inbox == null && branch.loading)
               const Padding(
                 padding: EdgeInsets.only(top: 48),

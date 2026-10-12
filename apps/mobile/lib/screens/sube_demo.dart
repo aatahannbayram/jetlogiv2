@@ -310,3 +310,28 @@ const kSubeDemoSmsTemplates = [
     body: 'Gönderiniz bugün dağıtımda. JetLogi',
   ),
 ];
+
+const kSubeDemoTrainings = [
+  ManagedTraining(
+    id: 'demo-tr1',
+    title: 'Teslimatta kimlik kontrolü',
+    mandatory: true,
+    learners: 4,
+    completed: 3,
+  ),
+];
+
+const kSubeDemoCompliance = [
+  CourierCompliance(
+    id: 'demo-c1',
+    name: 'Ali Can',
+    documentStatus: 'COMPLETE',
+    operationReady: true,
+  ),
+  CourierCompliance(
+    id: 'demo-c2',
+    name: 'Mert Demir',
+    documentStatus: 'MISSING',
+    missing: 2,
+  ),
+];

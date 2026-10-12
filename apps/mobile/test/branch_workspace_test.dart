@@ -701,6 +701,68 @@ void main() {
     expect(sent.key, isNotNull);
   });
 
+  test('duyuru başlık ve metinle yayımlanır', () async {
+    final t = _setup();
+    expect(
+      await t.branch.publishAnnouncement(title: ' ', body: 'x'),
+      isNotNull,
+    );
+    expect(t.server.calls, isEmpty);
+    expect(
+      await t.branch.publishAnnouncement(
+        title: 'Depo',
+        body: 'Yarın 08:00',
+        requiresAck: true,
+      ),
+      isNull,
+    );
+    final sent = t.server.calls.firstWhere((c) => c.method == 'POST');
+    expect(sent.path, endsWith('/branch/announcements'));
+    expect(sent.body['title'], 'Depo');
+    expect(sent.body['requiresAck'], isTrue);
+    expect(sent.body['publish'], isTrue);
+    expect(sent.key, isNotNull);
+  });
+
+  test(
+    'sayım yönetici işlemleri: elle giriş neden ister, onay sayımı kapatır',
+    () async {
+      var posted = false;
+      final t = _setup((c) {
+        if (c.method == 'POST' && c.path.endsWith('/counts/count-1')) {
+          if (c.body['action'] == 'post') posted = true;
+          return {'result': null};
+        }
+        if (c.path.endsWith('/branch/counts') && posted) {
+          return {'openCount': null, 'warehouses': <Object>[]};
+        }
+        return _defaults(c);
+      });
+      await t.branch.loadCounts();
+      expect(
+        await t.branch.countManual(barcode: 'B1', quantity: 5, reasonNote: 'x'),
+        isNotNull,
+      );
+      expect(
+        await t.branch.countManual(
+          barcode: 'B1',
+          quantity: 5,
+          reasonNote: 'Etiket okunmuyor',
+        ),
+        isNull,
+      );
+      final manual = t.server.calls.firstWhere(
+        (c) => c.body['action'] == 'manual',
+      );
+      expect(manual.body['quantity'], 5);
+      expect(manual.body['reasonNote'], 'Etiket okunmuyor');
+      expect(manual.body['clientScanId'], isNotNull);
+
+      expect(await t.branch.postCount(), isNull);
+      expect(t.branch.count, isNull);
+    },
+  );
+
   test('401 oturumu kapatır', () async {
     var expired = 0;
     final server = _Server((c) {

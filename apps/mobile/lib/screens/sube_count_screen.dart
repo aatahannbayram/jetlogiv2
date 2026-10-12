@@ -150,6 +150,15 @@ class _SubeCountScreenState extends ConsumerState<SubeCountScreen> {
           ScanOutcomeTile(code: s.code, outcome: s.outcome),
       ],
       ..._lines(l, branch, detail, editable: false),
+      if (branch.capabilities.manage || detail.capabilities.manage) ...[
+        const SizedBox(height: 8),
+        DgButton(
+          label: l.countManual,
+          icon: LucideIcons.keyboard,
+          tone: DgButtonTone.secondary,
+          onPressed: () => _manual(branch),
+        ),
+      ],
       const SizedBox(height: 16),
       CheckboxListTile(
         contentPadding: EdgeInsets.zero,
@@ -172,7 +181,84 @@ class _SubeCountScreenState extends ConsumerState<SubeCountScreen> {
     const SizedBox(height: 8),
     Text(l.countInReviewHint, style: Dg.ui(size: 13, color: Dg.ink2)),
     ..._lines(l, branch, detail, editable: true),
+    // Onay ve iptal yönetici yetkisi ister; yetkisi olmayan için merkezde.
+    if (branch.capabilities.manage || detail.capabilities.manage) ...[
+      const SizedBox(height: 16),
+      Text(l.countApproveHint, style: Dg.ui(size: 12, color: Dg.ink3)),
+      const SizedBox(height: 8),
+      DgButton(
+        label: l.countApprove,
+        icon: LucideIcons.clipboardCheck,
+        busy: _busy,
+        onPressed: () => _guard(branch.postCount),
+      ),
+      const SizedBox(height: 8),
+      DgButton(
+        label: l.countCancel,
+        tone: DgButtonTone.secondary,
+        busy: _busy,
+        onPressed: () => _cancel(branch),
+      ),
+    ],
   ];
+
+  Future<void> _cancel(BranchWorkspace branch) async {
+    final reason = await _ask(context.l10n.countCancel, context.l10n.reason);
+    if (reason == null || !mounted) return;
+    await _guard(() => branch.cancelCount(reason));
+  }
+
+  Future<void> _manual(BranchWorkspace branch) async {
+    final l = context.l10n;
+    final barcode = await _ask(l.countManual, l.barcodeLabel);
+    if (barcode == null || barcode.isEmpty || !mounted) return;
+    final qty = await _ask(l.countManual, l.labelQuantity, number: true);
+    final quantity = num.tryParse(qty ?? '');
+    if (quantity == null || quantity <= 0 || !mounted) return;
+    final note = await _ask(l.countManual, l.reason);
+    if (note == null || !mounted) return;
+    await _guard(
+      () => branch.countManual(
+        barcode: barcode,
+        quantity: quantity,
+        reasonNote: note,
+      ),
+    );
+  }
+
+  Future<String?> _ask(String heading, String hint, {bool number = false}) {
+    final controller = TextEditingController();
+    return showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Dg.surface,
+      isScrollControlled: true,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.fromLTRB(
+          20,
+          16,
+          20,
+          16 + MediaQuery.viewInsetsOf(ctx).bottom,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(heading, style: Dg.ui(size: 17, weight: FontWeight.w700)),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              keyboardType: number ? TextInputType.number : null,
+              decoration: InputDecoration(hintText: hint),
+            ),
+            const SizedBox(height: 12),
+            DgButton(
+              label: context.l10n.continueLabel,
+              onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   /// Yalnız farklı satırlar: eksik / fazla otomatik listelenir.
   List<Widget> _lines(
