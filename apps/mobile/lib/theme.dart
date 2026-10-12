@@ -440,7 +440,7 @@ class Dg {
           backgroundColor: surface,
           minimumSize: const Size.fromHeight(buttonMin),
           padding: const EdgeInsets.symmetric(horizontal: 18),
-          side: BorderSide(color: rule),
+          side: BorderSide.none,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(radiusPill),
           ),
@@ -464,13 +464,14 @@ class Dg {
           horizontal: 16,
           vertical: 18,
         ),
+        // Çerçevesiz, dolgulu alan; yalnız odaktayken ince vurgu çizgisi.
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radiusHero),
-          borderSide: BorderSide(color: rule),
+          borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radiusHero),
-          borderSide: BorderSide(color: rule),
+          borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radiusHero),

@@ -83,7 +83,7 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide(color: Dg.rule),
+        borderSide: BorderSide.none,
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
@@ -588,10 +588,6 @@ class _MethodTile extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected ? Dg.warnSoft : Dg.heroGlass,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: selected ? Dg.warn : Dg.rule,
-            width: selected ? 1.6 : 1,
-          ),
           boxShadow: selected
               ? [
                   BoxShadow(

@@ -515,9 +515,6 @@ class _FleetToggle extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: on ? Dg.sage.withValues(alpha: 0.7) : Dg.rule,
-            ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,

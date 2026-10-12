@@ -65,7 +65,7 @@ class _SubeLoginScreenState extends ConsumerState<SubeLoginScreen> {
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide(color: Dg.rule),
+        borderSide: BorderSide.none,
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),

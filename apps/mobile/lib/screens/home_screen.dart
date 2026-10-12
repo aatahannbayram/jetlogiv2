@@ -201,43 +201,46 @@ class HomeScreen extends ConsumerWidget {
                       : _ShiftOpenCard(session: s),
                 ),
               ),
-              const SizedBox(height: 16),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: Dg.pagePad),
-                child: Pressable(
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(builder: (_) => const SyncScreen()),
-                  ),
-                  child: DgCard(
-                    padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-                    child: Row(
-                      children: [
-                        DgIcon(
-                          LucideIcons.refreshCw,
-                          size: 18,
-                          color: Dg.text2,
-                          weight: 500,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            l.syncTitle,
-                            style: Dg.ui(size: 15, weight: FontWeight.w600),
+              // Her şey gönderildiyse satır hiç görünmez; yalnız kuryenin
+              // bilmesi gereken bir şey varken çıkar.
+              if (!syncDone) ...[
+                const SizedBox(height: 16),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: Dg.pagePad),
+                  child: Pressable(
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const SyncScreen(),
+                      ),
+                    ),
+                    child: DgCard(
+                      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                      child: Row(
+                        children: [
+                          DgIcon(
+                            LucideIcons.clock,
+                            size: 18,
+                            color: Dg.mid,
+                            weight: 500,
                           ),
-                        ),
-                        Text(
-                          syncDone ? l.clean : l.pendingChip(syncTotal),
-                          style: Dg.ui(
-                            size: 13,
-                            weight: FontWeight.w600,
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              l.waitingToSend(syncTotal),
+                              style: Dg.ui(size: 15, weight: FontWeight.w600),
+                            ),
+                          ),
+                          DgIcon(
+                            LucideIcons.chevronRight,
+                            size: 18,
                             color: Dg.ink3,
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
+              ],
               if (s.visibleNotifications.isNotEmpty) ...[
                 const SizedBox(height: 18),
                 Padding(
@@ -446,106 +449,45 @@ class _ShiftOpenCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    CountUp(
-                      session.remainingCount,
-                      style: Dg.stat(size: 40, color: Dg.ink),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(l.kpiLeftHint, style: Dg.ui(size: 14, color: Dg.ink2)),
-                  ],
-                ),
-              ),
-              DgProgressRing(
-                size: 64,
-                progress: session.deliveredCount + session.remainingCount == 0
-                    ? 1
-                    : session.deliveredCount /
-                          (session.deliveredCount + session.remainingCount),
-                child: Text(
-                  session.deliveredCount + session.remainingCount == 0
-                      ? '—'
-                      : '${((session.deliveredCount / (session.deliveredCount + session.remainingCount)) * 100).round()}%',
-                  style: Dg.typeNum(size: 12, weight: FontWeight.w700),
-                ),
-              ),
-            ],
+          // Tek büyük sayı: bugün kaç durak kaldı. Altında bir satır özet;
+          // dikkat isteyen durumlar yalnız varsa görünür.
+          CountUp(
+            session.remainingCount,
+            style: Dg.stat(size: 44, color: Dg.ink),
           ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              _cell(session.openCount, l.kpiOnMe),
-              _cell(session.deliveredCount, l.delivered),
-              _cell(session.returnCount, l.kpiFailed),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _flag(
-                l.kpiAppt,
-                session.appointmentCount,
-                hot: session.appointmentCount > 0,
-                hotColor: Dg.text2,
-              ),
-              _flag(
-                l.kpiSla,
-                session.slaRiskCount,
-                hot: session.slaRiskCount > 0,
-                hotColor: Dg.text2,
-              ),
-              _flag(
-                l.kpiReturn,
-                session.returnCount,
-                hot: session.returnCount > 0,
-                hotColor: Dg.text2,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _cell(int value, String label) {
-    return Expanded(
-      child: Column(
-        children: [
-          CountUp(value, style: Dg.stat(size: 22)),
           const SizedBox(height: 2),
+          Text(l.kpiLeftHint, style: Dg.ui(size: 15, color: Dg.ink2)),
+          const SizedBox(height: 12),
           Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Dg.ui(size: 12, color: Dg.ink3),
+            l.doneLine(session.deliveredCount, session.returnCount),
+            style: Dg.ui(size: 14, color: Dg.ink3),
           ),
+          if (session.appointmentCount > 0 ||
+              session.slaRiskCount > 0 ||
+              session.returnCount > 0) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 14,
+              runSpacing: 6,
+              children: [
+                if (session.slaRiskCount > 0)
+                  _flag(l.lateCount(session.slaRiskCount), Dg.hi),
+                if (session.appointmentCount > 0)
+                  _flag(l.apptCount(session.appointmentCount), Dg.text2),
+                if (session.returnCount > 0)
+                  _flag(l.toBranchCount(session.returnCount), Dg.text2),
+              ],
+            ),
+          ],
         ],
       ),
     );
   }
 
-  Widget _flag(
-    String label,
-    int n, {
-    required bool hot,
-    required Color hotColor,
-  }) {
-    return Text(
-      '$n  $label',
-      style: Dg.ui(
-        size: 13,
-        weight: FontWeight.w600,
-        color: hot ? hotColor : Dg.ink3,
-      ),
-    );
-  }
+  Widget _flag(String text, Color color) => Text(
+    text,
+    style: Dg.ui(size: 13, weight: FontWeight.w600, color: color),
+  );
 }
 
 class _NoStopCard extends StatelessWidget {

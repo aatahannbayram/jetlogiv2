@@ -150,9 +150,6 @@ class _NotifScreenState extends ConsumerState<NotifScreen> {
                           decoration: BoxDecoration(
                             color: Dg.brandSoft,
                             borderRadius: BorderRadius.circular(999),
-                            border: Border.all(
-                              color: Dg.brand.withValues(alpha: 0.28),
-                            ),
                           ),
                           child: Text(
                             l.markAllRead,

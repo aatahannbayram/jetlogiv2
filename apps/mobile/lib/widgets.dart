@@ -484,11 +484,6 @@ class _DgButtonState extends State<DgButton> {
             gradient: action && enabled ? Dg.emberGradient : null,
             color: action && enabled ? null : fill,
             borderRadius: BorderRadius.circular(Dg.radiusPill),
-            border: action
-                ? (Dg.dark ? null : Border.all(color: Dg.onAction))
-                : danger || success
-                ? null
-                : Border.all(color: Dg.rule),
           ),
           child: ConstrainedBox(
             constraints: BoxConstraints(
@@ -1502,7 +1497,6 @@ class DemoPill extends StatelessWidget {
         decoration: BoxDecoration(
           color: Dg.ink.withValues(alpha: 0.06),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Dg.ink.withValues(alpha: 0.12)),
         ),
         child: Text(
           'DEMO',
@@ -1735,7 +1729,14 @@ class DgPillNav extends StatelessWidget {
                         weight: index == i ? FontWeight.w700 : FontWeight.w500,
                         color: index == i ? Dg.warn : Dg.text2,
                       ),
-                      child: Text(items[i].$3, textAlign: TextAlign.center),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          items[i].$3,
+                          maxLines: 1,
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -1774,7 +1775,11 @@ class DgPillNav extends StatelessWidget {
               1,
               items.length,
             );
-            if (columns == items.length) {
+            // Normal yazı boyutunda sekmeler hep tek satırdadır; sığmayan
+            // etiket küçülür. İkinci satıra yalnız büyük yazı ayarında
+            // (erişilebilirlik) geçilir.
+            final largeText = MediaQuery.textScalerOf(context).scale(14) > 20;
+            if (columns == items.length || !largeText) {
               return IntrinsicHeight(
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -485,7 +485,7 @@ void main() {
     expect(session.isNotifRead('demo-stop'), isTrue);
   });
 
-  testWidgets('senkron kuyruğu kurye adını ve hattı gösterir', (tester) async {
+  testWidgets('gönderilecekler ekranı kurye adını ve yalın durumu gösterir', (tester) async {
     await bindPhone(tester);
     final session = SessionController();
     session.skipToDemo();
@@ -505,7 +505,11 @@ void main() {
     expect(find.textContaining('DGO-8844'), findsOneWidget);
     expect(find.text('TASK_TRANSITION'), findsNothing);
     expect(find.text('t4'), findsNothing);
-    expect(find.text('Merkez hattı'), findsOneWidget);
+    // Yalın dil: teknik terim yok, kuryenin ne yapacağı yazıyor.
+    expect(find.text('1 kayıt gönderilmeyi bekliyor'), findsOneWidget);
+    expect(find.text('Şimdi gönder'), findsOneWidget);
+    expect(find.text('Merkez hattı'), findsNothing);
+    expect(find.text('Kuyruk'), findsNothing);
   });
 
   testWidgets('İngilizce ve açık tema ana ekranda açılır', (tester) async {

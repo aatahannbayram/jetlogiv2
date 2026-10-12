@@ -351,9 +351,6 @@ class _PhotoSlot extends StatelessWidget {
       decoration: BoxDecoration(
         color: taken ? Dg.greenBg : Dg.surface,
         borderRadius: BorderRadius.circular(Dg.radiusHero),
-        border: Border.all(
-          color: taken ? Dg.green.withValues(alpha: 0.35) : Dg.rule,
-        ),
       ),
       clipBehavior: Clip.antiAlias,
       child: Stack(

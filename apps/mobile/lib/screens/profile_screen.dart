@@ -536,7 +536,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 decoration: BoxDecoration(
                   color: Dg.surface,
                   borderRadius: BorderRadius.circular(22),
-                  border: Border.all(color: Dg.hi),
                 ),
                 child: Text(
                   'Çıkış yap',

@@ -84,7 +84,7 @@ class L10n {
   String get eodTitle => _t('Gün sonu', 'End of day');
   String get eodOpen => _t('Açık görev', 'Open tasks');
   String get eodReturn => _t('Geri teslim', 'Return to branch');
-  String get eodSync => _t('Bekleyen senkron', 'Pending sync');
+  String get eodSync => _t('Gönderilmeyi bekleyen', 'Waiting to send');
   String get eodClose => _t('Vardiyayı bitir', 'Finish shift');
   String get acceptCustody => _t('Zimmeti kabul et', 'Accept custody');
   String get discrepancy => _t('Uyuşmazlık', 'Discrepancy');
@@ -264,12 +264,12 @@ class L10n {
   String get next => _t('Sonraki', 'Next');
   String get none => _t('Yok', 'None');
   String get sync => _t('Senkron', 'Sync');
-  String get clean => _t('Temiz', 'Clean');
+  String get clean => _t('Hepsi gönderildi', 'All sent');
   String pendingRecords(int n) => _t('$n kayıt bekliyor', '$n records waiting');
   String get shipmentAndQueue => _t('Gönderi ve kuyruk', 'Shipment and queue');
   String get fieldOn => _t('Müsait', 'Available');
   String get onBreak => _t('Mola', 'Break');
-  String get syncTitle => _t('Senkronizasyon', 'Sync');
+  String get syncTitle => _t('Gönderilecekler', 'To send');
   String get syncCleanBody => _t('Tüm kayıtlar merkeze iletildi.', 'All records were sent to the hub.');
   String syncPendingBody(int n) => _t(
     '$n kayıt çevrimdışı kuyrukta, çevrimiçi olunca gönderilir.',
@@ -410,7 +410,7 @@ class L10n {
   String get waiting => _t('Bekliyor', 'Waiting');
   String get sending => _t('Gönderiliyor…', 'Sending…');
   String get queueEmpty => _t('Kuyruk boş', 'Queue is empty');
-  String get pushData => _t('Verileri gönder', 'Send data');
+  String get pushData => _t('Şimdi gönder', 'Send now');
 
   String get whoReceived => _t('Paketi kim aldı?', 'Who received the package?');
   String get recipientSelf => _t('Alıcının kendisi', 'The recipient');
@@ -682,6 +682,39 @@ class L10n {
     '$n mandatory trainings pending. Complete them from Training.',
   );
   String get mandatoryLabel => _t('Zorunlu', 'Mandatory');
+  // Kuryeye dönük yalın durum cümleleri: tek bakışta "bir şey yapmam
+  // gerekiyor mu?" sorusunu yanıtlar.
+  String get allSentTitle => _t('Her şey gönderildi', 'Everything is sent');
+  String get allSentBody =>
+      _t('Yapman gereken bir şey yok.', 'Nothing for you to do.');
+  String waitingToSend(int n) =>
+      _t('$n kayıt gönderilmeyi bekliyor', '$n records waiting to send');
+  String get waitingOnlineBody => _t(
+    'İnternet var. Birazdan kendiliğinden gider.',
+    'You are online. They will send on their own shortly.',
+  );
+  String get waitingOfflineBody => _t(
+    'İnternet yok. Bağlantı gelince kendiliğinden gider.',
+    'No internet. They will send when you are back online.',
+  );
+  String notSentTitle(int n) =>
+      _t('$n kayıt gönderilemedi', '$n records could not be sent');
+  String get notSentBody => _t(
+    'Şubeni ara ya da destek talebi aç.',
+    'Call your branch or open a support request.',
+  );
+  String get autoSend => _t('Otomatik gönder', 'Send automatically');
+  String get waitingList => _t('Bekleyen kayıtlar', 'Waiting records');
+  String doneLine(int delivered, int failed) => failed == 0
+      ? _t('$delivered teslim edildi', '$delivered delivered')
+      : _t(
+          '$delivered teslim edildi · $failed olmadı',
+          '$delivered delivered · $failed failed',
+        );
+  String apptCount(int n) => _t('$n randevulu', '$n by appointment');
+  String lateCount(int n) => _t('$n gecikiyor', '$n running late');
+  String toBranchCount(int n) =>
+      _t('$n şubeye dönecek', '$n to return to branch');
   String get breakStart => _t('Molaya çık', 'Start break');
   String get breakEnd => _t('Moladan dön', 'End break');
   String get mockLocationWarning => _t(
@@ -933,7 +966,7 @@ class L10n {
       _t('$n kayıt sırada', '$n records in line');
   String get phoneEnd => _t('Telefon', 'Phone');
   String get hubEnd => _t('Merkez', 'Hub');
-  String get inLine => _t('Sırada', 'In line');
+  String get inLine => _t('Bekliyor', 'Waiting');
   String get queuedRecord => _t('Kayıt', 'Record');
   String get shiftRecord => _t('Vardiya', 'Shift');
   String get syncShiftStart => _t('Vardiya açıldı', 'Shift started');
@@ -989,7 +1022,7 @@ class L10n {
     'ret_nedeni' => syncStepRefuse,
     _ => syncStepGeneric,
   };
-  String get failed => _t('Başarısız', 'Failed');
+  String get failed => _t('Gönderilemedi', 'Not sent');
   String get pickDocType =>
       _t('Doğrulanacak belge türünü seç.', 'Choose the document type to verify.');
   String get chipRead => _t('Çip okundu', 'Chip read');

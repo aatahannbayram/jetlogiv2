@@ -107,7 +107,6 @@ class _DepotRow extends StatelessWidget {
         gradient: selected ? Dg.primaryGradient : null,
         color: selected ? null : Dg.surface,
         borderRadius: BorderRadius.circular(Dg.radius),
-        border: selected ? null : Border.all(color: Dg.rule),
       ),
       child: Material(
         color: Colors.transparent,

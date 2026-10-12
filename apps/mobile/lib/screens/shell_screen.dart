@@ -195,7 +195,6 @@ class _ArrivalBanner extends StatelessWidget {
         child: Ink(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(Dg.radiusHero),
-            border: Border.all(color: Dg.rule),
           ),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
@@ -640,7 +639,6 @@ class _StopNode extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
         decoration: BoxDecoration(
           color: Dg.surface2,
-          border: Border.all(color: Dg.warn),
           borderRadius: BorderRadius.circular(16),
         ),
         child: Column(
@@ -728,7 +726,6 @@ class _StopNode extends StatelessWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: last ? Dg.violetBg : Dg.elev,
-                border: Border.all(color: last ? Dg.purpleActive : Dg.rule),
               ),
               child: last
                   ? DgIcon(LucideIcons.flag, size: 11, color: Dg.brand)

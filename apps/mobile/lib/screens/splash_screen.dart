@@ -131,9 +131,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                           decoration: BoxDecoration(
                             color: Dg.heroGlass,
                             borderRadius: BorderRadius.circular(24),
-                            border: Border.all(
-                              color: onHero.withValues(alpha: 0.08),
-                            ),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
