@@ -28,7 +28,7 @@ class Dg {
   static const onNight = Color(0xFFF8F5F0);
   static const mutedOnNight = Color(0xFFD2D7D3);
   // Logodaki turuncu.
-  static const action = Color(0xFFF28A26);
+  static const action = Color(0xFFFF8A1E);
   static const onAction = Color(0xFF101010);
   static const touchMin = 48.0;
   static const buttonMin = 56.0;
@@ -63,7 +63,7 @@ class Dg {
   static const primaryGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFFF59B42), Color(0xFFF28A26), Color(0xFFE67A12)],
+    colors: [Color(0xFFFFA63D), Color(0xFFFF8A1E), Color(0xFFF5740A)],
   );
 
   // Persistent charcoal dock, independent of the content theme.
@@ -84,11 +84,11 @@ class Dg {
         ? const [Color(0xFF2D3330), Color(0xFF252A27), Color(0xFF202422)]
         : const [Color(0xFFF0F2EB), Color(0xFFF8F9F5), Color(0xFFF5F5F2)],
   );
-  static const heroAccentOrange = Color(0xFFF28A26);
+  static const heroAccentOrange = Color(0xFFFF8A1E);
   static const emberGradient = LinearGradient(
     begin: Alignment.centerLeft,
     end: Alignment.centerRight,
-    colors: [Color(0xFFF59B42), Color(0xFFF28A26), Color(0xFFE67A12)],
+    colors: [Color(0xFFFFA63D), Color(0xFFFF8A1E), Color(0xFFF5740A)],
   );
 
   static Color get onHero => dark ? Colors.white : ink;
@@ -175,39 +175,39 @@ class Dg {
 
   // ---- Kurye ve şube için ortak taş–kömür saha paleti ----
   static Color get bg =>
-      dark ? const Color(0xFF171918) : const Color(0xFFF1F1EC);
+      dark ? const Color(0xFF111312) : const Color(0xFFF1F1EC);
   static Color get surface1 =>
-      dark ? const Color(0xFF222524) : const Color(0xFFFAFAF7);
+      dark ? const Color(0xFF1C1F1E) : const Color(0xFFFAFAF7);
   static Color get surface2 =>
-      dark ? const Color(0xFF2D302F) : const Color(0xFFEBEEEA);
+      dark ? const Color(0xFF292D2B) : const Color(0xFFEBEEEA);
   static Color get stroke =>
       dark ? const Color(0xFF8C8B82) : const Color(0xFF807B72);
   static Color get text1 =>
-      dark ? const Color(0xFFF8F5F0) : const Color(0xFF101010);
+      dark ? const Color(0xFFFCFAF6) : const Color(0xFF101010);
   static Color get text2 =>
       dark ? const Color(0xFFD2D7D3) : const Color(0xFF4A4A4A);
   static Color get text3 =>
       dark ? const Color(0xFFB4BCB6) : const Color(0xFF5A635D);
   static Color get brand =>
-      dark ? const Color(0xFFF5953A) : const Color(0xFFB04400);
+      dark ? const Color(0xFFFF962E) : const Color(0xFFB04400);
 
   /// Uyarı / bekleyen: markadan ayrışsın diye kehribar.
   static Color get warn =>
-      dark ? const Color(0xFFF2C063) : const Color(0xFF8A5A00);
+      dark ? const Color(0xFFFFCB52) : const Color(0xFF8A5A00);
 
   /// Logodaki mor: ikincil vurgu (ikon rozetleri, bilgi etiketleri).
   static Color get plum =>
-      dark ? const Color(0xFFBBA3F5) : const Color(0xFF66478F);
+      dark ? const Color(0xFFB79BFF) : const Color(0xFF6A3FB5);
   static Color get plumSoft => plum.withValues(alpha: dark ? 0.16 : 0.10);
   static Color get ok =>
-      dark ? const Color(0xFF6EE7A0) : const Color(0xFF16733E);
+      dark ? const Color(0xFF4ADE80) : const Color(0xFF0F7A3C);
 
   /// Olumsuz metin ve düğmeler: belirgin kırmızı.
   static Color get bad =>
       dark ? const Color(0xFFFF6666) : const Color(0xFFCC1F1F);
 
   /// Neon mor: harita üstündeki rota etiketi gibi bilgi vurguları.
-  static const neon = Color(0xFF7A52C7);
+  static const neon = Color(0xFF7C4DFF);
   static const onNeon = Color(0xFFFFFFFF);
   static Color get hairline =>
       dark ? const Color(0x0FFFFFFF) : const Color(0x0F000000);

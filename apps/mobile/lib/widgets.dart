@@ -252,7 +252,7 @@ class StatusChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(8, 5, 10, 5),
       decoration: BoxDecoration(
-        color: bg ?? ink.withValues(alpha: Dg.dark ? 0.16 : 0.10),
+        color: bg ?? ink.withValues(alpha: Dg.dark ? 0.20 : 0.12),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Row(
@@ -988,6 +988,31 @@ class _StableMapViewState extends State<_StableMapView> {
     );
   }
 
+  /// Kadraja girecek noktalar birbirine çok yakınsa (kurye durağın
+  /// dibinde) sınır kutusu neredeyse sıfırdır ve otomatik kadraj dünya
+  /// ölçeğine savrulabilir; o durumda orta nokta sabit yakınlıkla gösterilir.
+  LatLng? get _tightCenter {
+    final fit = widget.fit;
+    if (fit.length < 2) return null;
+    var minLat = fit.first.latitude, maxLat = minLat;
+    var minLng = fit.first.longitude, maxLng = minLng;
+    for (final p in fit) {
+      if (p.latitude < minLat) minLat = p.latitude;
+      if (p.latitude > maxLat) maxLat = p.latitude;
+      if (p.longitude < minLng) minLng = p.longitude;
+      if (p.longitude > maxLng) maxLng = p.longitude;
+    }
+    final span = haversineMeters(
+      LatLng(minLat, minLng),
+      LatLng(maxLat, maxLng),
+    );
+    if (span > _tightSpanMeters) return null;
+    return LatLng((minLat + maxLat) / 2, (minLng + maxLng) / 2);
+  }
+
+  static const _tightSpanMeters = 300.0;
+  static const _tightZoom = 16.6;
+
   void _fitIfNeeded() {
     if (widget.fit.isEmpty) return;
     if (widget.interactive && widget.fit.length < 2) return;
@@ -996,6 +1021,11 @@ class _StableMapViewState extends State<_StableMapView> {
     try {
       if (widget.fit.length < 2) {
         _controller.move(widget.fit.first, 14.5);
+        return;
+      }
+      final tight = _tightCenter;
+      if (tight != null) {
+        _controller.move(tight, _tightZoom);
         return;
       }
       _controller.fitCamera(
@@ -1015,12 +1045,17 @@ class _StableMapViewState extends State<_StableMapView> {
     });
     final fit = widget.fit;
     final center = widget.center;
+    final tight = _tightCenter;
     return FlutterMap(
       mapController: _controller,
       options: MapOptions(
-        initialCenter: fit.isNotEmpty ? fit.first : center,
-        initialZoom: fit.length > 1 ? 13.4 : 14.5,
-        initialCameraFit: !widget.interactive && fit.length > 1
+        initialCenter: tight ?? (fit.isNotEmpty ? fit.first : center),
+        initialZoom: tight != null
+            ? _tightZoom
+            : fit.length > 1
+            ? 13.4
+            : 14.5,
+        initialCameraFit: tight == null && !widget.interactive && fit.length > 1
             ? CameraFit.coordinates(
                 coordinates: fit,
                 padding: widget.fitPadding,
