@@ -1578,6 +1578,144 @@ class L10n {
     _ => _t('Fotoğraf', 'Photo'),
   };
 
+  // Kurye ol, hesap açma, aday evrakları
+  String get joinTitle => _t('Yeni misin?', 'New here?');
+  String get joinClose => _t('Tamam', 'Done');
+  String get joinApply => _t('Kurye olmak istiyorum', 'I want to be a courier');
+  String get joinApplySub =>
+      _t('Başvuru formunu doldur.', 'Fill in the application form.');
+  String get joinActivate => _t('Hesabımı aç', 'Activate my account');
+  String get joinActivateSub => _t(
+    'E-postana gelen bağlantıyla şifreni belirle.',
+    'Set your password with the link in your email.',
+  );
+  String get joinDocs => _t('Evraklarımı yükle', 'Upload my documents');
+  String get joinDocsSub => _t(
+    'E-postana gelen bağlantıyla evraklarını gönder.',
+    'Send your documents with the link in your email.',
+  );
+  String get linkHint => _t(
+    'E-postadaki bağlantıyı buraya yapıştır',
+    'Paste the link from your email here',
+  );
+  String get linkContinue => _t('Devam', 'Continue');
+  String get linkBad => _t(
+    'Bağlantı tanınmadı. E-postadaki bağlantının tamamını yapıştır.',
+    'Link not recognised. Paste the whole link from the email.',
+  );
+  String joinLinkError(String code, String? serverMessage) => switch (code) {
+    'ACTIVATION_NOT_FOUND' ||
+    'ACCESS_NOT_FOUND' ||
+    'ACCESS_LINK_INVALID' ||
+    'ACCESS_TOKEN_INVALID' => linkBad,
+    'ACTIVATION_EXPIRED' || 'ACCESS_EXPIRED' => _t(
+      'Bağlantının süresi dolmuş. Şubenden yenisini iste.',
+      'The link expired. Ask your branch for a new one.',
+    ),
+    'ACTIVATION_ALREADY_USED' || 'ACCOUNT_ALREADY_ACTIVE' => _t(
+      'Hesabın zaten açılmış. Giriş yapabilirsin.',
+      'Your account is already active. You can sign in.',
+    ),
+    'ACTIVATION_REVOKED' || 'ACCESS_REVOKED' => _t(
+      'Bu bağlantı artık geçerli değil. Son gelen e-postadaki bağlantıyı kullan.',
+      'This link is no longer valid. Use the link in the latest email.',
+    ),
+    'ACCESS_LOCKED' => _t(
+      'Çok fazla deneme yapıldı. Şubenle görüş.',
+      'Too many attempts. Contact your branch.',
+    ),
+    _ => serverMessage ?? availabilityFailed,
+  };
+  String get activatePassword => _t('Şifreni belirle', 'Set your password');
+  String get activateRules => _t(
+    'En az 8 karakter. İçinde büyük harf, küçük harf ve rakam olsun.',
+    'At least 8 characters, with an uppercase letter, a lowercase letter and a digit.',
+  );
+  String get activateDone => _t(
+    'Hesabın açıldı. Şimdi giriş yapabilirsin.',
+    'Your account is active. You can sign in now.',
+  );
+  String get applyTitle => _t('Kurye başvurusu', 'Courier application');
+  String get applyName => _t('Adın soyadın', 'Full name');
+  String get applyPhone => _t('Cep telefonun', 'Mobile phone');
+  String get applyEmail => _t('E-posta adresin', 'Email address');
+  String get applyWhere => _t('Nerede çalışacaksın?', 'Where will you work?');
+  String get applyWhen => _t('Ne zaman başlayabilirsin?', 'When can you start?');
+  String startWhen(String code) => switch (code) {
+    'IMMEDIATELY' => _t('Hemen', 'Right away'),
+    'WITHIN_ONE_WEEK' => _t('Bir hafta içinde', 'Within a week'),
+    'WITHIN_TWO_WEEKS' => _t('İki hafta içinde', 'Within two weeks'),
+    'PERIODIC_ONLY' => _t('Yalnız dönemsel', 'Only periodically'),
+    _ => _t('Şimdilik bilgi alıyorum', 'Just looking for now'),
+  };
+  String get applyConsents => _t('Okuman gereken metinler', 'Texts to read');
+  String get applyConsentOpen => _t('Oku', 'Read');
+  String get applyConsentRequired => _t('Zorunlu', 'Required');
+  String get consentScrollFirst =>
+      _t('Önce metni sonuna kadar oku.', 'Read the text to the end first.');
+  String get consentAccept => _t('Kabul ediyorum', 'I accept');
+  String get consentAck => _t('Okudum', 'I have read it');
+  String get consentDecline => _t('Kabul etmiyorum', 'I do not accept');
+  String get applySend => _t('Başvuruyu gönder', 'Send application');
+  String get applyMissing => _t(
+    'Boş alanları doldur ve seçimleri yap.',
+    'Fill in the empty fields and make the choices.',
+  );
+  String get applyConsentsMissing => _t(
+    'Zorunlu metinleri okuyup onayla.',
+    'Read and confirm the required texts.',
+  );
+  String get applyPhoneUsed => _t(
+    'Bu telefonla daha önce başvuru yapılmış.',
+    'An application already exists for this phone.',
+  );
+  String applySent(String number) => _t(
+    'Başvurun alındı. Başvuru numaran: $number',
+    'Application received. Your number: $number',
+  );
+  String get docsTitle => _t('Evraklarım', 'My documents');
+  String docSide(String side) => switch (side) {
+    'FRONT' => _t('Ön yüz', 'Front'),
+    'BACK' => _t('Arka yüz', 'Back'),
+    _ => _t('Belge', 'Document'),
+  };
+  String docStatus(String code) => switch (code) {
+    'APPROVED' => _t('Onaylandı', 'Approved'),
+    'REJECTED' || 'REVISION_REQUESTED' => _t('Yeniden yükle', 'Upload again'),
+    'UPLOADED_DRAFT' => _t('Yüklendi, gönderilmedi', 'Uploaded, not sent'),
+    'SUBMITTED' || 'UNDER_REVIEW' => _t('İnceleniyor', 'Under review'),
+    _ => _t('Bekleniyor', 'Waiting'),
+  };
+  String get docTake => _t('Fotoğrafını çek', 'Take a photo');
+  String get docRetake => _t('Yeniden çek', 'Take again');
+  String get docExpiry => _t('Belgenin son geçerlilik tarihi', 'Document expiry date');
+  String get docsSend => _t('Evrakları gönder', 'Send documents');
+  String get docsSent => _t('Evrakların gönderildi.', 'Your documents were sent.');
+  String docsError(String code, String? serverMessage) => switch (code) {
+    'REQUIRED_DOCUMENTS_MISSING' => _t(
+      'Zorunlu evraklardan eksik var.',
+      'Some required documents are missing.',
+    ),
+    'DOCUMENTS_ALREADY_SUBMITTED' => _t(
+      'Evrakların zaten gönderilmiş.',
+      'Your documents were already sent.',
+    ),
+    'NO_DOCUMENTS_TO_SUBMIT' => _t(
+      'Gönderilecek yeni evrak yok.',
+      'There are no new documents to send.',
+    ),
+    'FILE_TOO_LARGE' => _t('Dosya çok büyük.', 'The file is too large.'),
+    'UNSUPPORTED_FILE_TYPE' => _t(
+      'Bu belge fotoğraf olarak kabul edilmiyor.',
+      'This document cannot be a photo.',
+    ),
+    'DOCUMENT_NOT_UPLOADABLE' => _t(
+      'Bu belge artık değiştirilemez.',
+      'This document can no longer be changed.',
+    ),
+    _ => joinLinkError(code, serverMessage),
+  };
+
   // Hatalarım ve fotoğraf puanı
   String get mistakesTitle => _t('Hatalarım', 'My mistakes');
   String get photoScoreTitle => _t('Fotoğraf puanın', 'Your photo score');

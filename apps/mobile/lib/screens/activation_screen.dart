@@ -9,6 +9,7 @@ import '../motion.dart';
 import '../privacy.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import 'join_screens.dart';
 import 'sube_login_screen.dart';
 
 /// Canlı giriş — logo + cam alanlar + yöntem kutuları, turuncu CTA.
@@ -417,6 +418,22 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
                           style: TextStyle(color: _muted, fontSize: 14),
                         ),
                         SizedBox(height: 6),
+                        Center(
+                          child: TextButton(
+                            key: Key('join-link'),
+                            onPressed: () => Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => JoinScreen()),
+                            ),
+                            child: Text(
+                              l.joinTitle,
+                              style: TextStyle(
+                                color: _muted,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
                         Center(
                           child: TextButton(
                             key: Key('sube-login-link'),

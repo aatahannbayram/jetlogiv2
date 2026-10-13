@@ -11,6 +11,7 @@ import 'package:dijigoo_kurye/l10n.dart';
 import 'package:dijigoo_kurye/models.dart';
 import 'package:dijigoo_kurye/notif.dart';
 import 'package:dijigoo_kurye/screens/account_screens.dart';
+import 'package:dijigoo_kurye/screens/join_screens.dart';
 import 'package:dijigoo_kurye/session.dart';
 import 'package:dijigoo_kurye/visit_requirements.dart';
 import 'package:dio/dio.dart';
@@ -766,6 +767,77 @@ void main() {
         AvailabilityDto.fromJson(const {}).days.every((d) => !d.enabled),
         isTrue,
       );
+    });
+  });
+
+  group('kurye ol, hesap açma, evrak', () {
+    test('e-posta bağlantısından token ve kimlik çıkarılır', () {
+      final doc = parseJoinLink(
+        ' https://jetdiji.com/kurye-belgeleri/pub_123?token=abc.def ',
+      );
+      expect(doc.publicId, 'pub_123');
+      expect(doc.token, 'abc.def');
+      expect(
+        parseJoinLink('https://jetdiji.com/aktivasyon?token=T1').token,
+        'T1',
+      );
+      // Yalnız token yapıştırılmışsa da olur; boşluklu metin bağlantı değildir.
+      expect(parseJoinLink('T1').token, 'T1');
+      expect(parseJoinLink('bu bir bağlantı değil').token, isNull);
+      expect(parseJoinLink('https://jetdiji.com/x').token, isNull);
+    });
+
+    test('ilk şifre kuralı: 8 karakter, büyük, küçük, rakam', () {
+      expect(activationPasswordOk('Kurye123'), isTrue);
+      expect(activationPasswordOk('kurye123'), isFalse);
+      expect(activationPasswordOk('Kurye12'), isFalse);
+      expect(activationPasswordOk('KuryeKurye'), isFalse);
+    });
+
+    test('aktivasyon, başvuru ve evrak istekleri doğru yere gider', () async {
+      final seen = <RequestOptions>[];
+      final api = PanelApi(
+        _visitDio(
+          (o) => o.path.endsWith('/check-phone')
+              ? {'canApply': false}
+              : o.path.endsWith('/courier-applications')
+              ? {'applicationNumber': 'DGO-1'}
+              : null,
+          seen: seen,
+        ),
+      );
+      await api.activateAccount(token: 'T1', password: 'Kurye123');
+      expect(seen.last.path, '/courier-auth/activate');
+      expect(seen.last.data, {
+        'token': 'T1',
+        'password': 'Kurye123',
+        'passwordConfirmation': 'Kurye123',
+      });
+
+      expect(await api.checkApplicationPhone('05000000611'), isFalse);
+      expect(
+        await api.submitApplication(const {'fullName': 'Ali Can'}),
+        'DGO-1',
+      );
+
+      await api.uploadPortalDocument(
+        publicId: 'pub_1',
+        token: 'tok',
+        documentRequestId: 'd-1',
+        side: 'FRONT',
+        bytes: const [1, 2],
+        expiresAt: '2030-01-01',
+      );
+      expect(seen.last.path, '/courier-documents/pub_1/requests/d-1/upload');
+      expect(seen.last.queryParameters, {'token': 'tok', 'side': 'FRONT'});
+      expect(
+        {for (final f in (seen.last.data as FormData).fields) f.key: f.value},
+        {'expiresAt': '2030-01-01'},
+      );
+
+      await api.submitPortalDocuments(publicId: 'pub_1', token: 'tok');
+      expect(seen.last.path, '/courier-documents/pub_1/submit');
+      expect(seen.last.queryParameters, {'token': 'tok'});
     });
   });
 }

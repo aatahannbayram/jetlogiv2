@@ -265,6 +265,107 @@ class PanelApi {
           ?.toInt() ??
       0;
 
+  // ---- Giriş öncesi: başvuru, hesap açma, aday evrakları (oturum gerekmez)
+
+  /// false ise bu telefonla başvuru zaten var.
+  Future<bool> checkApplicationPhone(String phone) async =>
+      _map(
+        (await _get(
+          '/courier-applications/check-phone',
+          queryParameters: {'phone': phone},
+        )).data?['data'],
+      )['canApply'] !=
+      false;
+
+  /// Başvuruda gösterilecek güncel onay metinleri.
+  Future<List<Map<String, dynamic>>> fetchApplicationConsents() async => _maps(
+    _map(
+      (await _get(
+        '/courier-consents',
+        queryParameters: {'locale': 'tr'},
+      )).data?['data'],
+    )['items'],
+  );
+
+  /// Başvuru numarasını döner.
+  Future<String> submitApplication(Map<String, Object?> body) async =>
+      '${_map((await _post('/courier-applications', body)).data?['data'])['applicationNumber'] ?? ''}';
+
+  /// E-postadaki aktivasyon bağlantısını doğrular; hesap özetini döner.
+  Future<Map<String, dynamic>> validateActivation(String token) async => _map(
+    _map(
+      (await _get(
+        '/courier-auth/activate',
+        queryParameters: {'token': token},
+      )).data?['data'],
+    )['account'],
+  );
+
+  /// İlk şifreyi belirler. Oturum açılmaz; ardından giriş yapılır.
+  Future<void> activateAccount({
+    required String token,
+    required String password,
+  }) async {
+    await _post('/courier-auth/activate', {
+      'token': token,
+      'password': password,
+      'passwordConfirmation': password,
+    });
+  }
+
+  Future<Map<String, dynamic>> fetchDocumentPortal({
+    required String publicId,
+    required String token,
+  }) async => _map(
+    (await _get(
+      '/courier-documents/$publicId',
+      queryParameters: {'token': token},
+    )).data?['data'],
+  );
+
+  /// [side]: SINGLE, FRONT ya da BACK. [expiresAt] `YYYY-MM-DD`.
+  Future<void> uploadPortalDocument({
+    required String publicId,
+    required String token,
+    required String documentRequestId,
+    required String side,
+    required List<int> bytes,
+    String filename = 'belge.jpg',
+    String contentType = 'image/jpeg',
+    String? expiresAt,
+  }) async {
+    try {
+      await dio.post<Map<String, dynamic>>(
+        '/courier-documents/$publicId/requests/$documentRequestId/upload',
+        queryParameters: {'token': token, 'side': side},
+        data: FormData.fromMap({
+          'expiresAt': ?expiresAt,
+          'file': MultipartFile.fromBytes(
+            bytes,
+            filename: filename,
+            contentType: DioMediaType.parse(contentType),
+          ),
+        }),
+      );
+    } on DioException catch (e) {
+      throw _panelException(e);
+    }
+  }
+
+  Future<void> submitPortalDocuments({
+    required String publicId,
+    required String token,
+  }) async {
+    try {
+      await dio.post<Map<String, dynamic>>(
+        '/courier-documents/$publicId/submit',
+        queryParameters: {'token': token},
+      );
+    } on DioException catch (e) {
+      throw _panelException(e);
+    }
+  }
+
   /// SMS ile giriş, 1. adım: kayıtlı telefona 6 haneli kod gönderir. Hesap
   /// bulunamasa da yanıt aynıdır. Kod 5 dk geçerli, 60 sn'de bir istenir.
   Future<({String? challengeId, int resendAfterSeconds})> requestSmsLogin(

@@ -8,6 +8,7 @@ import 'package:dijigoo_kurye/l10n.dart';
 import 'package:dijigoo_kurye/screens/account_more_screens.dart';
 import 'package:dijigoo_kurye/screens/account_screens.dart';
 import 'package:dijigoo_kurye/screens/custody_history_screen.dart';
+import 'package:dijigoo_kurye/screens/join_screens.dart';
 import 'package:dijigoo_kurye/screens/mistakes_screen.dart';
 import 'package:dijigoo_kurye/screens/report_screen.dart';
 import 'package:dijigoo_kurye/screens/result_screen.dart';
@@ -52,6 +53,51 @@ Dio _dio() {
           });
         }
         if (path.endsWith('/requirements')) return ok(requirements);
+        if (path.endsWith('/courier-consents')) {
+          return ok({
+            'items': [
+              {
+                'definitionId': 'def-1',
+                'versionId': 'ver-1',
+                'code': 'KVKK_AYDINLATMA',
+                'mode': 'ACKNOWLEDGEMENT',
+                'isRequired': true,
+                'title': 'KVKK Aydınlatma Metni',
+                'content': 'Kişisel verileriniz başvurunuz için işlenir.',
+                'version': '1.0',
+                'contentHash': 'a' * 64,
+              },
+            ],
+          });
+        }
+        if (path.endsWith('/check-phone')) return ok({'canApply': true});
+        if (path.endsWith('/courier-applications')) {
+          return ok({'applicationNumber': 'DGO-20261013-TEST'});
+        }
+        if (path.startsWith('/courier-documents/') && options.method == 'GET') {
+          return ok({
+            'documentPackage': {
+              'documents': [
+                {
+                  'id': 'd-1',
+                  'titleTr': 'Kimlik',
+                  'instructionsTr': 'Kimliğin iki yüzünü de çek.',
+                  'isRequired': true,
+                  'status': 'PENDING',
+                  'definition': {'captureMode': 'FRONT_BACK'},
+                  'parts': [],
+                },
+                {
+                  'id': 'd-2',
+                  'titleTr': 'Ehliyet',
+                  'isRequired': false,
+                  'status': 'APPROVED',
+                  'definition': {'captureMode': 'SINGLE_FILE'},
+                },
+              ],
+            },
+          });
+        }
         if (path.endsWith('/courier-profile/summary')) {
           return ok({
             'courier': {
@@ -579,6 +625,59 @@ void main() {
     await _tap(tester, find.text('Sil'));
     expect(_writes.single.method, 'DELETE');
     expect(_writes.single.path, '/courier-tasks/s-9/evidence/e-9');
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(seconds: 10));
+  });
+
+  testWidgets('evrak yükleme: bağlantı, ön yüz fotoğrafı, gönder', (
+    tester,
+  ) async {
+    await _open(tester, const DocumentPortalScreen());
+    await _tap(tester, find.text('Devam'));
+    expect(
+      find.text(
+        'Bağlantı tanınmadı. E-postadaki bağlantının tamamını yapıştır.',
+      ),
+      findsOneWidget,
+    );
+    await tester.enterText(
+      find.byType(TextField),
+      'https://jetdiji.com/kurye-belgeleri/pub_1?token=tok',
+    );
+    await _tap(tester, find.text('Devam'));
+    expect(find.text('Kimlik'), findsOneWidget);
+    expect(find.text('Ön yüz · Bekleniyor'), findsOneWidget);
+    expect(find.text('Arka yüz · Bekleniyor'), findsOneWidget);
+    // Onaylanmış belge yeniden yüklenemez.
+    expect(find.text('Fotoğrafını çek'), findsNWidgets(2));
+    await _shot(tester, 'docs');
+    await _tap(tester, find.text('Fotoğrafını çek').first);
+    final upload = _writes.single;
+    expect(upload.path, '/courier-documents/pub_1/requests/d-1/upload');
+    expect(upload.queryParameters['side'], 'FRONT');
+    await _tap(tester, find.text('Evrakları gönder'));
+    expect(_writes.last.path, '/courier-documents/pub_1/submit');
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(seconds: 10));
+  });
+
+  testWidgets('başvuru: zorunlu metin okunmadan gönderilmez', (tester) async {
+    await _open(tester, const ApplicationScreen());
+    await _shot(tester, 'apply');
+    // Onay metinleri uzun formun en altında.
+    await tester.scrollUntilVisible(
+      find.text('KVKK Aydınlatma Metni'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await _tap(tester, find.text('Başvuruyu gönder'));
+    expect(find.text('Boş alanları doldur ve seçimleri yap.'), findsOneWidget);
+    // Metin açılır; kısa olduğu için sonu görünür, "Okudum" açılır.
+    await _tap(tester, find.text('Oku'));
+    expect(find.text('Okudum'), findsOneWidget);
+    await _tap(tester, find.text('Okudum'));
+    expect(find.text('KVKK Aydınlatma Metni'), findsOneWidget);
+    expect(_writes, isEmpty);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(seconds: 10));
   });
