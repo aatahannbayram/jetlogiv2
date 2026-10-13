@@ -150,204 +150,186 @@ class _NextStopCardState extends ConsumerState<NextStopCard> {
 
     return RepaintBoundary(
       child: SingleChildScrollView(
-        child: Container(
-          decoration: BoxDecoration(
-            color: Dg.surface1,
-            borderRadius: BorderRadius.circular(Dg.rLg),
-            boxShadow: Dg.cardShadow,
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _MapShot(
-                height: mapH,
-                url: snap,
-                map: task.hasCoordinates
-                    ? MapStrip(
-                        height: mapH,
-                        clipTopOnly: false,
-                        rounded: false,
-                        showBadge: false,
-                        points: [LatLng(task.lat, task.lng)],
-                        roadPoints: slice?.points,
-                        couriers: [
-                          FleetCourier(
-                            id: 'self',
-                            name: '',
-                            lat: s.selfLat,
-                            lng: s.selfLng,
-                            self: true,
-                          ),
-                        ],
-                        fitTo: keepNearStops(
-                          [
-                            LatLng(s.selfLat, s.selfLng),
-                            LatLng(task.lat, task.lng),
-                            ...?slice?.points,
+        // Karta dokunmak rotayı açar; içindeki düğmeler kendi işini yapar.
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => Navigator.of(
+            context,
+          ).push(MaterialPageRoute<void>(builder: (_) => const RouteScreen())),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Dg.surface1,
+              borderRadius: BorderRadius.circular(Dg.rLg),
+              boxShadow: Dg.cardShadow,
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _MapShot(
+                  height: mapH,
+                  url: snap,
+                  map: task.hasCoordinates
+                      ? MapStrip(
+                          height: mapH,
+                          clipTopOnly: false,
+                          rounded: false,
+                          showBadge: false,
+                          points: [LatLng(task.lat, task.lng)],
+                          roadPoints: slice?.points,
+                          couriers: [
+                            FleetCourier(
+                              id: 'self',
+                              name: '',
+                              lat: s.selfLat,
+                              lng: s.selfLng,
+                              self: true,
+                            ),
                           ],
-                          [LatLng(task.lat, task.lng)],
-                        ),
-                      )
-                    : null,
-                indexLabel: l.stopIndexOf(index, total),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(builder: (_) => const RouteScreen()),
-                ),
-              ),
-              // Önce nereye gidildiği, sonra ne zaman, en sonda kime.
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                child: Text(
-                  addr.street,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Dg.ui(
-                    size: 22,
-                    weight: FontWeight.w700,
-                    letterSpacing: 22 * -0.01,
+                          fitTo: keepNearStops(
+                            [
+                              LatLng(s.selfLat, s.selfLng),
+                              LatLng(task.lat, task.lng),
+                              ...?slice?.points,
+                            ],
+                            [LatLng(task.lat, task.lng)],
+                          ),
+                        )
+                      : null,
+                  indexLabel: l.stopIndexOf(index, total),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const RouteScreen(),
+                    ),
                   ),
                 ),
-              ),
-              if (travel.isNotEmpty)
+                // Önce nereye gidildiği, sonra ne zaman, en sonda kime.
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 3, 16, 0),
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                   child: Text(
-                    travel,
+                    addr.street,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: Dg.ui(size: 14, color: Dg.text2),
+                    style: Dg.ui(
+                      size: 22,
+                      weight: FontWeight.w700,
+                      letterSpacing: 22 * -0.01,
+                    ),
                   ),
                 ),
-              if (appt != null)
+                if (travel.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 3, 16, 0),
+                    child: Text(
+                      travel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Dg.ui(size: 14, color: Dg.text2),
+                    ),
+                  ),
+                if (appt != null)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                    child: _ApptPill(window: appt),
+                  ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                  child: _ApptPill(window: appt),
+                  child: _MetaLine(task: task),
                 ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                child: _MetaLine(task: task),
-              ),
-              // Yardımcı işlemler tek satırda, eşit genişlik ve yükseklikte.
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
-                child: IntrinsicHeight(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (widget.offerArrive &&
-                          !s.selfLocated &&
-                          !arrivedManual) ...[
+                // Yardımcı işlemler tek satırda, eşit genişlik ve yükseklikte.
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+                  child: IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (widget.offerArrive &&
+                            !s.selfLocated &&
+                            !arrivedManual) ...[
+                          Expanded(
+                            flex: 5,
+                            child: _Ghost(
+                              key: const Key('next-stop-arrived'),
+                              icon: LucideIcons.mapPin,
+                              label: l.arrivedHere,
+                              onTap: () {
+                                HapticFeedback.mediumImpact();
+                                widget.onArrived();
+                                setState(() => _arrivedHere = true);
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
                         Expanded(
-                          flex: 5,
+                          flex: 4,
                           child: _Ghost(
-                            key: const Key('next-stop-arrived'),
-                            icon: LucideIcons.mapPin,
-                            label: l.arrivedHere,
-                            onTap: () {
-                              HapticFeedback.mediumImpact();
-                              widget.onArrived();
-                              setState(() => _arrivedHere = true);
-                            },
+                            icon: LucideIcons.phone,
+                            label: l.call,
+                            onTap: () => s.callTask(context, task),
                           ),
                         ),
                         const SizedBox(width: 8),
-                      ],
-                      Expanded(
-                        flex: 4,
-                        child: _Ghost(
-                          icon: LucideIcons.phone,
-                          label: l.call,
-                          onTap: () => s.callTask(context, task),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        flex: 6,
-                        child: _Ghost(
-                          icon: LucideIcons.circleX,
-                          label: l.couldNotDeliverShort,
-                          onTap: () => Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => ReturnScreen(taskId: task.id),
+                        Expanded(
+                          flex: 6,
+                          child: _Ghost(
+                            icon: LucideIcons.circleX,
+                            label: l.couldNotDeliverShort,
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => ReturnScreen(taskId: task.id),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      _Ghost(
-                        icon: LucideIcons.ellipsis,
-                        onTap: () => _more(context, l),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 200),
-                  child: _SolidCta(
-                    key: const Key('next-stop-cta'),
-                    label: phase == NextStopPhase.arrived
-                        ? l.startDelivery
-                        : l.directions,
-                    icon: phase == NextStopPhase.arrived
-                        ? LucideIcons.packageCheck
-                        : LucideIcons.arrowRight,
-                    ember: phase != NextStopPhase.arrived,
-                    color: Dg.ok,
-                    onTap: () {
-                      HapticFeedback.mediumImpact();
-                      if (phase == NextStopPhase.arrived) {
-                        final nav = Navigator.of(context);
-                        final messenger = ScaffoldMessenger.of(context);
-                        final warn = context.l10n.startNeedsLocation;
-                        s.startTask(task.id).then((ok) {
-                          if (!ok) {
-                            messenger
-                              ..hideCurrentSnackBar()
-                              ..showSnackBar(SnackBar(content: Text(warn)));
-                            return;
-                          }
-                          nav.push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => WizardScreen(taskId: task.id),
-                            ),
-                          );
-                        });
-                      } else {
-                        openDirections(context, task);
-                      }
-                    },
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 200),
+                    child: _SolidCta(
+                      key: const Key('next-stop-cta'),
+                      label: phase == NextStopPhase.arrived
+                          ? l.startDelivery
+                          : l.directions,
+                      icon: phase == NextStopPhase.arrived
+                          ? LucideIcons.packageCheck
+                          : LucideIcons.arrowRight,
+                      ember: phase != NextStopPhase.arrived,
+                      color: Dg.ok,
+                      onTap: () {
+                        HapticFeedback.mediumImpact();
+                        if (phase == NextStopPhase.arrived) {
+                          final nav = Navigator.of(context);
+                          final messenger = ScaffoldMessenger.of(context);
+                          final warn = context.l10n.startNeedsLocation;
+                          s.startTask(task.id).then((ok) {
+                            if (!ok) {
+                              messenger
+                                ..hideCurrentSnackBar()
+                                ..showSnackBar(SnackBar(content: Text(warn)));
+                              return;
+                            }
+                            nav.push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => WizardScreen(taskId: task.id),
+                              ),
+                            );
+                          });
+                        } else {
+                          openDirections(context, task);
+                        }
+                      },
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ),
-    );
-  }
-
-  void _more(BuildContext context, L10n l) {
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Dg.surface1,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(Dg.rLg)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: ListTile(
-          leading: DgIcon(LucideIcons.map),
-          title: Text(l.seeRoute),
-          onTap: () {
-            Navigator.pop(ctx);
-            Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => const RouteScreen()),
-            );
-          },
         ),
       ),
     );

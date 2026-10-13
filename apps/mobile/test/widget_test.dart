@@ -13,6 +13,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dijigoo_kurye/screens/shell_screen.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -95,6 +96,19 @@ void main() {
     await tester.tap(find.byKey(const Key('login-method-sms')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('sms-login')), findsOneWidget);
+  });
+
+  testWidgets('sıradaki durak kartına dokununca rota açılır; üç nokta yok', (
+    tester,
+  ) async {
+    await bindPhone(tester);
+    await openDemo(tester);
+    expect(find.byIcon(LucideIcons.ellipsis), findsNothing);
+    expect(find.byType(RouteScreen), findsNothing);
+    // Kartın düğme olmayan bir yerine (adres başlığı) dokunulur.
+    await tester.tap(find.text('Cumhuriyet Cd. No:14').first);
+    await tester.pumpAndSettle();
+    expect(find.byType(RouteScreen), findsOneWidget);
   });
 
   testWidgets('görüşme demosu teslimatı bitirir', (tester) async {
