@@ -284,12 +284,22 @@ class _NextStopCardState extends ConsumerState<NextStopCard> {
                     onTap: () {
                       HapticFeedback.mediumImpact();
                       if (phase == NextStopPhase.arrived) {
-                        s.startTask(task.id);
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => WizardScreen(taskId: task.id),
-                          ),
-                        );
+                        final nav = Navigator.of(context);
+                        final messenger = ScaffoldMessenger.of(context);
+                        final warn = context.l10n.startNeedsLocation;
+                        s.startTask(task.id).then((ok) {
+                          if (!ok) {
+                            messenger
+                              ..hideCurrentSnackBar()
+                              ..showSnackBar(SnackBar(content: Text(warn)));
+                            return;
+                          }
+                          nav.push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => WizardScreen(taskId: task.id),
+                            ),
+                          );
+                        });
                       } else {
                         openDirections(context, task);
                       }

@@ -1193,6 +1193,8 @@ void main() {
     expect(panelLists, 1);
     expect(fastifyTasks, 0);
 
+    // Kurye konumu ölçülmüş; ölçüm yokken görev başlamaz.
+    s.selfLocated = true;
     await s.startTask('s-9');
     expect(s.taskById('s-9').status, TaskStatus.inProgress);
     expect(accepts, 1);
@@ -1234,6 +1236,8 @@ void main() {
     );
     expect(await s.loginWithPanel(identifier: 'a@b.com', password: 'x'), isTrue);
     s.online = false;
+    // Kurye konumu ölçülmüş; ölçüm yokken görev başlamaz.
+    s.selfLocated = true;
     await s.startTask('s-9');
     expect(hits.where((h) => h == 'accept' || h == 'start'), isEmpty);
     expect(
@@ -1271,6 +1275,8 @@ void main() {
     );
     expect(await s.loginWithPanel(identifier: 'a@b.com', password: 'x'), isTrue);
     s.online = false;
+    // Kurye konumu ölçülmüş; ölçüm yokken görev başlamaz.
+    s.selfLocated = true;
     await s.startTask('s-9');
     expect(s.taskById('s-9').status, TaskStatus.inProgress);
     await s.loadPanelTasks();
@@ -1286,6 +1292,8 @@ void main() {
       api: MobileApi(dio: dio),
     );
     expect(await s.loginWithPanel(identifier: 'a@b.com', password: 'x'), isTrue);
+    // Kurye konumu ölçülmüş; ölçüm yokken görev başlamaz.
+    s.selfLocated = true;
     await s.startTask('s-9');
     expect(hits.where((h) => h == 'accept'), ['accept']);
     expect(hits.where((h) => h == 'start'), isEmpty);
@@ -1318,6 +1326,8 @@ void main() {
       api: MobileApi(dio: dio),
     );
     expect(await s.loginWithPanel(identifier: 'a@b.com', password: 'x'), isTrue);
+    // Kurye konumu ölçülmüş; ölçüm yokken görev başlamaz.
+    s.selfLocated = true;
     await s.startTask('s-9');
     expect(s.panelLoggedIn, isFalse);
     expect(s.lastPanelError, SessionController.panelSessionExpired);
@@ -1902,7 +1912,11 @@ void main() {
     );
     final s = SessionController(panel: PanelApi(dio), api: MobileApi(dio: dio));
     expect(await s.loginWithPanel(identifier: 'a@b.com', password: 'x'), isTrue);
+    // Kurye konumu ölçülmüş; ölçüm yokken görev başlamaz.
+    s.selfLocated = true;
     await s.startTask('s-9');
+    // Başlattıktan sonra ölçüm kaybolur (kapalı alan).
+    s.selfLocated = false;
 
     await s.deliverTask('s-9', receivedBy: 'Bora');
     expect(keys.single, hasLength(36));
@@ -1919,5 +1933,36 @@ void main() {
     expect(keys.last, isNot(keys.first), reason: 'gövde değişti, anahtar yeni');
     expect(body!['resultCode'], 'DELIVERY_FAILED');
     expect(body!['note'], 'Kapı kapalı');
+  });
+
+  test('konum ölçülmeden görev başlamaz, sunucuya istek gitmez', () async {
+    final hits = <String>[];
+    final dio = _panelActionDio(hits: hits);
+    final s = SessionController(panel: PanelApi(dio), api: MobileApi(dio: dio));
+    expect(await s.loginWithPanel(identifier: 'a@b.com', password: 'x'), isTrue);
+    final before = s.taskById('s-9').status;
+    hits.clear();
+
+    expect(await s.startTask('s-9'), isFalse);
+    expect(hits.where((h) => h == 'accept' || h == 'start'), isEmpty);
+    expect(s.taskById('s-9').status, before);
+
+    s.selfLocated = true;
+    expect(await s.startTask('s-9'), isTrue);
+    expect(hits, containsAllInOrder(['accept', 'start']));
+  });
+
+  test('zaten dağıtımdaki (4020) görev yeniden başlatılmaz', () async {
+    final hits = <String>[];
+    final dio = _panelActionDio(hits: hits);
+    final s = SessionController(panel: PanelApi(dio), api: MobileApi(dio: dio));
+    expect(await s.loginWithPanel(identifier: 'a@b.com', password: 'x'), isTrue);
+    s.taskById('s-9').wireStatus = '4020';
+    hits.clear();
+
+    // Konum olmasa da açılır: zimmet kabulü görevi zaten başlatmıştır.
+    expect(await s.startTask('s-9'), isTrue);
+    expect(hits.where((h) => h == 'accept' || h == 'start'), isEmpty);
+    expect(s.taskById('s-9').status, TaskStatus.inProgress);
   });
 }

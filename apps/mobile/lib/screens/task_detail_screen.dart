@@ -86,9 +86,16 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
         ? (meters / 1000).toStringAsFixed(0)
         : (meters / 1000).toStringAsFixed(1);
 
-    void start() {
-      ref.read(sessionProvider).startTask(t.id);
-      Navigator.of(context).push(
+    Future<void> start() async {
+      final ok = await ref.read(sessionProvider).startTask(t.id);
+      if (!context.mounted) return;
+      if (!ok) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(content: Text(l.startNeedsLocation)));
+        return;
+      }
+      await Navigator.of(context).push(
         MaterialPageRoute<void>(builder: (_) => WizardScreen(taskId: t.id)),
       );
     }

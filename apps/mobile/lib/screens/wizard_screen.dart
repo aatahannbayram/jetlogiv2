@@ -233,10 +233,22 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
           final n = ref.read(sessionProvider).nextStop;
           Navigator.popUntil(context, (r) => r.isFirst);
           if (n == null) return;
-          ref.read(sessionProvider).startTask(n.id);
-          Navigator.of(context).push(
-            MaterialPageRoute<void>(builder: (_) => WizardScreen(taskId: n.id)),
-          );
+          final nav = Navigator.of(context);
+          final messenger = ScaffoldMessenger.of(context);
+          final warn = context.l10n.startNeedsLocation;
+          ref.read(sessionProvider).startTask(n.id).then((ok) {
+            if (!ok) {
+              messenger
+                ..hideCurrentSnackBar()
+                ..showSnackBar(SnackBar(content: Text(warn)));
+              return;
+            }
+            nav.push(
+              MaterialPageRoute<void>(
+                builder: (_) => WizardScreen(taskId: n.id),
+              ),
+            );
+          });
         },
       );
     }

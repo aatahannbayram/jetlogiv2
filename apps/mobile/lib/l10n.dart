@@ -1199,6 +1199,10 @@ class L10n {
   String get visitNoteHint =>
       _t('Kısaca ne oldu? (istersen yaz)', 'What happened? (optional)');
   String get visitTakePhoto => _t('Fotoğraf çek', 'Take photo');
+  String get startNeedsLocation => _t(
+    'Konumun alınamadı. Konum iznini aç, açık alana çıkıp tekrar dene.',
+    'Could not get your location. Allow location, step outside and try again.',
+  );
   String get visitPhotoReady => _t('Fotoğraf hazır', 'Photo ready');
   String get visitPhotoNeeded =>
       _t('Önce fotoğrafı çek.', 'Take the photo first.');

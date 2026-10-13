@@ -3364,7 +3364,8 @@ class SessionController extends ChangeNotifier {
             captured == null ||
             DateTime.now().toUtc().difference(captured.toUtc()) >
                 const Duration(minutes: 4);
-        if (stale) {
+        // Bayatsa taze ölçüm kullanılır; ölçüm yoksa kaydedilen gider.
+        if (stale && selfLocated) {
           lat = selfLat;
           lng = selfLng;
         }
@@ -3384,6 +3385,8 @@ class SessionController extends ChangeNotifier {
         final waited =
             DateTime.now().toUtc().difference(event.occurredAt.toUtc()) >
             const Duration(minutes: 4);
+        // Bayat konumun yerine koyacak gerçek ölçüm yoksa hiç gönderilmez.
+        if (waited && !selfLocated) break;
         await client.sendLocation(
           id!,
           purposeCode:
@@ -3540,17 +3543,35 @@ class SessionController extends ChangeNotifier {
     }
   }
 
-  Future<void> startTask(String id) async {
+  /// Görevi başlatır. Panel oturumunda gerçek bir konum ölçümü yoksa
+  /// başlatmaz ve false döner: sunucuya depo varsayılanı konum diye gitmez.
+  Future<bool> startTask(String id) async {
     final t = taskById(id);
-    t.status = TaskStatus.inProgress;
     if (_usesPanelTasks) {
+      // Zimmet kabulü görevi zaten dağıtıma çıkarmıştır (4020); yeniden
+      // başlatma isteği `TASK_NOT_READY_FOR_DELIVERY` ile reddedilir.
+      final already =
+          t.wireStatus == '4020' || t.wireStatus == 'OUT_FOR_DELIVERY';
+      if (already) {
+        t.status = TaskStatus.inProgress;
+        notifyListeners();
+        unawaited(ensureDayRoute());
+        return true;
+      }
+      if (!selfLocated) await refreshSelfPosition();
+      if (!selfLocated) {
+        notifyListeners();
+        return false;
+      }
+      t.status = TaskStatus.inProgress;
       t.wireStatus = 'OUT_FOR_DELIVERY';
       notifyListeners();
       unawaited(ensureDayRoute());
       _enqueuePanelStart(id);
       await _pushPanelQueue();
-      return;
+      return true;
     }
+    t.status = TaskStatus.inProgress;
     final steps = startTransitions(
       wireStatus: t.wireStatus,
       rowVersion: t.rowVersion,
@@ -3573,6 +3594,7 @@ class SessionController extends ChangeNotifier {
     }
     notifyListeners();
     unawaited(ensureDayRoute());
+    return true;
   }
 
   Map<String, Object?> _finalizePayload(
