@@ -1324,6 +1324,41 @@ class L10n {
         _t('Gönderilemedi. Tekrar dene.', 'Could not send. Try again.');
   }
 
+  /// JetDiji SMS giriş hata kodları; tanınmayan kodda null.
+  String? smsLoginError(String? code, int? remainingAttempts) => switch (code) {
+    'SMS_CODE_INVALID' => remainingAttempts == null
+        ? _t('Kod yanlış. Tekrar dene.', 'Wrong code. Try again.')
+        : _t(
+            'Kod yanlış. $remainingAttempts deneme hakkın kaldı.',
+            'Wrong code. $remainingAttempts attempts left.',
+          ),
+    'SMS_CODE_EXPIRED' => _t(
+      'Kodun süresi doldu. Yeni kod iste.',
+      'The code expired. Ask for a new one.',
+    ),
+    'SMS_CODE_TOO_MANY_ATTEMPTS' || 'SMS_CODE_TOO_MANY_REQUESTS' => _t(
+      'Çok fazla deneme yapıldı. Biraz bekleyip yeni kod iste.',
+      'Too many attempts. Wait a bit and ask for a new code.',
+    ),
+    'SMS_SEND_FAILED' => _t(
+      'Kod gönderilemedi. Biraz sonra tekrar dene.',
+      'Could not send the code. Try again shortly.',
+    ),
+    'ACCOUNT_TEMPORARILY_LOCKED' => _t(
+      'Hesabın kısa süreliğine kilitlendi. Biraz sonra tekrar dene.',
+      'Your account is locked for a short time. Try again later.',
+    ),
+    'ACCOUNT_NOT_ACTIVE' => _t(
+      'Hesabın henüz açılmamış. Şubenle görüş.',
+      'Your account is not active yet. Contact your branch.',
+    ),
+    'VALIDATION_ERROR' => _t(
+      'Kod 6 haneli olmalı.',
+      'The code must be 6 digits.',
+    ),
+    _ => null,
+  };
+
   // Hatalarım ve fotoğraf puanı
   String get mistakesTitle => _t('Hatalarım', 'My mistakes');
   String get photoScoreTitle => _t('Fotoğraf puanın', 'Your photo score');

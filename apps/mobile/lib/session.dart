@@ -1748,10 +1748,45 @@ class SessionController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Son istenen kod JetDiji'den mi geldi (yoksa eski yerel akıştan mı).
+  bool _smsLoginViaPanel = false;
+
   Future<bool> requestActivationCode(String phone) async {
     lastActivationError = null;
     activationBusy = true;
     notifyListeners();
+    // Kod JetDiji backend'inden istenir. Geliştirmede sunucuya ulaşılamazsa
+    // aşağıdaki yerel akışa düşülür ki demo kodu çalışsın.
+    final client = panel;
+    _smsLoginViaPanel = false;
+    if (client != null) {
+      try {
+        final sms = await client.requestSmsLogin(phone.trim());
+        if (sms.challengeId != null) {
+          challengeId = sms.challengeId;
+          otpResendAt = DateTime.now().add(
+            Duration(seconds: sms.resendAfterSeconds),
+          );
+          _smsLoginViaPanel = true;
+          activationBusy = false;
+          notifyListeners();
+          return true;
+        }
+      } on PanelApiException catch (e) {
+        if (e.statusCode != null) {
+          lastActivationError = e.code;
+          activationBusy = false;
+          notifyListeners();
+          return false;
+        }
+        if (kReleaseMode) {
+          lastActivationError = 'NETWORK';
+          activationBusy = false;
+          notifyListeners();
+          return false;
+        }
+      }
+    }
     final install = await vault?.installationId() ?? Vault.newUuid();
     try {
       final res = await api?.startActivation(phone, install);
@@ -1827,15 +1862,7 @@ class SessionController extends ChangeNotifier {
     }
     try {
       final profile = await client.login(identifier: id, password: password);
-      applyPanelProfile(profile);
-      await loadPanelTasks();
-      unawaited(loadCourierDashboard());
-      await Future.wait([
-        loadTickets(),
-        loadCustody(),
-        loadIdentity(),
-        loadDeliveryReasons(),
-      ]);
+      await _afterPanelLogin(profile);
       return true;
     } on PanelApiException catch (e) {
       lastPanelError = e.code;
@@ -1848,6 +1875,19 @@ class SessionController extends ChangeNotifier {
       notifyListeners();
       return false;
     }
+  }
+
+  /// Şifreli ve SMS'li girişten sonra ortak yükleme.
+  Future<void> _afterPanelLogin(PanelCourierProfileDto profile) async {
+    applyPanelProfile(profile);
+    await loadPanelTasks();
+    unawaited(loadCourierDashboard());
+    await Future.wait([
+      loadTickets(),
+      loadCustody(),
+      loadIdentity(),
+      loadDeliveryReasons(),
+    ]);
   }
 
   /// Şube/Acente girişi. Kullanıcı birden fazla acenteye bağlıysa
@@ -1962,6 +2002,24 @@ class SessionController extends ChangeNotifier {
     }
     final install = await vault?.installationId() ?? Vault.newUuid();
     final id = challengeId;
+    final client = panel;
+    if (_smsLoginViaPanel && client != null && id != null) {
+      lastActivationError = null;
+      loginRemainingAttempts = null;
+      try {
+        final profile = await client.verifySmsLogin(challengeId: id, code: code);
+        await _afterPanelLogin(profile);
+        return true;
+      } on PanelApiException catch (e) {
+        lastActivationError = e.statusCode == null ? 'NETWORK' : e.code;
+        loginRemainingAttempts = e.remainingAttempts;
+        notifyListeners();
+        return false;
+      } catch (_) {
+        lastActivationError = 'VERIFY_FAILED';
+        return false;
+      }
+    }
     if (api == null || id == null) return false;
     lastActivationError = null;
     try {

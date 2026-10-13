@@ -103,7 +103,10 @@ class PanelApi {
       'identifier': identifier,
       'password': password,
     });
-    final data = res.data?['data'] as Map?;
+    return _openSession(res.data?['data'] as Map?);
+  }
+
+  Future<PanelCourierProfileDto> _openSession(Map? data) async {
     final token = data?['accessToken'] as String?;
     if (token != null && token.isNotEmpty) {
       _accessToken = token;
@@ -113,6 +116,33 @@ class PanelApi {
     return PanelCourierProfileDto.fromJson(
       Map<String, dynamic>.from(courier ?? const {}),
     );
+  }
+
+  /// SMS ile giriş, 1. adım: kayıtlı telefona 6 haneli kod gönderir. Hesap
+  /// bulunamasa da yanıt aynıdır. Kod 5 dk geçerli, 60 sn'de bir istenir.
+  Future<({String? challengeId, int resendAfterSeconds})> requestSmsLogin(
+    String identifier,
+  ) async {
+    final res = await _post('/courier-auth/sms/request', {
+      'identifier': identifier,
+    });
+    final data = res.data?['data'] as Map? ?? const {};
+    return (
+      challengeId: data['challengeId'] as String?,
+      resendAfterSeconds: (data['resendAfterSeconds'] as num?)?.toInt() ?? 60,
+    );
+  }
+
+  /// SMS ile giriş, 2. adım: şifreli girişle aynı oturumu açar.
+  Future<PanelCourierProfileDto> verifySmsLogin({
+    required String challengeId,
+    required String code,
+  }) async {
+    final res = await _post('/courier-auth/sms/verify', {
+      'challengeId': challengeId,
+      'code': code,
+    });
+    return _openSession(res.data?['data'] as Map?);
   }
 
   Future<void> logout() async {

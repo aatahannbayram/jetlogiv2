@@ -506,4 +506,75 @@ void main() {
       );
     });
   });
+
+  group('SMS ile giriş', () {
+    test('kod JetDiji\'den istenir, doğrulanınca oturum açılır', () async {
+      final seen = <RequestOptions>[];
+      final s = SessionController(
+        panel: PanelApi(
+          _visitDio(
+            (o) => o.path.endsWith('/sms/request')
+                ? {'challengeId': 'ch-1', 'resendAfterSeconds': 60}
+                : o.path.endsWith('/sms/verify')
+                ? {
+                    'accessToken': 'tok',
+                    'courier': {
+                      'id': 'c-1',
+                      'courierCode': 'DGC-1',
+                      'fullName': 'Ayşe Kurye',
+                    },
+                  }
+                : null,
+            seen: seen,
+          ),
+        ),
+      );
+      expect(await s.requestActivationCode(' 0500 000 06 11 '), isTrue);
+      expect(seen.single.path, '/courier-auth/sms/request');
+      expect(seen.single.data, {'identifier': '0500 000 06 11'});
+      expect(s.challengeId, 'ch-1');
+
+      expect(await s.verifyLoginOtp('482913'), isTrue);
+      final verify = seen.firstWhere((o) => o.path.endsWith('/sms/verify'));
+      expect(verify.data, {'challengeId': 'ch-1', 'code': '482913'});
+      expect(s.panelLoggedIn, isTrue);
+      expect(s.tasks.single.id, 's-9');
+    });
+
+    test('yanlış kodda kalan deneme hakkı söylenir', () async {
+      final s = SessionController(
+        panel: PanelApi(
+          _visitDio(
+            (o) => o.path.endsWith('/sms/request')
+                ? {'challengeId': 'ch-1'}
+                : o.path.endsWith('/sms/verify')
+                ? DioException(
+                    requestOptions: o,
+                    response: Response<Map<String, dynamic>>(
+                      requestOptions: o,
+                      statusCode: 401,
+                      data: {
+                        'success': false,
+                        'error': {
+                          'code': 'SMS_CODE_INVALID',
+                          'remainingAttempts': 4,
+                        },
+                      },
+                    ),
+                    type: DioExceptionType.badResponse,
+                  )
+                : null,
+          ),
+        ),
+      );
+      await s.requestActivationCode('05000000611');
+      expect(await s.verifyLoginOtp('000000'), isFalse);
+      expect(s.panelLoggedIn, isFalse);
+      expect(
+        const L10n('tr')
+            .smsLoginError(s.lastActivationError, s.loginRemainingAttempts),
+        'Kod yanlış. 4 deneme hakkın kaldı.',
+      );
+    });
+  });
 }

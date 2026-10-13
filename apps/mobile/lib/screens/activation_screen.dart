@@ -51,9 +51,13 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
   }) {
     final raw = session.lastActivationError;
     if (raw == 'NETWORK') return l.activationSendFailed;
-    if (raw == 'OTP_RESEND_TOO_SOON' || raw == 'RATE_LIMITED') {
+    if (raw == 'OTP_RESEND_TOO_SOON' ||
+        raw == 'RATE_LIMITED' ||
+        raw == 'SMS_CODE_RATE_LIMITED') {
       return l.waitToResend;
     }
+    final sms = l.smsLoginError(raw, session.loginRemainingAttempts);
+    if (sms != null) return sms;
     if (raw != null &&
         raw != 'REQUEST_FAILED' &&
         raw != 'VERIFY_FAILED' &&
