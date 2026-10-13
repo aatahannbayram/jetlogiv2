@@ -31,6 +31,9 @@ class Dg {
   static const action = Color(0xFFF26A1B);
   // Turuncu düğmede beyaz kalın yazı (büyük metin kontrastı ≥ 3:1).
   static const onAction = Color(0xFFFFFFFF);
+  /// Dolu düğme renkleri: her temada aynı, üstünde beyaz kalın yazı.
+  static const go = Color(0xFF16A34A);
+  static const stop = Color(0xFFDC2F2F);
   static const touchMin = 48.0;
   static const buttonMin = 56.0;
   static Color get onStatus => dark ? night : Colors.white;

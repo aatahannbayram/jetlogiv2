@@ -131,7 +131,8 @@ class _NextStopCardState extends ConsumerState<NextStopCard> {
     final minutes = s.selfLocated ? slice?.minutes ?? task.etaMinutes : null;
     final index = s.visitNumber(task.id);
     final total = s.orderedOpenTasks.length;
-    final mapH = phase == NextStopPhase.enroute ? 118.0 : 80.0;
+    // Varınca harita kısalmaz; iğne ve etiket üst üste binmesin.
+    const mapH = 118.0;
     final snap = mapSnapshotUrl(
       task: task,
       selfLat: s.selfLat,
@@ -203,6 +204,7 @@ class _NextStopCardState extends ConsumerState<NextStopCard> {
                       : null,
                   indexLabel: l.stopIndexOf(index, total),
                   travelLabel: travel.isEmpty ? null : travel,
+                  arrived: phase == NextStopPhase.arrived && s.selfLocated,
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute<void>(
                       builder: (_) => TaskDetailScreen(taskId: task.id),
@@ -372,7 +374,11 @@ class _MapShot extends StatelessWidget {
     required this.onTap,
     this.map,
     this.travelLabel,
+    this.arrived = false,
   });
+
+  /// Durağa varıldı: etiket yeşil ve onay işaretli.
+  final bool arrived;
 
   /// "0.7 km · 1 dk"; haritanın sağ altında durur.
   final String? travelLabel;
@@ -433,14 +439,14 @@ class _MapShot extends StatelessWidget {
                     vertical: 5,
                   ),
                   decoration: BoxDecoration(
-                    color: Dg.neon,
+                    color: arrived ? Dg.go : Dg.neon,
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(
-                        LucideIcons.navigation,
+                      Icon(
+                        arrived ? LucideIcons.check : LucideIcons.navigation,
                         size: 12,
                         color: Colors.white,
                       ),
@@ -626,11 +632,8 @@ class _Ghost extends StatelessWidget {
         : null,
     child: Material(
       // Çerçeve yok; hafif dolgu düğme olduğunu belli eder.
-      color: danger
-          ? Dg.redBg
-          : positive
-          ? Dg.greenBg
-          : Dg.surface2,
+      // Zemin hep nötr; anlamı ikon ve yazının rengi taşır.
+      color: Dg.surface2,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: onTap,

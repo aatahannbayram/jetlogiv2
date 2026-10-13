@@ -410,19 +410,17 @@ class _DgButtonState extends State<DgButton> {
     final action = primary || brand || ember;
     final ink =
         widget.iconColor ??
-        (action
+        (action || danger || success
             ? Dg.onAction
-            : danger || success
-            ? Dg.onStatus
             : onDark
             ? Colors.white
             : Dg.ink);
     final fill =
         widget.fillColor ??
         (danger
-            ? Dg.bad
+            ? Dg.stop
             : success
-            ? Dg.ok
+            ? Dg.go
             : onDark
             ? Dg.night
             : Dg.surface);
@@ -2084,7 +2082,8 @@ class DgPillNav extends StatelessWidget {
       top: false,
       minimum: const EdgeInsets.fromLTRB(16, 8, 16, 10),
       child: Container(
-        padding: const EdgeInsets.all(4),
+        // Yanlarda pay: ilk ve son sekmenin yazısı kenara yapışmaz.
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         decoration: BoxDecoration(
           color: Dg.dock,
           borderRadius: BorderRadius.circular(36),

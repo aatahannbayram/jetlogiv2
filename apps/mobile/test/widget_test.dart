@@ -2,6 +2,7 @@ import 'package:dijigoo_kurye/alerts.dart';
 import 'package:dijigoo_kurye/api/courier_tasks.dart';
 import 'package:dijigoo_kurye/api/panel_models.dart';
 import 'package:dijigoo_kurye/app.dart';
+import 'package:dijigoo_kurye/brand.dart';
 import 'package:dijigoo_kurye/l10n.dart';
 import 'package:dijigoo_kurye/screens/task_detail_screen.dart';
 import 'package:dijigoo_kurye/screens/return_screen.dart';
@@ -142,10 +143,9 @@ void main() {
     await bindPhone(tester);
     await openDemo(tester);
     expect(find.text('Ahmet Yılmaz'), findsWidgets);
-    expect(
-      find.textContaining('Güney / Denizli', findRichText: true),
-      findsOneWidget,
-    );
+    // Üst satır: profil, logo ve durum; bölge yazısı artık profilde.
+    expect(find.byType(DijigooWordmark), findsOneWidget);
+    expect(find.text('Müsait'), findsOneWidget);
 
     await tapHomeKey(tester, const Key('next-stop-arrived'));
     await tapHomeKey(tester, const Key('next-stop-cta'));

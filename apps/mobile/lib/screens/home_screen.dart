@@ -53,108 +53,74 @@ class HomeScreen extends ConsumerWidget {
                   padding: const EdgeInsets.symmetric(horizontal: Dg.pagePad),
                   child: Column(
                     children: [
-                      // Üst alan tek parça: logo, durum ve bildirim üstte;
-                      // altında küçük profil satırı (dokununca profil açılır).
-                      Container(
-                        padding: const EdgeInsets.fromLTRB(16, 6, 6, 12),
-                        decoration: BoxDecoration(
-                          color: Dg.surface,
-                          borderRadius: BorderRadius.circular(Dg.rLg),
-                          boxShadow: Dg.cardShadow,
-                        ),
-                        child: Column(
-                          children: [
-                            Row(
-                              children: [
-                                DijigooWordmark(height: 22, onDark: Dg.dark),
-                                const Spacer(),
-                                DgOnlineChip(
-                                  online: s.online && s.shiftOpen,
-                                  onTap: s.shiftOpen ? s.toggleOnline : () {},
-                                ),
-                                const SizedBox(width: 2),
-                                IconButton(
-                                  onPressed: () => ref
-                                      .read(shellNavProvider)
-                                      .go(ShellNav.notif),
-                                  icon: Stack(
-                                    clipBehavior: Clip.none,
-                                    children: [
-                                      DgIcon(
-                                        LucideIcons.bell,
-                                        size: 22,
-                                        color: Dg.ink,
-                                      ),
-                                      if (s.unreadNotifCount > 0)
-                                        Positioned(
-                                          top: -2,
-                                          right: -3,
-                                          child: Container(
-                                            width: 8,
-                                            height: 8,
-                                            decoration: BoxDecoration(
-                                              color: Dg.warn,
-                                              shape: BoxShape.circle,
-                                            ),
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                            GestureDetector(
+                      // Üst satır kutusuz ve tek parça: solda profil, ortada
+                      // logo ve durum, sağda bildirim.
+                      Row(
+                        children: [
+                          Semantics(
+                            button: true,
+                            label: s.courier.fullName,
+                            child: GestureDetector(
                               behavior: HitTestBehavior.opaque,
                               onTap: () => Navigator.of(context).push(
                                 MaterialPageRoute<void>(
                                   builder: (_) => const ProfileScreen(),
                                 ),
                               ),
-                              child: Padding(
-                                padding: const EdgeInsets.only(right: 10),
-                                child: Row(
-                                  children: [
-                                    InitialsAvatar(
-                                      name: s.courier.fullName,
-                                      photoUrl: s.courier.photoUrl,
-                                      online: s.online,
-                                      size: 32,
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Text.rich(
-                                        TextSpan(
-                                          text: s.courier.fullName,
-                                          children: [
-                                            TextSpan(
-                                              text:
-                                                  '  ·  ${s.courier.district} / ${s.courier.city}',
-                                              style: Dg.ui(
-                                                size: 13,
-                                                color: Dg.ink3,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: Dg.ui(
-                                          size: 14,
-                                          weight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
-                                    DgIcon(
-                                      LucideIcons.chevronRight,
-                                      size: 16,
-                                      color: Dg.ink3,
-                                    ),
-                                  ],
+                              child: SizedBox(
+                                width: 48,
+                                height: 48,
+                                child: Center(
+                                  child: InitialsAvatar(
+                                    name: s.courier.fullName,
+                                    photoUrl: s.courier.photoUrl,
+                                    size: 40,
+                                  ),
                                 ),
                               ),
                             ),
-                          ],
-                        ),
+                          ),
+                          Expanded(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                DijigooWordmark(height: 22, onDark: Dg.dark),
+                                const SizedBox(height: 2),
+                                DgOnlineChip(
+                                  online: s.online && s.shiftOpen,
+                                  onTap: s.shiftOpen ? s.toggleOnline : () {},
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () =>
+                                ref.read(shellNavProvider).go(ShellNav.notif),
+                            icon: Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                DgIcon(
+                                  LucideIcons.bell,
+                                  size: 22,
+                                  color: Dg.ink,
+                                ),
+                                if (s.unreadNotifCount > 0)
+                                  Positioned(
+                                    top: -2,
+                                    right: -3,
+                                    child: Container(
+                                      width: 8,
+                                      height: 8,
+                                      decoration: BoxDecoration(
+                                        color: Dg.warn,
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 14),
                       if (s.showPanelFieldError)
