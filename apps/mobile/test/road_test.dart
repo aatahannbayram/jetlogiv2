@@ -1,3 +1,4 @@
+import 'package:dijigoo_kurye/geo.dart';
 import 'package:dijigoo_kurye/l10n.dart';
 import 'package:dijigoo_kurye/road.dart';
 import 'package:dio/dio.dart';
@@ -112,4 +113,71 @@ void main() {
     expect(l.travelLabel(12400, 21), '12 km · 21 dk');
     expect(l.travelLabel(900, null), '900 m');
   });
+
+  test(
+    'planDayRoute: yakın ilk durakta dolanan bacak düz çizgi olur',
+    () async {
+      const origin = LatLng(39.9105, 32.8585);
+      const near = LatLng(39.9100, 32.8590);
+      const far = LatLng(39.9040, 32.8590);
+      const loop = [
+        origin,
+        LatLng(39.9120, 32.8585),
+        LatLng(39.9120, 32.8600),
+        near,
+      ];
+      const onward = [near, LatLng(39.9070, 32.8592), far];
+      final dio = Dio()
+        ..interceptors.add(
+          InterceptorsWrapper(
+            onRequest: (options, handler) {
+              final first = options.uri.path.contains('32.858500,39.910500;');
+              handler.resolve(
+                Response<Map<String, dynamic>>(
+                  requestOptions: options,
+                  statusCode: 200,
+                  data: {
+                    'code': 'Ok',
+                    'routes': [
+                      {
+                        'geometry': encodePolyline(
+                          first ? loop : onward,
+                          precision: 6,
+                        ),
+                        'distance': first ? 693 : 700,
+                        'duration': first ? 90 : 120,
+                        'legs': [
+                          {
+                            'distance': first ? 693 : 700,
+                            'duration': first ? 90 : 120,
+                          },
+                        ],
+                      },
+                    ],
+                  },
+                ),
+              );
+            },
+          ),
+        );
+      final route = await planDayRoute(origin, const [
+        RouteStopInput(id: 'a', at: near),
+        RouteStopInput(id: 'b', at: far),
+      ], dio: dio);
+
+      expect(route.estimated, isFalse);
+      expect(route.stops.first.walking, isTrue);
+      expect(route.stops.first.meters, inInclusiveRange(60, 80));
+      expect(route.highlight, [origin, near]);
+      // Dolanan köşeler çizgiden çıktı; kalan bacak aynen duruyor.
+      expect(route.points.first, origin);
+      expect(route.points[1], near);
+      expect(route.points.length, 2 + onward.length - 1);
+      expect(route.meters, inInclusiveRange(760, 780));
+      final legB = route.legFor('b')!;
+      expect(legB.walking, isFalse);
+      expect(legB.points.length, onward.length);
+      expect(route.legFor('a')!.walking, isTrue);
+    },
+  );
 }

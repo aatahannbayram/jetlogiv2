@@ -170,7 +170,8 @@ class DayRoute {
     // Kurye durağın dibindeyken tek yönlü sokaklar yüzünden araç rotası
     // bloğun etrafını dolanır. O mesafe yürünür: düz çizgi ve gerçek uzaklık.
     final direct = haversineMeters(from, to);
-    if (i == 0 && direct < kWalkMeters && stops[i].meters > direct * 2) {
+    if (stops[i].walking ||
+        (i == 0 && direct < kWalkMeters && stops[i].meters > direct * 2)) {
       return RoadSlice(
         points: [from, to],
         meters: direct.round(),
@@ -239,12 +240,16 @@ class DayStop {
     required this.at,
     required this.meters,
     required this.seconds,
+    this.walking = false,
   });
 
   final List<String> taskIds;
   final LatLng at;
   final int meters;
   final int seconds;
+
+  /// Bu durağa araçla değil yürüyerek gidilir (çok yakın).
+  final bool walking;
 }
 
 class RouteStopInput {
@@ -442,6 +447,44 @@ DayRoute _withRoad(DayRoute local, _FetchedRoad road) {
           local.stops.first.at,
         ]);
   final cut = (cuts.length > 1 ? cuts[1] : 1).clamp(1, road.points.length - 1);
+
+  // İlk durak yürüme mesafesindeyse araç rotası bloğun etrafını dolanır
+  // (tek yönlü sokaklar). O bacak düz çizgiyle değiştirilir; günün kalanı
+  // duraktan itibaren aynen sürer.
+  final origin = local.waypoints.first;
+  final first = local.stops.first.at;
+  final direct = haversineMeters(origin, first);
+  final exactCut = known != null || local.waypoints.length == 2;
+  if (exactCut && direct < kWalkMeters && stops.first.meters > direct * 2) {
+    final end = local.waypoints.length == 2 ? road.points.length - 1 : cut;
+    final walkMeters = direct.round();
+    final walkSeconds = (direct / kWalkSpeedMps).round();
+    final drop = end - 1;
+    return DayRoute(
+      points: [origin, first, ...road.points.skip(end + 1)],
+      precision: road.precision,
+      meters: road.meters - stops.first.meters + walkMeters,
+      seconds: road.seconds - stops.first.seconds + walkSeconds,
+      estimated: false,
+      provider: road.provider,
+      stops: [
+        DayStop(
+          taskIds: stops.first.taskIds,
+          at: first,
+          meters: walkMeters,
+          seconds: walkSeconds,
+          walking: true,
+        ),
+        ...stops.skip(1),
+      ],
+      waypoints: local.waypoints,
+      highlight: [origin, first],
+      legCuts: known == null
+          ? null
+          : [0, 1, for (final c in known.skip(2)) c - drop],
+    );
+  }
+
   return DayRoute(
     points: road.points,
     polyline: road.polyline,

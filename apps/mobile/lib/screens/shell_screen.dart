@@ -802,8 +802,12 @@ class _TravelSegment extends StatelessWidget {
       return const SizedBox(height: 8);
     }
     final minutes = ((seconds ?? 0) / 60).clamp(1, 180).round();
-    final travel =
-        '${(distanceMeters / 1000).toStringAsFixed(1)} km · $minutes dk';
+    // Yürüme mesafesindeki ilk durak: süre yerine "yürüyerek".
+    final travel = context.l10n.travelLabel(
+      distanceMeters,
+      minutes,
+      walking: fromYou && distanceMeters < kWalkMeters,
+    );
     final label = fromYou ? '${context.l10n.youToNext}  ·  $travel' : travel;
     return Padding(
       padding: const EdgeInsets.fromLTRB(11, 2, 0, 2),
