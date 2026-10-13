@@ -1,3 +1,4 @@
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/material.dart';
 
 import '../branch_workspace.dart';
@@ -52,7 +53,39 @@ class SubeKpiGrid extends StatelessWidget {
 
   /// Kutularla aynı sırada ikonlar; eksik olan kutu ikonsuz kalır.
   final List<IconData> icons;
-  IconData? _icon(int i) => i < icons.length ? icons[i] : null;
+
+  /// Açıkça verilmediyse ikon etiketten bulunur; böylece her ekrandaki sayı
+  /// kutusu aynı kavram için aynı ikonu taşır.
+  IconData? _icon(int i, L10n l) {
+    if (i < icons.length) return icons[i];
+    final label = tiles[i].$1;
+    final known = <String, IconData>{
+      l.kpiToday: LucideIcons.truck,
+      l.kpiDelivered: LucideIcons.circleCheck,
+      l.kpiAssigned: LucideIcons.packageCheck,
+      l.kpiWaiting: LucideIcons.clock,
+      l.kpiCancelled: LucideIcons.circleX,
+      l.kpiReturnToCenter: LucideIcons.warehouse,
+      l.kpiUrgent: LucideIcons.zap,
+      l.kpiPendingOps: LucideIcons.listTodo,
+      l.kpiActiveCouriers: LucideIcons.users,
+      l.kpiAwaitAccept: LucideIcons.userCheck,
+      l.kpiAwaitReturn: LucideIcons.undo2,
+      l.kpiOpen: LucideIcons.circleDashed,
+      l.filterLate: LucideIcons.timerOff,
+      l.perfDeliveryRate: LucideIcons.percent,
+      l.perfFirstAttempt: LucideIcons.target,
+      l.perfSla: LucideIcons.timer,
+      l.perfAvgMinutes: LucideIcons.hourglass,
+      l.perfAttempted: LucideIcons.package,
+      l.perfFailed: LucideIcons.packageX,
+      l.onShiftNow: LucideIcons.userCheck,
+      l.plannedLabel: LucideIcons.calendarClock,
+      l.plannedNotStarted: LucideIcons.circleAlert,
+      l.onLeaveLabel: LucideIcons.palmtree,
+    };
+    return known[label];
+  }
 
   final List<(String, String)> tiles;
 
@@ -65,6 +98,7 @@ class SubeKpiGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     // Büyük yazıda kutular tek sütuna iner.
     final columns = MediaQuery.textScalerOf(context).scale(14) > 20 ? 1 : 2;
+    final l = context.l10n;
     return Column(
       children: [
         for (var i = 0; i < tiles.length; i += columns) ...[
@@ -77,7 +111,7 @@ class SubeKpiGrid extends StatelessWidget {
                   label: tiles[i].$1,
                   value: tiles[i].$2,
                   valueColor: _tint(tiles[i].$2),
-                  icon: _icon(i),
+                  icon: _icon(i, l),
                 ),
                 if (columns == 2) ...[
                   const SizedBox(width: 12),
@@ -86,7 +120,7 @@ class SubeKpiGrid extends StatelessWidget {
                       label: tiles[i + 1].$1,
                       value: tiles[i + 1].$2,
                       valueColor: _tint(tiles[i + 1].$2),
-                      icon: _icon(i + 1),
+                      icon: _icon(i + 1, l),
                     )
                   else
                     const Spacer(),

@@ -168,7 +168,7 @@ class _SubeLabelsScreenState extends ConsumerState<SubeLabelsScreen> {
                   icon: DgIcon(
                     LucideIcons.bluetooth,
                     size: 16,
-                    color: Dg.brand,
+                    color: Dg.plum,
                   ),
                   label: Text(l.btPrinterPick),
                 ),

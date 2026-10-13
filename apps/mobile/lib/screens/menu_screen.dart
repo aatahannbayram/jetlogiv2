@@ -192,7 +192,7 @@ class MenuScreen extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(Dg.s20, Dg.s12, Dg.s20, Dg.s28),
           children: [
-            Appear(child: DijigooWordmark(height: 22, onDark: Dg.dark)),
+            Appear(child: DijigooWordmark(height: 28, onDark: Dg.dark)),
             const SizedBox(height: Dg.s20),
             _ProfileCard(session: s),
             const SizedBox(height: Dg.s32),

@@ -27,7 +27,7 @@ class SubeHomeScreen extends ConsumerWidget {
       appBar: AppBar(
         // Başlıkta logo; şube adı uzun olabildiği için aşağıda iki satıra
         // kadar yazılır.
-        title: DijigooWordmark(height: 22, onDark: Dg.dark),
+        title: DijigooWordmark(height: 34, onDark: Dg.dark),
         actions: [
           IconButton(
             tooltip: l.retryNow,

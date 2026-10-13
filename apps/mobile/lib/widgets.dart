@@ -144,8 +144,9 @@ class DgIconChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tone = color ?? (accent ? Dg.text1 : Dg.text2);
-    final bg = background ?? Dg.surface2;
+    // Vurgulu ikon mor rozetle gelir; liste satırları bir bakışta ayrışır.
+    final tone = color ?? (accent ? Dg.plum : Dg.text2);
+    final bg = background ?? (accent ? Dg.plumSoft : Dg.surface2);
     return Container(
       width: size,
       height: size,

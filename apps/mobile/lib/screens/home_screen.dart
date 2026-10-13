@@ -84,7 +84,7 @@ class HomeScreen extends ConsumerWidget {
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                DijigooWordmark(height: 22, onDark: Dg.dark),
+                                DijigooWordmark(height: 30, onDark: Dg.dark),
                                 const SizedBox(height: 2),
                                 DgOnlineChip(
                                   online: s.online && s.shiftOpen,
