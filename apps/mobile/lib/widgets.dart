@@ -896,7 +896,6 @@ class MapStrip extends StatelessWidget {
                     // beyaz yazıyla kontrastı kaybolur.
                     color: Dg.night,
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Dg.purple.withValues(alpha: 0.7)),
                   ),
                   child: Text(
                     label ?? (eta == null ? 'Sıradaki durak' : '~$eta dk'),
@@ -1003,7 +1002,7 @@ class _StableMapViewState extends State<_StableMapView> {
         CameraFit.coordinates(
           coordinates: widget.fit,
           padding: _safePadding(),
-          maxZoom: 15.4,
+          maxZoom: 17,
         ),
       );
     } catch (_) {}
@@ -1025,7 +1024,7 @@ class _StableMapViewState extends State<_StableMapView> {
             ? CameraFit.coordinates(
                 coordinates: fit,
                 padding: widget.fitPadding,
-                maxZoom: 15.4,
+                maxZoom: 17,
               )
             : null,
         interactionOptions: InteractionOptions(
@@ -1046,11 +1045,15 @@ class _StableMapViewState extends State<_StableMapView> {
             polylines: [
               Polyline(
                 points: widget.line,
+                // Tek bacak (kart, görev) mor çizilir; günün tamamında
+                // gidilecek bacak mor, geri kalanı sakin koyu gri.
                 color: widget.estimated
                     ? Dg.night.withValues(alpha: 0.45)
-                    : Dg.night,
-                strokeWidth: widget.estimated ? 3.4 : 5.2,
-                borderStrokeWidth: widget.estimated ? 0 : 2.4,
+                    : widget.highlight.length > 1
+                    ? const Color(0xFF59605C)
+                    : Dg.neon,
+                strokeWidth: widget.estimated ? 3.4 : 4.6,
+                borderStrokeWidth: widget.estimated ? 0 : 2,
                 borderColor: Colors.white,
                 strokeCap: StrokeCap.round,
                 strokeJoin: StrokeJoin.round,
@@ -1061,7 +1064,7 @@ class _StableMapViewState extends State<_StableMapView> {
               if (!widget.estimated && widget.highlight.length > 1)
                 Polyline(
                   points: widget.highlight,
-                  color: Dg.purple,
+                  color: Dg.neon,
                   strokeWidth: 5.6,
                   borderStrokeWidth: 1.6,
                   borderColor: Colors.white,
@@ -1076,11 +1079,16 @@ class _StableMapViewState extends State<_StableMapView> {
               Marker(
                 point: widget.points[i],
                 width: widget.numberStops
-                    ? 26
-                    : (i == widget.points.length - 1 ? 30 : 14),
+                    ? 28
+                    : (i == widget.points.length - 1 ? 32 : 14),
                 height: widget.numberStops
-                    ? 26
-                    : (i == widget.points.length - 1 ? 30 : 14),
+                    ? 28
+                    : (i == widget.points.length - 1 ? 40 : 14),
+                // Hedef iğnesinin ucu tam adrese değer.
+                alignment:
+                    !widget.numberStops && i == widget.points.length - 1
+                    ? Alignment.topCenter
+                    : Alignment.center,
                 child: widget.numberStops
                     ? _StopNumber(
                         index: i + 1,
@@ -1101,8 +1109,8 @@ class _StableMapViewState extends State<_StableMapView> {
             for (final c in widget.couriers)
               Marker(
                 point: LatLng(c.lat, c.lng),
-                width: c.self ? 36 : 30,
-                height: c.self ? 36 : 30,
+                width: c.self ? 34 : 30,
+                height: c.self ? 34 : 30,
                 child: _CourierPin(courier: c),
               ),
           ],
@@ -1129,28 +1137,55 @@ class _DestinationPin extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: Dg.primaryGradient,
-        border: Border.all(color: Colors.white, width: 2),
-        boxShadow: [
-          BoxShadow(
-            color: Dg.primaryGradientEnd.withValues(alpha: 0.55),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
+    return CustomPaint(
+      painter: const _PinPainter(),
+      child: Align(
+        alignment: const Alignment(0, -0.62),
+        child: Container(
+          width: 12,
+          height: 12,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
           ),
-        ],
-      ),
-      alignment: Alignment.center,
-      child: DgIcon(
-        LucideIcons.mapPin,
-        color: Dg.onAction,
-        size: 15,
-        weight: 600,
+        ),
       ),
     );
   }
+}
+
+/// Damla biçimli hedef iğnesi: ucu kutunun alt ortasındadır.
+class _PinPainter extends CustomPainter {
+  const _PinPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final r = size.width / 2 - 2;
+    final c = Offset(size.width / 2, r + 2);
+    final tip = Offset(size.width / 2, size.height - 1);
+    final path = Path()
+      ..moveTo(tip.dx, tip.dy)
+      ..quadraticBezierTo(c.dx - r * 0.25, c.dy + r * 1.05, c.dx - r * 0.82, c.dy + r * 0.57)
+      ..arcToPoint(
+        Offset(c.dx + r * 0.82, c.dy + r * 0.57),
+        radius: Radius.circular(r),
+        largeArc: true,
+      )
+      ..quadraticBezierTo(c.dx + r * 0.25, c.dy + r * 1.05, tip.dx, tip.dy)
+      ..close();
+    canvas.drawShadow(path, const Color(0x66000000), 3, false);
+    canvas.drawPath(path, Paint()..color = Dg.action);
+    canvas.drawPath(
+      path,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..color = Colors.white,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_PinPainter oldDelegate) => false;
 }
 
 /// Rotadaki durak sırası — 1 = sıradaki (mor), son = hedef.
@@ -1167,9 +1202,9 @@ class _StopNumber extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fill = next ? Dg.purple : (last ? Dg.night : Dg.surface);
+    final fill = next ? Dg.neon : (last ? Dg.night : Dg.surface);
     final ink = next
-        ? Dg.onAction
+        ? Dg.onNeon
         : last
         ? Dg.onStatus
         : Dg.ink;
@@ -1184,7 +1219,7 @@ class _StopNumber extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: (next ? Dg.purple : Dg.night).withValues(alpha: 0.28),
+            color: (next ? Dg.neon : Dg.night).withValues(alpha: 0.28),
             blurRadius: 6,
             offset: const Offset(0, 2),
           ),
@@ -1219,6 +1254,8 @@ class _WaypointDot extends StatelessWidget {
   }
 }
 
+const _selfBlue = Color(0xFF2F7CF6);
+
 class _CourierPin extends StatelessWidget {
   const _CourierPin({required this.courier});
 
@@ -1226,6 +1263,28 @@ class _CourierPin extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Kendi konumun: yön iddia etmeyen mavi nokta ve yumuşak hale.
+    if (courier.self) {
+      return Container(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: _selfBlue.withValues(alpha: 0.22),
+        ),
+        alignment: Alignment.center,
+        child: Container(
+          width: 18,
+          height: 18,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: _selfBlue,
+            border: Border.all(color: Colors.white, width: 3),
+            boxShadow: const [
+              BoxShadow(color: Color(0x55000000), blurRadius: 4),
+            ],
+          ),
+        ),
+      );
+    }
     final ring = courier.self ? Dg.sage : (courier.onBreak ? Dg.sand : Dg.blue);
     return Container(
       decoration: BoxDecoration(

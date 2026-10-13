@@ -129,9 +129,6 @@ class _NextStopCardState extends ConsumerState<NextStopCard> {
     );
     // Konum ölçülmeden mesafe ve süre uydurulmaz.
     final minutes = s.selfLocated ? slice?.minutes ?? task.etaMinutes : null;
-    final km = meters == null || !s.selfLocated
-        ? null
-        : (meters / 1000).toStringAsFixed(1);
     final index = s.visitNumber(task.id);
     final total = s.orderedOpenTasks.length;
     final mapH = phase == NextStopPhase.enroute ? 118.0 : 80.0;
@@ -142,10 +139,13 @@ class _NextStopCardState extends ConsumerState<NextStopCard> {
       road: slice?.points,
     );
 
-    final travel = [
-      if (km != null) '$km km',
-      if (minutes != null) '$minutes dk',
-    ].join(' · ');
+    final travel = meters == null || !s.selfLocated
+        ? ''
+        : context.l10n.travelLabel(
+            meters.round(),
+            minutes,
+            walking: slice?.walking ?? false,
+          );
 
     return RepaintBoundary(
       child: SingleChildScrollView(

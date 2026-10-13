@@ -379,9 +379,10 @@ class _RotaTaskCard extends StatelessWidget {
                   open
                       ? [
                           if (travel != null)
-                            context.l10n.routeKmMin(
-                              (travel!.meters / 1000).toStringAsFixed(1),
+                            context.l10n.travelLabel(
+                              travel!.meters,
                               travel!.minutes,
+                              walking: travel!.walking,
                             ),
                           task.window,
                           if (task.custodyCount != null)

@@ -9,18 +9,16 @@ Future<void> dialNumber(BuildContext context, String? phone) async {
   final raw = (phone ?? '').replaceAll(RegExp(r'[^\d+]'), '');
   if (raw.isEmpty) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.noRecipientPhone)),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(context.l10n.noRecipientPhone)));
     }
     return;
   }
   final uri = Uri(scheme: 'tel', path: raw);
   final ok = await launchUrl(uri);
   if (!ok && context.mounted) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(context.l10n.callOpening)),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(context.l10n.callOpening)));
   }
 }
 
@@ -28,26 +26,33 @@ Future<void> callRecipient(BuildContext context, {String? phone}) =>
     dialNumber(context, phone);
 
 Future<void> openDirections(BuildContext context, DeliveryTask task) async {
-  final apple = Uri.parse(
-    'https://maps.apple.com/?daddr=${task.lat},${task.lng}&dirflg=d',
-  );
+  // Koordinat yoksa (0,0) adresle aranır; yoksa harita okyanusa gider.
+  final dest = task.hasCoordinates
+      ? '${task.lat},${task.lng}'
+      : Uri.encodeComponent(task.address);
+  final apple = Uri.parse('https://maps.apple.com/?daddr=$dest&dirflg=d');
   final google = Uri.parse(
-    'https://www.google.com/maps/dir/?api=1&destination=${task.lat},${task.lng}',
+    'https://www.google.com/maps/dir/?api=1&destination=$dest&travelmode=driving',
   );
-  final geo = Uri.parse(
-    'geo:${task.lat},${task.lng}?q=${task.lat},${task.lng}',
-  );
+  // Android: haritada nokta göstermek yerine doğrudan yol tarifini başlatır.
+  final geo = Uri.parse('google.navigation:q=$dest&mode=d');
 
   final appleOs =
       defaultTargetPlatform == TargetPlatform.iOS ||
       defaultTargetPlatform == TargetPlatform.macOS;
   final primary = appleOs ? apple : geo;
-  var ok = await launchUrl(primary, mode: LaunchMode.externalApplication);
-  if (!ok) {
-    ok = await launchUrl(google, mode: LaunchMode.externalApplication);
+  Future<bool> open(Uri uri) async {
+    try {
+      return await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      // Google Haritalar kurulu değilse şema açılamaz; sıradakine geçilir.
+      return false;
+    }
   }
+
+  final ok = await open(primary) || await open(google);
   if (!ok && context.mounted) {
     ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('Yol tarifi açılıyor…')));
+        .showSnackBar(SnackBar(content: Text(context.l10n.mapsUnavailable)));
   }
 }

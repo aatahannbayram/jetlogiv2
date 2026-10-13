@@ -312,6 +312,17 @@ class L10n {
   String get youToNext => _t('Konumundan', 'From you');
   String get routeFinished => _t('Rota bitti', 'Route finished');
   String etaMinutesLabel(int n) => _t('$n dk', '$n min');
+  /// Mesafe etiketi: 1 km altı metre, yürüme mesafesinde süre yerine
+  /// "yürüyerek".
+  String travelLabel(int meters, int? minutes, {bool walking = false}) {
+    final dist = meters < 1000
+        ? '${meters < 20 ? meters : (meters / 10).round() * 10} m'
+        : '${(meters / 1000).toStringAsFixed(meters >= 10000 ? 0 : 1)} km';
+    if (walking) return '$dist · ${_t('yürüyerek', 'on foot')}';
+    if (minutes == null) return dist;
+    return '$dist · $minutes ${_t('dk', 'min')}';
+  }
+
   String routeKmMin(String km, int minutes) =>
       _t('$km km · $minutes dk', '$km km · $minutes min');
   String get startDelivery => _t('Teslime başla', 'Start delivery');
@@ -1810,6 +1821,8 @@ class L10n {
       _t('Tanımlı depo yok.', 'No warehouses defined.');
   String shipmentsCount(int n) => _t('$n gönderi', '$n shipments');
 
+  String get mapsUnavailable =>
+      _t('Harita uygulaması açılamadı.', 'Could not open a maps app.');
   String get inventoryOnMe => _t('Üzerimde', 'With me');
   String get inventoryEmptyTitle => _t('Üzerinde ürün yok', 'Nothing with you');
   String get inventoryEmptyBody => _t(

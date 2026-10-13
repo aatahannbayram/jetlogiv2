@@ -78,8 +78,7 @@ const _demoSeeds = [
     ],
     meters: [1472, 1486, 1997, 592],
     seconds: [227, 195, 398, 213],
-    polyline:
-        r'angwgA_odmv@cN|N_GnMoAxKc@pKsApHaDbEaWhRaGbAeL@aL`B}MzBmQ]qFdDuE~HqInDqFiB_DkAsLL_e@rG{\dAgSpCwSaMyLkDVjCk@hB[hBEdGDhF`@zE`@dGsAfFsAtEsBzAiBvBsAlAiBv@o@\yCsB_DpB}Db@gDr@wCd`@cCb\Mx@{Jlr@m@bSbChJqLtHoKjCoFg@~DxGhDNvKeCjOuCpS{HjMcApUtC|EhAnDfFpCdC|AzAjDbDbExEdC`H`AfElAfFUhFDnHg@zGmAjEmAxB_CrAaDsCuCwBaEiDoFwFkHgFsAaAiFeGiCmCyEkEaEuCcBw@}DMkCc@gB~BmDlAcCdCiFfC_CrCkCnB}BvBmDpB}DpBeD`BeCzAiFpBkAcCe@~@oBOcB}BcCaIsDmWkEoO[gAiHkFaGwNcHiI_EmLyD}QUgI}LiSuEuH_NaFiLgAwCYkMcBkGtAa@aIz@gOfCkVdDos@P}D~@eGbAoGvA}MrBqReDq@wM}HiOgSmD}FkT_`@i@_AwEeJaGkLoPiSok@iZyOiEoG^gJrFjI{QdGeGpDaDb^rB|WvFpc@lMhJhClPtE`JbBrGQfI{HhFoG`FaA|K_@dCkBbF_BxD_Cx@Uz@S`@KfD?|Au@bBkA|GqDaCxTuAfMm@vFQbMmCdJ?pDfBjESxF}HnPu@hCyEfPsAbFM|Ai@lGjCuBlGhBxBpBrNpMzV`[dFlGfXv^~BvClAzA|@jAvIdA`ApBv@`B[vPl@rEfA`Iw@`GeO`dAsFf]kFb\nAjMzAfBbF~F~DxGhDNvKeCjOuCpS{HjMcApUtC|EhAdB`@lPjMvG|JvJdTrR~T|EzBrIzNxNlPlLvL|FfGrKbCnW|OrTpLfI|DvEdCxEvI`CrL`C`NLvJs@tOSzMl@vReAxS}AnNiA~QgCxQ_AlM@fMaBpS_HhVgBjFyBvG_GnTqCvFcAlFUbPbE`KnC|KhDdHzFxDjFpEf@zEWzIj@hGxClJbEpHrBvKQvI}@lJi@zNh@nFv@hKDtKaAhODpLf@bHsAfG?pKAbLgC~KhAjKtCbId@bJoArJwCnP',
+    polyline: r'angwgA_odmv@cN|N_GnMoAxKc@pKsApHaDbEaWhRaGbAeL@aL`B}MzBmQ]qFdDuE~HqInDqFiB_DkAsLL_e@rG{\dAgSpCwSaMyLkDVjCk@hB[hBEdGDhF`@zE`@dGsAfFsAtEsBzAiBvBsAlAiBv@o@\yCsB_DpB}Db@gDr@wCd`@cCb\Mx@{Jlr@m@bSbChJqLtHoKjCoFg@~DxGhDNvKeCjOuCpS{HjMcApUtC|EhAnDfFpCdC|AzAjDbDbExEdC`H`AfElAfFUhFDnHg@zGmAjEmAxB_CrAaDsCuCwBaEiDoFwFkHgFsAaAiFeGiCmCyEkEaEuCcBw@}DMkCc@gB~BmDlAcCdCiFfC_CrCkCnB}BvBmDpB}DpBeD`BeCzAiFpBkAcCe@~@oBOcB}BcCaIsDmWkEoO[gAiHkFaGwNcHiI_EmLyD}QUgI}LiSuEuH_NaFiLgAwCYkMcBkGtAa@aIz@gOfCkVdDos@P}D~@eGbAoGvA}MrBqReDq@wM}HiOgSmD}FkT_`@i@_AwEeJaGkLoPiSok@iZyOiEoG^gJrFjI{QdGeGpDaDb^rB|WvFpc@lMhJhClPtE`JbBrGQfI{HhFoG`FaA|K_@dCkBbF_BxD_Cx@Uz@S`@KfD?|Au@bBkA|GqDaCxTuAfMm@vFQbMmCdJ?pDfBjESxF}HnPu@hCyEfPsAbFM|Ai@lGjCuBlGhBxBpBrNpMzV`[dFlGfXv^~BvClAzA|@jAvIdA`ApBv@`B[vPl@rEfA`Iw@`GeO`dAsFf]kFb\nAjMzAfBbF~F~DxGhDNvKeCjOuCpS{HjMcApUtC|EhAdB`@lPjMvG|JvJdTrR~T|EzBrIzNxNlPlLvL|FfGrKbCnW|OrTpLfI|DvEdCxEvI`CrL`C`NLvJs@tOSzMl@vReAxS}AnNiA~QgCxQ_AlM@fMaBpS_HhVgBjFyBvG_GnTqCvFcAlFUbPbE`KnC|KhDdHzFxDjFpEf@zEWzIj@hGxClJbEpHrBvKQvI}@lJi@zNh@nFv@hKDtKaAhODpLf@bHsAfG?pKAbLgC~KhAjKtCbId@bJoArJwCnP',
   ),
   _DemoSeed(
     waypoints: [
@@ -91,8 +90,7 @@ const _demoSeeds = [
     ],
     meters: [1435, 1486, 1026, 592],
     seconds: [219, 196, 281, 213],
-    polyline:
-        r'angwgA_odmv@cN|N_GnMoAxKc@pKsApHaDbEaWhRaGbAeL@aL`B}MzBmQ]qFdDuE~HqInDqFiB_DkAsLL_e@rG{\dAgSpCwSaMyLkDqCsHcF}MoBeDqIoCyDy@u@QaNuCoIgAgIo@eVaCmQmFaE}CkDkCwG{@me@UyBqBmGiBkCtBh@mGL}ArAcFxEgPt@iC|HoPRyFgBkE?qDlCeJPcMl@wFtAgM`CyT}GpDcBjA}At@gD?a@J{@Ry@TyD~BcF~AeCjB}K^aF`AiFnGgIzHsGPaJcBmPuEiJiCqc@mM}WwFc^sBqD`DeGdGkIzQfJsFnG_@xOhEnk@hZnPhS`GjLvEdJh@~@jT~_@lD|FhOfSvM|HdDp@sBpRwA|McAnG_AdGQ|DeDns@gCjV{@fO`@`IjGuAjMbBvCXhLfA~M`FtEtH|LhSTfIxD|Q~DlLbHhI`GvNhHjFZfAjEnOrDlWbC`IbB|BnBNd@_AjAbChFqBdC{AdDaB|DqBlDqB|BwBjCoB~BsChFgCbCeClDmAfB_CjCb@|DLbBv@`EtCxEjEhClChFdGrA`AjHfFnFvF`EhDtCvB`DrC~BsAlAyBlAkEf@{GEoHTiFmAgFaAgEeCaHcEyEkDcD}A{AqCeCoDgFdB`@lPjMvG|JvJdTrR~T|EzBrIzNxNlPlLvL|FfGrKbCnW|OrTpLfI|DvEdCxEvI`CrL`C`NLvJs@tOSzMl@vReAxS}AnNiA~QgCxQ_AlM@fMaBpS_HhVgBjFyBvG_GnTqCvFcAlFUbPbE`KnC|KhDdHzFxDjFpEf@zEWzIj@hGxClJbEpHrBvKQvI}@lJi@zNh@nFv@hKDtKaAhODpLf@bHsAfG?pKAbLgC~KhAjKtCbId@bJoArJwCnP',
+    polyline: r'angwgA_odmv@cN|N_GnMoAxKc@pKsApHaDbEaWhRaGbAeL@aL`B}MzBmQ]qFdDuE~HqInDqFiB_DkAsLL_e@rG{\dAgSpCwSaMyLkDqCsHcF}MoBeDqIoCyDy@u@QaNuCoIgAgIo@eVaCmQmFaE}CkDkCwG{@me@UyBqBmGiBkCtBh@mGL}ArAcFxEgPt@iC|HoPRyFgBkE?qDlCeJPcMl@wFtAgM`CyT}GpDcBjA}At@gD?a@J{@Ry@TyD~BcF~AeCjB}K^aF`AiFnGgIzHsGPaJcBmPuEiJiCqc@mM}WwFc^sBqD`DeGdGkIzQfJsFnG_@xOhEnk@hZnPhS`GjLvEdJh@~@jT~_@lD|FhOfSvM|HdDp@sBpRwA|McAnG_AdGQ|DeDns@gCjV{@fO`@`IjGuAjMbBvCXhLfA~M`FtEtH|LhSTfIxD|Q~DlLbHhI`GvNhHjFZfAjEnOrDlWbC`IbB|BnBNd@_AjAbChFqBdC{AdDaB|DqBlDqB|BwBjCoB~BsChFgCbCeClDmAfB_CjCb@|DLbBv@`EtCxEjEhClChFdGrA`AjHfFnFvF`EhDtCvB`DrC~BsAlAyBlAkEf@{GEoHTiFmAgFaAgEeCaHcEyEkDcD}A{AqCeCoDgFdB`@lPjMvG|JvJdTrR~T|EzBrIzNxNlPlLvL|FfGrKbCnW|OrTpLfI|DvEdCxEvI`CrL`C`NLvJs@tOSzMl@vReAxS}AnNiA~QgCxQ_AlM@fMaBpS_HhVgBjFyBvG_GnTqCvFcAlFUbPbE`KnC|KhDdHzFxDjFpEf@zEWzIj@hGxClJbEpHrBvKQvI}@lJi@zNh@nFv@hKDtKaAhODpLf@bHsAfG?pKAbLgC~KhAjKtCbId@bJoArJwCnP',
   ),
 ];
 
@@ -111,8 +109,9 @@ class RoadLeg {
 
   int get minutes => (seconds / 60).clamp(1, 180).round();
 
-  List<LatLng> get points =>
-      polyline.isEmpty ? const [] : decodePolyline(polyline, precision: precision);
+  List<LatLng> get points => polyline.isEmpty
+      ? const []
+      : decodePolyline(polyline, precision: precision);
 }
 
 /// Bir günün kalan durakları — kurye konumu sabit başlangıç, duraklar
@@ -129,7 +128,13 @@ class DayRoute {
     this.polyline = '',
     this.precision = 6,
     this.highlight = const [],
+    this.legCuts,
   });
+
+  /// Her bacağın [points] içindeki başlangıç/bitiş sırası (durak sayısı + 1
+  /// eleman). Bacaklar ayrı ayrı çekildiyse bilinir; o zaman bir durağın
+  /// çizgisi tahminle değil tam yerinden kesilir.
+  final List<int>? legCuts;
 
   final List<LatLng> points;
   final String polyline;
@@ -152,9 +157,7 @@ class DayRoute {
 
   /// Public/self-host OSRM veya Mapbox — tohum / kuş-uçuşu değil.
   bool get fromLiveEngine =>
-      provider == 'osrm' ||
-      provider == 'mapbox' ||
-      provider.endsWith('-legs');
+      provider == 'osrm' || provider == 'mapbox' || provider.endsWith('-legs');
 
   List<String> get stopTaskIds => [for (final s in stops) ...s.taskIds];
 
@@ -164,7 +167,26 @@ class DayRoute {
     if (i < 0 || i + 1 >= waypoints.length) return null;
     final from = waypoints[i];
     final to = waypoints[i + 1];
-    final pts = points.length > waypoints.length
+    // Kurye durağın dibindeyken tek yönlü sokaklar yüzünden araç rotası
+    // bloğun etrafını dolanır. O mesafe yürünür: düz çizgi ve gerçek uzaklık.
+    final direct = haversineMeters(from, to);
+    if (i == 0 && direct < kWalkMeters && stops[i].meters > direct * 2) {
+      return RoadSlice(
+        points: [from, to],
+        meters: direct.round(),
+        seconds: (direct / kWalkSpeedMps).round(),
+        precision: precision,
+        walking: true,
+      );
+    }
+    final cuts = legCuts;
+    final pts =
+        cuts != null &&
+            cuts.length == waypoints.length &&
+            cuts[i + 1] < points.length &&
+            cuts[i + 1] > cuts[i]
+        ? points.sublist(cuts[i], cuts[i + 1] + 1)
+        : points.length > waypoints.length
         ? _sliceAlong(points, from, to)
         : [from, to];
     return RoadSlice(
@@ -185,6 +207,10 @@ List<LatLng> _sliceAlong(List<LatLng> line, LatLng from, LatLng to) {
   return line.sublist(a, b + 1);
 }
 
+/// Bu mesafenin altında kurye araca binmez, yürür.
+const kWalkMeters = 200.0;
+const kWalkSpeedMps = 1.3;
+
 class RoadSlice {
   const RoadSlice({
     required this.points,
@@ -192,6 +218,7 @@ class RoadSlice {
     required this.seconds,
     required this.precision,
     this.estimated = false,
+    this.walking = false,
   });
 
   final List<LatLng> points;
@@ -199,6 +226,9 @@ class RoadSlice {
   final int seconds;
   final int precision;
   final bool estimated;
+
+  /// Durak yürüme mesafesinde: araç rotası değil, düz çizgi.
+  final bool walking;
 
   int get minutes => (seconds / 60).clamp(1, 180).round();
 }
@@ -218,11 +248,7 @@ class DayStop {
 }
 
 class RouteStopInput {
-  const RouteStopInput({
-    required this.id,
-    required this.at,
-    this.urgency = 0,
-  });
+  const RouteStopInput({required this.id, required this.at, this.urgency = 0});
 
   final String id;
   final LatLng at;
@@ -285,7 +311,10 @@ DayRoute planDayRouteLocal(
   final List<_Cluster> ordered;
   if (pinAt >= 0) {
     final head = clustered[pinAt];
-    final rest = [for (var i = 0; i < clustered.length; i++) if (i != pinAt) clustered[i]];
+    final rest = [
+      for (var i = 0; i < clustered.length; i++)
+        if (i != pinAt) clustered[i],
+    ];
     if (rest.isEmpty) {
       ordered = [head];
     } else {
@@ -316,7 +345,12 @@ DayRoute planDayRouteLocal(
     meters += d;
     seconds += t;
     stops.add(
-      DayStop(taskIds: ordered[i].ids, at: ordered[i].at, meters: d, seconds: t),
+      DayStop(
+        taskIds: ordered[i].ids,
+        at: ordered[i].at,
+        meters: d,
+        seconds: t,
+      ),
     );
   }
 
@@ -354,7 +388,8 @@ Future<DayRoute> planDayRoute(
   final local = planDayRouteLocal(origin, input, pinFirstId: pinFirstId);
   if (local.waypoints.length < 2) return local;
 
-  final client = dio ??
+  final client =
+      dio ??
       Dio(
         BaseOptions(
           connectTimeout: timeout,
@@ -369,20 +404,10 @@ Future<DayRoute> planDayRoute(
 
   _FetchedRoad? road;
   if (local.waypoints.length >= 3) {
-    road = await _fetchRoadLegs(
-      local.waypoints,
-      dio: client,
-      timeout: timeout,
-    );
+    road = await _fetchRoadLegs(local.waypoints, dio: client, timeout: timeout);
   }
-  road ??= await _fetchRoad(
-    local.waypoints,
-    dio: client,
-    timeout: timeout,
-  );
-  if (road != null &&
-      road.points.length > 1 &&
-      _roadIsSane(local, road)) {
+  road ??= await _fetchRoad(local.waypoints, dio: client, timeout: timeout);
+  if (road != null && road.points.length > 1 && _roadIsSane(local, road)) {
     return _withRoad(local, road);
   }
   return local;
@@ -409,10 +434,13 @@ DayRoute _withRoad(DayRoute local, _FetchedRoad road) {
         seconds: i < legs.length ? legs[i].seconds : local.stops[i].seconds,
       ),
   ];
-  final cuts = snapAlongRoute(road.points, [
-    local.waypoints.first,
-    local.stops.first.at,
-  ]);
+  final known = road.legCuts;
+  final cuts = known != null && known.length > 1
+      ? known
+      : snapAlongRoute(road.points, [
+          local.waypoints.first,
+          local.stops.first.at,
+        ]);
   final cut = (cuts.length > 1 ? cuts[1] : 1).clamp(1, road.points.length - 1);
   return DayRoute(
     points: road.points,
@@ -425,6 +453,7 @@ DayRoute _withRoad(DayRoute local, _FetchedRoad road) {
     stops: stops,
     waypoints: local.waypoints,
     highlight: road.points.sublist(0, cut + 1),
+    legCuts: known,
   );
 }
 
@@ -499,7 +528,10 @@ class _FetchedRoad {
     required this.legMeters,
     required this.legSeconds,
     this.decoded,
+    this.legCuts,
   });
+
+  final List<int>? legCuts;
 
   final String polyline;
   final int precision;
@@ -531,6 +563,7 @@ Future<_FetchedRoad?> _fetchRoadLegs(
     legs.add(leg);
   }
   final pts = <LatLng>[];
+  final legCuts = <int>[0];
   final legMeters = <int>[];
   final legSeconds = <int>[];
   var meters = 0;
@@ -542,6 +575,7 @@ Future<_FetchedRoad?> _fetchRoadLegs(
     } else {
       pts.addAll(p.skip(1));
     }
+    legCuts.add(pts.length - 1);
     legMeters.add(leg.meters);
     legSeconds.add(leg.seconds);
     meters += leg.meters;
@@ -557,6 +591,7 @@ Future<_FetchedRoad?> _fetchRoadLegs(
     legMeters: legMeters,
     legSeconds: legSeconds,
     decoded: pts,
+    legCuts: legCuts,
   );
 }
 
@@ -614,10 +649,15 @@ Future<_FetchedRoad?> _fetchRoad(
 
   final hosts = osrmHosts();
   final attempts = <({String url, int precision})>[
-    for (final host in hosts) (url: _osrmUrl(host, points, rich: true), precision: 6),
-    for (final host in hosts) (url: _osrmUrl(host, points, rich: false), precision: 6),
     for (final host in hosts)
-      (url: _osrmUrl(host, points, rich: false, polyline6: false), precision: 5),
+      (url: _osrmUrl(host, points, rich: true), precision: 6),
+    for (final host in hosts)
+      (url: _osrmUrl(host, points, rich: false), precision: 6),
+    for (final host in hosts)
+      (
+        url: _osrmUrl(host, points, rich: false, polyline6: false),
+        precision: 5,
+      ),
   ];
   for (final attempt in attempts) {
     final fetched = await _get(
@@ -650,10 +690,7 @@ String _osrmUrl(
   }
   // 1 km kurye (bina içi GPS), 400 m durak. continue_straight kurye
   // teslimatında U-dönüşünü yasaklayıp kasaba turunu şişiriyordu.
-  final radiuses = [
-    '1000',
-    ...List.filled(points.length - 1, '400'),
-  ].join(';');
+  final radiuses = ['1000', ...List.filled(points.length - 1, '400')].join(';');
   return '$base/route/v1/driving/$coords?overview=full&geometries=$geom&steps=false&radiuses=$radiuses';
 }
 

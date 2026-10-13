@@ -81,9 +81,6 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
     final minutes = slice != null
         ? slice.minutes
         : (t.etaMinutes ?? (meters / 450).clamp(1, 40).round());
-    final km = meters >= 10000
-        ? (meters / 1000).toStringAsFixed(0)
-        : (meters / 1000).toStringAsFixed(1);
 
     Future<void> start() async {
       final ok = await ref.read(sessionProvider).startTask(t.id);
@@ -151,8 +148,12 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                             Flexible(
                               child: _RouteChip(
                                 text: slice != null && !slice.estimated
-                                    ? l.routeKmMin(km, minutes)
-                                    : '${l.routeKmMin(km, minutes)}  ·  ${l.approxRoute}',
+                                    ? l.travelLabel(
+                                        meters,
+                                        minutes,
+                                        walking: slice.walking,
+                                      )
+                                    : '${l.travelLabel(meters, minutes)}  ·  ${l.approxRoute}',
                               ),
                             ),
                             const SizedBox(width: 8),

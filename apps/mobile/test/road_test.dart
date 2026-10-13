@@ -1,3 +1,4 @@
+import 'package:dijigoo_kurye/l10n.dart';
 import 'package:dijigoo_kurye/road.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -16,28 +17,30 @@ void main() {
   });
 
   test('RoadLeg.minutes clamps to at least 1', () {
-    expect(
-      const RoadLeg(polyline: 'x', meters: 80, seconds: 20).minutes,
-      1,
-    );
-    expect(
-      const RoadLeg(polyline: 'x', meters: 4500, seconds: 360).minutes,
-      6,
-    );
+    expect(const RoadLeg(polyline: 'x', meters: 80, seconds: 20).minutes, 1);
+    expect(const RoadLeg(polyline: 'x', meters: 4500, seconds: 360).minutes, 6);
   });
 
   test('planDayRoute: motor 404 olunca yerel sırayı korur', () async {
     final dio = Dio()
       ..interceptors.add(
         InterceptorsWrapper(
-          onRequest: (options, handler) =>
-              handler.reject(DioException(requestOptions: options, type: DioExceptionType.badResponse)),
+          onRequest: (options, handler) => handler.reject(
+            DioException(
+              requestOptions: options,
+              type: DioExceptionType.badResponse,
+            ),
+          ),
         ),
       );
     final route = await planDayRoute(
       const LatLng(38.1476, 29.0702),
       [
-        const RouteStopInput(id: 'a', at: LatLng(38.1512, 29.0614), urgency: 0.6),
+        const RouteStopInput(
+          id: 'a',
+          at: LatLng(38.1512, 29.0614),
+          urgency: 0.6,
+        ),
         const RouteStopInput(id: 'b', at: LatLng(38.1481, 29.0558)),
       ],
       dio: dio,
@@ -46,5 +49,67 @@ void main() {
     expect(route.estimated, isTrue);
     expect(route.stops, isNotEmpty);
     expect(route.waypoints.first.latitude, closeTo(38.1476, 1e-6));
+  });
+
+  test('durak yürüme mesafesindeyse araç turu yerine düz çizgi', () {
+    const origin = LatLng(39.9105, 32.8585);
+    const stop = LatLng(39.9100, 32.8590);
+    // Tek yönlü sokaklar: 70 m ötedeki durağa 693 m araç rotası.
+    final day = DayRoute(
+      points: const [origin, LatLng(39.9120, 32.8600), stop],
+      meters: 693,
+      seconds: 90,
+      estimated: false,
+      provider: 'osrm',
+      stops: const [
+        DayStop(taskIds: ['a'], at: stop, meters: 693, seconds: 90),
+      ],
+      waypoints: const [origin, stop],
+    );
+    final leg = day.legFor('a')!;
+    expect(leg.walking, isTrue);
+    expect(leg.points, [origin, stop]);
+    expect(leg.meters, inInclusiveRange(60, 80));
+    expect(leg.estimated, isFalse);
+  });
+
+  test('bacaklar ayrı çekildiyse durak çizgisi tam yerinden kesilir', () {
+    const o = LatLng(39.90, 32.80);
+    const a = LatLng(39.91, 32.81);
+    const b = LatLng(39.92, 32.80);
+    // İkinci bacak ilk durağın yanından geri geçer; tahminle kesim şaşardı.
+    const pts = [
+      o,
+      LatLng(39.905, 32.805),
+      a,
+      LatLng(39.905, 32.806),
+      LatLng(39.915, 32.803),
+      b,
+    ];
+    final day = DayRoute(
+      points: pts,
+      meters: 4000,
+      seconds: 600,
+      estimated: false,
+      provider: 'osrm-legs',
+      stops: const [
+        DayStop(taskIds: ['a'], at: a, meters: 1500, seconds: 200),
+        DayStop(taskIds: ['b'], at: b, meters: 2500, seconds: 400),
+      ],
+      waypoints: const [o, a, b],
+      legCuts: const [0, 2, 5],
+    );
+    expect(day.legFor('a')!.points, pts.sublist(0, 3));
+    expect(day.legFor('b')!.points, pts.sublist(2, 6));
+    expect(day.legFor('b')!.walking, isFalse);
+  });
+
+  test('mesafe etiketi: 1 km altı metre, yürümede süre yok', () {
+    const l = L10n('tr');
+    expect(l.travelLabel(68, 1, walking: true), '70 m · yürüyerek');
+    expect(l.travelLabel(640, 2), '640 m · 2 dk');
+    expect(l.travelLabel(1540, 4), '1.5 km · 4 dk');
+    expect(l.travelLabel(12400, 21), '12 km · 21 dk');
+    expect(l.travelLabel(900, null), '900 m');
   });
 }
