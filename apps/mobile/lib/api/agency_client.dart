@@ -786,6 +786,26 @@ class AgencyPortalApi {
     }
   }
 
+  /// Fatura mutabakatı: backend'de fatura listesi henüz yok
+  /// (`schemaReady: false`); talepler (`supportCases`) gerçek veridir.
+  Future<Map<String, dynamic>> fetchInvoices() async =>
+      _data(_get('/branch/invoices'));
+
+  /// [category]: DISPUTE (itiraz; [reasonKey] zorunlu), REQUEST, CALL_REQUEST,
+  /// LIVE_CHAT.
+  Future<void> createInvoiceSupport({
+    required String category,
+    String? reasonKey,
+    String? note,
+    required String idempotencyKey,
+  }) async {
+    await _post('/branch/invoices/support', {
+      'category': category,
+      'reasonKey': ?reasonKey,
+      if (note != null && note.isNotEmpty) 'note': note,
+    }, idempotencyKey: idempotencyKey);
+  }
+
   Future<List<Map<String, dynamic>>> fetchAgencyCouriers() async =>
       _rows((await _data(_get('/agency/couriers')))['items']);
 

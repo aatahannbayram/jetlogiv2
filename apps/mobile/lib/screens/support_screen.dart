@@ -19,6 +19,21 @@ class SupportScreen extends ConsumerStatefulWidget {
 class _SupportScreenState extends ConsumerState<SupportScreen> {
   final subject = TextEditingController();
   final body = TextEditingController();
+  String? _quickBusy;
+
+  Future<void> _quick(String code) async {
+    final l = context.l10n;
+    setState(() => _quickBusy = code);
+    final ok = await ref.read(sessionProvider).requestQuickSupport(code);
+    if (!mounted) return;
+    setState(() => _quickBusy = null);
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(content: Text(ok ? l.supportQuickSent : l.supportQuickFailed)),
+      );
+  }
+
   String category = 'OTHER';
   bool sending = false;
 
@@ -69,6 +84,36 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
             children: [
+              // Yazmadan, tek dokunuşla destek: ekip kuryeye döner.
+              if (session.panelLoggedIn) ...[
+                Row(
+                  children: [
+                    for (final (code, icon, label) in [
+                      ('CALL_REQUEST', LucideIcons.phoneCall, l.supportCallMe),
+                      ('LIVE_CHAT', LucideIcons.messagesSquare, l.supportChat),
+                    ]) ...[
+                      if (code == 'LIVE_CHAT') const SizedBox(width: 10),
+                      Expanded(
+                        child: DgButton(
+                          label: label,
+                          icon: icon,
+                          tone: DgButtonTone.secondary,
+                          busy: _quickBusy == code,
+                          onPressed: _quickBusy != null
+                              ? null
+                              : () => _quick(code),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  l.supportQuickHint,
+                  style: Dg.ui(size: 13, color: Dg.ink3),
+                ),
+                const SizedBox(height: 14),
+              ],
               DgCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

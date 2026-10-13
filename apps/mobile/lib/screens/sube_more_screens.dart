@@ -966,3 +966,204 @@ class SubeAgencyInfoScreen extends ConsumerWidget {
     );
   }
 }
+
+/// Fatura ve hakediş: liste backend'de hazır olana kadar yalnız talepler.
+class SubeInvoicesScreen extends ConsumerStatefulWidget {
+  const SubeInvoicesScreen({super.key});
+
+  @override
+  ConsumerState<SubeInvoicesScreen> createState() => _SubeInvoicesScreenState();
+}
+
+class _SubeInvoicesScreenState extends ConsumerState<SubeInvoicesScreen> {
+  final _list = GlobalKey<_LoadedState<Map<String, dynamic>>>();
+  final _note = TextEditingController();
+  String _category = 'REQUEST';
+  String? _reason;
+  bool _busy = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _note.dispose();
+    super.dispose();
+  }
+
+  Future<void> _send() async {
+    final l = context.l10n;
+    final typed = _category == 'DISPUTE' || _category == 'REQUEST';
+    if (_category == 'DISPUTE' && _reason == null) {
+      setState(() => _error = l.invoiceNeedReason);
+      return;
+    }
+    if (typed && _note.text.trim().length < 5) {
+      setState(() => _error = l.invoiceNeedNote);
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await _api(ref).createInvoiceSupport(
+        category: _category,
+        reasonKey: _category == 'DISPUTE' ? _reason : null,
+        note: _note.text.trim(),
+        idempotencyKey: Vault.newUuid(),
+      );
+    } on AgencyApiException catch (e) {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _error = e.serverMessage ?? l.availabilityFailed;
+        });
+      }
+      return;
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _error = l.availabilityFailed;
+        });
+      }
+      return;
+    }
+    if (!mounted) return;
+    _note.clear();
+    setState(() {
+      _busy = false;
+      _reason = null;
+    });
+    subeSnack(context, l.invoiceSent);
+    await _list.currentState?.reload();
+  }
+
+  Widget _chips(
+    List<String> codes,
+    String? selected,
+    String Function(String) label,
+    ValueChanged<String> onPick,
+  ) => Wrap(
+    spacing: 8,
+    runSpacing: 8,
+    children: [
+      for (final c in codes)
+        DgChoiceSurface(
+          selected: selected == c,
+          onTap: () => setState(() {
+            _error = null;
+            onPick(c);
+          }),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Text(
+              label(c),
+              style: Dg.ui(size: 15, weight: FontWeight.w600),
+            ),
+          ),
+        ),
+    ],
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    return _Loaded<Map<String, dynamic>>(
+      key: _list,
+      title: l.invoicesTitle,
+      load: _api(ref).fetchInvoices,
+      builder: (context, data) {
+        List<String> strings(Object? raw, List<String> fallback) {
+          final out = [
+            for (final v in raw is List ? raw : const [])
+              if (v is String) v,
+          ];
+          return out.isEmpty ? fallback : out;
+        }
+
+        final categories = strings(data['supportCategories'], const [
+          'DISPUTE',
+          'REQUEST',
+          'CALL_REQUEST',
+          'LIVE_CHAT',
+        ]);
+        final reasons = strings(data['disputeReasons'], const ['OTHER']);
+        final cases = [
+          for (final c in data['supportCases'] as List? ?? const [])
+            if (c is Map) c,
+        ];
+        final typed = _category == 'DISPUTE' || _category == 'REQUEST';
+        return [
+          if (data['schemaReady'] != true)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text(
+                l.invoicesNotReady,
+                style: Dg.ui(size: 14, color: Dg.ink2),
+              ),
+            ),
+          SubeSection(l.invoiceNewRequest),
+          _chips(
+            categories,
+            _category,
+            l.invoiceCategory,
+            (c) => _category = c,
+          ),
+          if (_category == 'DISPUTE') ...[
+            SubeSection(l.invoiceReasonTitle),
+            _chips(reasons, _reason, l.invoiceReason, (c) => _reason = c),
+          ],
+          if (typed) ...[
+            const SizedBox(height: 12),
+            TextField(
+              controller: _note,
+              minLines: 2,
+              maxLines: 5,
+              maxLength: 1000,
+              decoration: InputDecoration(hintText: l.invoiceNoteHint),
+            ),
+          ],
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                _error!,
+                style: Dg.ui(size: 15, weight: FontWeight.w600, color: Dg.bad),
+              ),
+            ),
+          const SizedBox(height: 12),
+          DgButton(
+            label: l.invoiceSend,
+            icon: LucideIcons.send,
+            busy: _busy,
+            onPressed: _send,
+          ),
+          if (cases.isNotEmpty) SubeSection(l.invoicePast),
+          for (final c in cases)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: DgCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${c['subject'] ?? l.invoiceCategory('${c['category'] ?? ''}')}',
+                      style: Dg.ui(size: 15, weight: FontWeight.w700),
+                    ),
+                    Text(
+                      [
+                        '${c['caseNumber'] ?? ''}',
+                        l.caseStatus('${c['statusCode'] ?? ''}'),
+                        _dayTime(c['createdAt']),
+                      ].where((e) => e.isNotEmpty).join(' · '),
+                      style: Dg.ui(size: 13, color: Dg.ink3),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ];
+      },
+    );
+  }
+}

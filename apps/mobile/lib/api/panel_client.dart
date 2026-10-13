@@ -932,6 +932,25 @@ class PanelApi {
     return SupportTicketDto.fromJson(Map<String, dynamic>.from(ticket));
   }
 
+  /// Tek dokunuşla destek isteği: `CALL_REQUEST` (beni arayın), `LIVE_CHAT`
+  /// (canlı destek) ya da `SOS` (acil). Konum verilirse talebe eklenir.
+  Future<void> requestSupport({
+    required String category,
+    String? shipmentId,
+    double? latitude,
+    double? longitude,
+  }) async {
+    await _post('/courier-support/cases', {
+      'category': category,
+      'idempotencyKey': Vault.newUuid(),
+      'shipmentId': ?shipmentId,
+      if (latitude != null && longitude != null) ...{
+        'latitude': latitude,
+        'longitude': longitude,
+      },
+    });
+  }
+
   CustodyItemDto _custodyItem(Map<String, dynamic> json) {
     return CustodyItemDto(
       id:

@@ -100,6 +100,28 @@ Dio _dio() {
           });
         }
         if (path.endsWith('/agency/warehouses')) return ok({'items': []});
+        if (path.endsWith('/branch/invoices')) {
+          return ok({
+            'schemaReady': false,
+            'invoices': [],
+            'supportCases': [
+              {
+                'caseNumber': 'DST-1001',
+                'subject': 'Eylül hakedişi',
+                'statusCode': 'OPEN',
+                'category': 'DISPUTE',
+                'createdAt': '2026-10-10T09:00:00.000Z',
+              },
+            ],
+            'supportCategories': [
+              'DISPUTE',
+              'REQUEST',
+              'CALL_REQUEST',
+              'LIVE_CHAT',
+            ],
+            'disputeReasons': ['AMOUNT_MISMATCH', 'MISSING_BONUS', 'OTHER'],
+          });
+        }
         if (path.endsWith('/compliance/cards')) {
           return ok({
             'card': {
@@ -220,9 +242,9 @@ Future<void> _tap(WidgetTester tester, Finder finder) async {
 
 void main() {
   setUpAll(() async {
-    final manifest =
-        jsonDecode(await rootBundle.loadString('FontManifest.json'))
-            as List<dynamic>;
+    final manifest = jsonDecode(
+      await rootBundle.loadString('FontManifest.json'),
+    ) as List<dynamic>;
     for (final entry in manifest) {
       final loader = FontLoader(entry['family'] as String);
       for (final font in entry['fonts'] as List<dynamic>) {
@@ -290,6 +312,35 @@ void main() {
     expect(find.text('Altındağ'), findsOneWidget);
     expect(find.text('Tanımlı depo yok.'), findsOneWidget);
     await _shot(tester, 'sube-agency');
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(seconds: 10));
+  });
+
+  testWidgets('fatura: itiraz neden ve açıklama ister, sonra gönderir', (
+    tester,
+  ) async {
+    await _open(tester, const SubeInvoicesScreen());
+    expect(find.textContaining('henüz hazır değil'), findsOneWidget);
+    expect(find.text('Eylül hakedişi'), findsOneWidget);
+    await _shot(tester, 'sube-invoices');
+
+    await _tap(tester, find.text('İtiraz'));
+    await _tap(tester, find.text('Talebi gönder'));
+    expect(find.text('Bir neden seç.'), findsOneWidget);
+    await _tap(tester, find.text('Eksik prim'));
+    await _tap(tester, find.text('Talebi gönder'));
+    expect(find.text('En az birkaç kelime yaz.'), findsOneWidget);
+    expect(_writes, isEmpty);
+
+    await tester.enterText(find.byType(TextField), 'Eylül primi eksik yatmış.');
+    await _tap(tester, find.text('Talebi gönder'));
+    expect(_writes.single.path, '/branch/invoices/support');
+    expect(_writes.single.data, {
+      'category': 'DISPUTE',
+      'reasonKey': 'MISSING_BONUS',
+      'note': 'Eylül primi eksik yatmış.',
+    });
+    expect(_writes.single.headers['Idempotency-Key'], isNotNull);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(seconds: 10));
   });

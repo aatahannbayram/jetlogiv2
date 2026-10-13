@@ -2554,6 +2554,24 @@ class SessionController extends ChangeNotifier {
     await client.saveAvailability(plan);
   }
 
+  /// "Beni arayın", "Canlı destek" ya da "Acil" isteği açar; başarılıysa
+  /// talep listesi yenilenir. Konum ölçülmüşse talebe eklenir.
+  Future<bool> requestQuickSupport(String category) async {
+    final client = panel;
+    if (client == null || !online) return false;
+    try {
+      await client.requestSupport(
+        category: category,
+        latitude: selfLocated ? selfLat : null,
+        longitude: selfLocated ? selfLng : null,
+      );
+    } catch (_) {
+      return false;
+    }
+    unawaited(loadTickets());
+    return true;
+  }
+
   Future<List<CustodyMoveDto>> custodyHistory() async {
     final client = panel;
     if (client == null) return const [];

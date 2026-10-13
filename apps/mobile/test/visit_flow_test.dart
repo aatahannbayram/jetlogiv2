@@ -913,4 +913,33 @@ void main() {
       expect(seen.last.path, '/branch/announcements/a-1/archive');
     });
   });
+
+  test('hızlı destek isteği kategori ve konumla gider', () async {
+    final seen = <RequestOptions>[];
+    final dio = _visitDio((_) => null, seen: seen);
+    final s = SessionController(
+      panel: PanelApi(dio),
+      api: MobileApi(dio: dio),
+    );
+    await s.loginWithPanel(identifier: 'a@b.com', password: 'x');
+    s.selfLat = 39.91;
+    s.selfLng = 32.85;
+    s.selfLocated = true;
+    seen.clear();
+
+    expect(await s.requestQuickSupport('LIVE_CHAT'), isTrue);
+    final req = seen.firstWhere((o) => o.method == 'POST');
+    expect(req.path, '/courier-support/cases');
+    final body = Map<String, dynamic>.from(req.data as Map)
+      ..remove('idempotencyKey');
+    expect(body, {
+      'category': 'LIVE_CHAT',
+      'latitude': 39.91,
+      'longitude': 32.85,
+    });
+
+    // İnternet yokken istek açılmaz.
+    s.online = false;
+    expect(await s.requestQuickSupport('CALL_REQUEST'), isFalse);
+  });
 }

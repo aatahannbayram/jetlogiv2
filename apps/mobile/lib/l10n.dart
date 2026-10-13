@@ -1810,6 +1810,58 @@ class L10n {
       _t('Tanımlı depo yok.', 'No warehouses defined.');
   String shipmentsCount(int n) => _t('$n gönderi', '$n shipments');
 
+  // Hızlı destek ve şube fatura talepleri
+  String get supportCallMe => _t('Beni arayın', 'Call me');
+  String get supportChat => _t('Canlı destek', 'Live support');
+  String get supportQuickHint => _t(
+    'Yazmana gerek yok; destek ekibi sana döner.',
+    'No need to type; the support team will get back to you.',
+  );
+  String get supportQuickSent => _t(
+    'İsteğin alındı. Destek ekibi sana dönecek.',
+    'Request received. The support team will get back to you.',
+  );
+  String get supportQuickFailed => _t(
+    'İstek gönderilemedi. İnternetini kontrol edip tekrar dene.',
+    'Could not send the request. Check your connection and try again.',
+  );
+  String get invoicesTitle => _t('Fatura ve hakediş', 'Invoices');
+  String get invoicesNotReady => _t(
+    'Fatura listesi henüz hazır değil. Sorunu ya da isteğini aşağıdan iletebilirsin.',
+    'The invoice list is not ready yet. You can send your issue or request below.',
+  );
+  String get invoiceNewRequest => _t('Yeni talep', 'New request');
+  String invoiceCategory(String code) => switch (code) {
+    'DISPUTE' => _t('İtiraz', 'Dispute'),
+    'REQUEST' => _t('Talep', 'Request'),
+    'CALL_REQUEST' => supportCallMe,
+    'LIVE_CHAT' => supportChat,
+    _ => code,
+  };
+  String invoiceReason(String code) => switch (code) {
+    'AMOUNT_MISMATCH' => _t('Tutar tutmuyor', 'Amount mismatch'),
+    'MISSING_DELIVERY' => _t('Eksik teslimat sayılmış', 'Missing delivery'),
+    'WRONG_PENALTY' => _t('Yanlış ceza', 'Wrong penalty'),
+    'WRONG_DEDUCTION' => _t('Yanlış kesinti', 'Wrong deduction'),
+    'MISSING_BONUS' => _t('Eksik prim', 'Missing bonus'),
+    'PAYMENT_DATE' => _t('Ödeme tarihi', 'Payment date'),
+    _ => _t('Başka', 'Other'),
+  };
+  String get invoiceReasonTitle => _t('İtiraz nedeni', 'Dispute reason');
+  String get invoiceNoteHint => _t('Kısaca anlat.', 'Describe it briefly.');
+  String get invoiceNeedReason => _t('Bir neden seç.', 'Pick a reason.');
+  String get invoiceNeedNote =>
+      _t('En az birkaç kelime yaz.', 'Write at least a few words.');
+  String get invoiceSend => _t('Talebi gönder', 'Send request');
+  String get invoiceSent => _t('Talebin iletildi.', 'Your request was sent.');
+  String get invoicePast => _t('Önceki talepler', 'Earlier requests');
+  String caseStatus(String code) => switch (code) {
+    'OPEN' || 'NEW' => _t('Açık', 'Open'),
+    'IN_PROGRESS' || 'PENDING' => _t('İşlemde', 'In progress'),
+    'RESOLVED' || 'CLOSED' => _t('Kapandı', 'Closed'),
+    _ => code,
+  };
+
   // Hatalarım ve fotoğraf puanı
   String get mistakesTitle => _t('Hatalarım', 'My mistakes');
   String get photoScoreTitle => _t('Fotoğraf puanın', 'Your photo score');

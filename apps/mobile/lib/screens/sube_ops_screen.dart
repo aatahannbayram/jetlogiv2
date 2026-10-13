@@ -37,6 +37,12 @@ class SubeOpsScreen extends ConsumerWidget {
           SubeStatusBanner(branch: s.branch),
           if (!s.branch.demo)
             _OpTile(
+              icon: LucideIcons.receipt,
+              label: l.invoicesTitle,
+              onTap: () => open(const SubeInvoicesScreen()),
+            ),
+          if (!s.branch.demo)
+            _OpTile(
               icon: LucideIcons.building2,
               label: l.agencyInfoTitle,
               onTap: () => open(const SubeAgencyInfoScreen()),
