@@ -111,7 +111,7 @@ class _ListScreenState extends ConsumerState<ListScreen> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+              padding: const EdgeInsets.fromLTRB(Dg.pagePad, 12, Dg.pagePad, 0),
               child: SegmentedTabs(
                 labels: [
                   l.openTab(acik.length),
@@ -346,43 +346,26 @@ class _RotaTaskCard extends StatelessWidget {
             width: 28,
             height: 28,
             alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: open ? Dg.violetBg : Dg.elev,
-              borderRadius: BorderRadius.circular(8),
-            ),
+            decoration: BoxDecoration(color: Dg.elev, shape: BoxShape.circle),
             child: Text(
               '${visitIndex ?? taskBadgeNumber(task)}',
               style: Dg.ui(
                 size: 12,
                 weight: FontWeight.w700,
-                color: open ? Dg.purpleActive : Dg.ink3,
+                color: open ? Dg.ink : Dg.ink3,
               ),
             ),
-          ),
-          const SizedBox(width: 10),
-          InitialsAvatar(
-            name: task.recipient,
-            photoUrl: task.personPhoto,
-            size: 44,
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        task.recipient,
-                        style: Dg.ui(size: 16, weight: FontWeight.w600),
-                      ),
-                    ),
-                    StatusChip(
-                      label: taskChipLabel(task, context.l10n),
-                      tone: taskChipTone(task),
-                    ),
-                  ],
+                Text(
+                  task.recipient,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Dg.ui(size: 17, weight: FontWeight.w700, height: 1.2),
                 ),
                 const SizedBox(height: 3),
                 Text(
@@ -410,10 +393,19 @@ class _RotaTaskCard extends StatelessWidget {
                           if (task.signed) l.signature,
                           if (task.otpRequired) l.codeShort,
                         ].join('  ·  '),
-                  style: Dg.ui(size: 12, color: Dg.ink3),
+                  style: Dg.ui(size: 13, color: Dg.ink3),
+                ),
+                const SizedBox(height: 10),
+                StatusChip(
+                  label: taskChipLabel(task, context.l10n),
+                  tone: taskChipTone(task),
                 ),
               ],
             ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: DgIcon(LucideIcons.chevronRight, size: 18, color: Dg.ink3),
           ),
         ],
       ),

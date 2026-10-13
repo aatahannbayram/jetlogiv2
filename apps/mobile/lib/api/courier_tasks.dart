@@ -239,7 +239,10 @@ DeliveryTask deliveryTaskFromPanel(PanelCourierTaskDto row) {
     note: row.statusReasonCode,
     sequence: 0,
     etaMinutes: _etaMinutes(row.plannedDeliveryAt),
-    slaMinutesLeft: _etaMinutes(row.plannedDeliveryAt),
+    // Eksi değer = planlanan saat geçti; listede "Gecikti" görünür.
+    slaMinutesLeft: DateTime.tryParse(
+      row.plannedDeliveryAt ?? '',
+    )?.difference(DateTime.now()).inMinutes,
     lat: dest.latitude ?? 0,
     lng: dest.longitude ?? 0,
     custodyCount: row.packageCount,

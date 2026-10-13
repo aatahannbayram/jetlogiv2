@@ -271,13 +271,13 @@ class _ProfileCard extends StatelessWidget {
                 width: 32,
                 height: 32,
                 decoration: BoxDecoration(
-                  color: Dg.brandSoft,
+                  color: Dg.elev,
                   shape: BoxShape.circle,
                 ),
                 child: DgIcon(
                   LucideIcons.arrowUpRight,
                   size: 16,
-                  color: Dg.brand,
+                  color: Dg.ink,
                 ),
               ),
             ],
@@ -375,7 +375,7 @@ class _MenuTile extends StatelessWidget {
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: accent
-                      ? Dg.action.withValues(alpha: Dg.dark ? 0.14 : 0.10)
+                      ? Dg.elev
                       : Dg.muteSoft,
                   shape: BoxShape.circle,
                 ),
@@ -383,7 +383,7 @@ class _MenuTile extends StatelessWidget {
                   row.icon,
                   weight: 300,
                   size: 22,
-                  color: accent ? Dg.brand : Dg.text2,
+                  color: accent ? Dg.ink : Dg.text2,
                 ),
               ),
               const SizedBox(width: Dg.s12),

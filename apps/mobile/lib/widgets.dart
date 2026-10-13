@@ -245,14 +245,15 @@ class StatusChip extends StatelessWidget {
           'hi' => Dg.bad,
           'mid' => Dg.warn,
           'lo' => Dg.ok,
-          'lime' => Dg.brand,
+          'lime' => Dg.plum,
           _ => Dg.text2,
         };
+    // Yumuşak dolgulu hap: rengi durumdan gelir, çerçeve yok.
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: Dg.s8, vertical: 4),
+      padding: const EdgeInsets.fromLTRB(8, 5, 10, 5),
       decoration: BoxDecoration(
-        color: bg ?? Colors.transparent,
-        borderRadius: BorderRadius.circular(Dg.rSm),
+        color: bg ?? ink.withValues(alpha: Dg.dark ? 0.16 : 0.10),
+        borderRadius: BorderRadius.circular(999),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -262,12 +263,13 @@ class StatusChip extends StatelessWidget {
               'hi' => LucideIcons.circleAlert,
               'mid' => LucideIcons.clock,
               'lo' => LucideIcons.circleCheck,
+              'lime' => LucideIcons.truck,
               _ => LucideIcons.info,
             },
-            size: 16,
+            size: 14,
             color: ink,
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 5),
           Flexible(
             child: Text(
               label,
@@ -1749,7 +1751,7 @@ class DgPillNav extends StatelessWidget {
                                   ? BoxDecoration(
                                       border: Border(
                                         bottom: BorderSide(
-                                          color: Dg.dockActive,
+                                          color: Dg.action,
                                           width: 2,
                                         ),
                                       ),
@@ -2076,14 +2078,15 @@ class InitialsAvatar extends StatelessWidget {
       width: size,
       height: size,
       alignment: Alignment.center,
-      decoration: const BoxDecoration(shape: BoxShape.circle, color: Dg.action),
+      // Nötr zemin: turuncu yalnız eylem düğmelerinde.
+      decoration: BoxDecoration(shape: BoxShape.circle, color: Dg.elev),
       child: Text(
         initials,
         style: TextStyle(
           fontFamily: Dg.sans,
           fontWeight: FontWeight.w700,
           fontSize: size * 0.32,
-          color: Dg.dark ? Dg.night : Colors.white,
+          color: Dg.ink,
         ),
       ),
     );
@@ -2153,27 +2156,32 @@ class SegmentedTabs extends StatelessWidget {
           return width;
         }).toList();
         final scroll =
-            widths.fold<double>(0, (a, b) => a + b) > constraints.maxWidth;
+            widths.fold<double>(0, (a, b) => a + b) + 8 * (labels.length - 1) >
+            constraints.maxWidth;
         Widget tab(int i) => Semantics(
           selected: index == i,
           button: true,
           child: Material(
-            color: index == i ? Dg.warnSoft : Dg.surface,
-            borderRadius: BorderRadius.circular(Dg.rSm),
+            // Seçili sekme ters renkli hap; turuncu kullanılmaz.
+            color: index == i ? Dg.ink : Dg.surface,
+            borderRadius: BorderRadius.circular(999),
             child: InkWell(
-              borderRadius: BorderRadius.circular(Dg.rSm),
+              borderRadius: BorderRadius.circular(999),
               onTap: () => onChanged(i),
               child: Container(
                 constraints: const BoxConstraints(minHeight: Dg.touchMin),
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
-                  vertical: 14,
+                  vertical: 12,
                 ),
                 alignment: Alignment.center,
                 child: Text(
                   labels[i],
                   textAlign: TextAlign.center,
-                  style: style.copyWith(color: index == i ? Dg.warn : Dg.ink2),
+                  maxLines: 1,
+                  style: style.copyWith(
+                    color: index == i ? Dg.ground : Dg.ink2,
+                  ),
                 ),
               ),
             ),
@@ -2181,11 +2189,13 @@ class SegmentedTabs extends StatelessWidget {
         );
         final row = Row(
           children: [
-            for (var i = 0; i < labels.length; i++)
+            for (var i = 0; i < labels.length; i++) ...[
+              if (i > 0) const SizedBox(width: 8),
               if (scroll)
                 SizedBox(width: widths[i], child: tab(i))
               else
                 Expanded(child: tab(i)),
+            ],
           ],
         );
         return scroll

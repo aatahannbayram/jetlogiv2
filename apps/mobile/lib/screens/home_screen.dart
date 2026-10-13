@@ -189,8 +189,8 @@ class HomeScreen extends ConsumerWidget {
                             l.seeRoute,
                             style: Dg.ui(
                               size: 14,
-                              weight: FontWeight.w700,
-                              color: Dg.purpleActive,
+                              weight: FontWeight.w600,
+                              color: Dg.ink2,
                             ),
                           ),
                         ),

@@ -14,7 +14,6 @@ import '../models.dart';
 import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
-import 'account_more_screens.dart';
 import 'report_screen.dart';
 import 'return_screen.dart';
 import 'wizard_screen.dart';
@@ -101,7 +100,8 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
     }
 
     return Scaffold(
-      backgroundColor: Dg.night,
+      // Alt kartla aynı renk: kart yukarı bindiği için altta kalan pay görünmez.
+      backgroundColor: Dg.surface,
       body: Column(
         children: [
           Expanded(
@@ -179,250 +179,257 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
             constraints: BoxConstraints(
               maxHeight: MediaQuery.sizeOf(context).height * 0.48,
             ),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Dg.surface,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(Dg.radiusHero),
-                ),
-                border: Border(top: BorderSide(color: Dg.rule, width: 0.5)),
-              ),
-              child: SafeArea(
-                top: false,
-                child: Appear(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(
-                      Dg.pagePad,
-                      16,
-                      Dg.pagePad,
-                      22,
+            // Kart haritanın üstüne biner: yuvarlak köşelerin arkasında
+            // boşluk değil harita görünür. Tutamak sabittir, içerik onun
+            // altında kayar; kaydırınca başlık kesilmiş gibi durmaz.
+            child: Transform.translate(
+              offset: const Offset(0, -_sheetOverlap),
+              child: Container(
+                clipBehavior: Clip.antiAlias,
+                decoration: BoxDecoration(
+                  color: Dg.surface,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(Dg.radiusPill),
+                  ),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x40000000),
+                      blurRadius: 24,
+                      offset: Offset(0, -6),
                     ),
+                  ],
+                ),
+                child: SafeArea(
+                  top: false,
+                  child: Appear(
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Center(
-                          child: Container(
-                            width: 36,
-                            height: 4,
-                            margin: const EdgeInsets.only(bottom: 16),
-                            decoration: BoxDecoration(
-                              color: Dg.rule,
-                              borderRadius: BorderRadius.circular(3),
-                            ),
+                        Container(
+                          width: 40,
+                          height: 5,
+                          margin: const EdgeInsets.only(top: 10, bottom: 6),
+                          decoration: BoxDecoration(
+                            color: Dg.ink3.withValues(alpha: 0.45),
+                            borderRadius: BorderRadius.circular(3),
                           ),
                         ),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Mono(
-                                taskRefLine(
-                                  t,
-                                  visit: session.visitNumber(t.id),
-                                ),
-                                color: Dg.ink3,
-                              ),
+                        Flexible(
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.fromLTRB(
+                              Dg.pagePad,
+                              10,
+                              Dg.pagePad,
+                              22 - _sheetOverlap,
                             ),
-                            StatusChip(
-                              label: taskChipLabel(t, l),
-                              tone: taskChipTone(t),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Hero(
-                          tag: 'recipient-${t.id}',
-                          child: Material(
-                            color: Colors.transparent,
-                            child: Row(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                InitialsAvatar(
-                                  name: t.recipient,
-                                  photoUrl: t.personPhoto,
-                                  size: 40,
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Mono(
+                                        taskRefLine(
+                                          t,
+                                          visit: session.visitNumber(t.id),
+                                        ),
+                                        color: Dg.ink3,
+                                      ),
+                                    ),
+                                    StatusChip(
+                                      label: taskChipLabel(t, l),
+                                      tone: taskChipTone(t),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(width: 10),
-                                Expanded(child: Display(t.recipient, size: 22)),
+                                const SizedBox(height: 8),
+                                Hero(
+                                  tag: 'recipient-${t.id}',
+                                  child: Material(
+                                    color: Colors.transparent,
+                                    child: Row(
+                                      children: [
+                                        InitialsAvatar(
+                                          name: t.recipient,
+                                          photoUrl: t.personPhoto,
+                                          size: 40,
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: Display(t.recipient, size: 22),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  t.address,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: Dg.ink2,
+                                    fontSize: 14,
+                                    height: 1.3,
+                                  ),
+                                ),
+                                if (t.merchantName != null &&
+                                    t.merchantName!.isNotEmpty) ...[
+                                  const SizedBox(height: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Dg.violetBg,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      t.merchantName!,
+                                      style: Dg.ui(
+                                        size: 12,
+                                        weight: FontWeight.w600,
+                                        color: Dg.violet,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                                const SizedBox(height: 8),
+                                const DgDivider(),
+                                _InfoCard(
+                                  icon: LucideIcons.layers,
+                                  label: l.custody,
+                                  value: t.custodyCount == null
+                                      ? '—'
+                                      : l.itemsWithRef(
+                                          t.custodyCount!,
+                                          t.custodyRef,
+                                        ),
+                                ),
+                                const DgDivider(),
+                                _InfoCard(
+                                  icon: LucideIcons.clock,
+                                  label: l.deliveryWindowLeft,
+                                  value: t.slaMinutesLeft == null
+                                      ? t.window
+                                      : l.slaLeft(t.slaLabel),
+                                ),
+                                if (t.otpRequired) ...[
+                                  const DgDivider(),
+                                  _InfoCard(
+                                    icon: LucideIcons.key,
+                                    label: l.deliveryCode,
+                                    value: l.askRecipient,
+                                    dot: true,
+                                  ),
+                                ],
+                                const SizedBox(height: 14),
+                                Row(
+                                  children: [
+                                    SquareAction(
+                                      icon: LucideIcons.phone,
+                                      label: l.callShort,
+                                      onTap: () => session.callTask(context, t),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    SquareAction(
+                                      icon: LucideIcons.navigation,
+                                      label: l.routeShort,
+                                      onTap: () => openDirections(context, t),
+                                    ),
+                                    // Fotoğraf burada çekilmez: teslim sırasında
+                                    // kanıt olarak alınır.
+                                    if (session.panelLoggedIn) ...[
+                                      const SizedBox(width: 10),
+                                      SquareAction(
+                                        icon: LucideIcons.fileSignature,
+                                        label: l.reportTitle,
+                                        onTap: () => Navigator.of(context).push(
+                                          MaterialPageRoute<void>(
+                                            builder: (_) =>
+                                                ReportScreen(taskId: t.id),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+                                if (done)
+                                  Container(
+                                        width: double.infinity,
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 16,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Dg.loBg,
+                                          borderRadius: BorderRadius.circular(
+                                            Dg.radiusPill,
+                                          ),
+                                        ),
+                                        child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            Icon(
+                                              LucideIcons.circleCheck,
+                                              size: 20,
+                                              color: Dg.lo,
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              l.deliveredOk,
+                                              style: Dg.ui(
+                                                size: 16,
+                                                weight: FontWeight.w700,
+                                                color: Dg.lo,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      )
+                                      .animate()
+                                      .scale(
+                                        begin: const Offset(0.96, 0.96),
+                                        duration: 220.ms,
+                                        curve: Curves.easeOutBack,
+                                      )
+                                      .fadeIn(duration: 180.ms)
+                                else if (canAct)
+                                  SlideToAct(
+                                    label: guided
+                                        ? l.visitSlide
+                                        : l.slideToDeliver,
+                                    onConfirm: start,
+                                  ),
+                                if (canAct) ...[
+                                  const SizedBox(height: 10),
+                                  // Kuryenin gözünden kaçmasın: tam genişlikte kırmızı.
+                                  DgButton(
+                                    label: guided
+                                        ? l.visitCouldNot
+                                        : l.couldNotDeliverShort,
+                                    icon: LucideIcons.circleX,
+                                    tone: DgButtonTone.danger,
+                                    onPressed: () async {
+                                      final failed = await Navigator.of(context)
+                                          .push<bool>(
+                                            MaterialPageRoute<bool>(
+                                              builder: (_) =>
+                                                  ReturnScreen(taskId: t.id),
+                                            ),
+                                          );
+                                      if (failed == true && context.mounted) {
+                                        Navigator.of(context).pop();
+                                      }
+                                    },
+                                  ),
+                                ],
                               ],
                             ),
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          t.address,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: Dg.ink2,
-                            fontSize: 14,
-                            height: 1.3,
-                          ),
-                        ),
-                        if (t.merchantName != null &&
-                            t.merchantName!.isNotEmpty) ...[
-                          const SizedBox(height: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Dg.violetBg,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              t.merchantName!,
-                              style: Dg.ui(
-                                size: 12,
-                                weight: FontWeight.w600,
-                                color: Dg.violet,
-                              ),
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: 8),
-                        const DgDivider(),
-                        _InfoCard(
-                          icon: LucideIcons.layers,
-                          label: l.custody,
-                          value: t.custodyCount == null
-                              ? '—'
-                              : l.itemsWithRef(t.custodyCount!, t.custodyRef),
-                        ),
-                        const DgDivider(),
-                        _InfoCard(
-                          icon: LucideIcons.clock,
-                          label: l.deliveryWindowLeft,
-                          value: t.slaMinutesLeft == null
-                              ? t.window
-                              : l.slaLeft(t.slaLabel),
-                        ),
-                        if (t.otpRequired) ...[
-                          const DgDivider(),
-                          _InfoCard(
-                            icon: LucideIcons.key,
-                            label: l.deliveryCode,
-                            value: l.askRecipient,
-                            dot: true,
-                          ),
-                        ],
-                        const SizedBox(height: 14),
-                        Row(
-                          children: [
-                            SquareAction(
-                              icon: LucideIcons.phone,
-                              label: l.callShort,
-                              onTap: () => session.callTask(context, t),
-                            ),
-                            const SizedBox(width: 10),
-                            SquareAction(
-                              icon: LucideIcons.navigation,
-                              label: l.routeShort,
-                              onTap: () => openDirections(context, t),
-                            ),
-                            const SizedBox(width: 10),
-                            if (session.panelLoggedIn) ...[
-                              SquareAction(
-                                icon: LucideIcons.camera,
-                                label: l.photo,
-                                onTap: () => Navigator.of(context).push(
-                                  MaterialPageRoute<void>(
-                                    builder: (_) =>
-                                        TaskEvidenceScreen(taskId: t.id),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              SquareAction(
-                                icon: LucideIcons.fileSignature,
-                                label: l.reportTitle,
-                                onTap: () => Navigator.of(context).push(
-                                  MaterialPageRoute<void>(
-                                    builder: (_) => ReportScreen(taskId: t.id),
-                                  ),
-                                ),
-                              ),
-                            ]
-                            else
-                              SquareAction(
-                                icon: LucideIcons.camera,
-                                label: l.photo,
-                                onTap: () {},
-                              ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        if (done)
-                          Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 16,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Dg.loBg,
-                                  borderRadius: BorderRadius.circular(
-                                    Dg.radiusPill,
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      LucideIcons.circleCheck,
-                                      size: 20,
-                                      color: Dg.lo,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      l.deliveredOk,
-                                      style: Dg.ui(
-                                        size: 16,
-                                        weight: FontWeight.w700,
-                                        color: Dg.lo,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              )
-                              .animate()
-                              .scale(
-                                begin: const Offset(0.96, 0.96),
-                                duration: 220.ms,
-                                curve: Curves.easeOutBack,
-                              )
-                              .fadeIn(duration: 180.ms)
-                        else if (canAct)
-                          SlideToAct(
-                            label: guided ? l.visitSlide : l.slideToDeliver,
-                            onConfirm: start,
-                          ),
-                        if (canAct) ...[
-                          const SizedBox(height: 8),
-                          Center(
-                            child: TextButton(
-                              onPressed: () async {
-                                final failed = await Navigator.of(context)
-                                    .push<bool>(
-                                      MaterialPageRoute<bool>(
-                                        builder: (_) =>
-                                            ReturnScreen(taskId: t.id),
-                                      ),
-                                    );
-                                if (failed == true && context.mounted) {
-                                  Navigator.of(context).pop();
-                                }
-                              },
-                              child: Text(
-                                guided
-                                    ? l.visitCouldNot
-                                    : l.couldNotDeliverShort,
-                                style: TextStyle(
-                                  color: Dg.red,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
                       ],
                     ),
                   ),
@@ -435,6 +442,9 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
     );
   }
 }
+
+/// Alt kartın haritanın üstüne bindiği pay.
+const _sheetOverlap = 22.0;
 
 /// Canvas'ın "Zimmet/Teslim penceresi/Teslim kodu" bilgi satırları —
 /// ikon + etiket solda, değer sağda; [dot] gerektiğinde değerin önüne

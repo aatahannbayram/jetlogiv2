@@ -570,7 +570,7 @@ class L10n {
   String get statusDelivered => _t('Teslim', 'Delivered');
   String get statusFailed => _t('İade', 'Returned');
   String get statusQueued => _t('Gönderilmeyi bekliyor', 'Waiting to send');
-  String get statusInProgress => _t('İşlemde', 'In progress');
+  String get statusInProgress => _t('Dağıtımda', 'Out for delivery');
   String get statusAssigned => _t('Bekliyor', 'Waiting');
   String get statusCancelled => _t('İptal', 'Cancelled');
   String get lateStop => _t('Gecikti', 'Late');
@@ -1809,6 +1809,13 @@ class L10n {
   String get agencyNoWarehouse =>
       _t('Tanımlı depo yok.', 'No warehouses defined.');
   String shipmentsCount(int n) => _t('$n gönderi', '$n shipments');
+
+  String get inventoryOnMe => _t('Üzerimde', 'With me');
+  String get inventoryEmptyTitle => _t('Üzerinde ürün yok', 'Nothing with you');
+  String get inventoryEmptyBody => _t(
+    'Şubeden teslim aldıkların burada görünür.',
+    'Items you take from the branch appear here.',
+  );
 
   // Bluetooth yazıcı
   String get btPrinterPick => _t('Bluetooth yazıcı seç', 'Pick a Bluetooth printer');

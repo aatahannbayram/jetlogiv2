@@ -180,11 +180,11 @@ class _NotifScreenState extends ConsumerState<NotifScreen> {
                         opacity: unread == 0 ? 0.4 : 1,
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 7,
+                            horizontal: 14,
+                            vertical: 10,
                           ),
                           decoration: BoxDecoration(
-                            color: Dg.brandSoft,
+                            color: Dg.elev,
                             borderRadius: BorderRadius.circular(999),
                           ),
                           child: Text(
@@ -192,7 +192,7 @@ class _NotifScreenState extends ConsumerState<NotifScreen> {
                             style: Dg.ui(
                               size: 12,
                               weight: FontWeight.w700,
-                              color: Dg.brand,
+                              color: Dg.ink,
                             ),
                           ),
                         ),

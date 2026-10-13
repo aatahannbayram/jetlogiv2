@@ -27,7 +27,8 @@ class Dg {
   static const night = Color(0xFF202422);
   static const onNight = Color(0xFFF8F5F0);
   static const mutedOnNight = Color(0xFFD2D7D3);
-  static const action = Color(0xFFFF7800);
+  // Logodaki turuncu.
+  static const action = Color(0xFFF28A26);
   static const onAction = Color(0xFF101010);
   static const touchMin = 48.0;
   static const buttonMin = 56.0;
@@ -51,14 +52,15 @@ class Dg {
   static const primaryGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFFFF8A24), Color(0xFFFF7800), Color(0xFFF56600)],
+    colors: [Color(0xFFF59B42), Color(0xFFF28A26), Color(0xFFE67A12)],
   );
 
   // Persistent charcoal dock, independent of the content theme.
   static const dock = Color(0xFF202422);
   static const onDock = Color(0xFFF7F4EE);
   static const mutedOnDock = Color(0xFFC9C4BB);
-  static const dockActive = Color(0xFFFF8A32);
+  // Seçili sekme beyaz; turuncu yalnız alt çizgide.
+  static const dockActive = Color(0xFFF7F4EE);
   static const dockSelected = Color(0xFF3D332A);
 
   static Color get purpleActive => brand;
@@ -71,11 +73,11 @@ class Dg {
         ? const [Color(0xFF2D3330), Color(0xFF252A27), Color(0xFF202422)]
         : const [Color(0xFFF0F2EB), Color(0xFFF8F9F5), Color(0xFFF5F5F2)],
   );
-  static const heroAccentOrange = Color(0xFFFF7800);
+  static const heroAccentOrange = Color(0xFFF28A26);
   static const emberGradient = LinearGradient(
     begin: Alignment.centerLeft,
     end: Alignment.centerRight,
-    colors: [Color(0xFFFF8A24), Color(0xFFFF7800), Color(0xFFF56600)],
+    colors: [Color(0xFFF59B42), Color(0xFFF28A26), Color(0xFFE67A12)],
   );
 
   static Color get onHero => dark ? Colors.white : ink;
@@ -88,11 +90,11 @@ class Dg {
   // Legacy brand-purple isimleri — hâlâ referans veren yerler (menü ikon
   // rozetleri, harita polyline'ı, hero kart zemini gibi "marka moru" ama
   // "birincil eylem gradyanı" olmayan kullanımlar) için korunuyor.
-  static Color get purple => brand;
-  static Color get purpleDeep => brand;
-  static Color get purpleBright => brand;
-  static Color get accent => brand;
-  static Color get accentSoft => brandSoft;
+  static Color get purple => plum;
+  static Color get purpleDeep => plum;
+  static Color get purpleBright => plum;
+  static Color get accent => plum;
+  static Color get accentSoft => plumSoft;
 
   // ---- Durum vurguları: 6px nokta + nötr metin, dolgulu rozet yok ----
   /// Olumlu / tamamlandı (ör. teslim edildi, doğrulandı).
@@ -113,10 +115,10 @@ class Dg {
 
   // Design-token tints for menu/notification icon badges — koyu temada
   // tint arka planı %10 alpha'ya düşer, ink rengi olduğu gibi kalır.
-  static Color get violet => brand;
-  static Color get violetBg => brandSoft;
-  static Color get blue => brand;
-  static Color get blueBg => brandSoft;
+  static Color get violet => plum;
+  static Color get violetBg => plumSoft;
+  static Color get blue => plum;
+  static Color get blueBg => plumSoft;
   static Color get amber => warn;
   static Color get amberBg => warnSoft;
   static Color get green => ok;
@@ -176,17 +178,25 @@ class Dg {
   static Color get text3 =>
       dark ? const Color(0xFFB4BCB6) : const Color(0xFF626B65);
   static Color get brand =>
-      dark ? const Color(0xFFFF8A32) : const Color(0xFFB04400);
+      dark ? const Color(0xFFF5953A) : const Color(0xFFB04400);
+
+  /// Uyarı / bekleyen: markadan ayrışsın diye kehribar.
   static Color get warn =>
-      dark ? const Color(0xFFFF8A32) : const Color(0xFFAF4100);
+      dark ? const Color(0xFFF2C063) : const Color(0xFF8A5A00);
+
+  /// Logodaki mor: ikincil vurgu (ikon rozetleri, bilgi etiketleri).
+  static Color get plum =>
+      dark ? const Color(0xFFBBA3F5) : const Color(0xFF66478F);
+  static Color get plumSoft => plum.withValues(alpha: dark ? 0.16 : 0.10);
   static Color get ok =>
       dark ? const Color(0xFF6EE7A0) : const Color(0xFF16733E);
+
   /// Olumsuz metin ve düğmeler: belirgin kırmızı.
   static Color get bad =>
       dark ? const Color(0xFFFF6666) : const Color(0xFFCC1F1F);
 
   /// Neon mor: harita üstündeki rota etiketi gibi bilgi vurguları.
-  static const neon = Color(0xFF9B5CFF);
+  static const neon = Color(0xFF7A52C7);
   static const onNeon = Color(0xFFFFFFFF);
   static Color get hairline =>
       dark ? const Color(0x0FFFFFFF) : const Color(0x0F000000);
@@ -513,7 +523,7 @@ class Dg {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radiusHero),
-          borderSide: BorderSide(color: primaryGradientStart, width: 1.5),
+          borderSide: BorderSide(color: ink3, width: 1.2),
         ),
       ),
       pageTransitionsTheme: const PageTransitionsTheme(
