@@ -693,6 +693,108 @@ class AgencyPortalApi {
     );
   }
 
+  List<Map<String, dynamic>> _rows(Object? raw) => [
+    for (final row in raw is List ? raw : const [])
+      if (row is Map) Map<String, dynamic>.from(row),
+  ];
+
+  /// Hazırlık listesi: kurye bekleyen ve sıradaki gönderiler, günün sayaçları.
+  Future<({Map<String, dynamic> kpis, List<BranchShipmentRow> rows})>
+  fetchPreparation() async {
+    final data = await _data(_get('/branch/preparation'));
+    return (
+      kpis: Map<String, dynamic>.from(data['kpis'] as Map? ?? const {}),
+      rows: [
+        for (final row in _rows(data['rows'])) BranchShipmentRow.fromJson(row),
+      ],
+    );
+  }
+
+  /// Seçilen gönderilerin etiket alanları. Veri değiştirmez, ZPL döndürmez;
+  /// etiket cihazda üretilir.
+  Future<List<Map<String, dynamic>>> fetchPrintRows(
+    List<String> shipmentIds,
+  ) async {
+    final res = await _post('/branch/preparation/print-rows', {
+      'shipmentIds': shipmentIds,
+      'locale': 'tr',
+    });
+    return _rows(res.data?['data']);
+  }
+
+  /// Ham duyuru verisi: `announcements` (gelen), `published` (yayımlanan).
+  Future<Map<String, dynamic>> fetchAnnouncementsRaw() async =>
+      _data(_get('/branch/announcements'));
+
+  /// [action]: `ack` (okudum), `publish` (taslağı yayımla), `archive`.
+  Future<void> announcementAction(
+    String announcementId,
+    String action, {
+    required String idempotencyKey,
+  }) async {
+    await _post(
+      '/branch/announcements/$announcementId/$action',
+      const {},
+      idempotencyKey: idempotencyKey,
+    );
+  }
+
+  /// Şube ya da kurye kartı; `token` QR içeriğidir, 365 gün geçerli.
+  Future<Map<String, dynamic>> createCard({
+    required String ownerType,
+    required String ownerId,
+    required String idempotencyKey,
+  }) async {
+    final data = await _data(
+      _post('/branch/compliance/cards', {
+        'ownerType': ownerType,
+        'ownerId': ownerId,
+      }, idempotencyKey: idempotencyKey),
+    );
+    // Kart alanları `data.card` altında gelir.
+    final card = data['card'];
+    return card is Map ? Map<String, dynamic>.from(card) : data;
+  }
+
+  /// Okutulan kart QR'ını doğrular; imza bozuksa `valid: false` döner.
+  Future<Map<String, dynamic>> verifyCard(String token) async =>
+      _data(_post('/branch/compliance/cards/verify', {'token': token}));
+
+  /// Ham vardiya verisi; düzeltme için vardiya kimlikleri buradadır.
+  Future<Map<String, dynamic>> fetchCourierShiftsRaw() async =>
+      _data(_get('/branch/courier-shifts'));
+
+  /// Kuryenin vardiya başlangıç / bitişini düzeltir; [reason] zorunlu.
+  Future<void> correctShift(
+    String shiftId, {
+    DateTime? startedAt,
+    DateTime? endedAt,
+    required String reason,
+  }) async {
+    try {
+      await dio.patch<Map<String, dynamic>>(
+        '/branch/courier-shifts/$shiftId',
+        data: {
+          if (startedAt != null)
+            'startedAt': startedAt.toUtc().toIso8601String(),
+          if (endedAt != null) 'endedAt': endedAt.toUtc().toIso8601String(),
+          'reason': reason,
+        },
+      );
+    } on DioException catch (e) {
+      throw _agencyException(e);
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchAgencyCouriers() async =>
+      _rows((await _data(_get('/agency/couriers')))['items']);
+
+  Future<List<Map<String, dynamic>>> fetchAgencyRegions() async =>
+      _rows((await _data(_get('/agency/regions')))['items']);
+
+  Future<List<Map<String, dynamic>>> fetchAgencyWarehouses() async =>
+      _rows((await _data(_get('/agency/warehouses')))['items']);
+
   Future<Map<String, dynamic>> _data(
     Future<Response<Map<String, dynamic>>> call,
   ) async {

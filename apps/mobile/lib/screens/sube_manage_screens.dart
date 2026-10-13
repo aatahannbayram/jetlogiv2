@@ -6,6 +6,7 @@ import '../l10n.dart';
 import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import 'sube_more_screens.dart';
 import 'sube_widgets.dart';
 
 /// Başlık + metin (+ bir onay kutusu) isteyen alt sayfa. İptalde null döner.
@@ -194,7 +195,21 @@ class _SubeComplianceScreenState extends ConsumerState<SubeComplianceScreen> {
     final branch = ref.watch(sessionProvider).branch;
     final items = branch.compliance;
     return Scaffold(
-      appBar: AppBar(title: Text(l.subeComplianceTitle)),
+      appBar: AppBar(
+        title: Text(l.subeComplianceTitle),
+        actions: branch.demo
+            ? null
+            : [
+                IconButton(
+                  icon: const Icon(LucideIcons.qrCode),
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const SubeCardsScreen(),
+                    ),
+                  ),
+                ),
+              ],
+      ),
       body: RefreshIndicator(
         onRefresh: branch.loadCompliance,
         child: ListView(

@@ -8,6 +8,7 @@ import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'sube_manage_screens.dart';
+import 'sube_more_screens.dart';
 import 'sube_widgets.dart';
 
 /// Şube kullanıcısının bildirim kutusu, duyurular ve operasyon uyarıları.
@@ -56,7 +57,21 @@ class _SubeInboxScreenState extends ConsumerState<SubeInboxScreen> {
     final inbox = branch.inbox;
     final news = branch.announcements;
     return Scaffold(
-      appBar: AppBar(title: Text(l.subeInboxTitle)),
+      appBar: AppBar(
+        title: Text(l.subeInboxTitle),
+        actions: branch.demo
+            ? null
+            : [
+                IconButton(
+                  icon: const Icon(LucideIcons.megaphone),
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const SubeAnnouncementsScreen(),
+                    ),
+                  ),
+                ),
+              ],
+      ),
       body: RefreshIndicator(
         onRefresh: branch.loadInbox,
         child: ListView(

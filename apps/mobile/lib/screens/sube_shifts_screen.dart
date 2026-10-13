@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../api/branch_models.dart';
 import '../branch_workspace.dart';
@@ -7,6 +8,7 @@ import '../l10n.dart';
 import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import 'sube_more_screens.dart';
 import 'sube_widgets.dart';
 
 /// Kuryelerin bugünkü planı / vardiyası ve izin istekleri.
@@ -36,7 +38,21 @@ class _SubeShiftsScreenState extends ConsumerState<SubeShiftsScreen> {
     final day = branch.shiftDay;
     final leaves = branch.leaves ?? const <LeaveRequest>[];
     return Scaffold(
-      appBar: AppBar(title: Text(l.subeShiftsTitle)),
+      appBar: AppBar(
+        title: Text(l.subeShiftsTitle),
+        actions: branch.demo
+            ? null
+            : [
+                IconButton(
+                  icon: const Icon(LucideIcons.pencil),
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const SubeShiftFixScreen(),
+                    ),
+                  ),
+                ),
+              ],
+      ),
       body: RefreshIndicator(
         onRefresh: branch.loadShifts,
         child: ListView(

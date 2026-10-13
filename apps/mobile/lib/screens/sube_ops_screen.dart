@@ -15,6 +15,7 @@ import 'sube_shifts_screen.dart';
 import 'sube_sms_screen.dart';
 import 'sube_labels_screen.dart';
 import 'sube_performance_screen.dart';
+import 'sube_more_screens.dart';
 import 'sube_widgets.dart';
 
 /// İşlemler: sayım, merkeze sevk, etiket, performans, gün sonu ve çıkış.
@@ -34,11 +35,23 @@ class SubeOpsScreen extends ConsumerWidget {
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 96),
         children: [
           SubeStatusBanner(branch: s.branch),
+          if (!s.branch.demo)
+            _OpTile(
+              icon: LucideIcons.building2,
+              label: l.agencyInfoTitle,
+              onTap: () => open(const SubeAgencyInfoScreen()),
+            ),
           _OpTile(
             icon: LucideIcons.clipboardList,
             label: l.subeCountTitle,
             onTap: () => open(const SubeCountScreen()),
           ),
+          if (!s.branch.demo)
+            _OpTile(
+              icon: LucideIcons.packageCheck,
+              label: l.prepTitle,
+              onTap: () => open(const SubePrepScreen()),
+            ),
           _OpTile(
             icon: LucideIcons.truck,
             label: l.subeDispatchTitle,

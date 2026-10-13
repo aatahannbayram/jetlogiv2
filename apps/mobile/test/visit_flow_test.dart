@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:dijigoo_kurye/api/agency_client.dart';
 import 'package:dijigoo_kurye/api/client.dart';
 import 'package:dijigoo_kurye/api/courier_tasks.dart';
 import 'package:dijigoo_kurye/api/panel_client.dart';
@@ -14,6 +15,7 @@ import 'package:dijigoo_kurye/screens/account_screens.dart';
 import 'package:dijigoo_kurye/screens/join_screens.dart';
 import 'package:dijigoo_kurye/session.dart';
 import 'package:dijigoo_kurye/visit_requirements.dart';
+import 'package:dijigoo_kurye/zpl_printer.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -838,6 +840,77 @@ void main() {
       await api.submitPortalDocuments(publicId: 'pub_1', token: 'tok');
       expect(seen.last.path, '/courier-documents/pub_1/submit');
       expect(seen.last.queryParameters, {'token': 'tok'});
+    });
+  });
+
+  group('şube: etiket, vardiya düzeltme, kart', () {
+    test(
+      'gönderi etiketi: Türkçe için UTF-8, denetim karakterleri temizlenir',
+      () {
+        final zpl = shipmentLabelZpl({
+          'primaryBarcode': '324',
+          'referenceNo': 'DEMOANK009',
+          'recipientName': 'Ulus ^Kafe~',
+          'customer': {'name': 'PLUXEE'},
+          'destination': {
+            'neighborhood': 'Birlik',
+            'districtName': 'Çankaya',
+            'cityName': 'Ankara',
+            'addressLine': 'Birlik Mah. Demo Test Sok. No:9',
+          },
+        });
+        expect(zpl.startsWith('^XA\n^CI28'), isTrue);
+        expect(zpl.endsWith('^XZ'), isTrue);
+        expect(zpl, contains('^FDUlus  Kafe^FS'));
+        expect(zpl, contains('^FDBirlik / Çankaya / Ankara^FS'));
+        expect(zpl, contains('^BCN,140,Y,N,N^FD324^FS'));
+        expect(zpl, contains('DEMOANK009'));
+      },
+    );
+
+    test('vardiya düzeltme yalnız değişen saati ve nedeni gönderir', () async {
+      final seen = <RequestOptions>[];
+      final api = AgencyPortalApi(_visitDio((_) => null, seen: seen));
+      await api.correctShift(
+        'sh-1',
+        endedAt: DateTime.utc(2026, 10, 13, 15),
+        reason: 'Kapatmayı unuttu',
+      );
+      expect(seen.single.method, 'PATCH');
+      expect(seen.single.path, '/branch/courier-shifts/sh-1');
+      expect(seen.single.data, {
+        'endedAt': '2026-10-13T15:00:00.000Z',
+        'reason': 'Kapatmayı unuttu',
+      });
+    });
+
+    test('kart üretme ve duyuru işlemi anahtarla gider', () async {
+      final seen = <RequestOptions>[];
+      final api = AgencyPortalApi(
+        _visitDio(
+          // Gerçek yanıt biçimi: data.card.token.
+          (_) => {
+            'card': {'token': 'JDC1.x.y'},
+            'replayed': false,
+          },
+          seen: seen,
+        ),
+      );
+      final card = await api.createCard(
+        ownerType: 'COURIER',
+        ownerId: 'c-1',
+        idempotencyKey: 'card-key-1',
+      );
+      expect(card['token'], 'JDC1.x.y');
+      expect(seen.last.headers['Idempotency-Key'], 'card-key-1');
+      expect(seen.last.data, {'ownerType': 'COURIER', 'ownerId': 'c-1'});
+
+      await api.announcementAction(
+        'a-1',
+        'archive',
+        idempotencyKey: 'k-12345678',
+      );
+      expect(seen.last.path, '/branch/announcements/a-1/archive');
     });
   });
 }

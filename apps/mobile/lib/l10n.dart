@@ -1722,6 +1722,81 @@ class L10n {
     _ => joinLinkError(code, serverMessage),
   };
 
+  // Şube: hazırlık listesi, duyuru yönetimi, vardiya düzeltme, kart, acente
+  String get prepTitle => _t('Hazırlık listesi', 'Preparation list');
+  String get prepWaiting => _t('Kurye bekleyen', 'Waiting for courier');
+  String get prepPrepared => _t('Bugün hazırlanan', 'Prepared today');
+  String get prepDispatched => _t('Bugün çıkan', 'Sent out today');
+  String get prepEmpty =>
+      _t('Hazırlanacak gönderi yok.', 'Nothing to prepare.');
+  String prepPrint(int n) => _t('$n etiket yazdır', 'Print $n labels');
+  String get prepPrinterMissing => _t(
+    'Önce Etiket ekranından yazıcı adresini gir.',
+    'Enter the printer address on the Labels screen first.',
+  );
+  String prepPrinterDown(String host) => _t(
+    'Yazıcıya ulaşılamadı ($host). Aynı ağda olduğunu kontrol et.',
+    'Could not reach the printer ($host). Check you are on the same network.',
+  );
+  String prepPrinted(int n) => _t('$n etiket yazıcıya gönderildi.', '$n labels sent.');
+  String get annManageTitle => _t('Duyuru yönetimi', 'Announcements');
+  String get annIncoming => _t('Onayını bekleyenler', 'Waiting for your OK');
+  String get annMine => _t('Yayımladıkların', 'Published by you');
+  String get annEmpty => _t('Duyuru yok.', 'No announcements.');
+  String annStatus(String code) => switch (code) {
+    'DRAFT' => _t('Taslak', 'Draft'),
+    'ARCHIVED' => _t('Arşivde', 'Archived'),
+    _ => _t('Yayında', 'Published'),
+  };
+  String annStats(int recipients, int read, int ack) => _t(
+    '$recipients kişi · $read okudu · $ack onayladı',
+    '$recipients people · $read read · $ack confirmed',
+  );
+  String get annArchive => _t('Arşivle', 'Archive');
+  String get annPublish => _t('Yayımla', 'Publish');
+  String get shiftFixTitle => _t('Vardiya düzelt', 'Correct shift');
+  String get shiftFixEmpty =>
+      _t('Bugün açılmış vardiya yok.', 'No shifts were opened today.');
+  String get shiftFixStart => _t('Başlangıç', 'Start');
+  String get shiftFixEnd => _t('Bitiş', 'End');
+  String get shiftFixReason => _t('Neden düzeltiyorsun?', 'Why are you correcting it?');
+  String get shiftFixNeedReason => _t('Nedenini yaz.', 'Write the reason.');
+  String get shiftFixSaved => _t('Vardiya düzeltildi.', 'Shift corrected.');
+  String shiftFixError(String code, String? serverMessage) => switch (code) {
+    'NOTHING_TO_CORRECT' => _t('Saatlerde değişiklik yok.', 'Nothing changed.'),
+    'SHIFT_END_BEFORE_START' => availabilityBadRange,
+    'ENDED_AT_IN_FUTURE' => _t(
+      'Bitiş saati şu andan sonra olamaz.',
+      'The end time cannot be in the future.',
+    ),
+    _ => serverMessage ?? availabilityFailed,
+  };
+  String get cardsTitle => _t('Kartlar', 'Cards');
+  String get cardBranch => _t('Şube kartı', 'Branch card');
+  String get cardShow => _t('Kartı göster', 'Show card');
+  String get cardVerify => _t('Kart okut ve doğrula', 'Scan and verify a card');
+  String get cardValid => _t('Kart geçerli', 'Card is valid');
+  String cardInvalid(String? reason) => switch (reason) {
+    'EXPIRED' => _t('Kartın süresi dolmuş', 'The card has expired'),
+    'OWNER_INACTIVE' => _t('Kart sahibi aktif değil', 'Card holder is not active'),
+    'OWNER_NOT_ASSIGNED' => _t(
+      'Bu kurye artık şubene bağlı değil',
+      'This courier is no longer with your branch',
+    ),
+    _ => _t('Kart geçersiz', 'Card is not valid'),
+  };
+  String get cardNotFound =>
+      _t('Bu kart senin şubene ait değil.', 'This card is not from your branch.');
+  String cardValidUntil(String date) => _t('$date tarihine kadar geçerli', 'Valid until $date');
+  String get cardFailed => _t('Kart üretilemedi.', 'Could not create the card.');
+  String get agencyInfoTitle => _t('Acente bilgileri', 'Agency details');
+  String get agencyCouriers => _t('Kuryeler', 'Couriers');
+  String get agencyRegions => _t('Hizmet bölgeleri', 'Service areas');
+  String get agencyWarehouses => _t('Depolar', 'Warehouses');
+  String get agencyNoWarehouse =>
+      _t('Tanımlı depo yok.', 'No warehouses defined.');
+  String shipmentsCount(int n) => _t('$n gönderi', '$n shipments');
+
   // Hatalarım ve fotoğraf puanı
   String get mistakesTitle => _t('Hatalarım', 'My mistakes');
   String get photoScoreTitle => _t('Fotoğraf puanın', 'Your photo score');
