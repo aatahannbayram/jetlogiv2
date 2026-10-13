@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-import '../coach.dart';
+import '../intro_tour.dart';
 import '../l10n.dart';
 import '../session.dart';
 import '../theme.dart';
@@ -42,15 +42,11 @@ class SubeHomeScreen extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 96),
           children: [
-            if (!s.tipsSeen)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: CoachBanner(
-                  title: l.subeOnboard1Title,
-                  body: l.tipHomeBody,
-                  onDismiss: s.markTipsSeen,
-                ),
-              ),
+            IntroTourTrigger(
+              show: !s.tipsSeen,
+              steps: branchIntroSteps(l),
+              onDone: s.markTipsSeen,
+            ),
             Text(
               user?.fullName ?? '',
               style: Dg.ui(size: 16, weight: FontWeight.w600),

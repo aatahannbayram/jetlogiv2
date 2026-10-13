@@ -773,7 +773,12 @@ class MapStrip extends StatelessWidget {
     this.numberStops = false,
     this.fitPadding = const EdgeInsets.all(40),
     this.onTap,
+    this.pinLabel,
   });
+
+  /// Hedef iğnesinin üstünde küçük balon (ör. "4 dk"). Tek hedefli
+  /// haritalarda kullanılır.
+  final String? pinLabel;
 
   final int? eta;
   final double height;
@@ -876,6 +881,7 @@ class MapStrip extends StatelessWidget {
                   fitEpoch: fitEpoch,
                   numberStops: numberStops,
                   fitPadding: fitPadding,
+                  pinLabel: pinLabel,
                 ),
               ),
             ),
@@ -940,8 +946,10 @@ class _StableMapView extends StatefulWidget {
     required this.fitEpoch,
     required this.numberStops,
     required this.fitPadding,
+    this.pinLabel,
   });
 
+  final String? pinLabel;
   final LatLng center;
   final List<LatLng> fit;
   final List<LatLng> line;
@@ -958,12 +966,62 @@ class _StableMapView extends StatefulWidget {
   State<_StableMapView> createState() => _StableMapViewState();
 }
 
-class _StableMapViewState extends State<_StableMapView> {
+class _StableMapViewState extends State<_StableMapView>
+    with SingleTickerProviderStateMixin {
   final _controller = MapController();
   String? _fitKey;
 
+  /// Kadraj değişince kamera sıçramaz, kısa bir geçişle kayar. İlk
+  /// kadrajda ve "hareketi azalt" açıkken geçiş yoktur.
+  late final AnimationController _glide = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 420),
+  );
+  bool _fittedOnce = false;
+  LatLng? _fromCenter, _toCenter;
+  double _fromZoom = 0, _toZoom = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _glide.addListener(() {
+      final a = _fromCenter, b = _toCenter;
+      if (a == null || b == null) return;
+      final t = Curves.easeOutCubic.transform(_glide.value);
+      try {
+        _controller.move(
+          LatLng(
+            a.latitude + (b.latitude - a.latitude) * t,
+            a.longitude + (b.longitude - a.longitude) * t,
+          ),
+          _fromZoom + (_toZoom - _fromZoom) * t,
+        );
+      } catch (_) {}
+    });
+  }
+
+  void _goTo(LatLng center, double zoom) {
+    final first = !_fittedOnce;
+    _fittedOnce = true;
+    final still =
+        first ||
+        MediaQuery.disableAnimationsOf(context) ||
+        inWidgetTest;
+    if (still) {
+      _controller.move(center, zoom);
+      return;
+    }
+    final cam = _controller.camera;
+    _fromCenter = cam.center;
+    _fromZoom = cam.zoom;
+    _toCenter = center;
+    _toZoom = zoom;
+    _glide.forward(from: 0);
+  }
+
   @override
   void dispose() {
+    _glide.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -1028,21 +1086,20 @@ class _StableMapViewState extends State<_StableMapView> {
     _fitKey = _key;
     try {
       if (widget.fit.length < 2) {
-        _controller.move(widget.fit.first, 14.5);
+        _goTo(widget.fit.first, 14.5);
         return;
       }
       final tight = _tightCenter;
       if (tight != null) {
-        _controller.move(tight, _tightZoom);
+        _goTo(tight, _tightZoom);
         return;
       }
-      _controller.fitCamera(
-        CameraFit.coordinates(
-          coordinates: widget.fit,
-          padding: _safePadding(),
-          maxZoom: 17,
-        ),
-      );
+      final target = CameraFit.coordinates(
+        coordinates: widget.fit,
+        padding: _safePadding(),
+        maxZoom: 17,
+      ).fit(_controller.camera);
+      _goTo(target.center, target.zoom);
     } catch (_) {}
   }
 
@@ -1150,6 +1207,21 @@ class _StableMapViewState extends State<_StableMapView> {
                     ? const _DestinationPin()
                     : const _WaypointDot(),
               ),
+            if (widget.pinLabel != null &&
+                !widget.numberStops &&
+                widget.points.isNotEmpty)
+              Marker(
+                point: widget.points.last,
+                width: 120,
+                height: 78,
+                alignment: Alignment.topCenter,
+                child: IgnorePointer(
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: _PinBubble(text: widget.pinLabel!),
+                  ),
+                ),
+              ),
             if (widget.points.isEmpty && widget.couriers.isEmpty)
               Marker(
                 point: center,
@@ -1199,6 +1271,42 @@ class _DestinationPin extends StatelessWidget {
             color: Colors.white,
             shape: BoxShape.circle,
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Hedef iğnesinin üstündeki süre balonu.
+class _PinBubble extends StatelessWidget {
+  const _PinBubble({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x33000000),
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Text(
+        text,
+        maxLines: 1,
+        style: const TextStyle(
+          fontFamily: Dg.sans,
+          fontSize: 14,
+          fontWeight: FontWeight.w700,
+          color: Color(0xFF101010),
+          height: 1.1,
         ),
       ),
     );
@@ -1554,11 +1662,15 @@ class SquareAction extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.onTap,
+    this.color,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback onTap;
+
+  /// Verilirse ikon ve yazı bu renkte olur (ör. arama yeşil).
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
@@ -1572,12 +1684,12 @@ class SquareAction extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              DgIcon(icon, color: Dg.ink, size: 20),
+              DgIcon(icon, color: color ?? Dg.ink, size: 20),
               const SizedBox(height: 6),
               Text(
                 label,
                 textAlign: TextAlign.center,
-                style: Dg.ui(size: 12, weight: FontWeight.w600),
+                style: Dg.ui(size: 12, weight: FontWeight.w600, color: color),
               ),
             ],
           ),

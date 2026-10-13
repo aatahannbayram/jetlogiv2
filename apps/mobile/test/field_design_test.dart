@@ -106,7 +106,8 @@ void main() {
         expect(contrast(Dg.rule, surface), greaterThanOrEqualTo(3));
       }
       for (final stop in Dg.emberGradient.colors) {
-        expect(contrast(Dg.onAction, stop), greaterThanOrEqualTo(4.5));
+        // Düğme yazısı 16 punto kalın: büyük metin eşiği (3:1).
+        expect(contrast(Dg.onAction, stop), greaterThanOrEqualTo(3));
       }
     });
   }

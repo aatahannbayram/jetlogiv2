@@ -141,6 +141,8 @@ class _NextStopCardState extends ConsumerState<NextStopCard> {
 
     final travel = meters == null || !s.selfLocated
         ? ''
+        : phase == NextStopPhase.arrived && s.selfLocated
+        ? context.l10n.youArrived
         : context.l10n.travelLabel(
             meters.round(),
             minutes,
@@ -331,6 +333,7 @@ class _NextStopCardState extends ConsumerState<NextStopCard> {
                           child: _Ghost(
                             icon: LucideIcons.phone,
                             label: l.call,
+                            positive: true,
                             onTap: () => s.callTask(context, task),
                           ),
                         ),
@@ -603,7 +606,11 @@ class _Ghost extends StatelessWidget {
     this.label,
     this.icon,
     this.danger = false,
+    this.positive = false,
   });
+
+  /// Arama gibi olumlu işlem: yeşil yazı ve ikon, yeşilimsi zemin.
+  final bool positive;
 
   /// Olumsuz işlem (teslim edilemedi): kırmızı yazı ve ikon, kırmızımsı zemin.
   final bool danger;
@@ -619,7 +626,11 @@ class _Ghost extends StatelessWidget {
         : null,
     child: Material(
       // Çerçeve yok; hafif dolgu düğme olduğunu belli eder.
-      color: danger ? Dg.redBg : Dg.surface2,
+      color: danger
+          ? Dg.redBg
+          : positive
+          ? Dg.greenBg
+          : Dg.surface2,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: onTap,
@@ -634,7 +645,15 @@ class _Ghost extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (icon != null)
-                DgIcon(icon!, size: 20, color: danger ? Dg.bad : Dg.ink2),
+                DgIcon(
+                  icon!,
+                  size: 20,
+                  color: danger
+                      ? Dg.bad
+                      : positive
+                      ? Dg.ok
+                      : Dg.ink2,
+                ),
               if (icon != null && label != null) const SizedBox(height: 4),
               if (label != null)
                 Text(
@@ -646,7 +665,11 @@ class _Ghost extends StatelessWidget {
                     size: 13,
                     weight: FontWeight.w600,
                     height: 1.15,
-                    color: danger ? Dg.bad : null,
+                    color: danger
+                        ? Dg.bad
+                        : positive
+                        ? Dg.ok
+                        : null,
                   ),
                 ),
             ],
@@ -679,7 +702,8 @@ class _SolidCta extends StatelessWidget {
     onPressed: onTap,
     icon: ember ? null : icon,
     trailing: ember ? icon : null,
-    tone: DgButtonTone.primary,
+    // Yoldayken turuncu "Yol tarifi", durağa varınca yeşil "Teslime başla".
+    tone: ember ? DgButtonTone.primary : DgButtonTone.success,
   );
 }
 

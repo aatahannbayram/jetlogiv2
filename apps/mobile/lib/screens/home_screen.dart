@@ -10,7 +10,7 @@ import '../motion.dart';
 import '../session.dart';
 import '../shell_nav.dart';
 import '../theme.dart';
-import '../coach.dart';
+import '../intro_tour.dart';
 import '../widgets.dart';
 import 'mistakes_screen.dart';
 import 'profile_screen.dart';
@@ -172,20 +172,12 @@ class HomeScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 14),
-              if (!s.tipsSeen)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    Dg.pagePad,
-                    0,
-                    Dg.pagePad,
-                    12,
-                  ),
-                  child: CoachBanner(
-                    title: l.tipHomeTitle,
-                    body: l.tipHomeBody,
-                    onDismiss: s.markTipsSeen,
-                  ),
-                ),
+              // İlk girişte kısa tanıtım; bir kez gösterilir.
+              IntroTourTrigger(
+                show: !s.tipsSeen,
+                steps: courierIntroSteps(l),
+                onDone: s.markTipsSeen,
+              ),
               if (s.shiftOpen) ...[
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: Dg.pagePad),

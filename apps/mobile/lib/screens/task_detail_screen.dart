@@ -121,6 +121,12 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                     t.hasCoordinates ? [dest] : const [],
                   ),
                   showBadge: false,
+                  // İğnenin üstünde varış süresi; yürüme mesafesinde uzaklık.
+                  pinLabel: !t.hasCoordinates
+                      ? null
+                      : slice != null && slice.walking
+                      ? l.travelLabel(meters, null)
+                      : '$minutes ${l.minutesShort}',
                 ),
                 // `Positioned` şart: bu Stack `StackFit.expand` kullanıyor,
                 // konumlanmamış (non-positioned) bir çocuk (SafeArea gibi)
@@ -327,6 +333,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                                     SquareAction(
                                       icon: LucideIcons.phone,
                                       label: l.callShort,
+                                      color: Dg.ok,
                                       onTap: () => session.callTask(context, t),
                                     ),
                                     const SizedBox(width: 10),

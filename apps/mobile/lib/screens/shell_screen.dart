@@ -790,18 +790,38 @@ class _TravelSegment extends StatelessWidget {
     }
     final minutes = ((seconds ?? 0) / 60).clamp(1, 180).round();
     // Yürüme mesafesindeki ilk durak: süre yerine "yürüyerek".
+    final walking = fromYou && distanceMeters < kWalkMeters;
     final travel = context.l10n.travelLabel(
       distanceMeters,
       minutes,
-      walking: fromYou && distanceMeters < kWalkMeters,
+      walking: walking,
     );
     final label = fromYou ? '${context.l10n.youToNext}  ·  $travel' : travel;
     return Padding(
       padding: const EdgeInsets.fromLTRB(11, 2, 0, 2),
       child: Row(
         children: [
-          Container(width: 2, height: 20, color: Dg.rule),
+          // Araçla gidilen bacak düz, yürünen bacak kesikli çizgi.
+          if (walking)
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (var i = 0; i < 3; i++)
+                  Container(
+                    width: 2,
+                    height: 4,
+                    margin: const EdgeInsets.symmetric(vertical: 1.3),
+                    color: Dg.rule,
+                  ),
+              ],
+            )
+          else
+            Container(width: 2, height: 20, color: Dg.rule),
           const SizedBox(width: 14),
+          if (walking) ...[
+            DgIcon(LucideIcons.footprints, size: 13, color: Dg.ink3),
+            const SizedBox(width: 5),
+          ],
           Expanded(
             child: Text(
               label,

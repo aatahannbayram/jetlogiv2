@@ -304,6 +304,86 @@ class ResultIcon extends StatelessWidget {
   }
 }
 
+/// Başarı işareti: halka büyür, onay çizgisi soldan sağa çizilir.
+/// "Hareketi azalt" açıksa doğrudan bitmiş hali gösterilir.
+class DrawnCheck extends StatelessWidget {
+  const DrawnCheck({super.key, required this.color, this.size = 56});
+
+  final Color color;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    if (_stillMotion(context)) {
+      return CustomPaint(
+        size: Size.square(size),
+        painter: _CheckPainter(color: color, t: 1),
+      );
+    }
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 620),
+      curve: Curves.easeOutCubic,
+      builder: (context, t, _) => RepaintBoundary(
+        child: CustomPaint(
+          size: Size.square(size),
+          painter: _CheckPainter(color: color, t: t),
+        ),
+      ),
+    );
+  }
+}
+
+class _CheckPainter extends CustomPainter {
+  const _CheckPainter({required this.color, required this.t});
+
+  final Color color;
+  final double t;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final c = size.center(Offset.zero);
+    final r = size.width / 2;
+    // İlk yarıda zemin büyür, ikinci yarıda işaret çizilir.
+    final grow = (t / 0.5).clamp(0.0, 1.0);
+    final draw = ((t - 0.35) / 0.65).clamp(0.0, 1.0);
+    canvas.drawCircle(
+      c,
+      r * (0.6 + 0.4 * grow),
+      Paint()..color = color.withValues(alpha: 0.18 * grow),
+    );
+    if (draw <= 0) return;
+    final a = Offset(size.width * 0.29, size.height * 0.52);
+    final b = Offset(size.width * 0.44, size.height * 0.67);
+    final d = Offset(size.width * 0.72, size.height * 0.36);
+    final first = (b - a).distance;
+    final total = first + (d - b).distance;
+    final len = total * draw;
+    final path = Path()..moveTo(a.dx, a.dy);
+    if (len <= first) {
+      final p = Offset.lerp(a, b, len / first)!;
+      path.lineTo(p.dx, p.dy);
+    } else {
+      final p = Offset.lerp(b, d, (len - first) / (total - first))!;
+      path
+        ..lineTo(b.dx, b.dy)
+        ..lineTo(p.dx, p.dy);
+    }
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = size.width * 0.085
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_CheckPainter old) => old.t != t || old.color != color;
+}
+
 /// Shakes [child] whenever [trigger] changes — e.g. key it on an error
 /// message string so a fresh error re-shakes even if the text repeats.
 class ShakeError extends StatelessWidget {

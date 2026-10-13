@@ -48,12 +48,10 @@ class DeliveryResultScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      ResultIcon(
-                        icon: success
-                            ? LucideIcons.circleCheck
-                            : LucideIcons.packageX,
-                        color: success ? Dg.lo : Dg.red,
-                      ),
+                      if (success)
+                        DrawnCheck(color: Dg.lo, size: 64)
+                      else
+                        ResultIcon(icon: LucideIcons.packageX, color: Dg.red),
                       const SizedBox(height: 16),
                       Display(
                         success ? l.deliveredOk : l.returnRecorded,

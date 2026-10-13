@@ -1830,6 +1830,54 @@ class L10n {
     'Items you take from the branch appear here.',
   );
 
+  // İlk giriş tanıtımı
+  String get introSkip => _t('Geç', 'Skip');
+  String get introNext => _t('İleri', 'Next');
+  String get introStart => _t('Başla', 'Start');
+  String get introCourier1Title => _t('Sıradaki durağın', 'Your next stop');
+  String get introCourier1Body => _t(
+    'Ana sayfadaki kart seni sıradaki durağa götürür. "Yol tarifi" ile haritayı aç; durağa varınca düğme yeşile döner.',
+    'The card on the home page takes you to the next stop. Open the map with "Directions"; the button turns green when you arrive.',
+  );
+  String get introCourier2Title => _t('Teslim et', 'Deliver');
+  String get introCourier2Body => _t(
+    'Yeşil düğmeyle teslimi başlat; fotoğrafı ve kodu o sırada alırsın. Teslim edemediysen kırmızı düğmeye bas ve nedenini seç.',
+    'Start the delivery with the green button; you take the photo and code then. If you could not deliver, press the red button and pick a reason.',
+  );
+  String get introCourier3Title => _t('Barkod okut', 'Scan');
+  String get introCourier3Body => _t(
+    'Alttaki ortadaki düğme barkod okutur: şubeden paket alırken ve geri bırakırken onu kullan.',
+    'The middle button at the bottom scans barcodes: use it when you take parcels from the branch and when you return them.',
+  );
+  String get introCourier4Title =>
+      _t('İnternet yoksa da çalış', 'Works without signal');
+  String get introCourier4Body => _t(
+    'İnternet kesilirse yaptıkların telefonda saklanır, bağlantı gelince kendiliğinden gönderilir.',
+    'If you lose signal, your work is kept on the phone and sent automatically when you are back online.',
+  );
+  String get introBranch1Title => _t('Günün özeti', 'Today at a glance');
+  String get introBranch1Body => _t(
+    'Ana sayfada bekleyen gönderileri, yoldaki kuryeleri ve bugün yapılacakları görürsün.',
+    'The home page shows waiting shipments, couriers on the road and what needs doing today.',
+  );
+  String get introBranch2Title => _t('Gönderiler', 'Shipments');
+  String get introBranch2Body => _t(
+    'Gelen paketleri okut, kuryeye ver, geri dönenleri teslim al. Her adım barkod okutarak ilerler.',
+    'Scan incoming parcels, hand them to a courier, take back returns. Every step moves by scanning.',
+  );
+  String get introBranch3Title => _t('Kuryeler', 'Couriers');
+  String get introBranch3Body => _t(
+    'Kuryelerinin üzerindeki işleri, vardiyalarını ve izinlerini buradan takip edersin.',
+    'Follow what your couriers carry, their shifts and their leave from here.',
+  );
+  String get introBranch4Title => _t('İşlemler', 'Operations');
+  String get introBranch4Body => _t(
+    'Etiket basma, sayım, duyuru, mesaj ve gün sonu gibi diğer her şey "İşlemler" sekmesinde.',
+    'Label printing, counts, announcements, messages and end of day are all under "Operations".',
+  );
+  String get minutesShort => _t('dk', 'min');
+  String get youArrived => _t('Durağa vardın', 'You have arrived');
+
   // Bluetooth yazıcı
   String get btPrinterPick => _t('Bluetooth yazıcı seç', 'Pick a Bluetooth printer');
   String btPrinterSelected(String name) =>
