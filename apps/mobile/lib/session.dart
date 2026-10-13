@@ -48,6 +48,9 @@ enum AppPhase { onboard, splash, activation, permissions, shift, main, subeMain 
 const _debugLoginId = String.fromEnvironment('DEBUG_LOGIN_ID');
 const _debugLoginPw = String.fromEnvironment('DEBUG_LOGIN_PW');
 
+/// `sube` verilirse geliştirme girişi şube (acente) hesabıyla yapılır.
+const _debugLoginRole = String.fromEnvironment('DEBUG_LOGIN_ROLE');
+
 class SessionController extends ChangeNotifier {
   SessionController({
     OutboxStore? outbox,
@@ -1575,6 +1578,14 @@ class SessionController extends ChangeNotifier {
   /// Vardiya yalnız ekranda açık görünür; sunucuya vardiya isteği gitmez.
   Future<bool> debugAutoLogin() async {
     if (!kDebugMode || _debugLoginId.isEmpty) return false;
+    if (_debugLoginRole == 'sube') {
+      final ok = await loginAsAgency(
+        email: _debugLoginId,
+        password: _debugLoginPw,
+      );
+      if (ok) configReady = true;
+      return ok;
+    }
     final ok = await loginWithPanel(
       identifier: _debugLoginId,
       password: _debugLoginPw,

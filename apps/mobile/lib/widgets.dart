@@ -273,6 +273,9 @@ class StatusChip extends StatelessWidget {
           Flexible(
             child: Text(
               label,
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.ellipsis,
               style: Dg.typeCaption(color: ink)
                   .copyWith(fontWeight: FontWeight.w600),
             ),
@@ -1442,7 +1445,7 @@ class _CourierPin extends StatelessWidget {
         ),
       );
     }
-    final ring = courier.self ? Dg.sage : (courier.onBreak ? Dg.sand : Dg.blue);
+    final ring = courier.onBreak ? const Color(0xFFFFCB52) : Dg.go;
     return Container(
       decoration: BoxDecoration(
         shape: BoxShape.circle,
@@ -1465,11 +1468,24 @@ class _CourierPin extends StatelessWidget {
                 height: courier.self ? 28 : 22,
               ),
             )
-          : DgIcon(
-              courier.self ? LucideIcons.navigation : LucideIcons.user,
-              size: courier.self ? 15 : 13,
-              color: Colors.white,
-              weight: 600,
+          : courier.name.trim().isEmpty
+          ? DgIcon(LucideIcons.user, size: 13, color: Colors.white, weight: 600)
+          // Haritada kimin kim olduğu baş harflerden anlaşılır.
+          : Text(
+              courier.name
+                  .trim()
+                  .split(RegExp(r'\s+'))
+                  .take(2)
+                  .map((p) => p[0])
+                  .join()
+                  .toUpperCase(),
+              style: const TextStyle(
+                fontFamily: Dg.sans,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+                height: 1,
+              ),
             ),
     );
   }
@@ -2443,8 +2459,11 @@ class StatTile extends StatelessWidget {
     this.subColor,
     this.onTap,
     this.dark = false,
+    this.valueColor,
   });
 
+  /// Verilirse sayı bu renkte yazılır (ör. ilgi bekleyen kutuda kehribar).
+  final Color? valueColor;
   final String label;
   final String value;
   final String? sub;
@@ -2462,16 +2481,22 @@ class StatTile extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Mono(
+            Text(
               label,
-              size: 11,
-              weight: FontWeight.w500,
-              color: dark ? Dg.mutedOnNight : Dg.ink3,
+              style: Dg.ui(
+                size: 14,
+                weight: FontWeight.w500,
+                height: 1.25,
+                color: dark ? Dg.mutedOnNight : Dg.ink3,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
               value,
-              style: Dg.stat(size: 24, color: dark ? Colors.white : Dg.ink),
+              style: Dg.stat(
+                size: 26,
+                color: valueColor ?? (dark ? Colors.white : Dg.ink),
+              ),
             ),
             if (sub != null) ...[
               const SizedBox(height: 4),

@@ -262,4 +262,23 @@ void main() {
       expect(error?.lockedUntil, DateTime.utc(2026, 10, 13, 9, 15));
     });
   });
+
+  test('kurye konumu backend yanıtından okunur; yoksa null kalır', () {
+    final withLocation = BranchCourierLive.fromJson({
+      'id': 'c1',
+      'name': 'Demo Kurye',
+      'liveStatus': 'ACTIVE',
+      'location': {'latitude': 39.9105, 'longitude': '32.8585'},
+    });
+    expect(withLocation.located, isTrue);
+    expect(withLocation.latitude, 39.9105);
+    expect(withLocation.longitude, 32.8585);
+
+    final none = BranchCourierLive.fromJson({
+      'id': 'c2',
+      'name': 'Demo Kurye',
+      'location': null,
+    });
+    expect(none.located, isFalse);
+  });
 }

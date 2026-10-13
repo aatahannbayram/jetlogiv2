@@ -66,23 +66,39 @@ class SubeHomeScreen extends ConsumerWidget {
                     )
                   : const SizedBox.shrink()
             else ...[
+              // Önce ilgi bekleyenler, sonra günün özeti. Sıfır olan
+              // ilgi kutuları gösterilmez; hepsi sıfırsa bölüm de çıkmaz.
+              ...() {
+                final todo = [
+                  if (kpis != null && kpis.unassigned > 0)
+                    (l.kpiWaiting, '${kpis.unassigned}'),
+                  if (d.approvalsHandover > 0)
+                    (l.kpiAwaitAccept, '${d.approvalsHandover}'),
+                  if (d.approvalsReturns > 0)
+                    (l.kpiAwaitReturn, '${d.approvalsReturns}'),
+                  if (d.urgent > 0) (l.kpiUrgent, '${d.urgent}'),
+                  if (d.pending > 0) (l.kpiPendingOps, '${d.pending}'),
+                ];
+                return [
+                  if (todo.isNotEmpty) ...[
+                    SubeSection(l.subeNeedsYou),
+                    SubeKpiGrid(todo, attention: true),
+                  ],
+                ];
+              }(),
+              SubeSection(l.subeTodayTitle),
               // "Bugün dağıtılacak" şubenin günlük toplam işidir; kuryelere
               // zimmetlenen onun bir parçasıdır, ayrı kutuda gösterilir.
               SubeKpiGrid([
                 (l.kpiToday, '${d.todayToDeliver}'),
                 (l.kpiDelivered, '${d.deliveredToday}'),
                 if (kpis != null) (l.kpiAssigned, '${kpis.assigned}'),
-                if (kpis != null) (l.kpiWaiting, '${kpis.unassigned}'),
-                (l.kpiCancelled, '${d.cancelledToday}'),
-                (l.kpiReturnToCenter, '${d.returnToCenter}'),
-                (l.kpiUrgent, '${d.urgent}'),
-                (l.kpiPendingOps, '${d.pending}'),
                 (
                   l.kpiActiveCouriers,
                   '${d.couriersActive} / ${d.couriersTotal}',
                 ),
-                (l.kpiAwaitAccept, '${d.approvalsHandover}'),
-                (l.kpiAwaitReturn, '${d.approvalsReturns}'),
+                (l.kpiCancelled, '${d.cancelledToday}'),
+                (l.kpiReturnToCenter, '${d.returnToCenter}'),
               ]),
             ],
           ],

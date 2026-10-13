@@ -375,15 +375,43 @@ class _ShipmentCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Mono(row.shipmentNumber, size: 13, weight: FontWeight.w700),
-                Text(row.recipientName, style: Dg.ui(size: 14, color: Dg.ink2)),
-                if (where.isNotEmpty)
-                  Text(where, style: Dg.ui(size: 12, color: Dg.ink3)),
+                // Önce kime gittiği; gönderi no ve bölge altta, küçük.
+                Text(
+                  row.recipientName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Dg.ui(size: 16, weight: FontWeight.w600),
+                ),
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        row.shipmentNumber,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Dg.ui(size: 13, color: Dg.ink3),
+                      ),
+                    ),
+                    if (where.isNotEmpty)
+                      Flexible(
+                        child: Text(
+                          ' · $where',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Dg.ui(size: 13, color: Dg.ink3),
+                        ),
+                      ),
+                  ],
+                ),
               ],
             ),
           ),
           const SizedBox(width: 8),
-          Flexible(
+          // Etiket kendi genişliğini alır; ad ve numara kalan yere yayılır.
+          ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.sizeOf(context).width * 0.42,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [

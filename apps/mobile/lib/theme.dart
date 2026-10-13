@@ -513,9 +513,14 @@ class Dg {
       chipTheme: ChipThemeData(
         side: BorderSide.none,
         backgroundColor: surface2,
-        selectedColor: warnSoft,
+        // Seçili filtre ters renkli hap; sekmelerle aynı dil.
+        selectedColor: ink,
         showCheckmark: false,
-        labelStyle: ui(size: 14, weight: FontWeight.w600, color: ink),
+        labelStyle: ui(size: 14, weight: FontWeight.w600).copyWith(
+          color: WidgetStateColor.resolveWith(
+            (states) => states.contains(WidgetState.selected) ? ground : ink,
+          ),
+        ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(radiusPill),
         ),

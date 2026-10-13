@@ -1876,6 +1876,14 @@ class L10n {
     'Label printing, counts, announcements, messages and end of day are all under "Operations".',
   );
   String get minutesShort => _t('dk', 'min');
+  String get courierMapNone => _t(
+    'Şu an konum paylaşan kurye yok. Kurye bir işe başlayınca haritada görünür.',
+    'No courier is sharing location right now. They appear on the map once they start a job.',
+  );
+  String courierMapCount(int n, int total) =>
+      _t('$total kuryeden $n tanesi haritada', '$n of $total couriers on the map');
+  String get subeNeedsYou => _t('İlgilenmen gerekenler', 'Needs your attention');
+  String get subeTodayTitle => _t('Bugün', 'Today');
   String get youArrived => _t('Durağa vardın', 'You have arrived');
 
   // Bluetooth yazıcı

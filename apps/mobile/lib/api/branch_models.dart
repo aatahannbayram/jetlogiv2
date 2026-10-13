@@ -89,7 +89,14 @@ class BranchCourierLive {
     this.lastSeenAt,
     this.holdingCount = 0,
     this.overdueCount = 0,
+    this.latitude,
+    this.longitude,
   });
+
+  /// Kuryenin telefonundan gelen son konum; hiç gelmediyse null.
+  final double? latitude;
+  final double? longitude;
+  bool get located => latitude != null && longitude != null;
 
   final String id;
   final String name;
@@ -110,7 +117,17 @@ class BranchCourierLive {
         lastSeenAt: _date(j, 'lastSeenAt'),
         holdingCount: _int(j, 'holdingCount'),
         overdueCount: _int(j, 'overdueCount'),
+        latitude: _coord(j['location'], 'latitude'),
+        longitude: _coord(j['location'], 'longitude'),
       );
+}
+
+double? _coord(Object? location, String key) {
+  if (location is! Map) return null;
+  final v = location[key];
+  if (v is num) return v.toDouble();
+  if (v is String) return double.tryParse(v);
+  return null;
 }
 
 class BranchDashboard {

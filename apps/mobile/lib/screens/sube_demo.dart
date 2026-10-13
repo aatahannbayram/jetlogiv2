@@ -26,6 +26,8 @@ const kSubeDemoDashboard = BranchDashboard(
       liveStatus: 'ACTIVE',
       holdingCount: 12,
       overdueCount: 1,
+      latitude: 37.7830,
+      longitude: 29.0963,
     ),
     BranchCourierLive(
       id: 'demo-c2',
@@ -33,6 +35,8 @@ const kSubeDemoDashboard = BranchDashboard(
       code: 'KRY-002',
       liveStatus: 'ACTIVE',
       holdingCount: 9,
+      latitude: 37.7765,
+      longitude: 29.0864,
     ),
     BranchCourierLive(
       id: 'demo-c3',
@@ -40,6 +44,8 @@ const kSubeDemoDashboard = BranchDashboard(
       code: 'KRY-003',
       liveStatus: 'BREAK',
       holdingCount: 7,
+      latitude: 37.7701,
+      longitude: 29.1012,
     ),
     BranchCourierLive(id: 'demo-c4', name: 'Barış Arslan', code: 'KRY-004'),
   ],

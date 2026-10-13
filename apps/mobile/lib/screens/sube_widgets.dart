@@ -43,9 +43,14 @@ class SubeSection extends StatelessWidget {
 
 /// İkişerli KPI ızgarası.
 class SubeKpiGrid extends StatelessWidget {
-  const SubeKpiGrid(this.tiles, {super.key});
+  const SubeKpiGrid(this.tiles, {super.key, this.attention = false});
 
   final List<(String, String)> tiles;
+
+  /// İlgi bekleyen işler: sıfır olmayan sayılar kehribar yazılır.
+  final bool attention;
+
+  Color? _tint(String value) => attention && value != '0' ? Dg.warn : null;
 
   @override
   Widget build(BuildContext context) {
@@ -59,11 +64,19 @@ class SubeKpiGrid extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                StatTile(label: tiles[i].$1, value: tiles[i].$2),
+                StatTile(
+                  label: tiles[i].$1,
+                  value: tiles[i].$2,
+                  valueColor: _tint(tiles[i].$2),
+                ),
                 if (columns == 2) ...[
                   const SizedBox(width: 12),
                   if (i + 1 < tiles.length)
-                    StatTile(label: tiles[i + 1].$1, value: tiles[i + 1].$2)
+                    StatTile(
+                      label: tiles[i + 1].$1,
+                      value: tiles[i + 1].$2,
+                      valueColor: _tint(tiles[i + 1].$2),
+                    )
                   else
                     const Spacer(),
                 ],
