@@ -26,6 +26,7 @@ class SubeShellScreen extends ConsumerStatefulWidget {
 }
 
 class _SubeShellScreenState extends ConsumerState<SubeShellScreen> {
+  bool _navCompact = false;
   int _index = 0;
 
   @override
@@ -68,7 +69,11 @@ class _SubeShellScreenState extends ConsumerState<SubeShellScreen> {
     return Scaffold(
       body: SafeArea(
         bottom: false,
-        child: DgTabStack(index: _index, children: pages),
+        child: NavShrinkOnScroll(
+          compact: _navCompact,
+          onCompact: (v) => setState(() => _navCompact = v),
+          child: DgTabStack(index: _index, children: pages),
+        ),
       ),
       // Büyük yazı ayarında yüzen düğme içeriği kapatır; alt çubuğun üstüne
       // tam genişlikte düğme olarak iner.
@@ -93,7 +98,11 @@ class _SubeShellScreenState extends ConsumerState<SubeShellScreen> {
             ),
           DgPillNav(
             index: _index,
-            onChanged: (i) => setState(() => _index = i),
+            compact: _navCompact,
+            onChanged: (i) => setState(() {
+              _index = i;
+              _navCompact = false;
+            }),
             items: [
               (LucideIcons.home, LucideIcons.home, l.subeTabHome),
               (

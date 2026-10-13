@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dijigoo_kurye/screens/shell_screen.dart';
+import 'package:dijigoo_kurye/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -109,6 +110,31 @@ void main() {
     await tester.tap(find.text('Cumhuriyet Cd. No:14').first);
     await tester.pumpAndSettle();
     expect(find.byType(RouteScreen), findsOneWidget);
+  });
+
+  testWidgets('alt menü aşağı kaydırınca küçülür, yukarı kaydırınca büyür', (
+    tester,
+  ) async {
+    await bindPhone(tester);
+    await openDemo(tester);
+    final nav = find.byType(DgPillNav);
+    Finder label() => find
+        .descendant(of: nav, matching: find.text('Menü'))
+        .hitTestable();
+    expect(label(), findsOneWidget);
+    final tall = tester.getSize(nav).height;
+
+    // İçerik aşağı kaydırılır: etiketler kapanır, çubuk yerinde ama alçak.
+    await tester.drag(find.byType(ListView).first, const Offset(0, -220));
+    await tester.pumpAndSettle();
+    expect(label(), findsNothing);
+    expect(tester.getSize(nav).height, lessThan(tall - 15));
+    expect(nav, findsOneWidget);
+
+    await tester.drag(find.byType(ListView).first, const Offset(0, 120));
+    await tester.pumpAndSettle();
+    expect(label(), findsOneWidget);
+    expect(tester.getSize(nav).height, tall);
   });
 
   testWidgets('görüşme demosu teslimatı bitirir', (tester) async {
@@ -246,7 +272,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Kurye Zimmet'));
     await tester.pumpAndSettle();
-    expect(find.text('Barkodu kameraya göster ya da kodu yaz.'), findsOneWidget);
+    expect(
+      find.text('Barkodu kameraya göster ya da kodu yaz.'),
+      findsOneWidget,
+    );
     expect(find.text('Henüz taranan gönderi yok'), findsOneWidget);
     await tester.enterText(find.byType(TextField), 'DGO-9107');
     await tester.testTextInput.receiveAction(TextInputAction.done);
@@ -499,7 +528,9 @@ void main() {
     expect(session.isNotifRead('demo-stop'), isTrue);
   });
 
-  testWidgets('gönderilecekler ekranı kurye adını ve yalın durumu gösterir', (tester) async {
+  testWidgets('gönderilecekler ekranı kurye adını ve yalın durumu gösterir', (
+    tester,
+  ) async {
     await bindPhone(tester);
     final session = SessionController();
     session.skipToDemo();

@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -1653,12 +1654,17 @@ class DgPillNav extends StatelessWidget {
     required this.onChanged,
     required this.items,
     this.badges = const [],
+    this.compact = false,
   });
 
   final int index;
   final ValueChanged<int> onChanged;
   final List<(IconData, IconData, String)> items;
   final List<int> badges;
+
+  /// Sayfa aşağı kaydırılırken küçük hal: yalnız ikonlar, daha alçak çubuk.
+  /// Çubuk yerinde kalır; içerik için yer açılır.
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -1687,10 +1693,12 @@ class DgPillNav extends StatelessWidget {
                 HapticFeedback.selectionClick();
                 onChanged(i);
               },
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
+              child: AnimatedPadding(
+                duration: duration,
+                curve: Curves.easeOutCubic,
+                padding: EdgeInsets.symmetric(
                   horizontal: 1,
-                  vertical: 10,
+                  vertical: compact ? 9 : 10,
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -1717,20 +1725,38 @@ class DgPillNav extends StatelessWidget {
                           ),
                       ],
                     ),
-                    const SizedBox(height: 6),
-                    AnimatedDefaultTextStyle(
+                    // Küçük halde etiket kapanır. Yükseklik çarpanı hem
+                    // ölçümde hem çizimde aynı olduğundan geçişte taşma olmaz.
+                    TweenAnimationBuilder<double>(
+                      tween: Tween(end: compact ? 0.0 : 1.0),
                       duration: duration,
-                      style: Dg.ui(
-                        size: 14,
-                        weight: index == i ? FontWeight.w700 : FontWeight.w500,
-                        color: index == i ? Dg.warn : Dg.text2,
+                      curve: Curves.easeOutCubic,
+                      builder: (context, t, child) => ClipRect(
+                        child: Align(
+                          alignment: Alignment.topCenter,
+                          heightFactor: t,
+                          child: Opacity(opacity: t, child: child),
+                        ),
                       ),
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text(
-                          items[i].$3,
-                          maxLines: 1,
-                          textAlign: TextAlign.center,
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: AnimatedDefaultTextStyle(
+                          duration: duration,
+                          style: Dg.ui(
+                            size: 14,
+                            weight: index == i
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                            color: index == i ? Dg.warn : Dg.text2,
+                          ),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              items[i].$3,
+                              maxLines: 1,
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -2003,7 +2029,10 @@ class InitialsAvatar extends StatelessWidget {
       height: size,
       child: Stack(
         fit: StackFit.expand,
-        children: [fallback, ClipOval(child: image)],
+        children: [
+          fallback,
+          ClipOval(child: image),
+        ],
       ),
     );
   }
@@ -2697,4 +2726,46 @@ class _CalmGridPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _CalmGridPainter old) => old.t != t;
+}
+
+/// Sekme içeriği dikey kaydırıldıkça alt menünün küçülüp büyümesini bildirir:
+/// aşağı kaydırınca [onCompact] true, yukarı kaydırınca ya da en üste
+/// gelince false.
+class NavShrinkOnScroll extends StatelessWidget {
+  const NavShrinkOnScroll({
+    super.key,
+    required this.compact,
+    required this.onCompact,
+    required this.child,
+  });
+
+  final bool compact;
+  final ValueChanged<bool> onCompact;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return NotificationListener<ScrollNotification>(
+      onNotification: (n) {
+        if (n.metrics.axis != Axis.vertical) return false;
+        bool? next;
+        if (n is UserScrollNotification) {
+          // Yön bildirimi kaydırma başlarken, sayfa daha kıpırdamadan gelir;
+          // bu yüzden burada "en üstte mi" diye bakılmaz. Kaydırılacak
+          // içerik yoksa menü küçülmez.
+          if (n.direction == ScrollDirection.reverse &&
+              n.metrics.maxScrollExtent > 0) {
+            next = true;
+          }
+          if (n.direction == ScrollDirection.forward) next = false;
+        } else if (n.metrics.pixels <= 0) {
+          // En üste dönünce her zaman büyük hal.
+          next = false;
+        }
+        if (next != null && next != compact) onCompact(next);
+        return false;
+      },
+      child: child,
+    );
+  }
 }

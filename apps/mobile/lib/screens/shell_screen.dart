@@ -99,6 +99,8 @@ class _ShellScreenState extends ConsumerState<ShellScreen>
     });
   }
 
+  bool _navCompact = false;
+
   @override
   Widget build(BuildContext context) {
     final unread = ref.watch(sessionProvider.select((s) => s.unreadNotifCount));
@@ -132,7 +134,11 @@ class _ShellScreenState extends ConsumerState<ShellScreen>
       extendBody: false,
       body: Stack(
         children: [
-          DgTabStack(index: index, children: pages),
+          NavShrinkOnScroll(
+            compact: _navCompact,
+            onCompact: (v) => setState(() => _navCompact = v),
+            child: DgTabStack(index: index, children: pages),
+          ),
           if (_banner != null)
             Positioned(
               left: Dg.pagePad,
@@ -157,7 +163,12 @@ class _ShellScreenState extends ConsumerState<ShellScreen>
       ),
       bottomNavigationBar: DgPillNav(
         index: index,
-        onChanged: nav.go,
+        compact: _navCompact,
+        onChanged: (i) {
+          // Sekme değişince menü yeniden büyür.
+          if (_navCompact) setState(() => _navCompact = false);
+          nav.go(i);
+        },
         badges: [0, 0, 0, unread, 0],
         items: [
           (LucideIcons.house, LucideIcons.house, l.home),
