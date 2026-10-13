@@ -14,6 +14,7 @@ import 'earnings_screen.dart';
 import 'envanter_screen.dart';
 import 'eod_screen.dart';
 import 'kyc_screen.dart';
+import 'custody_history_screen.dart';
 import 'mistakes_screen.dart';
 import 'profile_screen.dart';
 import 'support_screen.dart';
@@ -57,6 +58,14 @@ class MenuScreen extends ConsumerWidget {
         tone: _ChipTone.accent,
         open: () => const ZimmetScreen(mode: 'sube'),
       ),
+      if (s.panelLoggedIn)
+        (
+          label: l.custodyHistoryTitle,
+          icon: LucideIcons.history,
+          badge: null,
+          tone: _ChipTone.mute,
+          open: () => const CustodyHistoryScreen(),
+        ),
       (
         label: l.depotPickup,
         icon: LucideIcons.warehouse,

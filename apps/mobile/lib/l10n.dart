@@ -1359,6 +1359,48 @@ class L10n {
     _ => null,
   };
 
+  // Tutanak, zimmet geçmişi, duyuru onayı
+  String get reportTitle => _t('Tutanak', 'Report');
+  String get reportNew => _t('Yeni tutanak', 'New report');
+  String reportType(String code) => switch (code) {
+    'DELIVERY' => _t('Teslim', 'Delivery'),
+    'PICKUP' => _t('Teslim alma', 'Pickup'),
+    'DAMAGE' => _t('Hasar', 'Damage'),
+    _ => _t('Diğer', 'Other'),
+  };
+  String get reportNoteHint => _t('Ne oldu? Kısaca yaz.', 'What happened?');
+  String get reportOtherName =>
+      _t('Karşı tarafın adı soyadı', "Other party's full name");
+  String get reportYourSign => _t('Senin imzan', 'Your signature');
+  String get reportOtherSign => _t('Karşı tarafın imzası', "Other party's signature");
+  String get reportSend => _t('Tutanağı gönder', 'Send report');
+  String get reportSent => _t('Tutanak gönderildi.', 'Report sent.');
+  String get reportNeedName =>
+      _t('Karşı tarafın adını yaz.', "Write the other party's name.");
+  String get reportNeedSigns =>
+      _t('İki imza da gerekli.', 'Both signatures are needed.');
+  String get reportFailed => _t(
+    'Tutanak gönderilemedi. Tekrar dene.',
+    'Could not send the report. Try again.',
+  );
+  String get reportPast => _t('Önceki tutanaklar', 'Earlier reports');
+  String get custodyHistoryTitle => _t('Zimmet geçmişi', 'Custody history');
+  String get reportFailedLoad =>
+      _t('Liste yüklenemedi.', 'Could not load the list.');
+  String get custodyHistoryEmpty =>
+      _t('Henüz zimmet hareketin yok.', 'No custody moves yet.');
+  String custodyMove(bool incoming) =>
+      incoming ? _t('Aldın', 'Received') : _t('Verdin', 'Handed over');
+  String custodyMoveStatus(String status) => switch (status) {
+    'PENDING' => _t('Bekliyor', 'Pending'),
+    'ACCEPTED' => _t('Kabul edildi', 'Accepted'),
+    'ACCEPTED_DAMAGED' => _t('Hasarlı kabul edildi', 'Accepted damaged'),
+    'REJECTED' => _t('Reddedildi', 'Rejected'),
+    'CANCELLED' => _t('İptal edildi', 'Cancelled'),
+    _ => '',
+  };
+  String get announcementAck => _t('Okudum, anladım', 'Read and understood');
+
   // Hatalarım ve fotoğraf puanı
   String get mistakesTitle => _t('Hatalarım', 'My mistakes');
   String get photoScoreTitle => _t('Fotoğraf puanın', 'Your photo score');

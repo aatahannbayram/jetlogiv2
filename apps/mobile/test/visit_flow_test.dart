@@ -577,4 +577,112 @@ void main() {
       );
     });
   });
+
+  group('tutanak, zimmet geçmişi, duyuru onayı', () {
+    test('tutanak iki imza ve karşı taraf adıyla gider', () async {
+      final seen = <RequestOptions>[];
+      final api = PanelApi(_visitDio((_) => null, seen: seen));
+      await api.createReport(
+        's-9',
+        reportType: 'DAMAGE',
+        courierSignature: 'data:image/png;base64,AA==',
+        courierName: 'Ayşe Kurye',
+        counterpartSignature: 'data:image/png;base64,BB==',
+        counterpartName: 'Bora Kaya',
+        note: 'Koli ezik',
+        idempotencyKey: 'key-12345678',
+      );
+      final req = seen.single;
+      expect(req.path, '/courier-tasks/s-9/reports');
+      expect(req.headers['Idempotency-Key'], 'key-12345678');
+      expect(req.data, {
+        'reportType': 'DAMAGE',
+        'status': 'SUBMITTED',
+        'note': 'Koli ezik',
+        'courierSignature': {
+          'dataUrl': 'data:image/png;base64,AA==',
+          'signerName': 'Ayşe Kurye',
+        },
+        'counterpartSignature': {
+          'dataUrl': 'data:image/png;base64,BB==',
+          'signerName': 'Bora Kaya',
+        },
+      });
+    });
+
+    test('zimmet geçmişi: yön, karşı taraf ve durum', () async {
+      final api = PanelApi(
+        _visitDio(
+          (_) => {
+            'items': [
+              {
+                'direction': 'IN',
+                'shipmentNumber': '334',
+                'recipientName': 'Ulus Kafe',
+                'counterparty': {'type': 'UNIT', 'name': 'DEMO-ANKARA'},
+                'status': 'ACCEPTED',
+                'completedAt': '2026-10-13T11:10:00.000Z',
+              },
+              {
+                'direction': 'OUT',
+                'shipmentNumber': '342',
+                'status': 'PENDING',
+              },
+            ],
+          },
+        ),
+      );
+      final rows = await api.fetchCustodyHistory();
+      expect(rows.first.incoming, isTrue);
+      expect(rows.first.counterparty, 'DEMO-ANKARA');
+      expect(rows.first.at, isNotNull);
+      expect(rows.last.incoming, isFalse);
+      expect(const L10n('tr').custodyMoveStatus(rows.last.status), 'Bekliyor');
+    });
+
+    test('onay isteyen duyuru "okudum" denince onaylanır', () async {
+      final seen = <RequestOptions>[];
+      final dio = _visitDio(
+        (o) => o.path.endsWith('/courier-notifications')
+            ? {
+                'items': [
+                  {
+                    'id': 'n-1',
+                    'category': 'ANNOUNCEMENT',
+                    'severity': 'INFO',
+                    'title': 'Yeni çekim kuralı',
+                    'body': 'Tabela mutlaka kadrajda olsun.',
+                    'read': false,
+                    'createdAt': '2026-10-13T09:00:00.000Z',
+                    'announcement': {
+                      'id': 'a-1',
+                      'requiresAck': true,
+                      'acknowledgedAt': null,
+                    },
+                  },
+                ],
+              }
+            : null,
+        seen: seen,
+      );
+      final s = SessionController(
+        panel: PanelApi(dio),
+        api: MobileApi(dio: dio),
+      );
+      await s.loginWithPanel(identifier: 'a@b.com', password: 'x');
+      await s.loadCourierNotifications();
+      final n = s.notifications.firstWhere((n) => n.announcementId == 'a-1');
+      expect(n.title, 'Yeni çekim kuralı');
+      expect(n.needsAck, isTrue);
+
+      expect(await s.acknowledgeAnnouncement(n.id), isTrue);
+      expect(
+        seen.any(
+          (o) => o.path == '/courier-notifications/announcements/a-1/ack',
+        ),
+        isTrue,
+      );
+      expect(s.notifications.firstWhere((x) => x.id == n.id).needsAck, isFalse);
+    });
+  });
 }

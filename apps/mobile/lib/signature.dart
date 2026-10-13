@@ -1,3 +1,7 @@
+import 'dart:convert';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -20,6 +24,50 @@ class SignatureCapture {
 
   int get pointCount =>
       strokes.fold(0, (n, stroke) => n + stroke.length);
+
+  /// İmzanın beyaz zeminde siyah çizgili PNG görüntüsü.
+  Future<Uint8List> toPng({double width = 600}) async {
+    final w = size.width <= 0 ? 1.0 : size.width;
+    final h = size.height <= 0 ? 1.0 : size.height;
+    final scale = width / w;
+    final height = (h * scale).clamp(1.0, 2000.0);
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, width, height),
+      Paint()..color = const Color(0xFFFFFFFF),
+    );
+    final ink = Paint()
+      ..color = const Color(0xFF000000)
+      ..strokeWidth = 3 * scale.clamp(1.0, 3.0)
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..style = PaintingStyle.stroke;
+    for (final stroke in strokes) {
+      if (stroke.isEmpty) continue;
+      if (stroke.length == 1) {
+        canvas.drawPoints(ui.PointMode.points, [stroke.first * scale], ink);
+        continue;
+      }
+      final path = Path()
+        ..moveTo(stroke.first.dx * scale, stroke.first.dy * scale);
+      for (final p in stroke.skip(1)) {
+        path.lineTo(p.dx * scale, p.dy * scale);
+      }
+      canvas.drawPath(path, ink);
+    }
+    final image = await recorder.endRecording().toImage(
+      width.round(),
+      height.round(),
+    );
+    final data = await image.toByteData(format: ui.ImageByteFormat.png);
+    image.dispose();
+    return data!.buffer.asUint8List();
+  }
+
+  /// Tutanak imzası için `data:image/png;base64,...`.
+  Future<String> toDataUrl() async =>
+      'data:image/png;base64,${base64Encode(await toPng(width: 480))}';
 
   Map<String, Object?> toProof() {
     final w = size.width <= 0 ? 1.0 : size.width;

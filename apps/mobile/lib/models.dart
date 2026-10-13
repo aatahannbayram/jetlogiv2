@@ -388,6 +388,8 @@ class AppNotification {
     required this.tint,
     required this.ink,
     this.taskId,
+    this.announcementId,
+    this.needsAck = false,
   });
 
   final String id;
@@ -399,6 +401,10 @@ class AppNotification {
   final Color tint;
   final Color ink;
   final String? taskId;
+
+  /// Duyuruysa kimliği; [needsAck] ise kurye "okudum, anladım" demeli.
+  final String? announcementId;
+  final bool needsAck;
 }
 
 class DepotOption {

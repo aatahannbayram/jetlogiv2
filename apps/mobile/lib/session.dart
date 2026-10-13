@@ -35,6 +35,7 @@ import 'models.dart';
 import 'road.dart';
 import 'scan.dart';
 import 'secure.dart';
+import 'signature.dart';
 import 'theme.dart';
 import 'visit_requirements.dart';
 
@@ -1235,8 +1236,12 @@ class SessionController extends ChangeNotifier {
                 : urgent
                 ? NotifKind.slaRisk
                 : NotifKind.shift,
-            title: _notifTitle(item.category),
+            title: item.title.isNotEmpty
+                ? item.title
+                : _notifTitle(item.category),
             body: item.body,
+            announcementId: item.announcementId,
+            needsAck: item.needsAck,
             createdAt: item.createdAt ?? DateTime.now(),
             icon: rejected
                 ? LucideIcons.cameraOff
@@ -2454,6 +2459,76 @@ class SessionController extends ChangeNotifier {
     notifyListeners();
     unawaited(ensureDayRoute());
     unawaited(loadPhotoMistakeCount());
+  }
+
+  /// Duyuruya "okudum, anladım" der; başarılıysa düğme kalkar.
+  Future<bool> acknowledgeAnnouncement(String notificationId) async {
+    final i = notifications.indexWhere((n) => n.id == notificationId);
+    final client = panel;
+    if (i < 0 || client == null) return false;
+    final n = notifications[i];
+    final announcementId = n.announcementId;
+    if (announcementId == null) return false;
+    try {
+      await client.acknowledgeAnnouncement(announcementId);
+    } catch (_) {
+      return false;
+    }
+    notifications[i] = AppNotification(
+      id: n.id,
+      kind: n.kind,
+      title: n.title,
+      body: n.body,
+      createdAt: n.createdAt,
+      icon: n.icon,
+      tint: n.tint,
+      ink: n.ink,
+      taskId: n.taskId,
+      announcementId: announcementId,
+    );
+    _readNotificationIds.add(n.id);
+    _syncNotifBadge();
+    notifyListeners();
+    return true;
+  }
+
+  Future<List<CustodyMoveDto>> custodyHistory() async {
+    final client = panel;
+    if (client == null) return const [];
+    return client.fetchCustodyHistory();
+  }
+
+  Future<List<TaskReportDto>> taskReports(String taskId) async {
+    final client = panel;
+    if (client == null) return const [];
+    return client.fetchReports(taskId);
+  }
+
+  /// İki imzalı tutanak gönderir; sunucu reddederse [PanelApiException].
+  Future<void> createTaskReport(
+    String taskId, {
+    required String reportType,
+    required SignatureCapture courierSignature,
+    required SignatureCapture counterpartSignature,
+    required String counterpartName,
+    String? note,
+  }) async {
+    final client = panel;
+    if (client == null) throw PanelApiException('PANEL_UNAVAILABLE');
+    Future<String> url(SignatureCapture s) async =>
+        inWidgetTest ? 'data:image/png;base64,AA==' : await s.toDataUrl();
+    await client.createReport(
+      taskId,
+      reportType: reportType,
+      courierSignature: await url(courierSignature),
+      courierName: courier.fullName,
+      counterpartSignature: await url(counterpartSignature),
+      counterpartName: counterpartName,
+      note: note,
+      latitude: selfLocated ? selfLat : null,
+      longitude: selfLocated ? selfLng : null,
+      idempotencyKey: Vault.newUuid(),
+    );
   }
 
   /// Hatalarım: kontrolde reddedilen fotoğraflar ve fotoğraf puanı.

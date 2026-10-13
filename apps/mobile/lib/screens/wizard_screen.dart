@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../l10n.dart';
 import '../media_upload.dart';
 import '../motion.dart';
+import '../scan.dart';
 import '../session.dart';
 import '../signature.dart';
 import '../privacy.dart';
@@ -126,7 +127,10 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
         signMediaId ??= await uploadEvidence(
           api: s.panelLoggedIn ? null : s.api,
           panel: s.panelLoggedIn ? s.panel : null,
-          bytes: tinyPng(),
+          // Testte görüntü üretilemez; canlıda gerçek imza gider.
+          bytes: inWidgetTest || signature == null
+              ? tinyPng()
+              : await signature!.toPng(),
           kind: 'signature',
           contentType: 'image/png',
           taskId: widget.taskId,

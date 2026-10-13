@@ -381,3 +381,68 @@ class PhotoMistakesDto {
   final int minPhotos;
   final int windowDays;
 }
+
+/// Zimmet geçmişi satırı: kuryeye gelen (IN) ya da kuryeden çıkan (OUT) kalem.
+class CustodyMoveDto {
+  const CustodyMoveDto({
+    required this.incoming,
+    this.shipmentNumber = '',
+    this.recipientName = '',
+    this.counterparty = '',
+    this.status = '',
+    this.at,
+  });
+
+  factory CustodyMoveDto.fromJson(Map<String, dynamic> j) => CustodyMoveDto(
+    incoming: j['direction'] != 'OUT',
+    shipmentNumber: j['shipmentNumber'] as String? ?? '',
+    recipientName: j['recipientName'] as String? ?? '',
+    counterparty: (j['counterparty'] as Map?)?['name'] as String? ?? '',
+    status: j['status'] as String? ?? '',
+    at: DateTime.tryParse(
+      (j['completedAt'] ?? j['updatedAt'] ?? j['createdAt']) as String? ?? '',
+    ),
+  );
+
+  final bool incoming;
+  final String shipmentNumber;
+  final String recipientName;
+
+  /// Karşı taraf: depo, şube ya da kurye adı.
+  final String counterparty;
+
+  /// PENDING, ACCEPTED, ACCEPTED_DAMAGED, REJECTED …
+  final String status;
+  final DateTime? at;
+}
+
+/// Gönderiye yazılmış dijital tutanak.
+class TaskReportDto {
+  const TaskReportDto({
+    required this.id,
+    this.reportType = 'OTHER',
+    this.note,
+    this.counterpartName = '',
+    this.createdAt,
+  });
+
+  factory TaskReportDto.fromJson(Map<String, dynamic> j) => TaskReportDto(
+    id: j['id'] as String? ?? '',
+    reportType: j['reportType'] as String? ?? 'OTHER',
+    note: j['note'] as String?,
+    counterpartName:
+        (j['counterpartSignature'] as Map?)?['signerName'] as String? ?? '',
+    createdAt: DateTime.tryParse(
+      (j['submittedAt'] ?? j['createdAt']) as String? ?? '',
+    ),
+  );
+
+  final String id;
+
+  /// PICKUP, DELIVERY, DAMAGE, OTHER.
+  final String reportType;
+  final String? note;
+  final String counterpartName;
+  final DateTime? createdAt;
+}
+

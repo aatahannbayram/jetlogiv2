@@ -21,6 +21,37 @@ Future<void> openAppNotification(
   SessionController s,
   AppNotification n,
 ) async {
+  if (n.needsAck) {
+    // Onay isteyen duyuru: metni göster, "Okudum, anladım" ile kapat.
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheet) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(n.title, style: Dg.ui(size: 18, weight: FontWeight.w700)),
+              const SizedBox(height: 8),
+              Text(n.body, style: Dg.ui(size: 15, color: Dg.ink2)),
+              const SizedBox(height: 16),
+              DgButton(
+                label: sheet.l10n.announcementAck,
+                icon: LucideIcons.check,
+                onPressed: () async {
+                  await s.acknowledgeAnnouncement(n.id);
+                  if (sheet.mounted) Navigator.of(sheet).pop();
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    return;
+  }
   s.markNotificationRead(n.id);
   if (!context.mounted) return;
   final nav = Navigator.of(context);

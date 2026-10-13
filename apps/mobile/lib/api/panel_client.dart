@@ -335,6 +335,72 @@ class PanelApi {
     }
   }
 
+  /// Duyuru için "okudum, anladım" onayı; bildirimi de okundu yapar.
+  Future<void> acknowledgeAnnouncement(String announcementId) async {
+    await _post(
+      '/courier-notifications/announcements/$announcementId/ack',
+      const {},
+      idempotencyKey: Vault.newUuid(),
+    );
+  }
+
+  /// Kuryeye gelen ve kuryeden çıkan zimmet hareketleri, yeniden eskiye.
+  Future<List<CustodyMoveDto>> fetchCustodyHistory({int limit = 50}) async {
+    final res = await _get(
+      '/courier-custody/history',
+      queryParameters: {'limit': limit},
+    );
+    final items = (res.data?['data'] as Map?)?['items'] as List? ?? const [];
+    return [
+      for (final row in items)
+        if (row is Map) CustodyMoveDto.fromJson(Map<String, dynamic>.from(row)),
+    ];
+  }
+
+  Future<List<TaskReportDto>> fetchReports(String shipmentId) async {
+    final res = await _get('/courier-tasks/$shipmentId/reports');
+    final rows = (res.data?['data'] as Map?)?['reports'] as List? ?? const [];
+    return [
+      for (final row in rows)
+        if (row is Map) TaskReportDto.fromJson(Map<String, dynamic>.from(row)),
+    ];
+  }
+
+  /// İki imzalı dijital tutanak. İmzalar PNG data URL'dir.
+  Future<void> createReport(
+    String shipmentId, {
+    required String reportType,
+    required String courierSignature,
+    required String courierName,
+    required String counterpartSignature,
+    required String counterpartName,
+    String? counterpartRole,
+    String? note,
+    double? latitude,
+    double? longitude,
+    required String idempotencyKey,
+  }) async {
+    await _post('/courier-tasks/$shipmentId/reports', {
+      'reportType': reportType,
+      'status': 'SUBMITTED',
+      if (note != null && note.isNotEmpty) 'note': note,
+      'courierSignature': {
+        'dataUrl': courierSignature,
+        'signerName': courierName,
+      },
+      'counterpartSignature': {
+        'dataUrl': counterpartSignature,
+        'signerName': counterpartName,
+        if (counterpartRole != null && counterpartRole.isNotEmpty)
+          'signerRole': counterpartRole,
+      },
+      if (latitude != null && longitude != null) ...{
+        'latitude': latitude,
+        'longitude': longitude,
+      },
+    }, idempotencyKey: idempotencyKey);
+  }
+
   /// Hatalarım: kontrolde reddedilen fotoğraflar ve fotoğraf puanı.
   Future<PhotoMistakesDto> fetchPhotoMistakes() async {
     final res = await _get('/courier-mistakes');
@@ -614,9 +680,12 @@ class PanelApi {
         String id,
         String category,
         String severity,
+        String title,
         String body,
         bool read,
         DateTime? createdAt,
+        String? announcementId,
+        bool needsAck,
       })
     >
   >
@@ -630,9 +699,14 @@ class PanelApi {
             id: row['id'] as String? ?? '',
             category: row['category'] as String? ?? '',
             severity: row['severity'] as String? ?? 'INFO',
+            title: row['title'] as String? ?? '',
             body: row['body'] as String? ?? '',
             read: row['read'] == true,
             createdAt: DateTime.tryParse(row['createdAt'] as String? ?? ''),
+            announcementId: (row['announcement'] as Map?)?['id'] as String?,
+            needsAck:
+                (row['announcement'] as Map?)?['requiresAck'] == true &&
+                (row['announcement'] as Map?)?['acknowledgedAt'] == null,
           ),
     ];
   }

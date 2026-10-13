@@ -14,6 +14,7 @@ import '../models.dart';
 import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import 'report_screen.dart';
 import 'return_screen.dart';
 import 'wizard_screen.dart';
 
@@ -47,8 +48,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
     final l = context.l10n;
     final session = ref.watch(sessionProvider);
     final t = session.taskOrNull(widget.taskId);
-    final guided =
-        session.visitRequirements(widget.taskId)?.guided ?? false;
+    final guided = session.visitRequirements(widget.taskId)?.guided ?? false;
     if (t == null) {
       return Scaffold(
         backgroundColor: Dg.night,
@@ -312,11 +312,22 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                               onTap: () => openDirections(context, t),
                             ),
                             const SizedBox(width: 10),
-                            SquareAction(
-                              icon: LucideIcons.camera,
-                              label: l.photo,
-                              onTap: () {},
-                            ),
+                            if (session.panelLoggedIn)
+                              SquareAction(
+                                icon: LucideIcons.fileSignature,
+                                label: l.reportTitle,
+                                onTap: () => Navigator.of(context).push(
+                                  MaterialPageRoute<void>(
+                                    builder: (_) => ReportScreen(taskId: t.id),
+                                  ),
+                                ),
+                              )
+                            else
+                              SquareAction(
+                                icon: LucideIcons.camera,
+                                label: l.photo,
+                                onTap: () {},
+                              ),
                           ],
                         ),
                         const SizedBox(height: 16),
@@ -522,9 +533,7 @@ class _FleetToggle extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-          ),
+          decoration: BoxDecoration(borderRadius: BorderRadius.circular(16)),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
