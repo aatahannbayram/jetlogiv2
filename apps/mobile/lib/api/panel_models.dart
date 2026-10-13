@@ -531,3 +531,39 @@ class AvailabilityDto {
   };
 }
 
+/// Toplu gönderimde tek kaydın sonucu.
+class SyncBatchResultDto {
+  const SyncBatchResultDto({
+    required this.clientEventId,
+    required this.outcome,
+    this.httpStatus,
+    this.data = const {},
+    this.error = const {},
+  });
+
+  factory SyncBatchResultDto.fromJson(Map<String, dynamic> j) =>
+      SyncBatchResultDto(
+        clientEventId: j['clientEventId'] as String? ?? '',
+        outcome: j['outcome'] as String? ?? 'RETRY',
+        httpStatus: (j['httpStatus'] as num?)?.toInt(),
+        data: j['data'] is Map
+            ? Map<String, dynamic>.from(j['data'] as Map)
+            : const {},
+        error: j['error'] is Map
+            ? Map<String, dynamic>.from(j['error'] as Map)
+            : const {},
+      );
+
+  final String clientEventId;
+
+  /// SUCCEEDED / REPLAYED: kuyruktan çıkar. FAILED: kalıcı ret. RETRY ve
+  /// SKIPPED: sonra aynı anahtarla yeniden gönderilir.
+  final String outcome;
+  final int? httpStatus;
+  final Map<String, dynamic> data;
+  final Map<String, dynamic> error;
+
+  bool get done => outcome == 'SUCCEEDED' || outcome == 'REPLAYED';
+  bool get failed => outcome == 'FAILED';
+  String get errorCode => error['code'] as String? ?? 'SYNC_FAILED';
+}

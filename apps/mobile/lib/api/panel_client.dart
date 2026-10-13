@@ -787,8 +787,38 @@ class PanelApi {
     double? longitude,
     DateTime? capturedAt,
   }) async {
+    final res = await _post(
+      '/courier-tasks/$shipmentId/finalize',
+      finalizeBody(
+        outcome: outcome,
+        reasonCode: reasonCode,
+        receivedBy: receivedBy,
+        otpEvidenceId: otpEvidenceId,
+        note: note,
+        latitude: latitude,
+        longitude: longitude,
+        capturedAt: capturedAt,
+      ),
+      idempotencyKey: idempotencyKey,
+    );
+    return PanelFinalizeResultDto.fromJson(
+      Map<String, dynamic>.from(res.data?['data'] as Map? ?? const {}),
+    );
+  }
+
+  /// `finalize` gövdesi; tekil istek ve toplu gönderim aynısını kullanır.
+  static Map<String, Object?> finalizeBody({
+    required String outcome,
+    String? reasonCode,
+    String? receivedBy,
+    String? otpEvidenceId,
+    String? note,
+    double? latitude,
+    double? longitude,
+    DateTime? capturedAt,
+  }) {
     final delivered = outcome != 'FAILED' && outcome != 'DELIVERY_FAILED';
-    final res = await _post('/courier-tasks/$shipmentId/finalize', {
+    return {
       'resultCode': delivered ? 'DELIVERED' : 'DELIVERY_FAILED',
       if (!delivered && reasonCode != null) 'reasonCode': reasonCode,
       if (delivered && receivedBy != null) 'receivedByName': receivedBy,
@@ -800,10 +830,28 @@ class PanelApi {
         if (capturedAt != null)
           'capturedAt': capturedAt.toUtc().toIso8601String(),
       },
-    }, idempotencyKey: idempotencyKey);
-    return PanelFinalizeResultDto.fromJson(
-      Map<String, dynamic>.from(res.data?['data'] as Map? ?? const {}),
-    );
+    };
+  }
+
+  /// Bekleyen kayıtları tek istekte gönderir (en fazla 50). Dış yanıt hep
+  /// 200'dür; her kaydın sonucu [SyncBatchResultDto] olarak döner. Sonucu
+  /// dönmeyen kayıt gönderilmemiş sayılır.
+  Future<List<SyncBatchResultDto>> syncBatch(
+    List<Map<String, Object?>> operations, {
+    int pendingAfter = 0,
+  }) async {
+    final res = await _post('/courier-sync/batch', {
+      'batchId': Vault.newUuid(),
+      'pendingOperationCount': pendingAfter,
+      'operations': operations,
+    });
+    final data = res.data?['data'];
+    return [
+      for (final row
+          in data is Map ? data['results'] as List? ?? const [] : const [])
+        if (row is Map)
+          SyncBatchResultDto.fromJson(Map<String, dynamic>.from(row)),
+    ];
   }
 
   Future<List<CustodyItemDto>> fetchCustody() async {

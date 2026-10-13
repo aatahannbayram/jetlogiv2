@@ -1965,4 +1965,105 @@ void main() {
     expect(hits.where((h) => h == 'accept' || h == 'start'), isEmpty);
     expect(s.taskById('s-9').status, TaskStatus.inProgress);
   });
+
+  test('çevrimdışı biriken kayıtlar tek istekte gider; sonuçlar ayrı işlenir', () async {
+    final hits = <String>[];
+    final dio = _panelActionDio(hits: hits);
+    Map<String, dynamic>? batch;
+    dio.interceptors.insert(
+      0,
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          if (!options.path.endsWith('/courier-sync/batch')) {
+            return handler.next(options);
+          }
+          hits.add('batch');
+          batch = Map<String, dynamic>.from(options.data as Map);
+          final ops = (batch!['operations'] as List).cast<Map>();
+          handler.resolve(
+            Response<Map<String, dynamic>>(
+              requestOptions: options,
+              statusCode: 200,
+              data: {
+                'success': true,
+                'data': {
+                  'results': [
+                    {
+                      'index': 0,
+                      'clientEventId': ops[0]['clientEventId'],
+                      'outcome': 'SUCCEEDED',
+                      'httpStatus': 200,
+                    },
+                    {
+                      'index': 1,
+                      'clientEventId': ops[1]['clientEventId'],
+                      'outcome': 'SUCCEEDED',
+                      'httpStatus': 200,
+                      'data': {'workflowState': '4020'},
+                    },
+                    // Konum: sunucu sonra tekrar dene diyor.
+                    {
+                      'index': 2,
+                      'clientEventId': ops[2]['clientEventId'],
+                      'outcome': 'RETRY',
+                      'httpStatus': 503,
+                    },
+                    // Sonuç: eksik gereksinim, kalıcı ret.
+                    {
+                      'index': 3,
+                      'clientEventId': ops[3]['clientEventId'],
+                      'outcome': 'FAILED',
+                      'httpStatus': 422,
+                      'error': {
+                        'code': 'DELIVERY_REQUIREMENTS_MISSING',
+                        'missing': [
+                          {'type': 'PHOTO'},
+                        ],
+                      },
+                    },
+                  ],
+                },
+              },
+            ),
+          );
+        },
+      ),
+    );
+    final s = SessionController(panel: PanelApi(dio), api: MobileApi(dio: dio));
+    expect(await s.loginWithPanel(identifier: 'a@b.com', password: 'x'), isTrue);
+    s.online = false;
+    s.selfLocated = true;
+    await s.startTask('s-9');
+    await s.deliverTask('s-9', receivedBy: 'Bora');
+    hits.clear();
+
+    s.online = true;
+    await s.pushSyncQueue();
+
+    // Tek toplu istek; tekil accept/start/finalize çağrısı yok.
+    expect(hits, ['batch']);
+    final ops = (batch!['operations'] as List).cast<Map>();
+    expect(ops.map((o) => o['kind']), [
+      'TASK_ACCEPT',
+      'TASK_START',
+      'TASK_LOCATION',
+      'DELIVERY_RESULT',
+    ]);
+    expect(ops.every((o) => (o['params'] as Map)['shipmentId'] == 's-9'), isTrue);
+    expect(ops.every((o) => (o['idempotencyKey'] as String).length >= 8), isTrue);
+    expect((ops[3]['body'] as Map)['resultCode'], 'DELIVERED');
+
+    String status(SyncOperation op) =>
+        s.outbox.events.lastWhere((e) => e.operation == op).status;
+    expect(status(SyncOperation.panelAccept), 'applied');
+    expect(status(SyncOperation.panelStart), 'applied');
+    expect(status(SyncOperation.panelLocation), 'pending');
+    expect(status(SyncOperation.panelFinalize), 'rejected');
+    // Reddedilen teslim görevi yeniden açar ve kuryeye söyler.
+    expect(s.taskById('s-9').status, TaskStatus.inProgress);
+    expect(
+      s.notifications.firstWhere((n) => n.taskId == 's-9').body,
+      contains('fotoğraf'),
+    );
+  });
 }

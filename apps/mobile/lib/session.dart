@@ -3529,6 +3529,198 @@ class SessionController extends ChangeNotifier {
     );
   }
 
+  /// Toplu gönderimde kayda verilen anahtar; yeniden denemede aynı kalır.
+  final _batchKeys = <String, String>{};
+
+  static const _batchKinds = {
+    SyncOperation.panelAccept: 'TASK_ACCEPT',
+    SyncOperation.panelStart: 'TASK_START',
+    SyncOperation.panelLocation: 'TASK_LOCATION',
+    SyncOperation.panelFinalize: 'DELIVERY_RESULT',
+    SyncOperation.panelShiftStart: 'SHIFT_START',
+    SyncOperation.panelShiftEnd: 'SHIFT_END',
+  };
+
+  /// Kaydın toplu gönderimdeki gövdesi; tekil istekle aynı kurallar. Bayat
+  /// konumun yerine koyacak gerçek ölçüm yoksa null (o konum gönderilmez).
+  Map<String, Object?>? _batchBody(OutboxEvent event) {
+    final p = event.payload;
+    final now = DateTime.now().toUtc();
+    final old = now.difference(event.occurredAt.toUtc()) >
+        const Duration(minutes: 4);
+    ({double lat, double lng})? fix() {
+      final lat = _asDouble(p['latitude']);
+      final lng = _asDouble(p['longitude']);
+      if (old && selfLocated) return (lat: selfLat, lng: selfLng);
+      if (lat == null || lng == null) {
+        return selfLocated ? (lat: selfLat, lng: selfLng) : null;
+      }
+      return (lat: lat, lng: lng);
+    }
+
+    switch (event.operation) {
+      case SyncOperation.panelAccept:
+        return const {};
+      case SyncOperation.panelStart:
+        final f = fix();
+        if (f == null) return null;
+        return {
+          'latitude': f.lat,
+          'longitude': f.lng,
+          'capturedAt': now.toIso8601String(),
+        };
+      case SyncOperation.panelLocation:
+        if (old && !selfLocated) return null;
+        final f = fix();
+        if (f == null) return null;
+        return {
+          'purposeCode': (p['purposeCode'] as String?) ?? 'ACTIVE_TASK',
+          'latitude': f.lat,
+          'longitude': f.lng,
+          'capturedAt': now.toIso8601String(),
+        };
+      case SyncOperation.panelFinalize:
+        final outcome = (p['outcome'] as String?) ?? 'DELIVERED';
+        final captured = p['capturedAt'];
+        return PanelApi.finalizeBody(
+          outcome: outcome,
+          reasonCode: p['reasonCode'] as String?,
+          receivedBy: p['receivedBy'] as String?,
+          otpEvidenceId: p['otpEvidenceId'] as String?,
+          note: outcome == 'FAILED' ? p['receivedBy'] as String? : null,
+          latitude: _asDouble(p['latitude']),
+          longitude: _asDouble(p['longitude']),
+          capturedAt: captured is String ? DateTime.tryParse(captured) : null,
+        );
+      case SyncOperation.panelShiftStart:
+      case SyncOperation.panelShiftEnd:
+        return {
+          'latitude': _asDouble(p['latitude']) ?? selfLat,
+          'longitude': _asDouble(p['longitude']) ?? selfLng,
+          'occurredAt': event.occurredAt.toUtc().toIso8601String(),
+        };
+      default:
+        return null;
+    }
+  }
+
+  /// Bekleyen kayıtları `courier-sync/batch` ile tek istekte gönderir.
+  /// Sonucu işlenen kayıtların kimliklerini döner; oturum düştüyse null.
+  /// Toplu uç yanıt vermezse boş küme döner ve kayıtlar tek tek gönderilir.
+  Future<Set<String>?> _flushPanelBatch(
+    PanelApi client,
+    List<OutboxEvent> pending,
+  ) async {
+    final events = [
+      for (final e in pending)
+        if (_batchKinds.containsKey(e.operation)) e,
+    ].take(50).toList();
+    if (events.length < 2) return const {};
+
+    final handled = <String>{};
+    final sent = <OutboxEvent>[];
+    final operations = <Map<String, Object?>>[];
+    for (final e in events) {
+      final body = _batchBody(e);
+      if (body == null) {
+        // Gönderilecek geçerli konum yok: kayıt düşer, sıradaki ölçüm gider.
+        await outbox.applyResults([(id: e.clientEventId, status: 'applied')]);
+        handled.add(e.clientEventId);
+        continue;
+      }
+      final shift =
+          e.operation == SyncOperation.panelShiftStart ||
+          e.operation == SyncOperation.panelShiftEnd;
+      sent.add(e);
+      operations.add({
+        'clientEventId': e.clientEventId,
+        'idempotencyKey':
+            e.payload['idempotencyKey'] as String? ??
+            _batchKeys.putIfAbsent(e.clientEventId, Vault.newUuid),
+        'kind': _batchKinds[e.operation],
+        'occurredAt': e.occurredAt.toUtc().toIso8601String(),
+        if (shift)
+          'groupKey': 'shift'
+        else
+          'params': {'shipmentId': e.subjectId},
+        'body': body,
+      });
+    }
+    if (operations.length < 2) return handled;
+
+    final List<SyncBatchResultDto> results;
+    try {
+      results = await client.syncBatch(
+        operations,
+        pendingAfter: pending.length - events.length,
+      );
+    } on PanelApiException catch (e) {
+      if (e.statusCode == 401) {
+        expirePanelSession();
+        return null;
+      }
+      lastPanelError = e.code;
+      // Ağ yoksa beklenir; toplu uç reddettiyse tek tek denenir.
+      if (e.isRetryable) {
+        return {...handled, for (final s in sent) s.clientEventId};
+      }
+      return handled;
+    } catch (_) {
+      lastPanelError = 'PANEL_REQUEST_FAILED';
+      return {...handled, for (final s in sent) s.clientEventId};
+    }
+
+    final byId = {for (final r in results) r.clientEventId: r};
+    for (final e in sent) {
+      final r = byId[e.clientEventId];
+      if (r == null) continue; // Sonuç yok: tek tek gönderilecek.
+      handled.add(e.clientEventId);
+      final id = e.subjectId ?? '';
+      if (r.done) {
+        if (e.operation == SyncOperation.panelStart) {
+          final t = _maybeTask(id);
+          final state = r.data['workflowState'] as String?;
+          if (t != null && state != null && state.isNotEmpty) {
+            t.wireStatus = state;
+            t.status = taskStatusFromPanel(state);
+          }
+        }
+        _batchKeys.remove(e.clientEventId);
+        await outbox.applyResults([(id: e.clientEventId, status: 'applied')]);
+        continue;
+      }
+      if (!r.failed) continue; // RETRY / SKIPPED: kuyrukta kalır.
+      final code = r.errorCode;
+      // Sunucu zaten istenen durumda: yeniden denemenin anlamı yok.
+      final settled =
+          (e.operation == SyncOperation.panelShiftStart &&
+              code == 'SHIFT_ALREADY_OPEN') ||
+          (e.operation == SyncOperation.panelShiftEnd &&
+              code == 'NO_OPEN_SHIFT');
+      _batchKeys.remove(e.clientEventId);
+      await outbox.applyResults([
+        (id: e.clientEventId, status: settled ? 'applied' : 'rejected'),
+      ]);
+      if (settled) continue;
+      lastPanelError = code;
+      if (e.operation == SyncOperation.panelFinalize) {
+        _onFinalizeRejected(
+          id,
+          PanelApiException(
+            code,
+            statusCode: r.httpStatus,
+            serverMessage: r.error['message'] as String?,
+            missing: [
+              for (final m in r.error['missing'] as List? ?? const [])
+                if (m is Map && m['type'] is String) m['type'] as String,
+            ],
+          ),
+        );
+      }
+    }
+    return handled;
+  }
+
   Future<void> _flushPanelOutbox() async {
     if (!storageOk || !online || !_usesPanelTasks) return;
     final client = panel;
@@ -3539,8 +3731,14 @@ class SessionController extends ChangeNotifier {
     ]..sort((a, b) => a.sequence.compareTo(b.sequence));
     if (pending.isEmpty) return;
 
+    // Birden çok kayıt birikmişse (çevrimdışı çalışma) tek istekte gider.
+    // Toplu yanıtta sonucu dönmeyen kayıtlar aşağıda tek tek gönderilir.
+    final batched = await _flushPanelBatch(client, pending);
+    if (batched == null) return;
+
     final hardBlock = <String>{};
     for (final event in pending) {
+      if (batched.contains(event.clientEventId)) continue;
       final id = event.subjectId ?? '';
       if (hardBlock.contains(id)) continue;
       try {
