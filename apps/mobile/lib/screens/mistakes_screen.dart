@@ -281,7 +281,6 @@ class _MistakeCard extends StatelessWidget {
             DgButton(
               label: l.mistakeAck,
               icon: LucideIcons.check,
-              tone: DgButtonTone.secondary,
               onPressed: onAck,
             ),
         ],

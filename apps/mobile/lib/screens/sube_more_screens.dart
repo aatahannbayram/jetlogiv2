@@ -303,7 +303,6 @@ class _SubeAnnouncementsScreenState
                     DgButton(
                       label: l.announcementAck,
                       icon: LucideIcons.check,
-                      tone: DgButtonTone.secondary,
                       onPressed: () =>
                           _act('${(n['announcement'] as Map)['id']}', 'ack'),
                     ),
