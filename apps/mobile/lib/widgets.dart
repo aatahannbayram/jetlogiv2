@@ -1331,7 +1331,7 @@ class _PinPainter extends CustomPainter {
       ..quadraticBezierTo(c.dx + r * 0.25, c.dy + r * 1.05, tip.dx, tip.dy)
       ..close();
     canvas.drawShadow(path, const Color(0x66000000), 3, false);
-    canvas.drawPath(path, Paint()..color = Dg.action);
+    canvas.drawPath(path, Paint()..color = Dg.orange);
     canvas.drawPath(
       path,
       Paint()
@@ -1971,7 +1971,7 @@ class DgPillNav extends StatelessWidget {
                                   ? BoxDecoration(
                                       border: Border(
                                         bottom: BorderSide(
-                                          color: Dg.action,
+                                          color: Dg.orange,
                                           width: 2,
                                         ),
                                       ),

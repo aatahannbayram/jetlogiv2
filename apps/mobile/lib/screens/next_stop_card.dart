@@ -183,18 +183,21 @@ class _NextStopCardState extends ConsumerState<NextStopCard> {
                           showBadge: false,
                           points: [LatLng(task.lat, task.lng)],
                           roadPoints: slice?.points,
+                          // Konumun yalnız sıradaki durakta gösterilir; sonraki
+                          // kartlarda çizgi bir önceki duraktan gelir.
                           couriers: [
-                            FleetCourier(
-                              id: 'self',
-                              name: '',
-                              lat: s.selfLat,
-                              lng: s.selfLng,
-                              self: true,
-                            ),
+                            if (index <= 1)
+                              FleetCourier(
+                                id: 'self',
+                                name: '',
+                                lat: s.selfLat,
+                                lng: s.selfLng,
+                                self: true,
+                              ),
                           ],
                           fitTo: keepNearStops(
                             [
-                              LatLng(s.selfLat, s.selfLng),
+                              if (index <= 1) LatLng(s.selfLat, s.selfLng),
                               LatLng(task.lat, task.lng),
                               ...?slice?.points,
                             ],

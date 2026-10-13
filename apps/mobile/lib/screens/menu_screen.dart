@@ -312,7 +312,7 @@ class _Section extends StatelessWidget {
                 width: 6,
                 height: 6,
                 decoration: const BoxDecoration(
-                  color: Dg.action,
+                  color: Dg.orange,
                   shape: BoxShape.circle,
                 ),
               ),

@@ -27,9 +27,12 @@ class Dg {
   static const night = Color(0xFF202422);
   static const onNight = Color(0xFFF8F5F0);
   static const mutedOnNight = Color(0xFFD2D7D3);
-  // Logodaki turuncu.
-  static const action = Color(0xFFF26A1B);
-  // Turuncu düğmede beyaz kalın yazı (büyük metin kontrastı ≥ 3:1).
+  /// Asıl eylem rengi: logodaki morun canlı tonu, üstünde beyaz yazı.
+  static const action = Color(0xFF7C4DFF);
+
+  /// Logodaki turuncu: yalnız küçük vurgular (harita iğnesi, alt çizgi).
+  static const orange = Color(0xFFF28A26);
+  // Mor düğmede beyaz kalın yazı.
   static const onAction = Color(0xFFFFFFFF);
   /// Dolu düğme renkleri: her temada aynı, üstünde beyaz kalın yazı.
   static const go = Color(0xFF16A34A);
@@ -67,7 +70,7 @@ class Dg {
   static const primaryGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFFF26A1B), Color(0xFFEC5F12), Color(0xFFE8560A)],
+    colors: [Color(0xFF7C4DFF), Color(0xFF7447F5), Color(0xFF6A3FE0)],
   );
 
   // Persistent charcoal dock, independent of the content theme.
@@ -88,11 +91,11 @@ class Dg {
         ? const [Color(0xFF2D3330), Color(0xFF252A27), Color(0xFF202422)]
         : const [Color(0xFFF0F2EB), Color(0xFFF8F9F5), Color(0xFFF5F5F2)],
   );
-  static const heroAccentOrange = Color(0xFFF26A1B);
+  static const heroAccentOrange = Color(0xFFF28A26);
   static const emberGradient = LinearGradient(
     begin: Alignment.centerLeft,
     end: Alignment.centerRight,
-    colors: [Color(0xFFF26A1B), Color(0xFFEC5F12), Color(0xFFE8560A)],
+    colors: [Color(0xFF7C4DFF), Color(0xFF7447F5), Color(0xFF6A3FE0)],
   );
 
   static Color get onHero => dark ? Colors.white : ink;
