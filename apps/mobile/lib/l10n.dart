@@ -1460,6 +1460,124 @@ class L10n {
     'Could not save. Try again.',
   );
 
+  // Durumum, bilgi güncelleme, sözleşmeler, vardiya geçmişi, fotoğraflar
+  String get summaryTitle => _t('Durumum', 'My status');
+  String tier(String code) => switch (code) {
+    'GOLD' => _t('Altın', 'Gold'),
+    'SILVER' => _t('Gümüş', 'Silver'),
+    'BRONZE' => _t('Bronz', 'Bronze'),
+    _ => _t('Yeni', 'New'),
+  };
+  String get summaryDelivered => _t('Toplam teslim', 'Total delivered');
+  String get summarySuccess => _t('Başarı oranı', 'Success rate');
+  String get summaryLast30 => _t('Son 30 gün teslim', 'Last 30 days delivered');
+  String get summaryLast30Failed =>
+      _t('Son 30 gün olmayan', 'Last 30 days failed');
+  String get summaryBadges => _t('Rozetler', 'Badges');
+  String badge(String code) => switch (code) {
+    'ON_TIME' => _t('Zamanında teslim', 'On time'),
+    'DOCUMENT_ACCURACY' => _t('Eksiksiz evrak', 'Accurate documents'),
+    'TRAINING_LEADER' => _t('Eğitim', 'Training'),
+    _ => code,
+  };
+  String get editInfoTitle => _t('Bilgilerimi güncelle', 'Update my details');
+  String get editVehicle => _t('Aracım', 'My vehicle');
+  String vehicle(String code) => switch (code) {
+    'MOTORCYCLE' => _t('Motosiklet', 'Motorcycle'),
+    'CAR' => _t('Otomobil', 'Car'),
+    'BICYCLE' => _t('Bisiklet', 'Bicycle'),
+    'PEDESTRIAN' => _t('Yaya', 'On foot'),
+    'LIGHT_COMMERCIAL' => _t('Hafif ticari', 'Light commercial'),
+    _ => _t('Diğer', 'Other'),
+  };
+  String get editWork => _t('Çalışma şeklim', 'How I work');
+  String workModel(String code) => switch (code) {
+    'FULL_TIME' => _t('Tam zamanlı', 'Full time'),
+    'PART_TIME' => _t('Yarı zamanlı', 'Part time'),
+    'PERIODIC' => _t('Dönemsel', 'Periodic'),
+    'WEEKEND' => _t('Hafta sonu', 'Weekends'),
+    'SHIFT' => _t('Vardiyalı', 'Shifts'),
+    _ => _t('Belirtilmedi', 'Not set'),
+  };
+  String get editCompany => _t('Şirket durumum', 'My company status');
+  String companyStatus(String code) => switch (code) {
+    'SOLE_PROPRIETORSHIP' => _t('Şahıs şirketim var', 'Sole proprietorship'),
+    'NO_COMPANY' => _t('Şirketim yok', 'No company'),
+    'ESTABLISHMENT_IN_PROGRESS' => _t('Şirket kuruyorum', 'Setting one up'),
+    'AFFILIATED_WITH_ANOTHER_COMPANY' =>
+      _t('Başka bir şirkete bağlıyım', 'With another company'),
+    _ => _t('Belirtilmedi', 'Not set'),
+  };
+  String get editCompanyName => _t('Şirketin adı', 'Company name');
+  String get editAddress => _t('Adresim', 'My address');
+  String get editCity => _t('İl seç', 'Pick a city');
+  String get editDistrict => _t('İlçe seç', 'Pick a district');
+  String get editAddressLine =>
+      _t('Mahalle, sokak, kapı no', 'Neighbourhood, street, door number');
+  String get editSave => _t('Kaydet', 'Save');
+  String get editSaved => _t('Bilgin güncellendi.', 'Your details were updated.');
+  String editError(String code, String? serverMessage) => switch (code) {
+    'NO_CHANGE' => _t('Bilgin zaten böyle.', 'Nothing changed.'),
+    _ => serverMessage ?? availabilityFailed,
+  };
+  String get editAddressNeeded => _t(
+    'İl, ilçe seç ve adresi yaz.',
+    'Pick a city and district and write the address.',
+  );
+  String get editCompanyNeeded =>
+      _t('Şirketin adını yaz.', 'Write the company name.');
+  String get editPast => _t('Önceki taleplerim', 'My earlier requests');
+  String changeType(String code) => switch (code) {
+    'ADDRESS' => editAddress,
+    'VEHICLE' => editVehicle,
+    _ => editWork,
+  };
+  String requestStatus(String code) => switch (code) {
+    'PENDING' => _t('Bekliyor', 'Pending'),
+    'APPROVED' => _t('Uygulandı', 'Applied'),
+    'REJECTED' => _t('Reddedildi', 'Rejected'),
+    _ => _t('İptal edildi', 'Cancelled'),
+  };
+  String get cancelRequest => _t('Talebi iptal et', 'Cancel request');
+  String get contractsTitle => _t('Sözleşmelerim', 'My agreements');
+  String get contractsEmpty =>
+      _t('Kayıtlı sözleşmen yok.', 'No agreements on file.');
+  String consentDecision(String code) => switch (code) {
+    'ACCEPTED' => _t('Kabul ettin', 'Accepted'),
+    'ACKNOWLEDGED' => _t('Okudun', 'Acknowledged'),
+    'DECLINED' => _t('Kabul etmedin', 'Declined'),
+    _ => _t('Seçilmedi', 'Not selected'),
+  };
+  String get shiftHistoryTitle => _t('Vardiya geçmişi', 'Shift history');
+  String get shiftHistoryEmpty =>
+      _t('Son 7 günde vardiyan yok.', 'No shifts in the last 7 days.');
+  String get shiftWorked => _t('Çalışılan süre', 'Time worked');
+  String get shiftBreaks => _t('Mola', 'Breaks');
+  String get shiftCount => _t('Vardiya', 'Shifts');
+  String duration(int minutes) => minutes < 60
+      ? _t('$minutes dk', '$minutes min')
+      : _t(
+          '${minutes ~/ 60} sa ${minutes % 60} dk',
+          '${minutes ~/ 60} h ${minutes % 60} min',
+        );
+  String get shiftAutoClosed =>
+      _t('Kendiliğinden kapandı', 'Closed automatically');
+  String get shiftStillOpen => _t('Açık', 'Open');
+  String get photosTitle => _t('Fotoğraflar', 'Photos');
+  String get photosEmpty =>
+      _t('Bu göreve yüklenmiş fotoğraf yok.', 'No photos for this task.');
+  String get photoDelete => _t('Sil', 'Delete');
+  String get photoDeleteFailed => _t(
+    'Bu fotoğraf artık silinemez.',
+    'This photo can no longer be deleted.',
+  );
+  String evidenceType(String code) => switch (code) {
+    'SIGNATURE' => _t('İmza', 'Signature'),
+    'DOCUMENT' => _t('Belge', 'Document'),
+    'NOTE' => _t('Not', 'Note'),
+    _ => _t('Fotoğraf', 'Photo'),
+  };
+
   // Hatalarım ve fotoğraf puanı
   String get mistakesTitle => _t('Hatalarım', 'My mistakes');
   String get photoScoreTitle => _t('Fotoğraf puanın', 'Your photo score');

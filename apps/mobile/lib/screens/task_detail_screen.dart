@@ -14,6 +14,7 @@ import '../models.dart';
 import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import 'account_more_screens.dart';
 import 'report_screen.dart';
 import 'return_screen.dart';
 import 'wizard_screen.dart';
@@ -312,7 +313,18 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                               onTap: () => openDirections(context, t),
                             ),
                             const SizedBox(width: 10),
-                            if (session.panelLoggedIn)
+                            if (session.panelLoggedIn) ...[
+                              SquareAction(
+                                icon: LucideIcons.camera,
+                                label: l.photo,
+                                onTap: () => Navigator.of(context).push(
+                                  MaterialPageRoute<void>(
+                                    builder: (_) =>
+                                        TaskEvidenceScreen(taskId: t.id),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
                               SquareAction(
                                 icon: LucideIcons.fileSignature,
                                 label: l.reportTitle,
@@ -321,7 +333,8 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                                     builder: (_) => ReportScreen(taskId: t.id),
                                   ),
                                 ),
-                              )
+                              ),
+                            ]
                             else
                               SquareAction(
                                 icon: LucideIcons.camera,

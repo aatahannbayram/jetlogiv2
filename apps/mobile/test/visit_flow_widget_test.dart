@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 import 'package:dijigoo_kurye/api/client.dart';
 import 'package:dijigoo_kurye/api/panel_client.dart';
 import 'package:dijigoo_kurye/l10n.dart';
+import 'package:dijigoo_kurye/screens/account_more_screens.dart';
 import 'package:dijigoo_kurye/screens/account_screens.dart';
 import 'package:dijigoo_kurye/screens/custody_history_screen.dart';
 import 'package:dijigoo_kurye/screens/mistakes_screen.dart';
@@ -51,6 +52,112 @@ Dio _dio() {
           });
         }
         if (path.endsWith('/requirements')) return ok(requirements);
+        if (path.endsWith('/courier-profile/summary')) {
+          return ok({
+            'courier': {
+              'fullName': 'Demo Kurye Çankaya',
+              'courierCode': 'DGC-2026-E60C2E4E',
+              'tier': 'BRONZE',
+            },
+            'stats': {
+              'totalDelivered': 42,
+              'successRate': 87.5,
+              'last30Delivered': 30,
+              'last30Failed': 4,
+            },
+            'badges': [
+              {
+                'code': 'ON_TIME',
+                'earned': false,
+                'progress': 30,
+                'target': 50,
+              },
+              {
+                'code': 'DOCUMENT_ACCURACY',
+                'earned': true,
+                'progress': 50,
+                'target': 50,
+              },
+              {
+                'code': 'TRAINING_LEADER',
+                'earned': false,
+                'progress': 0,
+                'target': 5,
+              },
+            ],
+          });
+        }
+        if (path.endsWith('/courier-profile/change-requests') &&
+            options.method == 'GET') {
+          return ok({
+            'requests': [
+              {
+                'id': 'q-1',
+                'changeType': 'VEHICLE',
+                'status': 'APPROVED',
+                'createdAt': '2026-10-12T09:00:00.000Z',
+              },
+            ],
+          });
+        }
+        if (path.endsWith('/courier-profile')) {
+          return ok({
+            'courier': {
+              'vehicleType': 'MOTORCYCLE',
+              'workModel': 'FULL_TIME',
+              'companyStatus': 'NO_COMPANY',
+              'city': {'id': 7, 'name': 'Ankara'},
+              'district': {'id': 71, 'name': 'Çankaya'},
+            },
+          });
+        }
+        if (path.endsWith('/courier-shifts')) {
+          return ok({
+            'items': [
+              {
+                'status': 'CLOSED',
+                'startedAt': '2026-10-12T06:00:00.000Z',
+                'endedAt': '2026-10-12T15:10:00.000Z',
+                'workedMinutes': 505,
+                'breakMinutes': 45,
+              },
+            ],
+            'summary': {'shiftCount': 1, 'workedMinutes': 505},
+          });
+        }
+        if (path.endsWith('/courier-my-contracts')) {
+          return ok({
+            'consents': [
+              {
+                'code': 'KVKK',
+                'titleTr': 'KVKK Aydınlatma Metni',
+                'contentTr': 'Kişisel verileriniz…',
+                'decision': 'ACKNOWLEDGED',
+                'accepted': true,
+              },
+            ],
+          });
+        }
+        if (path.endsWith('/evidence') && options.method == 'GET') {
+          return ok({
+            'evidences': [
+              {
+                'id': 'e-9',
+                'evidenceType': 'PHOTO',
+                'mimeType': 'image/jpeg',
+                'capturedAt': '2026-10-13T09:00:00.000Z',
+                'deliveryAttemptId': null,
+              },
+              {
+                'id': 'e-8',
+                'evidenceType': 'SIGNATURE',
+                'mimeType': 'image/png',
+                'capturedAt': '2026-10-13T08:50:00.000Z',
+                'deliveryAttemptId': 'a-1',
+              },
+            ],
+          });
+        }
         if (path.endsWith('/courier-availability')) {
           return ok({
             'days': [
@@ -425,6 +532,53 @@ void main() {
     await _tap(tester, find.text('Şifreyi değiştir').last);
     expect(_writes, isEmpty);
     await _shot(tester, 'password');
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(seconds: 10));
+  });
+
+  testWidgets('hesap ekranları: durum, bilgi güncelleme, vardiya, sözleşme', (
+    tester,
+  ) async {
+    await _open(tester, const ProfileSummaryScreen());
+    expect(find.text('Bronz'), findsOneWidget);
+    expect(find.text('%87,5'), findsOneWidget);
+    // Eğitim rozeti gösterilmez.
+    expect(find.text('Eğitim'), findsNothing);
+    await _shot(tester, 'summary');
+
+    await _open(tester, const ShiftHistoryScreen());
+    expect(find.text('8 sa 25 dk'), findsOneWidget);
+    await _shot(tester, 'shift-history');
+
+    await _open(tester, const ContractsScreen());
+    expect(find.text('KVKK Aydınlatma Metni'), findsOneWidget);
+    expect(find.text('Okudun'), findsOneWidget);
+
+    await _open(tester, const ProfileChangeScreen());
+    expect(find.text('Önceki taleplerim'), findsOneWidget);
+    await _shot(tester, 'edit-info');
+    await _tap(tester, find.text('Otomobil'));
+    await _tap(tester, find.text('Kaydet').first);
+    expect(_body('/change-requests'), {
+      'changeType': 'VEHICLE',
+      'requestedData': {'vehicleType': 'CAR'},
+    });
+    // Adres eksikken gönderilmez.
+    await _tap(tester, find.text('Kaydet').last);
+    expect(find.text('İl, ilçe seç ve adresi yaz.'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(seconds: 10));
+  });
+
+  testWidgets('görev fotoğrafları: yalnız bağlanmamış olan silinebilir', (
+    tester,
+  ) async {
+    await _open(tester, const TaskEvidenceScreen(taskId: 's-9'));
+    expect(find.text('Sil'), findsOneWidget);
+    await _shot(tester, 'task-photos');
+    await _tap(tester, find.text('Sil'));
+    expect(_writes.single.method, 'DELETE');
+    expect(_writes.single.path, '/courier-tasks/s-9/evidence/e-9');
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(seconds: 10));
   });

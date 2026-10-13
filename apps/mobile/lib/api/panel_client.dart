@@ -156,6 +156,115 @@ class PanelApi {
     }
   }
 
+  Map<String, dynamic> _map(Object? raw) =>
+      raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
+
+  List<Map<String, dynamic>> _maps(Object? raw) => [
+    for (final row in raw is List ? raw : const [])
+      if (row is Map) Map<String, dynamic>.from(row),
+  ];
+
+  /// Seviye, teslim istatistiği ve rozetler.
+  Future<Map<String, dynamic>> fetchProfileSummary() async =>
+      _map((await _get('/courier-profile/summary')).data?['data']);
+
+  /// Profilin ham `courier` nesnesi (araç, çalışma şekli, il/ilçe).
+  Future<Map<String, dynamic>> fetchProfileRaw() async =>
+      _map(_map((await _get('/courier-profile')).data?['data'])['courier']);
+
+  Future<List<Map<String, dynamic>>> fetchProfileChangeRequests() async =>
+      _maps(
+        _map(
+          (await _get('/courier-profile/change-requests')).data?['data'],
+        )['requests'],
+      );
+
+  /// [changeType]: ADDRESS, VEHICLE ya da WORK. Değişiklik hemen uygulanır;
+  /// bilgiler aynıysa `NO_CHANGE` döner.
+  Future<void> createProfileChangeRequest({
+    required String changeType,
+    required Map<String, Object?> requestedData,
+    String? note,
+  }) async {
+    await _post('/courier-profile/change-requests', {
+      'changeType': changeType,
+      'requestedData': requestedData,
+      if (note != null && note.isNotEmpty) 'courierNote': note,
+    });
+  }
+
+  Future<void> cancelProfileChangeRequest(String requestId) async {
+    await _post('/courier-profile/change-requests/$requestId/cancel', const {});
+  }
+
+  Future<List<({int id, String name})>> fetchCities() async => [
+    for (final row in _maps((await _get('/geography/cities')).data?['data']))
+      if (row['id'] is num)
+        (id: (row['id'] as num).toInt(), name: row['name'] as String? ?? ''),
+  ]..sort((a, b) => a.name.compareTo(b.name));
+
+  Future<List<({int id, String name})>> fetchDistricts(int cityId) async => [
+    for (final row in _maps(
+      (await _get('/geography/cities/$cityId/districts')).data?['data'],
+    ))
+      if (row['id'] is num)
+        (id: (row['id'] as num).toInt(), name: row['name'] as String? ?? ''),
+  ]..sort((a, b) => a.name.compareTo(b.name));
+
+  /// Başvuruda verilen onaylar ve sözleşmeler.
+  Future<Map<String, dynamic>> fetchMyContracts() async =>
+      _map((await _get('/courier-my-contracts')).data?['data']);
+
+  /// Son 7 günün vardiyaları ve toplamları.
+  Future<Map<String, dynamic>> fetchShiftHistory() async =>
+      _map((await _get('/courier-shifts')).data?['data']);
+
+  /// Gönderinin geçerli kanıtları (fotoğraf, imza, belge), yeniden eskiye.
+  Future<List<Map<String, dynamic>>> fetchTaskEvidence(
+    String shipmentId,
+  ) async => _maps(
+    _map(
+      (await _get('/courier-tasks/$shipmentId/evidence')).data?['data'],
+    )['evidences'],
+  );
+
+  Future<List<int>> fetchTaskEvidenceFile(
+    String shipmentId,
+    String evidenceId,
+  ) async {
+    try {
+      final res = await dio.get<List<int>>(
+        '/courier-tasks/$shipmentId/evidence/$evidenceId/file',
+        options: Options(responseType: ResponseType.bytes),
+      );
+      return res.data ?? const [];
+    } on DioException catch (e) {
+      throw _panelException(e);
+    }
+  }
+
+  /// Yalnız kuryenin yüklediği ve kapatılmış denemeye bağlanmamış kanıt
+  /// silinir; diğerlerinde `EVIDENCE_NOT_DELETABLE` / `EVIDENCE_LOCKED`.
+  Future<void> deleteTaskEvidence(String shipmentId, String evidenceId) async {
+    try {
+      await dio.delete<Map<String, dynamic>>(
+        '/courier-tasks/$shipmentId/evidence/$evidenceId',
+        options: Options(headers: {'Idempotency-Key': Vault.newUuid()}),
+      );
+    } on DioException catch (e) {
+      throw _panelException(e);
+    }
+  }
+
+  Future<int> fetchUnreadNotificationCount() async =>
+      (_map(
+                (await _get('/courier-notifications/unread-count'))
+                    .data?['data'],
+              )['total']
+              as num?)
+          ?.toInt() ??
+      0;
+
   /// SMS ile giriş, 1. adım: kayıtlı telefona 6 haneli kod gönderir. Hesap
   /// bulunamasa da yanıt aynıdır. Kod 5 dk geçerli, 60 sn'de bir istenir.
   Future<({String? challengeId, int resendAfterSeconds})> requestSmsLogin(
