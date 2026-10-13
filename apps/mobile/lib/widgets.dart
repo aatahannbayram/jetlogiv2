@@ -2546,11 +2546,15 @@ class StatTile extends StatelessWidget {
     this.dark = false,
     this.valueColor,
     this.icon,
+    this.iconColor,
   });
 
   /// Kutunun sağ üstünde küçük ikon: sayının neyi saydığı bir bakışta
   /// anlaşılır.
   final IconData? icon;
+
+  /// İkon rozetinin rengi; verilmezse mor.
+  final Color? iconColor;
 
   /// Verilirse sayı bu renkte yazılır (ör. ilgi bekleyen kutuda kehribar).
   final Color? valueColor;
@@ -2587,11 +2591,23 @@ class StatTile extends StatelessWidget {
                 ),
                 if (icon != null) ...[
                   const SizedBox(width: 6),
-                  DgIcon(
-                    icon!,
-                    size: 18,
-                    color: valueColor ?? Dg.ink3,
-                    weight: 500,
+                  // Renkli rozet: kutunun ne saydığı renkten de okunur.
+                  Container(
+                    width: 34,
+                    height: 34,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: (iconColor ?? Dg.plum).withValues(
+                        alpha: Dg.dark ? 0.18 : 0.12,
+                      ),
+                      shape: BoxShape.circle,
+                    ),
+                    child: DgIcon(
+                      icon!,
+                      size: 18,
+                      color: iconColor ?? Dg.plum,
+                      weight: 600,
+                    ),
                   ),
                 ],
               ],

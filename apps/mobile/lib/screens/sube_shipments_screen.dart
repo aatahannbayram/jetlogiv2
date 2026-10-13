@@ -6,6 +6,7 @@ import '../api/branch_models.dart';
 import '../branch_workspace.dart';
 import '../l10n.dart';
 import '../session.dart';
+import '../shell_nav.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'sube_widgets.dart';
@@ -36,6 +37,9 @@ class _SubeShipmentsScreenState extends ConsumerState<SubeShipmentsScreen> {
   Widget build(BuildContext context) {
     final l = context.l10n;
     final branch = ref.watch(sessionProvider).branch;
+    // Ana sayfadaki bir kutudan gelindiyse onun filtresiyle açılır.
+    final nav = ref.watch(subeNavProvider);
+    if (nav.pendingFilter != null) _filter = nav.takeFilter()!;
     final canOperate = branch.capabilities.operate;
     final chips = <(String, String)>[
       ('all', l.all),
@@ -155,28 +159,103 @@ class _SubeShipmentsScreenState extends ConsumerState<SubeShipmentsScreen> {
     final action = await showModalBottomSheet<String>(
       context: context,
       backgroundColor: Dg.surface,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              title: Mono(row.shipmentNumber, weight: FontWeight.w700),
-              subtitle: Text(row.courierName),
-            ),
-            ListTile(
-              leading: const Icon(LucideIcons.repeat),
-              title: Text(l.reassign),
-              onTap: () => Navigator.pop(ctx, 'change'),
-            ),
-            if (inQueue)
-              ListTile(
-                leading: const Icon(LucideIcons.circleX),
-                title: Text(l.cancelHandover),
-                onTap: () => Navigator.pop(ctx, 'cancel'),
+      showDragHandle: true,
+      builder: (ctx) {
+        Widget actionRow({
+          required IconData icon,
+          required String label,
+          required Color color,
+          required String value,
+        }) => Padding(
+          padding: const EdgeInsets.only(top: 10),
+          child: Material(
+            color: Dg.elev,
+            borderRadius: BorderRadius.circular(Dg.radius),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(Dg.radius),
+              onTap: () => Navigator.pop(ctx, value),
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: Dg.dark ? 0.18 : 0.12),
+                        shape: BoxShape.circle,
+                      ),
+                      child: DgIcon(icon, size: 19, color: color),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        label,
+                        style: Dg.ui(size: 16, weight: FontWeight.w600),
+                      ),
+                    ),
+                    DgIcon(LucideIcons.chevronRight, size: 18, color: Dg.ink3),
+                  ],
+                ),
               ),
-          ],
-        ),
-      ),
+            ),
+          ),
+        );
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Kime gittiği ve kimde olduğu: önce bunlar okunur.
+                Text(
+                  row.recipientName,
+                  style: Dg.ui(size: 20, weight: FontWeight.w700, height: 1.2),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  [
+                    row.shipmentNumber,
+                    if (row.district.isNotEmpty) row.district,
+                  ].join(' · '),
+                  style: Dg.ui(size: 14, color: Dg.ink3),
+                ),
+                if (row.courierName.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      InitialsAvatar(name: row.courierName, size: 32),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          row.courierName,
+                          style: Dg.ui(size: 15, weight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 6),
+                actionRow(
+                  icon: LucideIcons.repeat,
+                  label: l.reassign,
+                  color: Dg.plum,
+                  value: 'change',
+                ),
+                if (inQueue)
+                  actionRow(
+                    icon: LucideIcons.circleX,
+                    label: l.cancelHandover,
+                    color: Dg.bad,
+                    value: 'cancel',
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
     );
     if (action == null || !mounted) return;
     if (action == 'cancel') {
@@ -354,10 +433,6 @@ class _ShipmentCard extends StatelessWidget {
       BranchStage.inQueue => (l.stageInQueue, 'mid'),
       BranchStage.inDistribution => (l.filterOut, 'lime'),
     };
-    final where = [
-      if (row.district.isNotEmpty) row.district,
-      if (row.courierName.isNotEmpty) row.courierName,
-    ].join(' · ');
     return DgCard(
       onTap: onTap,
       child: Row(
@@ -391,10 +466,10 @@ class _ShipmentCard extends StatelessWidget {
                         style: Dg.ui(size: 13, color: Dg.ink3),
                       ),
                     ),
-                    if (where.isNotEmpty)
+                    if (row.district.isNotEmpty)
                       Flexible(
                         child: Text(
-                          ' · $where',
+                          ' · ${row.district}',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: Dg.ui(size: 13, color: Dg.ink3),
@@ -402,6 +477,24 @@ class _ShipmentCard extends StatelessWidget {
                       ),
                   ],
                 ),
+                if (row.courierName.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Row(
+                      children: [
+                        DgIcon(LucideIcons.bike, size: 13, color: Dg.ink3),
+                        const SizedBox(width: 5),
+                        Flexible(
+                          child: Text(
+                            row.courierName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Dg.ui(size: 13, color: Dg.ink2),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
               ],
             ),
           ),

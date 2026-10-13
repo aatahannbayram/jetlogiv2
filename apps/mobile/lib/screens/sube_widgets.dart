@@ -49,43 +49,14 @@ class SubeKpiGrid extends StatelessWidget {
     super.key,
     this.attention = false,
     this.icons = const [],
+    this.onTapTile,
   });
+
+  /// Verilirse kutuya dokununca etiketiyle çağrılır.
+  final void Function(String label)? onTapTile;
 
   /// Kutularla aynı sırada ikonlar; eksik olan kutu ikonsuz kalır.
   final List<IconData> icons;
-
-  /// Açıkça verilmediyse ikon etiketten bulunur; böylece her ekrandaki sayı
-  /// kutusu aynı kavram için aynı ikonu taşır.
-  IconData? _icon(int i, L10n l) {
-    if (i < icons.length) return icons[i];
-    final label = tiles[i].$1;
-    final known = <String, IconData>{
-      l.kpiToday: LucideIcons.truck,
-      l.kpiDelivered: LucideIcons.circleCheck,
-      l.kpiAssigned: LucideIcons.packageCheck,
-      l.kpiWaiting: LucideIcons.clock,
-      l.kpiCancelled: LucideIcons.circleX,
-      l.kpiReturnToCenter: LucideIcons.warehouse,
-      l.kpiUrgent: LucideIcons.zap,
-      l.kpiPendingOps: LucideIcons.listTodo,
-      l.kpiActiveCouriers: LucideIcons.users,
-      l.kpiAwaitAccept: LucideIcons.userCheck,
-      l.kpiAwaitReturn: LucideIcons.undo2,
-      l.kpiOpen: LucideIcons.circleDashed,
-      l.filterLate: LucideIcons.timerOff,
-      l.perfDeliveryRate: LucideIcons.percent,
-      l.perfFirstAttempt: LucideIcons.target,
-      l.perfSla: LucideIcons.timer,
-      l.perfAvgMinutes: LucideIcons.hourglass,
-      l.perfAttempted: LucideIcons.package,
-      l.perfFailed: LucideIcons.packageX,
-      l.onShiftNow: LucideIcons.userCheck,
-      l.plannedLabel: LucideIcons.calendarClock,
-      l.plannedNotStarted: LucideIcons.circleAlert,
-      l.onLeaveLabel: LucideIcons.palmtree,
-    };
-    return known[label];
-  }
 
   final List<(String, String)> tiles;
 
@@ -93,6 +64,40 @@ class SubeKpiGrid extends StatelessWidget {
   final bool attention;
 
   Color? _tint(String value) => attention && value != '0' ? Dg.warn : null;
+
+  /// İkon ve rengi etiketten bulunur; böylece her ekrandaki sayı kutusu
+  /// aynı kavram için aynı ikonu ve rengi taşır. Yeşil olumlu, kırmızı
+  /// olumsuz, kehribar bekleyen, mor bilgi.
+  (IconData, Color)? _badge(int i, L10n l) {
+    final known = <String, (IconData, Color)>{
+      l.kpiToday: (LucideIcons.truck, Dg.plum),
+      l.kpiDelivered: (LucideIcons.packageCheck, Dg.ok),
+      l.kpiAssigned: (LucideIcons.handshake, Dg.plum),
+      l.kpiWaiting: (LucideIcons.packageSearch, Dg.warn),
+      l.kpiCancelled: (LucideIcons.packageX, Dg.bad),
+      l.kpiReturnToCenter: (LucideIcons.warehouse, Dg.plum),
+      l.kpiUrgent: (LucideIcons.flame, Dg.bad),
+      l.kpiPendingOps: (LucideIcons.listTodo, Dg.warn),
+      l.kpiActiveCouriers: (LucideIcons.bike, Dg.ok),
+      l.kpiAwaitAccept: (LucideIcons.userCheck, Dg.warn),
+      l.kpiAwaitReturn: (LucideIcons.undo2, Dg.warn),
+      l.kpiOpen: (LucideIcons.circleDashed, Dg.warn),
+      l.filterLate: (LucideIcons.alarmClockOff, Dg.bad),
+      l.perfDeliveryRate: (LucideIcons.chartNoAxesCombined, Dg.ok),
+      l.perfFirstAttempt: (LucideIcons.target, Dg.ok),
+      l.perfSla: (LucideIcons.timer, Dg.plum),
+      l.perfAvgMinutes: (LucideIcons.hourglass, Dg.plum),
+      l.perfAttempted: (LucideIcons.package, Dg.plum),
+      l.perfFailed: (LucideIcons.packageX, Dg.bad),
+      l.onShiftNow: (LucideIcons.userCheck, Dg.ok),
+      l.plannedLabel: (LucideIcons.calendarClock, Dg.plum),
+      l.plannedNotStarted: (LucideIcons.circleAlert, Dg.warn),
+      l.onLeaveLabel: (LucideIcons.palmtree, Dg.plum),
+    };
+    final hit = known[tiles[i].$1];
+    if (hit != null) return hit;
+    return i < icons.length ? (icons[i], Dg.plum) : null;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -111,7 +116,11 @@ class SubeKpiGrid extends StatelessWidget {
                   label: tiles[i].$1,
                   value: tiles[i].$2,
                   valueColor: _tint(tiles[i].$2),
-                  icon: _icon(i, l),
+                  icon: _badge(i, l)?.$1,
+                  iconColor: _badge(i, l)?.$2,
+                  onTap: onTapTile == null
+                      ? null
+                      : () => onTapTile!(tiles[i].$1),
                 ),
                 if (columns == 2) ...[
                   const SizedBox(width: 12),
@@ -120,7 +129,11 @@ class SubeKpiGrid extends StatelessWidget {
                       label: tiles[i + 1].$1,
                       value: tiles[i + 1].$2,
                       valueColor: _tint(tiles[i + 1].$2),
-                      icon: _icon(i + 1, l),
+                      icon: _badge(i + 1, l)?.$1,
+                      iconColor: _badge(i + 1, l)?.$2,
+                      onTap: onTapTile == null
+                          ? null
+                          : () => onTapTile!(tiles[i + 1].$1),
                     )
                   else
                     const Spacer(),

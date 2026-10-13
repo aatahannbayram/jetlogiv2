@@ -6,6 +6,7 @@ import '../l10n.dart';
 import '../motion.dart';
 import '../scan_router.dart';
 import '../session.dart';
+import '../shell_nav.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'onboard_screen.dart';
@@ -27,7 +28,6 @@ class SubeShellScreen extends ConsumerStatefulWidget {
 
 class _SubeShellScreenState extends ConsumerState<SubeShellScreen> {
   bool _navCompact = false;
-  int _index = 0;
 
   @override
   void initState() {
@@ -40,6 +40,8 @@ class _SubeShellScreenState extends ConsumerState<SubeShellScreen> {
   @override
   Widget build(BuildContext context) {
     final s = ref.watch(sessionProvider);
+    final nav = ref.watch(subeNavProvider);
+    final index = nav.index;
     if (!s.subeOnboardSeen) {
       return const OnboardScreen(forBranch: true);
     }
@@ -63,8 +65,8 @@ class _SubeShellScreenState extends ConsumerState<SubeShellScreen> {
     final largeText = MediaQuery.textScalerOf(context).scale(14) > 20;
     void openScan() => showSubeScanSheet(
       context,
-      scanContext: scans[_index].$1,
-      hint: scans[_index].$2,
+      scanContext: scans[index].$1,
+      hint: scans[index].$2,
     );
     return Scaffold(
       body: SafeArea(
@@ -72,7 +74,7 @@ class _SubeShellScreenState extends ConsumerState<SubeShellScreen> {
         child: NavShrinkOnScroll(
           compact: _navCompact,
           onCompact: (v) => setState(() => _navCompact = v),
-          child: DgTabStack(index: _index, children: pages),
+          child: DgTabStack(index: index, children: pages),
         ),
       ),
       // Büyük yazı ayarında yüzen düğme içeriği kapatır; alt çubuğun üstüne
@@ -80,7 +82,7 @@ class _SubeShellScreenState extends ConsumerState<SubeShellScreen> {
       // Gönderi seçiliyken "Kuryeye zimmetle" düğmesi öne geçer; iki düğme
       // üst üste binmesin diye okutma düğmesi gizlenir.
       floatingActionButton:
-          largeText || (_index == 1 && s.branch.picked.isNotEmpty)
+          largeText || (index == 1 && s.branch.picked.isNotEmpty)
           ? null
           : FloatingActionButton.extended(
               onPressed: openScan,
@@ -100,12 +102,12 @@ class _SubeShellScreenState extends ConsumerState<SubeShellScreen> {
               ),
             ),
           DgPillNav(
-            index: _index,
+            index: index,
             compact: _navCompact,
-            onChanged: (i) => setState(() {
-              _index = i;
-              _navCompact = false;
-            }),
+            onChanged: (i) {
+              setState(() => _navCompact = false);
+              nav.go(i);
+            },
             items: [
               (LucideIcons.home, LucideIcons.home, l.subeTabHome),
               (

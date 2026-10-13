@@ -52,7 +52,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Kurye seç'), findsOneWidget);
     expect(find.text('Bölge dışı'), findsOneWidget);
-    await tester.tap(find.text('Ali Can'));
+    // Liste satırlarında da kurye adı var; seçim sayfasındaki en üstteki.
+    await tester.tap(find.text('Ali Can').last);
     await tester.pumpAndSettle();
     final row = session.branch.rows.firstWhere(
       (r) => r.shipmentId == 'demo-s1',

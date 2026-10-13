@@ -6,6 +6,7 @@ import '../intro_tour.dart';
 import '../brand.dart';
 import '../l10n.dart';
 import '../session.dart';
+import '../shell_nav.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'sube_widgets.dart';
@@ -23,6 +24,29 @@ class SubeHomeScreen extends ConsumerWidget {
     final kpis = branch.board?.kpis;
     final synced = branch.syncedAt;
 
+    // Kutuya dokununca ilgili sekme açılır; gönderi kutuları kendi
+    // filtresiyle gelir.
+    void openTile(String label) {
+      final nav = ref.read(subeNavProvider);
+      if (label == l.kpiWaiting) {
+        nav.go(SubeNav.shipments, filter: 'waiting');
+      } else if (label == l.kpiAwaitAccept) {
+        nav.go(SubeNav.shipments, filter: 'queue');
+      } else if (label == l.kpiUrgent) {
+        nav.go(SubeNav.shipments, filter: 'priority');
+      } else if (label == l.kpiAssigned) {
+        nav.go(SubeNav.shipments, filter: 'out');
+      } else if (label == l.kpiActiveCouriers) {
+        nav.go(SubeNav.couriers);
+      } else if (label == l.kpiAwaitReturn ||
+          label == l.kpiPendingOps ||
+          label == l.kpiReturnToCenter) {
+        nav.go(SubeNav.stock);
+      } else {
+        nav.go(SubeNav.shipments, filter: 'all');
+      }
+    }
+
     return Scaffold(
       appBar: AppBar(
         // Başlıkta logo; şube adı uzun olabildiği için aşağıda iki satıra
@@ -39,7 +63,7 @@ class SubeHomeScreen extends ConsumerWidget {
       body: RefreshIndicator(
         onRefresh: branch.refresh,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 96),
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 170),
           children: [
             IntroTourTrigger(
               show: !s.tipsSeen,
@@ -101,6 +125,7 @@ class SubeHomeScreen extends ConsumerWidget {
                       [for (final t in todo) (t.$1, t.$2)],
                       attention: true,
                       icons: [for (final t in todo) t.$3],
+                      onTapTile: openTile,
                     ),
                   ],
                 ];
@@ -120,6 +145,7 @@ class SubeHomeScreen extends ConsumerWidget {
                   (l.kpiCancelled, '${d.cancelledToday}'),
                   (l.kpiReturnToCenter, '${d.returnToCenter}'),
                 ],
+                onTapTile: openTile,
                 icons: [
                   LucideIcons.truck,
                   LucideIcons.circleCheck,

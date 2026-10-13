@@ -20,3 +20,32 @@ class ShellNav extends ChangeNotifier {
     notifyListeners();
   }
 }
+
+/// Şube alt sekmesi ve gönderi filtresi — ana sayfadaki kutular ilgili
+/// sekmeye (ve filtreye) bununla geçer.
+final subeNavProvider = ChangeNotifierProvider<SubeNav>((ref) => SubeNav());
+
+class SubeNav extends ChangeNotifier {
+  int index = 0;
+
+  /// Gönderiler sekmesinin açılacağı filtre; okununca sıfırlanır.
+  String? pendingFilter;
+
+  static const home = 0;
+  static const shipments = 1;
+  static const couriers = 2;
+  static const stock = 3;
+  static const ops = 4;
+
+  void go(int i, {String? filter}) {
+    index = i;
+    pendingFilter = filter;
+    notifyListeners();
+  }
+
+  String? takeFilter() {
+    final f = pendingFilter;
+    pendingFilter = null;
+    return f;
+  }
+}

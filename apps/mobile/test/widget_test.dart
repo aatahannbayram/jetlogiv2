@@ -607,6 +607,13 @@ void main() {
     expect(find.text('Güney Acente'), findsOneWidget);
     expect(find.text('Bugün dağıtılacak'), findsOneWidget);
 
+    // Ana sayfadaki kutu ilgili sekmeyi açar.
+    await tester.ensureVisible(find.text('Aktif kurye'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Aktif kurye'));
+    await tester.pumpAndSettle();
+    expect(find.text('Kuryeler'), findsOneWidget);
+
     await tester.tap(find.text('Gönderi'));
     await tester.pumpAndSettle();
     expect(find.text('JL100238546'), findsOneWidget);
