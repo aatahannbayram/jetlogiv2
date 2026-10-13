@@ -162,6 +162,7 @@ class _ShellScreenState extends ConsumerState<ShellScreen>
         ],
       ),
       bottomNavigationBar: DgPillNav(
+        primaryIndex: ShellNav.scan,
         index: index,
         compact: _navCompact,
         onChanged: (i) {
@@ -175,7 +176,7 @@ class _ShellScreenState extends ConsumerState<ShellScreen>
           (LucideIcons.truck, LucideIcons.truck, l.route),
           (LucideIcons.qrCode, LucideIcons.qrCode, l.scan),
           (LucideIcons.bell, LucideIcons.bell, l.permPush),
-          (LucideIcons.layoutGrid, LucideIcons.layoutGrid, l.menu),
+          (LucideIcons.menu, LucideIcons.menu, l.menu),
         ],
       ),
     );

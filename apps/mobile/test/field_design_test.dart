@@ -166,29 +166,15 @@ void main() {
     'training-detail': const TrainingDetailScreen(moduleId: 'demo'),
     'custody': const ZimmetScreen(mode: 'sube'),
   };
-  const critical = [
-    'login',
-    'home',
-    'list',
-    'task',
-    'delivery',
-    'menu',
-    'profile',
-    'branch-home',
-    'branch-login',
-    'branch-shell',
-    'result-success',
-    'result-return',
-    'earnings',
-  ];
   for (final dark in [true, false]) {
     for (final config in [
-      (390.0, 844.0, 1.0),
+      (375.0, 812.0, 1.0),
+      (812.0, 375.0, 1.0),
+      (768.0, 1024.0, 1.0),
       (320.0, 568.0, 2.0),
       (430.0, 932.0, 2.0),
     ]) {
       for (final page in pages.entries) {
-        if (config.$3 > 1 && !critical.contains(page.key)) continue;
         final name =
             '${page.key}-${dark ? 'dark' : 'light'}-${config.$1.toInt()}-${config.$3.toInt()}x';
         testWidgets(name, (tester) async {
@@ -320,6 +306,69 @@ void main() {
         expect(
           tester.getRect(find.byKey(const Key('panel-login'))).bottom,
           lessThanOrEqualTo(308),
+        );
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
+  for (final dark in [true, false]) {
+    testWidgets(
+      'support form keeps fields separate with keyboard ${dark ? 'dark' : 'light'}',
+      (tester) async {
+        tester.view.physicalSize = const Size(320, 568);
+        tester.view.devicePixelRatio = 1;
+        tester.view.viewInsets = const FakeViewPadding(bottom: 260);
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        addTearDown(tester.view.resetViewInsets);
+        Dg.dark = dark;
+        final session = SessionController()..skipToDemo();
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [sessionProvider.overrideWith((ref) => session)],
+            child: L10nScope(
+              l10n: const L10n('tr'),
+              child: MaterialApp(
+                theme: Dg.theme(),
+                builder: (context, child) => MediaQuery(
+                  data: MediaQuery.of(context).copyWith(
+                    textScaler: const TextScaler.linear(2),
+                    disableAnimations: true,
+                  ),
+                  child: child!,
+                ),
+                home: const SupportScreen(),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final subject = find.byKey(const Key('support-subject'));
+        final body = find.byKey(const Key('support-body'));
+        await tester.scrollUntilVisible(
+          subject,
+          120,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.enterText(subject, 'Adres bilgisi');
+        await tester.ensureVisible(body);
+        await tester.enterText(body, 'Bina numarası görünmüyor.');
+        await tester.pumpAndSettle();
+        expect(
+          tester.getRect(body).top - tester.getRect(subject).bottom,
+          greaterThanOrEqualTo(16),
+        );
+        expect(tester.getRect(body).bottom, lessThanOrEqualTo(308));
+        tester.view.viewInsets = const FakeViewPadding();
+        await tester.pumpAndSettle();
+        final send = find.byKey(const Key('support-send'));
+        await tester.ensureVisible(send);
+        await tester.tap(send);
+        await tester.pumpAndSettle();
+        expect(
+          session.tickets.any((ticket) => ticket.subject == 'Adres bilgisi'),
+          isTrue,
         );
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox.shrink());

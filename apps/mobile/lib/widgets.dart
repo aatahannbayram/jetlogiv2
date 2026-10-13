@@ -281,15 +281,12 @@ class StatusChip extends StatelessWidget {
   }
 }
 
-/// A single horizontal rule — replaces the `Container(height: 1, color:
-/// Dg.rule)` pattern repeated by hand across profile/earnings/task-detail/
-/// wizard screens.
+/// Air between content rows, without decorative separator lines.
 class DgDivider extends StatelessWidget {
   const DgDivider({super.key});
 
   @override
-  Widget build(BuildContext context) =>
-      Container(height: 0.5, color: Dg.stroke);
+  Widget build(BuildContext context) => const SizedBox(height: Dg.s12);
 }
 
 /// Seçili satır: 2px marka gradyanı çerçeve.
@@ -447,7 +444,7 @@ class _DgButtonState extends State<DgButton> {
               Flexible(
                 child: Text(
                   widget.label,
-                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
                   style: TextStyle(
                     fontFamily: Dg.sans,
                     color: ink,
@@ -1647,6 +1644,8 @@ class _SlideToActState extends State<SlideToAct>
   }
 }
 
+/// Charcoal navigation capsule. The courier scanner can occupy the central
+/// action slot; branch destinations remain equal navigation items.
 class DgPillNav extends StatelessWidget {
   const DgPillNav({
     super.key,
@@ -1654,6 +1653,7 @@ class DgPillNav extends StatelessWidget {
     required this.onChanged,
     required this.items,
     this.badges = const [],
+    this.primaryIndex,
     this.compact = false,
   });
 
@@ -1661,6 +1661,7 @@ class DgPillNav extends StatelessWidget {
   final ValueChanged<int> onChanged;
   final List<(IconData, IconData, String)> items;
   final List<int> badges;
+  final int? primaryIndex;
 
   /// Sayfa aşağı kaydırılırken küçük hal: yalnız ikonlar, daha alçak çubuk.
   /// Çubuk yerinde kalır; içerik için yer açılır.
@@ -1668,114 +1669,197 @@ class DgPillNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final largeText = MediaQuery.textScalerOf(context).scale(14) > 20;
     final duration = MediaQuery.disableAnimationsOf(context)
         ? Duration.zero
-        : const Duration(milliseconds: 240);
-    Widget item(int i) => Semantics(
-      selected: index == i,
-      button: true,
-      label: items[i].$3,
-      child: Padding(
-        padding: const EdgeInsets.all(2),
-        child: AnimatedContainer(
-          duration: duration,
-          curve: Curves.easeOutCubic,
-          decoration: BoxDecoration(
-            color: index == i ? Dg.warnSoft : Colors.transparent,
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(20),
-              onTap: () {
-                if (index == i) return;
-                HapticFeedback.selectionClick();
-                onChanged(i);
-              },
-              child: AnimatedPadding(
-                duration: duration,
-                curve: Curves.easeOutCubic,
-                padding: EdgeInsets.symmetric(
-                  horizontal: 1,
-                  vertical: compact ? 9 : 10,
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Stack(
-                      clipBehavior: Clip.none,
+        : const Duration(milliseconds: 200);
+    Widget item(int i) {
+      final selected = index == i;
+      final primary = primaryIndex == i;
+      final count = i < badges.length ? badges[i] : 0;
+      final control = Semantics(
+        selected: selected,
+        button: true,
+        label: count > 0 ? '${items[i].$3}, $count' : items[i].$3,
+        child: Padding(
+          padding: const EdgeInsets.all(2),
+          child: AnimatedContainer(
+            duration: duration,
+            curve: Curves.easeOutCubic,
+            decoration: BoxDecoration(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(28),
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(28),
+                focusColor: Dg.onDock.withValues(alpha: 0.18),
+                splashColor: Dg.dockActive.withValues(alpha: 0.18),
+                onTap: () {
+                  if (selected) return;
+                  HapticFeedback.selectionClick();
+                  onChanged(i);
+                },
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    minHeight: Dg.touchMin,
+                    minWidth: Dg.touchMin,
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 2,
+                      vertical: largeText ? 8 : 4,
+                    ),
+                    child: Flex(
+                      direction: largeText ? Axis.horizontal : Axis.vertical,
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        AnimatedScale(
-                          scale: index == i ? 1.08 : 1,
-                          duration: duration,
-                          curve: Curves.easeOutCubic,
-                          child: DgIcon(
-                            index == i ? items[i].$2 : items[i].$1,
-                            color: index == i ? Dg.warn : Dg.text2,
-                            size: 23,
-                            weight: index == i ? 600 : 400,
-                          ),
+                        Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            AnimatedContainer(
+                              duration: duration,
+                              // Küçük halde ortadaki yuvarlak da küçülür;
+                              // çubuğun boyunu o belirliyor.
+                              width: largeText
+                                  ? 28
+                                  : primary
+                                  ? (compact ? 40 : 48)
+                                  : 40,
+                              height: largeText
+                                  ? 28
+                                  : primary
+                                  ? (compact ? 40 : 48)
+                                  : 36,
+                              alignment: Alignment.center,
+                              decoration: primary
+                                  ? BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: selected ? Dg.action : Dg.onDock,
+                                      border: Border.all(
+                                        color: Dg.mutedOnDock.withValues(
+                                          alpha: 0.3,
+                                        ),
+                                        width: 2,
+                                      ),
+                                    )
+                                  : selected
+                                  ? BoxDecoration(
+                                      border: Border(
+                                        bottom: BorderSide(
+                                          color: Dg.dockActive,
+                                          width: 2,
+                                        ),
+                                      ),
+                                    )
+                                  : null,
+                              child: DgIcon(
+                                selected ? items[i].$2 : items[i].$1,
+                                color: primary
+                                    ? Dg.dock
+                                    : selected
+                                    ? Dg.dockActive
+                                    : Dg.mutedOnDock,
+                                size: largeText
+                                    ? 18
+                                    : primary
+                                    ? (compact ? 22 : 25)
+                                    : 23,
+                                weight: 300,
+                              ),
+                            ),
+                            if (count > 0)
+                              Positioned(
+                                top: -3,
+                                right: -3,
+                                child: _NavBadge(count: count),
+                              ),
+                          ],
                         ),
-                        if (i < badges.length && badges[i] > 0)
-                          Positioned(
-                            top: -8,
-                            right: -10,
-                            child: _NavBadge(count: badges[i]),
+                        if (largeText) ...[
+                          const SizedBox(width: 6),
+                          Flexible(
+                            fit: FlexFit.loose,
+                            child: AnimatedDefaultTextStyle(
+                              duration: duration,
+                              style: Dg.ui(
+                                size: 14,
+                                weight: selected
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                                color: selected
+                                    ? Dg.dockActive
+                                    : Dg.mutedOnDock,
+                              ).copyWith(fontSize: 12),
+                              child: Text(
+                                items[i].$3,
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ),
+                        ] else if (!primary)
+                          // Aşağı kaydırırken etiket kapanır. Yükseklik
+                          // çarpanı ölçümde ve çizimde aynı olduğundan
+                          // geçişte taşma olmaz.
+                          TweenAnimationBuilder<double>(
+                            tween: Tween(end: compact ? 0.0 : 1.0),
+                            duration: duration,
+                            curve: Curves.easeOutCubic,
+                            builder: (context, t, child) => ClipRect(
+                              child: Align(
+                                alignment: Alignment.topCenter,
+                                heightFactor: t,
+                                child: Opacity(opacity: t, child: child),
+                              ),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: AnimatedDefaultTextStyle(
+                                duration: duration,
+                                style: Dg.ui(
+                                  size: 14,
+                                  weight: selected
+                                      ? FontWeight.w700
+                                      : FontWeight.w500,
+                                  color: selected
+                                      ? Dg.dockActive
+                                      : Dg.mutedOnDock,
+                                ).copyWith(fontSize: 12),
+                                child: Text(
+                                  items[i].$3,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
                           ),
                       ],
                     ),
-                    // Küçük halde etiket kapanır. Yükseklik çarpanı hem
-                    // ölçümde hem çizimde aynı olduğundan geçişte taşma olmaz.
-                    TweenAnimationBuilder<double>(
-                      tween: Tween(end: compact ? 0.0 : 1.0),
-                      duration: duration,
-                      curve: Curves.easeOutCubic,
-                      builder: (context, t, child) => ClipRect(
-                        child: Align(
-                          alignment: Alignment.topCenter,
-                          heightFactor: t,
-                          child: Opacity(opacity: t, child: child),
-                        ),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 6),
-                        child: AnimatedDefaultTextStyle(
-                          duration: duration,
-                          style: Dg.ui(
-                            size: 14,
-                            weight: index == i
-                                ? FontWeight.w700
-                                : FontWeight.w500,
-                            color: index == i ? Dg.warn : Dg.text2,
-                          ),
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text(
-                              items[i].$3,
-                              maxLines: 1,
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
           ),
         ),
-      ),
-    );
+      );
+      return Tooltip(
+        message: items[i].$3,
+        excludeFromSemantics: true,
+        child: control,
+      );
+    }
+
     return SafeArea(
       top: false,
-      minimum: const EdgeInsets.fromLTRB(10, 6, 10, 8),
+      minimum: const EdgeInsets.fromLTRB(16, 8, 16, 10),
       child: Container(
         padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
-          color: Dg.surface2,
-          borderRadius: BorderRadius.circular(26),
+          color: Dg.dock,
+          borderRadius: BorderRadius.circular(36),
           boxShadow: Dg.dockShadow,
         ),
         child: LayoutBuilder(
@@ -1790,17 +1874,14 @@ class DgPillNav extends StatelessWidget {
                 textDirection: Directionality.of(context),
                 textScaler: MediaQuery.textScalerOf(context),
               )..layout();
-              minWidth = max(minWidth, painter.width + 6);
+              // Long labels wrap instead of shrinking system text.
+              minWidth = max(minWidth, min(painter.width + 12, 120));
               painter.dispose();
             }
             final columns = (constraints.maxWidth / minWidth).floor().clamp(
               1,
               items.length,
             );
-            // Normal yazı boyutunda sekmeler hep tek satırdadır; sığmayan
-            // etiket küçülür. İkinci satıra yalnız büyük yazı ayarında
-            // (erişilebilirlik) geçilir.
-            final largeText = MediaQuery.textScalerOf(context).scale(14) > 20;
             if (columns == items.length || !largeText) {
               return IntrinsicHeight(
                 child: Row(
@@ -1830,24 +1911,24 @@ class DgPillNav extends StatelessWidget {
 
 class _NavBadge extends StatelessWidget {
   const _NavBadge({required this.count});
-
   final int count;
 
   @override
   Widget build(BuildContext context) {
-    final label = count > 9 ? '9+' : '$count';
     return Container(
       constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
-      padding: const EdgeInsets.symmetric(horizontal: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: Dg.warn,
-        borderRadius: const BorderRadius.all(Radius.circular(7)),
+        color: Dg.action,
+        border: Border.all(color: Dg.dock, width: 2),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
-        label,
+        count > 9 ? '9+' : '$count',
+        textScaler: TextScaler.noScaling,
         style: const TextStyle(
-          fontSize: 14,
+          fontSize: 12,
           fontWeight: FontWeight.w700,
           color: Dg.onAction,
           height: 1,
@@ -2072,7 +2153,6 @@ class SegmentedTabs extends StatelessWidget {
           return width;
         }).toList();
         final scroll =
-            labels.length > 2 &&
             widths.fold<double>(0, (a, b) => a + b) > constraints.maxWidth;
         Widget tab(int i) => Semantics(
           selected: index == i,

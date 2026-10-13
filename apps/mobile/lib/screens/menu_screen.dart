@@ -193,13 +193,13 @@ class MenuScreen extends ConsumerWidget {
           padding: const EdgeInsets.fromLTRB(Dg.s20, Dg.s12, Dg.s20, Dg.s28),
           children: [
             Appear(child: DijigooWordmark(height: 22, onDark: Dg.dark)),
-            const SizedBox(height: Dg.s28),
+            const SizedBox(height: Dg.s20),
             _ProfileCard(session: s),
-            const SizedBox(height: Dg.s28),
+            const SizedBox(height: Dg.s32),
             _Section(title: l.menuDaily, items: daily, start: 0),
-            const SizedBox(height: Dg.s28),
+            const SizedBox(height: Dg.s32),
             _Section(title: l.menuOther, items: other, start: daily.length),
-            const SizedBox(height: Dg.s28),
+            const SizedBox(height: Dg.s32),
             _Section(title: l.account, items: account, start: 0),
           ],
         ),
@@ -262,7 +262,19 @@ class _ProfileCard extends StatelessWidget {
                   ],
                 ),
               ),
-              DgIcon(LucideIcons.chevronRight, size: 16, color: Dg.text3),
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: Dg.brandSoft,
+                  shape: BoxShape.circle,
+                ),
+                child: DgIcon(
+                  LucideIcons.arrowUpRight,
+                  size: 16,
+                  color: Dg.brand,
+                ),
+              ),
             ],
           ),
         ),
@@ -288,27 +300,40 @@ class _Section extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.only(left: Dg.s4, bottom: Dg.s8),
-          child: Text(
-            localeUpper(title, context.l10n.code),
-            style: Dg.typeOverline(),
+          padding: const EdgeInsets.only(left: Dg.s4, bottom: Dg.s12),
+          child: Row(
+            children: [
+              Container(
+                width: 6,
+                height: 6,
+                decoration: const BoxDecoration(
+                  color: Dg.action,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: Dg.s8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: Dg.ui(
+                    size: 17,
+                    weight: FontWeight.w600,
+                    color: Dg.ink,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
         _Sheet(
-          child: Column(
-            children: [
-              for (final (i, m) in items.indexed) ...[
-                if (i > 0)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 64),
-                    child: Container(
-                      height: 0.5,
-                      color: Dg.text2.withValues(alpha: 0.10),
-                    ),
-                  ),
-                _MenuTile(row: m, index: start + i),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: Dg.s4),
+            child: Column(
+              children: [
+                for (final (i, m) in items.indexed)
+                  _MenuTile(row: m, index: start + i),
               ],
-            ],
+            ),
           ),
         ),
       ],
@@ -339,13 +364,21 @@ class _MenuTile extends StatelessWidget {
           ),
           child: Row(
             children: [
-              SizedBox(
-                width: 32,
-                height: 32,
+              Container(
+                width: 40,
+                height: 40,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: accent
+                      ? Dg.action.withValues(alpha: Dg.dark ? 0.14 : 0.10)
+                      : Dg.muteSoft,
+                  shape: BoxShape.circle,
+                ),
                 child: DgIcon(
                   row.icon,
+                  weight: 300,
                   size: 22,
-                  color: accent ? Dg.warn : Dg.text2,
+                  color: accent ? Dg.brand : Dg.text2,
                 ),
               ),
               const SizedBox(width: Dg.s12),
@@ -377,12 +410,12 @@ class _Badge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: Dg.s8, vertical: 2),
       decoration: BoxDecoration(
-        color: Dg.surface2,
-        borderRadius: BorderRadius.circular(Dg.rSm),
+        color: Dg.brandSoft,
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
         value,
-        style: Dg.typeNum(size: 12, weight: FontWeight.w600, color: Dg.text2),
+        style: Dg.typeNum(size: 12, weight: FontWeight.w600, color: Dg.brand),
       ),
     );
   }
@@ -397,9 +430,8 @@ class _Sheet extends StatelessWidget {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: Dg.surface1,
+        color: Colors.transparent,
         borderRadius: BorderRadius.circular(Dg.rLg),
-        boxShadow: Dg.cardShadow,
       ),
       child: child,
     );

@@ -128,7 +128,7 @@ void main() {
     await tester.drag(find.byType(ListView).first, const Offset(0, -220));
     await tester.pumpAndSettle();
     expect(label(), findsNothing);
-    expect(tester.getSize(nav).height, lessThan(tall - 15));
+    expect(tester.getSize(nav).height, lessThan(tall - 10));
     expect(nav, findsOneWidget);
 
     await tester.drag(find.byType(ListView).first, const Offset(0, 120));
@@ -268,7 +268,7 @@ void main() {
   testWidgets('zimmet taraması kodu listeye yazar', (tester) async {
     await bindPhone(tester);
     await openDemo(tester);
-    await tester.tap(find.text('Tara'));
+    await tester.tap(find.byTooltip('Tara'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Kurye Zimmet'));
     await tester.pumpAndSettle();

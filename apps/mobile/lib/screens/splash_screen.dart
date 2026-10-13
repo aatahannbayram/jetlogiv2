@@ -93,196 +93,229 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
             ),
           NightGrain(
             child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Row(
-                      children: [
-                        Appear(
-                          child: DijigooWordmark(height: 28, onDark: Dg.dark),
-                        ),
-                        const Spacer(),
-                        if (s.panelLoggedIn)
-                          Text(
-                            l.panelSessionOn,
-                            style: TextStyle(
-                              color: muted,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        if (s.demo) ...[
-                          const SizedBox(width: 8),
-                          DemoPill(
-                            onLongPress: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text(l.demoCodesHint)),
-                              );
-                            },
-                          ),
-                        ],
-                      ],
+              child: LayoutBuilder(
+                builder: (context, constraints) => SingleChildScrollView(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight,
                     ),
-                    const Spacer(),
-                    Container(
-                          padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
-                          decoration: BoxDecoration(
-                            color: Dg.heroGlass,
-                            borderRadius: BorderRadius.circular(24),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  InitialsAvatar(
-                                    name: s.courier.fullName,
-                                    photoUrl: s.courier.photoUrl,
-                                    size: 52,
+                    child: IntrinsicHeight(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Row(
+                              children: [
+                                Appear(
+                                  child: DijigooWordmark(
+                                    height: 28,
+                                    onDark: Dg.dark,
                                   ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          s.courier.fullName,
-                                          style: TextStyle(
-                                            color: onHero,
-                                            fontWeight: FontWeight.w700,
-                                            fontSize: 17,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 3),
-                                        Text(
-                                          '${s.courier.district} / ${s.courier.city}',
-                                          style: TextStyle(
-                                            color: muted,
-                                            fontSize: 14,
-                                          ),
-                                        ),
-                                      ],
+                                ),
+                                const Spacer(),
+                                if (s.panelLoggedIn)
+                                  Text(
+                                    l.panelSessionOn,
+                                    style: TextStyle(
+                                      color: muted,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
                                     ),
+                                  ),
+                                if (s.demo) ...[
+                                  const SizedBox(width: 8),
+                                  DemoPill(
+                                    onLongPress: () {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                            SnackBar(
+                                              content: Text(l.demoCodesHint),
+                                            ),
+                                          );
+                                    },
                                   ),
                                 ],
-                              ),
-                              const SizedBox(height: 14),
-                              Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.all(14),
-                                decoration: BoxDecoration(
-                                  color: onHero.withValues(alpha: 0.05),
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      width: 36,
-                                      height: 36,
-                                      alignment: Alignment.center,
-                                      decoration: BoxDecoration(
-                                        color: Dg.violetBg,
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Icon(
-                                        LucideIcons.mapPin,
-                                        size: 18,
-                                        color: Dg.dark
-                                            ? const Color(0xFFE3D9F2)
-                                            : Dg.violet,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
+                              ],
+                            ),
+                            const Spacer(),
+                            Container(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    18,
+                                    18,
+                                    18,
+                                    16,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Dg.heroGlass,
+                                    borderRadius: BorderRadius.circular(24),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
                                         children: [
-                                          Text(
-                                            s.demo
-                                                ? l.todayStopsGuney
-                                                : l.todayFieldHint,
-                                            style: TextStyle(
-                                              color: onHero,
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w600,
-                                              height: 1.3,
-                                            ),
+                                          InitialsAvatar(
+                                            name: s.courier.fullName,
+                                            photoUrl: s.courier.photoUrl,
+                                            size: 52,
                                           ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            next == null
-                                                ? l.openStops(open)
-                                                : l.openInQueue(
-                                                    open,
-                                                    next.recipient,
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  s.courier.fullName,
+                                                  style: TextStyle(
+                                                    color: onHero,
+                                                    fontWeight: FontWeight.w700,
+                                                    fontSize: 17,
                                                   ),
-                                            style: TextStyle(
-                                              color: muted,
-                                              fontSize: 14,
+                                                ),
+                                                const SizedBox(height: 3),
+                                                Text(
+                                                  '${s.courier.district} / ${s.courier.city}',
+                                                  style: TextStyle(
+                                                    color: muted,
+                                                    fontSize: 14,
+                                                  ),
+                                                ),
+                                              ],
                                             ),
                                           ),
                                         ],
                                       ),
-                                    ),
-                                    if (next != null)
-                                      InitialsAvatar(
-                                        name: next.recipient,
-                                        photoUrl: next.personPhoto,
-                                        size: 32,
+                                      const SizedBox(height: 14),
+                                      Container(
+                                        width: double.infinity,
+                                        padding: const EdgeInsets.all(14),
+                                        decoration: BoxDecoration(
+                                          color: onHero.withValues(alpha: 0.05),
+                                          borderRadius: BorderRadius.circular(
+                                            16,
+                                          ),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Container(
+                                              width: 36,
+                                              height: 36,
+                                              alignment: Alignment.center,
+                                              decoration: BoxDecoration(
+                                                color: Dg.violetBg,
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
+                                              ),
+                                              child: Icon(
+                                                LucideIcons.mapPin,
+                                                size: 18,
+                                                color: Dg.dark
+                                                    ? const Color(0xFFE3D9F2)
+                                                    : Dg.violet,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 12),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    s.demo
+                                                        ? l.todayStopsGuney
+                                                        : l.todayFieldHint,
+                                                    style: TextStyle(
+                                                      color: onHero,
+                                                      fontSize: 16,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      height: 1.3,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 4),
+                                                  Text(
+                                                    next == null
+                                                        ? l.openStops(open)
+                                                        : l.openInQueue(
+                                                            open,
+                                                            next.recipient,
+                                                          ),
+                                                    style: TextStyle(
+                                                      color: muted,
+                                                      fontSize: 14,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            if (next != null)
+                                              InitialsAvatar(
+                                                name: next.recipient,
+                                                photoUrl: next.personPhoto,
+                                                size: 32,
+                                              ),
+                                          ],
+                                        ),
                                       ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              DgButton(
-                                label: s.forceUpdate
-                                    ? l.updateApp
-                                    : l.startShiftCta,
-                                icon: LucideIcons.play,
-                                busy: !canGo,
-                                onPressed: canGo
-                                    ? () =>
-                                          ref.read(sessionProvider).enterField()
-                                    : null,
-                              ),
-                              const SizedBox(height: 8),
-                              DgButton(
-                                label: l.showActivation,
-                                icon: LucideIcons.key,
-                                tone: Dg.dark
-                                    ? DgButtonTone.onDark
-                                    : DgButtonTone.secondary,
-                                onPressed: () =>
-                                    ref.read(sessionProvider).finishSplash(),
-                              ),
-                              if (demoFieldAllowed()) ...[
-                                const SizedBox(height: 8),
-                                TextButton(
-                                  key: const Key('open-demo'),
-                                  onPressed: () =>
-                                      ref.read(sessionProvider).skipToDemo(),
-                                  child: Text(
-                                    l.openDemo,
-                                    style: TextStyle(color: muted),
+                                      const SizedBox(height: 16),
+                                      DgButton(
+                                        label: s.forceUpdate
+                                            ? l.updateApp
+                                            : l.startShiftCta,
+                                        icon: LucideIcons.play,
+                                        busy: !canGo,
+                                        onPressed: canGo
+                                            ? () => ref
+                                                  .read(sessionProvider)
+                                                  .enterField()
+                                            : null,
+                                      ),
+                                      const SizedBox(height: 8),
+                                      DgButton(
+                                        label: l.showActivation,
+                                        icon: LucideIcons.key,
+                                        tone: Dg.dark
+                                            ? DgButtonTone.onDark
+                                            : DgButtonTone.secondary,
+                                        onPressed: () => ref
+                                            .read(sessionProvider)
+                                            .finishSplash(),
+                                      ),
+                                      if (demoFieldAllowed()) ...[
+                                        const SizedBox(height: 8),
+                                        TextButton(
+                                          key: const Key('open-demo'),
+                                          onPressed: () => ref
+                                              .read(sessionProvider)
+                                              .skipToDemo(),
+                                          child: Text(
+                                            l.openDemo,
+                                            style: TextStyle(color: muted),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
                                   ),
+                                )
+                                .animate(delay: 160.ms)
+                                .fadeIn(
+                                  duration: 420.ms,
+                                  curve: Curves.easeOutCubic,
+                                )
+                                .slideY(
+                                  begin: 0.08,
+                                  end: 0,
+                                  duration: 420.ms,
+                                  curve: Curves.easeOutCubic,
                                 ),
-                              ],
-                            ],
-                          ),
-                        )
-                        .animate(delay: 160.ms)
-                        .fadeIn(duration: 420.ms, curve: Curves.easeOutCubic)
-                        .slideY(
-                          begin: 0.08,
-                          end: 0,
-                          duration: 420.ms,
-                          curve: Curves.easeOutCubic,
+                          ],
                         ),
-                  ],
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
