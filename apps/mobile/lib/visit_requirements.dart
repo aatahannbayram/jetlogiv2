@@ -180,10 +180,19 @@ class VisitForm {
       if (isVisible(f, values)) f,
   ];
 
-  /// Görünür olup zorunlu olan ama boş bırakılmış alanlar.
-  List<VisitFormField> missing(Map<String, Object?> values) => [
+  /// Görünür olup yanıtlanması gereken ama boş bırakılmış alanlar.
+  ///
+  /// [everyQuestion]: serbest metin dışındaki her soru yanıtlanmalı. Sunucu,
+  /// tamamlanan ziyarette `isRequired=false` soruları da ister
+  /// (`PX_STICKER_SURVEY_INCOMPLETE`) ve gönderilmiş anket düzeltilemez; bu
+  /// yüzden eksik anket hiç gönderilmez.
+  List<VisitFormField> missing(
+    Map<String, Object?> values, {
+    bool everyQuestion = false,
+  }) => [
     for (final f in visibleFields(values))
-      if (isRequired(f, values) && FormCondition.isEmptyValue(values[f.code]))
+      if ((isRequired(f, values) || (everyQuestion && f.type != 'STRING')) &&
+          FormCondition.isEmptyValue(values[f.code]))
         f,
   ];
 

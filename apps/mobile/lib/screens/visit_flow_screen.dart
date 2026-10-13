@@ -86,8 +86,11 @@ class _VisitFlowScreenState extends ConsumerState<VisitFlowScreen> {
     if (failed) const _Step(_StepKind.reason),
     for (final p in req.photosFor(delivered: !failed))
       _Step(_StepKind.photo, p),
-    if (req.formNeeded(delivered: !failed)) const _Step(_StepKind.form),
+    // Gönderilmiş anket değiştirilemez; yeniden sorulmaz.
+    if (_askForm) const _Step(_StepKind.form),
   ];
+
+  bool get _askForm => req.formNeeded(delivered: !failed) && !req.formSubmitted;
 
   _Shot _shot(PhotoRequirement p) =>
       shots.putIfAbsent(p.code, () => _Shot(req.uploaded[p.code] ?? 0));
@@ -204,7 +207,9 @@ class _VisitFlowScreenState extends ConsumerState<VisitFlowScreen> {
               ? num.tryParse(raw.replaceAll(',', '.'))
               : raw;
         }
-        return form.missing(values).isEmpty ? null : l.visitSurveyMissing;
+        return form.missing(values, everyQuestion: !failed).isEmpty
+            ? null
+            : l.visitSurveyMissing;
     }
   }
 
@@ -247,7 +252,7 @@ class _VisitFlowScreenState extends ConsumerState<VisitFlowScreen> {
         delivered: !failed,
         reasonCode: failed ? reasonCode : null,
         note: note.text.trim(),
-        form: req.formNeeded(delivered: !failed) ? req.form : null,
+        form: _askForm ? req.form : null,
         formValues: values,
       );
     } catch (e) {
@@ -613,7 +618,8 @@ class _VisitFlowScreenState extends ConsumerState<VisitFlowScreen> {
       );
     }
     for (final f in form.visibleFields(values)) {
-      final required = form.isRequired(f, values);
+      final required =
+          form.isRequired(f, values) || (!failed && f.type != 'STRING');
       out.add(
         Padding(
           padding: const EdgeInsets.only(top: 6, bottom: 8),

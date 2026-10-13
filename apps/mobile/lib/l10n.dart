@@ -1227,7 +1227,7 @@ class L10n {
     _ => _t('Başka bir neden', 'Another reason'),
   };
   String get visitSurveyMissing =>
-      _t('Zorunlu soruları yanıtla.', 'Answer the required questions.');
+      _t('Zorunlu soruların hepsini yanıtla.', 'Answer every required question.');
   String get visitRequired => _t('Zorunlu', 'Required');
   String get visitYes => _t('Evet', 'Yes');
   String get visitNo => _t('Hayır', 'No');

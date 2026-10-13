@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dijigoo_kurye/api/client.dart';
+import 'package:dijigoo_kurye/api/courier_tasks.dart';
 import 'package:dijigoo_kurye/api/panel_client.dart';
 import 'package:dijigoo_kurye/api/panel_models.dart';
 import 'package:dijigoo_kurye/capture_check.dart';
@@ -151,6 +152,18 @@ void main() {
         // Zorunlu tek soru yanıtlanmadan anket eksik sayılır.
         expect(form.missing({}).map((f) => f.code), ['STICKER_APPLIED']);
         expect(form.missing({'STICKER_APPLIED': true}), isEmpty);
+        // Tamamlanan ziyarette metin dışındaki her soru yanıtlanmalı.
+        expect(
+          form
+              .missing({'STICKER_APPLIED': true}, everyQuestion: true)
+              .map((f) => f.code),
+          [
+            'PLUXEE_MEMBER',
+            'OTHER_MEAL_CARD',
+            'APPLICATION_DONE',
+            'STICKER_EXISTS',
+          ],
+        );
         expect(form.missing({'STICKER_APPLIED': false}).map((f) => f.code), [
           'CANCEL_REASON',
         ]);
@@ -260,7 +273,13 @@ void main() {
       () async {
         final seen = <RequestOptions>[];
         final api = PanelApi(
-          _visitDio((_) => {'evidenceId': 'e-1'}, seen: seen),
+          _visitDio(
+            (_) => {
+              // Gerçek yanıt biçimi: data.evidence.id.
+              'evidence': {'id': 'e-1', 'evidenceType': 'PHOTO'},
+            },
+            seen: seen,
+          ),
         );
         final id = await api.uploadTaskEvidence(
           shipmentId: 's-9',
@@ -456,6 +475,17 @@ void main() {
       );
       expect(s.taskById('s-9').status, TaskStatus.delivered);
     });
+
+    test(
+      'sayısal durum kodları: 4020 dağıtımda, 5010 teslim, 5110 edilemedi',
+      () {
+        expect(taskStatusFromPanel('4010'), TaskStatus.assigned);
+        expect(taskStatusFromPanel('4020'), TaskStatus.inProgress);
+        expect(taskStatusFromPanel('5010'), TaskStatus.delivered);
+        expect(taskStatusFromPanel('5110'), TaskStatus.failed);
+        expect(taskStatusFromPanel('8010'), TaskStatus.cancelled);
+      },
+    );
 
     test('reddedilen fotoğraf bildirimi Hatalarım\'ı açar', () {
       expect(notifKindFromPush('EVIDENCE_REJECTED'), NotifKind.photoRejected);

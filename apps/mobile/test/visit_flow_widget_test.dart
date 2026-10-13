@@ -244,18 +244,30 @@ void main() {
     expect(find.text('Pluxee Ziyaret Anketi'), findsOneWidget);
     expect(find.text('İptal nedeni'), findsNothing);
     await _shot(tester, 'visit-survey');
-    await _tap(tester, find.text('Ziyareti gönder'));
-    expect(find.text('Zorunlu soruları yanıtla.'), findsOneWidget);
-
     // "Sticker yapıştırıldı mı?" beşinci evet/hayır sorusu.
     await _tap(tester, find.text('Hayır').at(4));
     expect(find.text('İptal nedeni'), findsOneWidget);
     await _tap(tester, find.text('Evet').at(4));
     expect(find.text('İptal nedeni'), findsNothing);
 
+    // Tamamlanan ziyarette her soru yanıtlanmadan anket gönderilmez.
+    await _tap(tester, find.text('Ziyareti gönder'));
+    expect(find.text('Zorunlu soruların hepsini yanıtla.'), findsOneWidget);
+    expect(_writes.where((o) => o.path.endsWith('/form')), isEmpty);
+    await _tap(tester, find.text('Evet').at(0));
+    await _tap(tester, find.text('Hayır').at(1));
+    await _tap(tester, find.text('Evet').at(2));
+    await _tap(tester, find.text('Hayır').at(3));
+
     await _tap(tester, find.text('Ziyareti gönder'));
     expect(find.byType(DeliveryResultScreen), findsOneWidget);
-    expect(_body('/form')['values'], {'STICKER_APPLIED': true});
+    expect(_body('/form')['values'], {
+      'PLUXEE_MEMBER': true,
+      'OTHER_MEAL_CARD': false,
+      'APPLICATION_DONE': true,
+      'STICKER_EXISTS': false,
+      'STICKER_APPLIED': true,
+    });
     expect(_body('/form')['status'], 'SUBMITTED');
     expect(_body('/finalize')['resultCode'], 'DELIVERED');
     expect(_body('/finalize').containsKey('reasonCode'), isFalse);

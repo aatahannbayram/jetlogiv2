@@ -100,11 +100,22 @@ TaskStatus taskStatusFromPanel(
   String? assignmentStatusCode,
 }) {
   final fromShipment = switch (raw) {
-    'DELIVERED' => TaskStatus.delivered,
-    'FAILED' || 'RETURN_PROCESS' || 'RETURNED' => TaskStatus.failed,
-    'CANCELLED' => TaskStatus.cancelled,
-    'OUT_FOR_DELIVERY' || 'IN_PROGRESS' || 'EN_ROUTE' || 'ARRIVED' =>
-      TaskStatus.inProgress,
+    // JetDiji durum kodları sayısal metindir; eski adlar yedek olarak gelir.
+    'DELIVERED' || '5010' || '5020' => TaskStatus.delivered,
+    'FAILED' ||
+    'RETURN_PROCESS' ||
+    'RETURNED' ||
+    '5110' ||
+    '6010' ||
+    '7010' ||
+    '7020' ||
+    '7030' => TaskStatus.failed,
+    'CANCELLED' || '8010' || '8030' => TaskStatus.cancelled,
+    'OUT_FOR_DELIVERY' ||
+    'IN_PROGRESS' ||
+    'EN_ROUTE' ||
+    'ARRIVED' ||
+    '4020' => TaskStatus.inProgress,
     'REDELIVERY' => TaskStatus.assigned,
     _ => TaskStatus.assigned,
   };

@@ -277,7 +277,10 @@ class PanelApi {
       throw _panelException(e);
     }
     final data = res.data?['data'] as Map? ?? const {};
-    return data['evidenceId'] as String? ?? data['id'] as String?;
+    final evidence = data['evidence'];
+    return (evidence is Map ? evidence['id'] as String? : null) ??
+        data['evidenceId'] as String? ??
+        data['id'] as String?;
   }
 
   /// Ziyaret anketini kaydeder. [submitted] false ise taslak kalır.
