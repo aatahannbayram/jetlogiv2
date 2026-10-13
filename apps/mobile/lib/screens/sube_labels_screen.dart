@@ -170,13 +170,15 @@ class _SubeLabelsScreenState extends ConsumerState<SubeLabelsScreen> {
                 onPressed: () => _print(branch, fresh),
               ),
             ],
-            const SizedBox(height: 16),
-            SubeSection(l.recentLabels),
-            for (final label in data.recentLabels)
-              _LabelTile(
-                label: label,
-                onPrint: _busy ? null : () => _print(branch, [label]),
-              ),
+            if (data.recentLabels.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              SubeSection(l.recentLabels),
+              for (final label in data.recentLabels)
+                _LabelTile(
+                  label: label,
+                  onPrint: _busy ? null : () => _print(branch, [label]),
+                ),
+            ],
           ],
         ],
       ),

@@ -28,6 +28,15 @@ import 'package:dijigoo_kurye/screens/sube_stock_screen.dart';
 import 'package:dijigoo_kurye/screens/sube_count_screen.dart';
 import 'package:dijigoo_kurye/screens/sube_dispatch_screen.dart';
 import 'package:dijigoo_kurye/screens/sube_eod_screen.dart';
+import 'package:dijigoo_kurye/api/branch_models.dart';
+import 'package:dijigoo_kurye/screens/sube_inbox_screen.dart';
+import 'package:dijigoo_kurye/screens/sube_incoming_screen.dart';
+import 'package:dijigoo_kurye/screens/sube_labels_screen.dart';
+import 'package:dijigoo_kurye/screens/sube_manage_screens.dart';
+import 'package:dijigoo_kurye/screens/sube_ops_screen.dart';
+import 'package:dijigoo_kurye/screens/sube_performance_screen.dart';
+import 'package:dijigoo_kurye/screens/sube_shifts_screen.dart';
+import 'package:dijigoo_kurye/screens/sube_sms_screen.dart';
 import 'package:dijigoo_kurye/screens/depo_screen.dart';
 import 'package:dijigoo_kurye/screens/earnings_screen.dart';
 import 'package:dijigoo_kurye/screens/envanter_screen.dart';
@@ -122,6 +131,23 @@ void main() {
     'branch-count': const SubeCountScreen(),
     'branch-dispatch': const SubeDispatchScreen(),
     'branch-eod': const SubeEodScreen(),
+    'branch-ops': const SubeOpsScreen(),
+    'branch-labels': const SubeLabelsScreen(),
+    'branch-performance': const SubePerformanceScreen(),
+    'branch-sms': const SubeSmsScreen(),
+    'branch-shifts': const SubeShiftsScreen(),
+    'branch-inbox': const SubeInboxScreen(),
+    'branch-incoming': const SubeIncomingScreen(
+      transfer: BranchTransfer(
+        id: 'demo-in1',
+        transferNumber: 'TRF-DEMO-002',
+        statusCode: 'DISPATCHED',
+        partyName: 'Merkez Depo',
+        itemCount: 12,
+      ),
+    ),
+    'branch-training': const SubeTrainingScreen(),
+    'branch-compliance': const SubeComplianceScreen(),
     'depot': const DepoScreen(),
     'earnings': const EarningsScreen(),
     'inventory': const EnvanterScreen(),

@@ -107,7 +107,7 @@ void main() {
     await tester.tap(find.text('Performans'));
     await tester.pumpAndSettle();
     expect(find.text('Teslim oranı'), findsOneWidget);
-    expect(find.text('%87.9'), findsOneWidget);
+    expect(find.text('%87,9'), findsOneWidget);
     Navigator.of(tester.element(find.text('Teslim oranı'))).pop();
     await tester.pumpAndSettle();
     await tester.tap(find.text('Etiket'));

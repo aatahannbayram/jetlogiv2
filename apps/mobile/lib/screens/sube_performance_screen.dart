@@ -29,7 +29,47 @@ class _SubePerformanceScreenState extends ConsumerState<SubePerformanceScreen> {
   Future<void> _load() =>
       ref.read(sessionProvider).branch.loadPerformance(_ranges[_range]);
 
-  static String _pct(num? v) => v == null ? '—' : '%${v.toStringAsFixed(1)}';
+  static const _monthsTr = [
+    'Oca',
+    'Şub',
+    'Mar',
+    'Nis',
+    'May',
+    'Haz',
+    'Tem',
+    'Ağu',
+    'Eyl',
+    'Eki',
+    'Kas',
+    'Ara',
+  ];
+  static const _monthsEn = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+
+  static String _pct(L10n l, num? v) {
+    if (v == null) return '—';
+    final n = v.toStringAsFixed(1);
+    return l.isEn ? '$n%' : '%${n.replaceAll('.', ',')}';
+  }
+
+  /// Sunucunun `2026-01-01` gününü "1 Oca" diye gösterir.
+  static String _day(L10n l, String raw) {
+    final d = DateTime.tryParse(raw);
+    if (d == null) return raw;
+    return '${d.day} ${(l.isEn ? _monthsEn : _monthsTr)[d.month - 1]}';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -72,9 +112,9 @@ class _SubePerformanceScreenState extends ConsumerState<SubePerformanceScreen> {
                   ),
                 ),
               SubeKpiGrid([
-                (l.perfDeliveryRate, _pct(p.deliveryRate)),
-                (l.perfFirstAttempt, _pct(p.firstAttemptRate)),
-                (l.perfSla, _pct(p.slaCompliance)),
+                (l.perfDeliveryRate, _pct(l, p.deliveryRate)),
+                (l.perfFirstAttempt, _pct(l, p.firstAttemptRate)),
+                (l.perfSla, _pct(l, p.slaCompliance)),
                 (
                   l.perfAvgMinutes,
                   p.averageDeliveryMinutes == null
@@ -105,14 +145,18 @@ class _SubePerformanceScreenState extends ConsumerState<SubePerformanceScreen> {
                               ),
                               Text(
                                 '${l.kpiDelivered} ${c.delivered} · '
-                                '${l.kpiUndelivered} ${c.failed} · '
-                                '${l.perfFirstAttempt} ${_pct(c.firstAttemptRate)}',
+                                '${l.kpiUndelivered} ${c.failed}',
+                                style: Dg.ui(size: 12, color: Dg.ink3),
+                              ),
+                              Text(
+                                '${l.perfFirstAttempt} '
+                                '${_pct(l, c.firstAttemptRate)}',
                                 style: Dg.ui(size: 12, color: Dg.ink3),
                               ),
                             ],
                           ),
                         ),
-                        Mono(_pct(c.deliveryRate), weight: FontWeight.w700),
+                        Mono(_pct(l, c.deliveryRate), weight: FontWeight.w700),
                       ],
                     ),
                   ),
@@ -124,7 +168,7 @@ class _SubePerformanceScreenState extends ConsumerState<SubePerformanceScreen> {
                     padding: const EdgeInsets.only(bottom: 6),
                     child: Row(
                       children: [
-                        Expanded(child: Mono(d.day, size: 13)),
+                        Expanded(child: Mono(_day(l, d.day), size: 13)),
                         Text(
                           '${l.kpiDelivered} ${d.delivered} · '
                           '${l.kpiUndelivered} ${d.failed}',
