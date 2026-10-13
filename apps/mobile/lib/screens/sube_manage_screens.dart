@@ -244,18 +244,20 @@ class _SubeComplianceScreenState extends ConsumerState<SubeComplianceScreen> {
                           ],
                         ),
                       ),
-                      StatusChip(
-                        label: switch (c.documentStatus) {
-                          'COMPLETE' => l.docsComplete,
-                          'IN_REVIEW' => l.docsInReview,
-                          'MISSING' => l.docsMissing(c.missing),
-                          _ => l.docsNoPackage,
-                        },
-                        tone: switch (c.documentStatus) {
-                          'COMPLETE' => 'lo',
-                          'IN_REVIEW' => 'mid',
-                          _ => 'hi',
-                        },
+                      Flexible(
+                        child: StatusChip(
+                          label: switch (c.documentStatus) {
+                            'COMPLETE' => l.docsComplete,
+                            'IN_REVIEW' => l.docsInReview,
+                            'MISSING' => l.docsMissing(c.missing),
+                            _ => l.docsNoPackage,
+                          },
+                          tone: switch (c.documentStatus) {
+                            'COMPLETE' => 'lo',
+                            'IN_REVIEW' => 'mid',
+                            _ => 'hi',
+                          },
+                        ),
                       ),
                     ],
                   ),

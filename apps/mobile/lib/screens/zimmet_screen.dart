@@ -176,7 +176,7 @@ class _ZimmetScreenState extends ConsumerState<ZimmetScreen> {
       appBar: AppBar(title: Text(title)),
       body: SafeArea(
         top: false,
-        child: Column(
+        child: ListView(
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
@@ -236,7 +236,8 @@ class _ZimmetScreenState extends ConsumerState<ZimmetScreen> {
                 ],
               ),
             ),
-            Expanded(
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
               child: s.zimmetScans.isEmpty
                   ? Center(
                       child: Text(
@@ -245,6 +246,8 @@ class _ZimmetScreenState extends ConsumerState<ZimmetScreen> {
                       ),
                     )
                   : ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
                       padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
                       itemCount: s.zimmetScans.length,
                       separatorBuilder: (context, i) =>

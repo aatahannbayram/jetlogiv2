@@ -7,11 +7,11 @@ class Dg {
   Dg._();
 
   /// [DijigooApp.build] her rebuild'de `s.darkModeUi`'den set eder.
-  static bool dark = true;
+  static bool dark = false;
 
   // ---- Zemin / yüzey ----
-  /// Koyu tema: JetLogi moru, neon parıltısız. Saf siyah yerine derin
-  /// indigo zemin; ikincil metin WCAG 2.2 SC 1.4.3 için açık lavanta gri.
+  /// Sıcak taş yüzeyler ve kömür tonları; turuncu yalnız eylem ve vurgu için.
+  /// İkincil metin her iki temada da okunaklı kalır.
   /// https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html
   /// https://m3.material.io/styles/color/system/overview
   static Color get ground => bg;
@@ -24,25 +24,17 @@ class Dg {
 
   /// Koşulsuz koyu — temadan bağımsız gerçek siyah/gece yüzeyler için
   /// (giriş/tören ekranı gradyanının tabanı, PhoneShell çerçevesi).
-  static const night = Color(0xFF100C22);
-  static const onNight = Color(0xFFFAF7FF);
-  static const mutedOnNight = Color(0xFFE0D5EF);
-  static const action = Color(0xFFFF8A24);
-  static const onAction = Color(0xFF211035);
+  static const night = Color(0xFF202422);
+  static const onNight = Color(0xFFF8F5F0);
+  static const mutedOnNight = Color(0xFFD2D7D3);
+  static const action = Color(0xFFFF7800);
+  static const onAction = Color(0xFF101010);
   static const touchMin = 48.0;
   static const buttonMin = 56.0;
   static Color get onStatus => dark ? night : Colors.white;
 
-  /// Soft depth for content surfaces; outlines remain reserved for inputs.
-  static List<BoxShadow> get cardShadow => [
-    BoxShadow(
-      color: (dark ? const Color(0xFF080310) : const Color(0xFF362052))
-          .withValues(alpha: dark ? 0.24 : 0.07),
-      blurRadius: 24,
-      offset: const Offset(0, 8),
-      spreadRadius: -6,
-    ),
-  ];
+  /// Content is separated by spacing and tonal surfaces, without shadows.
+  static const cardShadow = <BoxShadow>[];
   static List<BoxShadow> get dockShadow => [
     BoxShadow(
       color: night.withValues(alpha: dark ? 0.40 : 0.12),
@@ -52,15 +44,22 @@ class Dg {
     ),
   ];
 
-  // ---- Marka moru ----
-  /// Turuncu birincil eylem; marka ve içerik yüzeyleri mor kalır.
+  // ---- Eylem ve vurgu ----
+  /// Sakin yüzeyler üzerinde sıcak turuncu eylem vurgusu.
   static Color get primaryGradientStart => action;
   static Color get primaryGradientEnd => heroAccentOrange;
   static const primaryGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFFFFC15A), Color(0xFFFF7A18), Color(0xFFFF5C00)],
+    colors: [Color(0xFFFF8A24), Color(0xFFFF7800), Color(0xFFF56600)],
   );
+
+  // Persistent charcoal dock, independent of the content theme.
+  static const dock = Color(0xFF202422);
+  static const onDock = Color(0xFFF7F4EE);
+  static const mutedOnDock = Color(0xFFC9C4BB);
+  static const dockActive = Color(0xFFFF8A32);
+  static const dockSelected = Color(0xFF3D332A);
 
   static Color get purpleActive => brand;
 
@@ -69,22 +68,22 @@ class Dg {
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
     colors: dark
-        ? const [Color(0xFF4E2C96), Color(0xFF241248), Color(0xFF100C22)]
-        : const [Color(0xFFEDE4FF), Color(0xFFF7F4FF), Color(0xFFF6F2FC)],
+        ? const [Color(0xFF2D3330), Color(0xFF252A27), Color(0xFF202422)]
+        : const [Color(0xFFF0F2EB), Color(0xFFF8F9F5), Color(0xFFF5F5F2)],
   );
-  static const heroAccentOrange = Color(0xFFFF7A18);
+  static const heroAccentOrange = Color(0xFFFF7800);
   static const emberGradient = LinearGradient(
     begin: Alignment.centerLeft,
     end: Alignment.centerRight,
-    colors: [Color(0xFFFFC15A), Color(0xFFFF7A18), Color(0xFFFF5C00)],
+    colors: [Color(0xFFFF8A24), Color(0xFFFF7800), Color(0xFFF56600)],
   );
 
   static Color get onHero => dark ? Colors.white : ink;
-  static Color get onHeroMuted => dark ? const Color(0xFFCBBEEE) : ink2;
+  static Color get onHeroMuted => dark ? const Color(0xFFD2D7D3) : ink2;
 
   /// Giriş/tören ekranındaki cam-efekti kart yüzeyi.
   static Color get heroGlass =>
-      dark ? const Color(0x80140A2A) : const Color(0xF2FFFFFF);
+      dark ? const Color(0xCC242320) : const Color(0xF2FFFFFF);
 
   // Legacy brand-purple isimleri — hâlâ referans veren yerler (menü ikon
   // rozetleri, harita polyline'ı, hero kart zemini gibi "marka moru" ama
@@ -131,11 +130,11 @@ class Dg {
   static const statFamily = 'Geist';
   static const mono = 'Geist Mono';
 
-  // ---- Radius: Uber/IG — küçük köşe, yüzen “AI kartı” yok ----
+  // ---- Yumuşak kartlar ve kapsül düğmeler ----
   static const radiusPhone = 46.0;
-  static const radiusHero = 20.0;
-  static const radius = 14.0;
-  static const radiusPill = 14.0;
+  static const radiusHero = 24.0;
+  static const radius = 18.0;
+  static const radiusPill = 28.0;
   static const pagePad = 20.0;
 
   /// Saha dokunma hedefi. Apple HIG 44pt, Material 48dp; eldiven/araç için 56.
@@ -155,25 +154,25 @@ class Dg {
   /// simüle eder (Flutter'ın `BoxShadow`'u gerçek inset desteklemiyor).
   static const insetHighlight = Color(0x1FFFFFFF);
 
-  // ---- Kurye ve şube için ortak mor–turuncu saha paleti ----
+  // ---- Kurye ve şube için ortak taş–kömür saha paleti ----
   static Color get bg =>
-      dark ? const Color(0xFF160E29) : const Color(0xFFF6F2FC);
+      dark ? const Color(0xFF171918) : const Color(0xFFF5F5F2);
   static Color get surface1 =>
-      dark ? const Color(0xFF26183F) : const Color(0xFFFFFFFF);
+      dark ? const Color(0xFF222524) : const Color(0xFFFFFFFF);
   static Color get surface2 =>
-      dark ? const Color(0xFF35234F) : const Color(0xFFEDE6F5);
+      dark ? const Color(0xFF2D302F) : const Color(0xFFEBEEEA);
   static Color get stroke =>
-      dark ? const Color(0xFF8876A3) : const Color(0xFF82728F);
+      dark ? const Color(0xFF8C8B82) : const Color(0xFF807B72);
   static Color get text1 =>
-      dark ? const Color(0xFFFAF7FF) : const Color(0xFF211035);
+      dark ? const Color(0xFFF8F5F0) : const Color(0xFF101010);
   static Color get text2 =>
-      dark ? const Color(0xFFE0D5EF) : const Color(0xFF574466);
+      dark ? const Color(0xFFD2D7D3) : const Color(0xFF4A4A4A);
   static Color get text3 =>
-      dark ? const Color(0xFFC4B4D8) : const Color(0xFF685675);
+      dark ? const Color(0xFFB4BCB6) : const Color(0xFF626B65);
   static Color get brand =>
-      dark ? const Color(0xFFC5ADFF) : const Color(0xFF6540A0);
+      dark ? const Color(0xFFFF8A32) : const Color(0xFFB04400);
   static Color get warn =>
-      dark ? const Color(0xFFFFB568) : const Color(0xFF984000);
+      dark ? const Color(0xFFFF8A32) : const Color(0xFFAF4100);
   static Color get ok =>
       dark ? const Color(0xFF6EE7A0) : const Color(0xFF16733E);
   static Color get bad =>
@@ -181,16 +180,16 @@ class Dg {
   static Color get hairline =>
       dark ? const Color(0x0FFFFFFF) : const Color(0x0F000000);
 
-  /// Kart kenarı. Üst çizgi yerine dört yanı kaplayan ince çerçeve.
-  static Color get cardEdge => stroke.withValues(alpha: 0.55);
+  /// Legacy decorative edge: subtle and separate from control outlines.
+  static Color get cardEdge => hairline;
   static Color get warnSoft => warn.withValues(alpha: 0.12);
   static Color get brandSoft => brand.withValues(alpha: 0.12);
   static Color get muteSoft =>
-      dark ? const Color(0xFF35234F) : const Color(0xFFEDE6F5);
+      dark ? const Color(0xFF2D302F) : const Color(0xFFEBEEEA);
 
   static const rSm = 10.0;
   static const rMd = 14.0;
-  static const rLg = 20.0;
+  static const rLg = 24.0;
   static const s4 = 4.0;
   static const s8 = 8.0;
   static const s12 = 12.0;
@@ -412,7 +411,7 @@ class Dg {
         centerTitle: false,
         titleTextStyle: serif(size: 20, weight: FontWeight.w600),
       ),
-      dividerColor: rule,
+      dividerColor: hairline,
       // Material butonları da ortak eylem paletini kullanır.
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(

@@ -228,7 +228,7 @@ void main() {
   testWidgets('zimmet taraması kodu listeye yazar', (tester) async {
     await bindPhone(tester);
     await openDemo(tester);
-    await tester.tap(find.text('Tara'));
+    await tester.tap(find.byTooltip('Tara'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Kurye Zimmet'));
     await tester.pumpAndSettle();

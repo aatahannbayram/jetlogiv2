@@ -150,11 +150,19 @@ class _SubeSmsScreenState extends ConsumerState<SubeSmsScreen> {
             )
           else ...[
             DropdownButtonFormField<String>(
+              isExpanded: true,
               initialValue: template.key,
               decoration: InputDecoration(labelText: l.smsTemplate),
               items: [
                 for (final t in templates)
-                  DropdownMenuItem(value: t.key, child: Text(t.name)),
+                  DropdownMenuItem(
+                    value: t.key,
+                    child: Text(
+                      t.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
               ],
               onChanged: (v) => setState(() {
                 _templateKey = v;

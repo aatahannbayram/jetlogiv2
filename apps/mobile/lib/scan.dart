@@ -101,37 +101,40 @@ class _BarcodeScanPaneState extends State<BarcodeScanPane> {
       color: Dg.night,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 18, 16, 14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              message ?? l.openCameraHint,
-              style: Dg.ui(size: 14, color: Dg.mutedOnNight),
-            ),
-            const Spacer(),
-            TextField(
-              controller: _manual,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                message ?? l.openCameraHint,
+                style: Dg.ui(size: 14, color: Dg.mutedOnNight),
               ),
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: Dg.surface2,
-                hintText: l.typeCode,
-                hintStyle: const TextStyle(color: Dg.mutedOnNight),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide.none,
+              const SizedBox(height: 12),
+              TextField(
+                controller: _manual,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
                 ),
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: Dg.surface2,
+                  hintText: l.typeCode,
+                  hintStyle: const TextStyle(color: Dg.mutedOnNight),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+                textInputAction: TextInputAction.done,
+                onSubmitted: (v) {
+                  _emit(v);
+                  _manual.clear();
+                },
               ),
-              textInputAction: TextInputAction.done,
-              onSubmitted: (v) {
-                _emit(v);
-                _manual.clear();
-              },
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

@@ -61,156 +61,162 @@ class _SupportScreenState extends ConsumerState<SupportScreen> {
     final session = ref.watch(sessionProvider);
     return Scaffold(
       appBar: AppBar(title: Text(l.support)),
-      body: RefreshIndicator(
-        onRefresh: () => session.loadTickets(),
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-          children: [
-            DgCard(
-              onTap: () => dialNumber(context, '112'),
-              child: Row(
-                children: [
-                  DgIcon(LucideIcons.siren, color: Dg.bad, weight: 600),
-                  const SizedBox(width: 12),
-                  Expanded(
+      body: SafeArea(
+        top: false,
+        child: RefreshIndicator(
+          onRefresh: () => session.loadTickets(),
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+            children: [
+              DgCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        DgIcon(LucideIcons.siren, color: Dg.bad, weight: 600),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            l.sos,
+                            style: Dg.ui(size: 16, weight: FontWeight.w700),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(l.sosHint, style: Dg.ui(size: 14, color: Dg.ink2)),
+                    const SizedBox(height: 8),
+                    TextButton.icon(
+                      onPressed: () => dialNumber(context, '112'),
+                      icon: DgIcon(LucideIcons.phone, color: Dg.bad),
+                      label: Text(
+                        l.sosCall,
+                        style: Dg.ui(
+                          size: 14,
+                          weight: FontWeight.w700,
+                          color: Dg.bad,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              Display(l.openTicket, size: 22),
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Mono(l.categoryCaps, size: 11, color: Dg.ink3),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final c in supportCategories)
+                          ChoiceChip(
+                            label: Text(l.categoryOf(c)),
+                            selected: category == c,
+                            onSelected: (_) => setState(() => category = c),
+                            selectedColor: Dg.action,
+                            backgroundColor: Dg.elev,
+                            labelStyle: Dg.ui(
+                              size: 14,
+                              weight: FontWeight.w600,
+                              color: category == c ? Dg.onAction : Dg.ink2,
+                            ),
+                            showCheckmark: false,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 8,
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    TextField(
+                      key: const Key('support-subject'),
+                      controller: subject,
+                      textInputAction: TextInputAction.next,
+                      decoration: InputDecoration(
+                        labelText: l.subject,
+                        border: InputBorder.none,
+                      ),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      key: const Key('support-body'),
+                      controller: body,
+                      minLines: 3,
+                      maxLines: 5,
+                      decoration: InputDecoration(
+                        labelText: l.whatHappened,
+                        alignLabelWithHint: true,
+                        border: InputBorder.none,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    DgButton(
+                      key: const Key('support-send'),
+                      label: l.send,
+                      icon: LucideIcons.send,
+                      busy: sending,
+                      onPressed: sending ? null : _submit,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 22),
+              Display(l.myRecords, size: 22),
+              const SizedBox(height: 12),
+              if (session.tickets.isEmpty)
+                DgEmptyState(
+                  icon: LucideIcons.lifeBuoy,
+                  title: l.noTickets,
+                  body: l.ticketsEmptyBody,
+                )
+              else
+                for (final t in session.tickets) ...[
+                  DgCard(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          l.sos,
-                          style: Dg.ui(size: 16, weight: FontWeight.w700),
-                        ),
-                        Text(l.sosHint, style: Dg.ui(size: 13, color: Dg.ink2)),
-                      ],
-                    ),
-                  ),
-                  Text(
-                    l.sosCall,
-                    style: Dg.ui(
-                      size: 13,
-                      weight: FontWeight.w700,
-                      color: Dg.red,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            Display(l.openTicket, size: 22),
-            const SizedBox(height: 12),
-            DgCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Mono(l.categoryCaps, size: 11, color: Dg.ink3),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      for (final c in supportCategories)
-                        GestureDetector(
-                          onTap: () => setState(() => category = c),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 160),
-                            constraints: const BoxConstraints(
-                              minHeight: Dg.touchMin,
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
-                            decoration: BoxDecoration(
-                              color: category == c
-                                  ? Dg.primaryGradientStart
-                                  : Dg.elev,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              l.categoryOf(c),
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: category == c ? Dg.onAction : Dg.ink2,
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                t.subject,
+                                style: Dg.ui(size: 16, weight: FontWeight.w700),
                               ),
                             ),
-                          ),
+                            StatusChip(label: t.statusLabel, tone: 'mid'),
+                          ],
                         ),
-                    ],
-                  ),
-                  TextField(
-                    controller: subject,
-                    decoration: InputDecoration(
-                      hintText: l.subject,
-                      border: InputBorder.none,
-                    ),
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  TextField(
-                    controller: body,
-                    minLines: 3,
-                    maxLines: 5,
-                    decoration: InputDecoration(
-                      hintText: l.whatHappened,
-                      border: InputBorder.none,
+                        const SizedBox(height: 4),
+                        Mono(
+                          '${t.reference} · ${l.categoryOf(t.category)}',
+                          size: 12,
+                          color: Dg.ink3,
+                        ),
+                        if (t.body.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Text(t.body, style: Dg.ui(size: 14, color: Dg.ink2)),
+                        ],
+                      ],
                     ),
                   ),
                   const SizedBox(height: 8),
-                  DgButton(
-                    label: l.send,
-                    icon: LucideIcons.send,
-                    busy: sending,
-                    onPressed: sending ? null : _submit,
-                  ),
                 ],
-              ),
-            ),
-            const SizedBox(height: 22),
-            Display(l.myRecords, size: 22),
-            const SizedBox(height: 12),
-            if (session.tickets.isEmpty)
-              DgEmptyState(
-                icon: LucideIcons.lifeBuoy,
-                title: l.noTickets,
-                body: l.ticketsEmptyBody,
-              )
-            else
-              for (final t in session.tickets) ...[
-                DgCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              t.subject,
-                              style: Dg.ui(size: 16, weight: FontWeight.w700),
-                            ),
-                          ),
-                          StatusChip(label: t.statusLabel, tone: 'mid'),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Mono(
-                        '${t.reference} · ${l.categoryOf(t.category)}',
-                        size: 12,
-                        color: Dg.ink3,
-                      ),
-                      if (t.body.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Text(t.body, style: Dg.ui(size: 14, color: Dg.ink2)),
-                      ],
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 8),
-              ],
-          ],
+            ],
+          ),
         ),
       ),
     );

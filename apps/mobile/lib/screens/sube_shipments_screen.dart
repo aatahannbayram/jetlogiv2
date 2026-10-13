@@ -55,7 +55,7 @@ class _SubeShipmentsScreenState extends ConsumerState<SubeShipmentsScreen> {
       body: Column(
         children: [
           SizedBox(
-            height: 44,
+            height: 32 + MediaQuery.textScalerOf(context).scale(16),
             child: ListView(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -383,18 +383,20 @@ class _ShipmentCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              StatusChip(label: label, tone: tone),
-              if (row.late || row.highPriority) ...[
-                const SizedBox(height: 4),
-                StatusChip(
-                  label: row.late ? l.filterLate : l.filterPriority,
-                  tone: 'hi',
-                ),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                StatusChip(label: label, tone: tone),
+                if (row.late || row.highPriority) ...[
+                  const SizedBox(height: 4),
+                  StatusChip(
+                    label: row.late ? l.filterLate : l.filterPriority,
+                    tone: 'hi',
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ],
       ),

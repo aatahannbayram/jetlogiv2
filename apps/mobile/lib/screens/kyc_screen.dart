@@ -308,12 +308,14 @@ class _DocChip extends StatelessWidget {
           children: [
             DgIcon(icon, size: 16, color: selected ? onInk : Dg.ink),
             const SizedBox(width: 6),
-            Text(
-              label,
-              style: Dg.ui(
-                size: 14,
-                weight: FontWeight.w600,
-                color: selected ? onInk : Dg.ink,
+            Flexible(
+              child: Text(
+                label,
+                style: Dg.ui(
+                  size: 14,
+                  weight: FontWeight.w600,
+                  color: selected ? onInk : Dg.ink,
+                ),
               ),
             ),
           ],

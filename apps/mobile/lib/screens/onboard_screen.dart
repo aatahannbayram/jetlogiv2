@@ -104,14 +104,12 @@ class _OnboardScreenState extends ConsumerState<OnboardScreen> {
                 onPageChanged: (i) => setState(() => _index = i),
                 itemBuilder: (context, i) {
                   final s = slides[i];
-                  return Padding(
+                  return SingleChildScrollView(
                     padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: Center(child: _Art(index: i)),
-                        ),
+                        _Art(index: i),
                         const SizedBox(height: 20),
                         Column(
                               key: ValueKey(i),
@@ -222,10 +220,12 @@ class _Art extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           Mono('DGO-8841', color: Dg.ink),
-                          const Spacer(),
                           StatusChip(
                             label: L10n.of(context).inQueue,
                             tone: 'lime',
@@ -311,9 +311,11 @@ class _Art extends StatelessWidget {
         children: [
           DgIcon(icon, size: 20, color: Dg.ink),
           const SizedBox(width: 10),
-          Text(
-            t,
-            style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 16),
+          Expanded(
+            child: Text(
+              t,
+              style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 16),
+            ),
           ),
         ],
       ),

@@ -973,8 +973,8 @@ class SessionController extends ChangeNotifier {
   bool notifyEnabled = true;
   bool notifyOsBlocked = false;
   bool workerEnabled = true;
-  // Koyu tema varsayılan; açık tema ve dil ayarlardan değişir.
-  bool darkModeUi = true;
+  // Yeni kurulumda açık tema; kayıtlı tema ve dil tercihleri korunur.
+  bool darkModeUi = false;
   String localeCode = 'tr';
 
   L10n get l10n => L10n(localeCode);
