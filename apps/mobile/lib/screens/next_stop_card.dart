@@ -48,7 +48,7 @@ class _NextStopPagerState extends ConsumerState<NextStopPager> {
     final stops = s.orderedOpenTasks;
     if (stops.isEmpty) return const _NoOpenStop();
     return SizedBox(
-      height: 436 + (MediaQuery.textScalerOf(context).scale(16) - 16) * 24,
+      height: 424 + (MediaQuery.textScalerOf(context).scale(16) - 16) * 24,
       child: PageView.builder(
         controller: _pages,
         padEnds: false,
@@ -134,7 +134,7 @@ class _NextStopCardState extends ConsumerState<NextStopCard> {
         : (meters / 1000).toStringAsFixed(1);
     final index = s.visitNumber(task.id);
     final total = s.orderedOpenTasks.length;
-    final mapH = phase == NextStopPhase.enroute ? 112.0 : 64.0;
+    final mapH = phase == NextStopPhase.enroute ? 118.0 : 80.0;
     final snap = mapSnapshotUrl(
       task: task,
       selfLat: s.selfLat,
@@ -143,7 +143,6 @@ class _NextStopCardState extends ConsumerState<NextStopCard> {
     );
 
     final travel = [
-      if (addr.hood != null) addr.hood!,
       if (km != null) '$km km',
       if (minutes != null) '$minutes dk',
     ].join(' · ');
@@ -198,48 +197,110 @@ class _NextStopCardState extends ConsumerState<NextStopCard> {
                         )
                       : null,
                   indexLabel: l.stopIndexOf(index, total),
+                  travelLabel: travel.isEmpty ? null : travel,
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute<void>(
                       builder: (_) => const RouteScreen(),
                     ),
                   ),
                 ),
-                // Önce nereye gidildiği, sonra ne zaman, en sonda kime.
+                // Kime ve nereye: ikisi de kırpılmadan okunur.
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
                   child: Text(
-                    addr.street,
-                    maxLines: 1,
+                    task.recipient,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: Dg.ui(
-                      size: 22,
+                      size: 21,
                       weight: FontWeight.w700,
-                      letterSpacing: 22 * -0.01,
+                      letterSpacing: 21 * -0.01,
+                      height: 1.2,
                     ),
                   ),
                 ),
-                if (travel.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 3, 16, 0),
-                    child: Text(
-                      travel,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Dg.ui(size: 14, color: Dg.text2),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+                  child: Text(
+                    addr.street,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Dg.ui(
+                      size: 16,
+                      weight: FontWeight.w600,
+                      height: 1.25,
                     ),
                   ),
+                ),
+                // Mahalle solda, gönderi no ve kalem sağda; sığmazsa alt satıra
+                // iner (büyük yazı ayarı).
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                  child: Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
+                    children: [
+                      if (addr.hood != null)
+                        Text(
+                          addr.hood!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Dg.ui(size: 14, color: Dg.text2),
+                        ),
+                      _MetaLine(task: task),
+                    ],
+                  ),
+                ),
                 if (appt != null)
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
                     child: _ApptPill(window: appt),
                   ),
+                const SizedBox(height: 14),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                  child: _MetaLine(task: task),
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 200),
+                    child: _SolidCta(
+                      key: const Key('next-stop-cta'),
+                      label: phase == NextStopPhase.arrived
+                          ? l.startDelivery
+                          : l.directions,
+                      icon: phase == NextStopPhase.arrived
+                          ? LucideIcons.packageCheck
+                          : LucideIcons.arrowRight,
+                      ember: phase != NextStopPhase.arrived,
+                      color: Dg.ok,
+                      onTap: () {
+                        HapticFeedback.mediumImpact();
+                        if (phase == NextStopPhase.arrived) {
+                          final nav = Navigator.of(context);
+                          final messenger = ScaffoldMessenger.of(context);
+                          final warn = context.l10n.startNeedsLocation;
+                          s.startTask(task.id).then((ok) {
+                            if (!ok) {
+                              messenger
+                                ..hideCurrentSnackBar()
+                                ..showSnackBar(SnackBar(content: Text(warn)));
+                              return;
+                            }
+                            nav.push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => WizardScreen(taskId: task.id),
+                              ),
+                            );
+                          });
+                        } else {
+                          openDirections(context, task);
+                        }
+                      },
+                    ),
+                  ),
                 ),
-                // Yardımcı işlemler tek satırda, eşit genişlik ve yükseklikte.
+                // Asıl düğmenin altında yardımcı işlemler: tek satır, eşit boy.
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
                   child: IntrinsicHeight(
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -287,46 +348,6 @@ class _NextStopCardState extends ConsumerState<NextStopCard> {
                     ),
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 200),
-                    child: _SolidCta(
-                      key: const Key('next-stop-cta'),
-                      label: phase == NextStopPhase.arrived
-                          ? l.startDelivery
-                          : l.directions,
-                      icon: phase == NextStopPhase.arrived
-                          ? LucideIcons.packageCheck
-                          : LucideIcons.arrowRight,
-                      ember: phase != NextStopPhase.arrived,
-                      color: Dg.ok,
-                      onTap: () {
-                        HapticFeedback.mediumImpact();
-                        if (phase == NextStopPhase.arrived) {
-                          final nav = Navigator.of(context);
-                          final messenger = ScaffoldMessenger.of(context);
-                          final warn = context.l10n.startNeedsLocation;
-                          s.startTask(task.id).then((ok) {
-                            if (!ok) {
-                              messenger
-                                ..hideCurrentSnackBar()
-                                ..showSnackBar(SnackBar(content: Text(warn)));
-                              return;
-                            }
-                            nav.push(
-                              MaterialPageRoute<void>(
-                                builder: (_) => WizardScreen(taskId: task.id),
-                              ),
-                            );
-                          });
-                        } else {
-                          openDirections(context, task);
-                        }
-                      },
-                    ),
-                  ),
-                ),
               ],
             ),
           ),
@@ -343,8 +364,11 @@ class _MapShot extends StatelessWidget {
     required this.indexLabel,
     required this.onTap,
     this.map,
+    this.travelLabel,
   });
 
+  /// "0.7 km · 1 dk"; haritanın sağ altında durur.
+  final String? travelLabel;
   final double height;
   final String? url;
   final Widget? map;
@@ -388,12 +412,39 @@ class _MapShot extends StatelessWidget {
                 ),
               ),
             ),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: Container(height: 1, color: Dg.stroke),
-            ),
+            if (travelLabel != null)
+              Positioned(
+                right: 10,
+                bottom: 10,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xE60B0B0F),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        LucideIcons.navigation,
+                        size: 12,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        travelLabel!,
+                        style: Dg.typeNum(
+                          size: 12,
+                          weight: FontWeight.w600,
+                        ).copyWith(color: Colors.white),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -439,7 +490,11 @@ class _ApptPillState extends State<_ApptPill> {
     final ink = danger ? Dg.bad : Dg.warn;
     final clock = widget.window.label.toUpperCase();
     final text = danger && _left != null
-        ? '${l.appointment.toUpperCase()} $clock · ${_left! < 0 ? l.minutesLate(-_left!) : l.minutesLeft(_left!)}'
+        ? '${l.appointment.toUpperCase()} $clock · ${_left! < 0
+              ? l.minutesLate(-_left!)
+              : _left == 0
+              ? l.timeIsUp
+              : l.minutesLeft(_left!)}'
         : '${l.appointment.toUpperCase()} $clock';
     return Align(
       alignment: Alignment.centerLeft,
@@ -471,37 +526,27 @@ class _MetaLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
-    return Row(
+    // Wrap: büyük yazı ayarında kalem sayısı alt satıra iner, taşmaz.
+    return Wrap(
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        Flexible(
-          child: Text(
-            task.recipient,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Dg.ui(size: 15, color: Dg.text2),
-          ),
-        ),
-        Text(' · ', style: Dg.ui(size: 15, color: Dg.text2)),
-        Flexible(
-          child: Text(
-            task.ref,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Dg.ui(
-              size: 15,
-              color: Dg.text2,
-            ).copyWith(fontFamily: Dg.mono),
-          ),
+        Text(
+          task.ref,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Dg.ui(size: 14, color: Dg.text2).copyWith(fontFamily: Dg.mono),
         ),
         if (task.custodyCount != null) ...[
-          Text(' · ', style: Dg.ui(size: 15, color: Dg.text2)),
+          Text(' · ', style: Dg.ui(size: 14, color: Dg.text2)),
           GestureDetector(
+            behavior: HitTestBehavior.opaque,
             onTap: () => _sheet(context, l),
-            child: DgTapTarget(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
               child: Text(
                 l.itemsCount(task.custodyCount!),
                 style: Dg.ui(
-                  size: 15,
+                  size: 14,
                   weight: FontWeight.w600,
                   color: Dg.text2,
                 ).copyWith(decoration: TextDecoration.underline),

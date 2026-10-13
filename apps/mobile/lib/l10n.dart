@@ -318,6 +318,7 @@ class L10n {
   String get arrivedHere => _t('Vardım', 'I arrived');
   String get appointment => _t('Randevu', 'Appointment');
   String minutesLeft(int n) => _t('$n dk kaldı', '$n min left');
+  String get timeIsUp => _t('süresi doldu', 'time is up');
   String minutesLate(int n) => _t('$n dk gecikti', '$n min late');
   String stopIndexOf(int i, int n) => '$i / $n';
   String get moreActions => _t('Daha fazla', 'More');
@@ -800,6 +801,9 @@ class L10n {
           '$delivered teslim edildi · $failed olmadı',
           '$delivered delivered · $failed failed',
         );
+  String doneOf(int done, int total) => total == 0
+      ? _t('Bugün için durak yok', 'No stops today')
+      : _t('$done / $total bitti', '$done / $total done');
   String apptCount(int n) => _t('$n randevulu', '$n by appointment');
   String lateCount(int n) => _t('$n acil', '$n urgent');
   String toBranchCount(int n) =>

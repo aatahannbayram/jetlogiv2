@@ -516,7 +516,8 @@ class _NoStopCard extends StatelessWidget {
   }
 }
 
-/// Günün özeti, en üstte: kaç durak kaldı, kaçı bitti, dikkat isteyenler.
+/// Günün özeti, en üstte: kaç durak kaldı, ne kadarı bitti (çubuk) ve
+/// dikkat isteyenler (renkli etiketler).
 class _DaySummary extends StatelessWidget {
   const _DaySummary({required this.session});
   final SessionController session;
@@ -524,54 +525,92 @@ class _DaySummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
-    final flags = [
-      if (session.slaRiskCount > 0) (l.lateCount(session.slaRiskCount), Dg.hi),
+    final open = session.orderedOpenTasks.length;
+    final done = session.deliveredCount + session.returnCount;
+    final total = open + done;
+    final chips = [
+      if (session.slaRiskCount > 0)
+        (l.lateCount(session.slaRiskCount), Dg.hiBg, Dg.hi),
       if (session.appointmentCount > 0)
-        (l.apptCount(session.appointmentCount), Dg.text2),
+        (l.apptCount(session.appointmentCount), Dg.surface2, Dg.text2),
       if (session.returnCount > 0)
-        (l.toBranchCount(session.returnCount), Dg.text2),
+        (l.toBranchCount(session.returnCount), Dg.surface2, Dg.text2),
     ];
     return Padding(
       padding: const EdgeInsets.only(top: 14),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CountUp(
-            // Sıradaki durak da kalanlara dahil.
-            session.orderedOpenTasks.length,
-            style: Dg.stat(size: 44, color: Dg.ink),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  l.kpiLeftHint,
-                  style: Dg.ui(size: 15, weight: FontWeight.w600),
-                ),
-                // Bitenler ve dikkat isteyenler aynı satırda; sığmazsa alta
-                // iner (büyük yazı ayarında da okunur).
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 2,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              CountUp(open, style: Dg.stat(size: 44, color: Dg.ink)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      l.doneLine(session.deliveredCount, session.returnCount),
-                      style: Dg.ui(size: 13, color: Dg.ink3),
+                      l.kpiLeftHint,
+                      style: Dg.ui(size: 16, weight: FontWeight.w700),
                     ),
-                    for (final (text, color) in flags)
-                      Text(
-                        text,
-                        style: Dg.ui(
-                          size: 13,
-                          weight: FontWeight.w600,
-                          color: color,
+                    const SizedBox(height: 4),
+                    // Biten sayısı ve dikkat isteyenler aynı satırda;
+                    // sığmazsa alta iner.
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text(
+                          l.doneOf(done, total),
+                          style: Dg.ui(size: 13, color: Dg.ink3),
                         ),
-                      ),
+                        for (final (text, bg, fg) in chips)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: bg,
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              text,
+                              style: Dg.ui(
+                                size: 12,
+                                weight: FontWeight.w600,
+                                color: fg,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ],
                 ),
-              ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          // Günün ilerlemesi: dolan kısım biten duraklar.
+          ClipRRect(
+            borderRadius: BorderRadius.circular(3),
+            child: SizedBox(
+              height: 5,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  ColoredBox(color: Dg.surface2),
+                  FractionallySizedBox(
+                    alignment: Alignment.centerLeft,
+                    widthFactor: total == 0 ? 0 : done / total,
+                    child: const DecoratedBox(
+                      decoration: BoxDecoration(gradient: Dg.primaryGradient),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
