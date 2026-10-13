@@ -14,6 +14,7 @@ import 'earnings_screen.dart';
 import 'envanter_screen.dart';
 import 'eod_screen.dart';
 import 'kyc_screen.dart';
+import 'account_screens.dart';
 import 'custody_history_screen.dart';
 import 'mistakes_screen.dart';
 import 'profile_screen.dart';
@@ -121,6 +122,22 @@ class MenuScreen extends ConsumerWidget {
         tone: _ChipTone.mute,
         open: () => const EarningsScreen(),
       ),
+      if (s.panelLoggedIn) ...[
+        (
+          label: l.availabilityTitle,
+          icon: LucideIcons.calendarClock,
+          badge: null,
+          tone: _ChipTone.mute,
+          open: () => const AvailabilityScreen(),
+        ),
+        (
+          label: l.passwordTitle,
+          icon: LucideIcons.keyRound,
+          badge: null,
+          tone: _ChipTone.mute,
+          open: () => const PasswordScreen(),
+        ),
+      ],
       if (s.panelLoggedIn)
         (
           label: l.mistakesTitle,

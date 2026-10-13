@@ -1401,6 +1401,65 @@ class L10n {
   };
   String get announcementAck => _t('Okudum, anladım', 'Read and understood');
 
+  // Şifre değiştirme ve müsaitlik
+  String get passwordTitle => _t('Şifre değiştir', 'Change password');
+  String get passwordCurrent => _t('Şimdiki şifren', 'Current password');
+  String get passwordNew => _t('Yeni şifren', 'New password');
+  String get passwordAgain => _t('Yeni şifren (tekrar)', 'New password again');
+  String get passwordRules => _t(
+    'En az 10 karakter. İçinde büyük harf, küçük harf, rakam ve bir işaret (ör. ! ya da .) olsun.',
+    'At least 10 characters, with an uppercase letter, a lowercase letter, a digit and a symbol.',
+  );
+  String get passwordWeak => _t(
+    'Yeni şifren yukarıdaki kurala uymuyor.',
+    'The new password does not meet the rule above.',
+  );
+  String get passwordMismatch =>
+      _t('İki yeni şifre aynı değil.', 'The new passwords do not match.');
+  String get passwordSave => _t('Şifreyi değiştir', 'Change password');
+  String get passwordChanged => _t('Şifren değişti.', 'Password changed.');
+  String passwordError(String code, String? serverMessage) => switch (code) {
+    'CURRENT_PASSWORD_INVALID' => _t(
+      'Şimdiki şifren yanlış.',
+      'Your current password is wrong.',
+    ),
+    'PASSWORD_REUSE_NOT_ALLOWED' => _t(
+      'Yeni şifren eskisinden farklı olmalı.',
+      'The new password must differ from the old one.',
+    ),
+    'PASSWORD_NOT_SET' => _t(
+      'Hesabında şifre yok. SMS koduyla giriş yapabilirsin.',
+      'Your account has no password. Sign in with an SMS code.',
+    ),
+    _ => serverMessage ??
+        _t('Şifre değiştirilemedi. Tekrar dene.', 'Could not change it. Try again.'),
+  };
+  String get availabilityTitle => _t('Müsaitlik', 'Availability');
+  String get availabilityHint => _t(
+    'Hangi gün, hangi saatlerde çalışabileceğini işaretle.',
+    'Mark the days and hours you can work.',
+  );
+  String weekday(int dayIndex) => const [
+    ['Pazar', 'Sunday'],
+    ['Pazartesi', 'Monday'],
+    ['Salı', 'Tuesday'],
+    ['Çarşamba', 'Wednesday'],
+    ['Perşembe', 'Thursday'],
+    ['Cuma', 'Friday'],
+    ['Cumartesi', 'Saturday'],
+  ][dayIndex % 7][isEn ? 1 : 0];
+  String get availabilityOff => _t('Çalışmıyorum', 'Not working');
+  String get availabilitySave => _t('Kaydet', 'Save');
+  String get availabilitySaved => _t('Müsaitliğin kaydedildi.', 'Availability saved.');
+  String get availabilityBadRange => _t(
+    'Bitiş saati başlangıçtan sonra olmalı.',
+    'The end time must be after the start time.',
+  );
+  String get availabilityFailed => _t(
+    'Kaydedilemedi. Tekrar dene.',
+    'Could not save. Try again.',
+  );
+
   // Hatalarım ve fotoğraf puanı
   String get mistakesTitle => _t('Hatalarım', 'My mistakes');
   String get photoScoreTitle => _t('Fotoğraf puanın', 'Your photo score');

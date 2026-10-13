@@ -10,6 +10,7 @@ import 'package:dijigoo_kurye/capture_check.dart';
 import 'package:dijigoo_kurye/l10n.dart';
 import 'package:dijigoo_kurye/models.dart';
 import 'package:dijigoo_kurye/notif.dart';
+import 'package:dijigoo_kurye/screens/account_screens.dart';
 import 'package:dijigoo_kurye/session.dart';
 import 'package:dijigoo_kurye/visit_requirements.dart';
 import 'package:dio/dio.dart';
@@ -683,6 +684,88 @@ void main() {
         isTrue,
       );
       expect(s.notifications.firstWhere((x) => x.id == n.id).needsAck, isFalse);
+    });
+  });
+
+  group('şifre ve müsaitlik', () {
+    test('şifre kuralı sunucununkiyle aynı', () {
+      expect(passwordStrongEnough('JetDemo06.Ankara'), isTrue);
+      expect(passwordStrongEnough('Kısa1.'), isFalse);
+      expect(passwordStrongEnough('hepkucukharf1.'), isFalse);
+      expect(passwordStrongEnough('IsaretYok12345'), isFalse);
+      expect(passwordStrongEnough('RakamYok.....a'), isFalse);
+    });
+
+    test('şifre değişince yeni token kullanılır', () async {
+      final seen = <RequestOptions>[];
+      final api = PanelApi(
+        _visitDio(
+          (o) => o.path.endsWith('/change-password')
+              ? {
+                  'passwordChangedAt': '2026-10-13T12:00:00.000Z',
+                  'accessToken': 'yeni',
+                }
+              : null,
+          seen: seen,
+        ),
+      );
+      await api.changePassword(
+        currentPassword: 'eski',
+        newPassword: 'Yeni.Sifre.123',
+      );
+      expect(seen.single.data, {
+        'currentPassword': 'eski',
+        'newPassword': 'Yeni.Sifre.123',
+        'newPasswordConfirmation': 'Yeni.Sifre.123',
+      });
+      await api.fetchAvailability();
+      expect(seen.last.headers['Authorization'], 'Bearer yeni');
+    });
+
+    test('müsaitlik: eksik günler kapalı tamamlanır, istisnalar korunur', () {
+      final plan = AvailabilityDto.fromJson({
+        'days': [
+          {
+            'dayIndex': 1,
+            'enabled': true,
+            'ranges': [
+              {'id': 'r1', 'start': '09:00', 'end': '18:00', 'sortOrder': 0},
+            ],
+          },
+        ],
+        'exceptions': [
+          {
+            'id': 'x1',
+            'date': '2026-10-29',
+            'type': 'HOLIDAY',
+            'startTime': null,
+            'endTime': null,
+            'note': '',
+            'updatedAt': '2026-10-01T00:00:00.000Z',
+          },
+        ],
+      });
+      expect(plan.days, hasLength(7));
+      expect(plan.days[1].enabled, isTrue);
+      expect(plan.days[0].enabled, isFalse);
+      final json = plan.toJson();
+      expect((json['days'] as List), hasLength(7));
+      expect((json['days'] as List)[1], {
+        'dayIndex': 1,
+        'enabled': true,
+        'ranges': [
+          {'start': '09:00', 'end': '18:00'},
+        ],
+      });
+      // Sunucu tam değiştirir; istisna geri gönderilmezse silinir.
+      expect(json['exceptions'], [
+        {'date': '2026-10-29', 'type': 'HOLIDAY'},
+      ]);
+      // Boş yanıt (hiç plan yok) da 7 kapalı gün verir.
+      expect(
+        AvailabilityDto.fromJson(const {}).days.every((d) => !d.enabled),
+        isTrue,
+      );
     });
   });
 }

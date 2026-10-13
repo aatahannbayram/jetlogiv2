@@ -5,7 +5,10 @@ import 'dart:ui' as ui;
 import 'package:dijigoo_kurye/api/client.dart';
 import 'package:dijigoo_kurye/api/panel_client.dart';
 import 'package:dijigoo_kurye/l10n.dart';
+import 'package:dijigoo_kurye/screens/account_screens.dart';
+import 'package:dijigoo_kurye/screens/custody_history_screen.dart';
 import 'package:dijigoo_kurye/screens/mistakes_screen.dart';
+import 'package:dijigoo_kurye/screens/report_screen.dart';
 import 'package:dijigoo_kurye/screens/result_screen.dart';
 import 'package:dijigoo_kurye/screens/return_screen.dart';
 import 'package:dijigoo_kurye/screens/wizard_screen.dart';
@@ -48,6 +51,56 @@ Dio _dio() {
           });
         }
         if (path.endsWith('/requirements')) return ok(requirements);
+        if (path.endsWith('/courier-availability')) {
+          return ok({
+            'days': [
+              for (final i in [1, 2, 3, 4, 5])
+                {
+                  'dayIndex': i,
+                  'enabled': true,
+                  'ranges': [
+                    {'start': '09:00', 'end': '18:00'},
+                  ],
+                },
+            ],
+            'exceptions': [],
+          });
+        }
+        if (path.endsWith('/courier-custody/history')) {
+          return ok({
+            'items': [
+              {
+                'direction': 'IN',
+                'shipmentNumber': '334',
+                'recipientName': 'Ulus Kafe',
+                'counterparty': {'name': 'DEMO-ANKARA Acentesi'},
+                'status': 'ACCEPTED',
+                'completedAt': '2026-10-13T11:10:00.000Z',
+              },
+              {
+                'direction': 'OUT',
+                'shipmentNumber': '342',
+                'recipientName': 'Seğmenler Köfteci',
+                'counterparty': {'name': 'DEMO-ANKARA Acentesi'},
+                'status': 'PENDING',
+                'updatedAt': '2026-10-13T10:53:00.000Z',
+              },
+            ],
+          });
+        }
+        if (path.endsWith('/reports') && options.method == 'GET') {
+          return ok({
+            'reports': [
+              {
+                'id': 'r-1',
+                'reportType': 'DAMAGE',
+                'note': 'Koli ezik teslim alındı.',
+                'submittedAt': '2026-10-13T09:30:00.000Z',
+                'counterpartSignature': {'signerName': 'Bora Kaya'},
+              },
+            ],
+          });
+        }
         if (path.contains('delivery-reasons')) {
           return ok({
             'failed': [
@@ -326,6 +379,52 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
     expect(find.text('Kalıcı Olarak Kapalı'), findsOneWidget);
     expect(find.text('Ziyareti yapabildim'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(seconds: 10));
+  });
+
+  testWidgets('müsaitlik: gün kapatılıp kaydedilir', (tester) async {
+    await _open(tester, const AvailabilityScreen());
+    expect(find.text('Pazartesi'), findsOneWidget);
+    expect(find.text('Çalışmıyorum'), findsNWidgets(2));
+    await _shot(tester, 'availability');
+    // Cumartesi açılır, varsayılan saat gelir.
+    await _tap(tester, find.byType(Switch).at(5));
+    expect(find.text('Çalışmıyorum'), findsOneWidget);
+    await _tap(tester, find.text('Kaydet'));
+    final days = _body('/courier-availability')['days'] as List;
+    expect(days, hasLength(7));
+    expect(days[6], {
+      'dayIndex': 6,
+      'enabled': true,
+      'ranges': [
+        {'start': '09:00', 'end': '18:00'},
+      ],
+    });
+    expect((days[0] as Map)['enabled'], isFalse);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(seconds: 10));
+  });
+
+  testWidgets('tutanak, zimmet geçmişi ve şifre ekranları açılır', (
+    tester,
+  ) async {
+    await _open(tester, const ReportScreen(taskId: 's-9'));
+    expect(find.text('Önceki tutanaklar'), findsOneWidget);
+    // İmzasız ve adsız gönderilmez.
+    await _tap(tester, find.text('Tutanağı gönder'));
+    expect(find.text('Karşı tarafın adını yaz.'), findsOneWidget);
+    await _shot(tester, 'report');
+
+    await _open(tester, const CustodyHistoryScreen());
+    expect(find.text('Aldın · 334'), findsOneWidget);
+    expect(find.text('Verdin · 342'), findsOneWidget);
+    await _shot(tester, 'custody-history');
+
+    await _open(tester, const PasswordScreen());
+    await _tap(tester, find.text('Şifreyi değiştir').last);
+    expect(_writes, isEmpty);
+    await _shot(tester, 'password');
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(seconds: 10));
   });

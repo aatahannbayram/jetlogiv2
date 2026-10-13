@@ -118,6 +118,44 @@ class PanelApi {
     );
   }
 
+  /// Şifreyi değiştirir. Sunucu tüm eski oturumları kapatır ve yeni token
+  /// döner; token hemen güvenli depoya yazılır.
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final res = await _post('/courier-auth/change-password', {
+      'currentPassword': currentPassword,
+      'newPassword': newPassword,
+      'newPasswordConfirmation': newPassword,
+    });
+    final token = (res.data?['data'] as Map?)?['accessToken'] as String?;
+    if (token != null && token.isNotEmpty) {
+      _accessToken = token;
+      await _vault?.writeSecret(kPanelBearerKey, token);
+    }
+  }
+
+  Future<AvailabilityDto> fetchAvailability() async {
+    final res = await _get('/courier-availability');
+    return AvailabilityDto.fromJson(
+      Map<String, dynamic>.from(res.data?['data'] as Map? ?? const {}),
+    );
+  }
+
+  /// Haftalık planı tümüyle yeniler; gönderilmeyen istisna silinir, bu yüzden
+  /// okunan istisnalar aynen geri gönderilir.
+  Future<void> saveAvailability(AvailabilityDto plan) async {
+    try {
+      await dio.put<Map<String, dynamic>>(
+        '/courier-availability',
+        data: plan.toJson(),
+      );
+    } on DioException catch (e) {
+      throw _panelException(e);
+    }
+  }
+
   /// SMS ile giriş, 1. adım: kayıtlı telefona 6 haneli kod gönderir. Hesap
   /// bulunamasa da yanıt aynıdır. Kod 5 dk geçerli, 60 sn'de bir istenir.
   Future<({String? challengeId, int resendAfterSeconds})> requestSmsLogin(

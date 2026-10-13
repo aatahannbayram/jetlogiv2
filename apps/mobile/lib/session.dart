@@ -2492,6 +2492,28 @@ class SessionController extends ChangeNotifier {
     return true;
   }
 
+  /// Şifre değiştirir; sunucu reddederse [PanelApiException].
+  Future<void> changePanelPassword({
+    required String current,
+    required String next,
+  }) async {
+    final client = panel;
+    if (client == null) throw PanelApiException('PANEL_UNAVAILABLE');
+    await client.changePassword(currentPassword: current, newPassword: next);
+  }
+
+  Future<AvailabilityDto> loadAvailability() async {
+    final client = panel;
+    if (client == null) throw PanelApiException('PANEL_UNAVAILABLE');
+    return client.fetchAvailability();
+  }
+
+  Future<void> saveAvailability(AvailabilityDto plan) async {
+    final client = panel;
+    if (client == null) throw PanelApiException('PANEL_UNAVAILABLE');
+    await client.saveAvailability(plan);
+  }
+
   Future<List<CustodyMoveDto>> custodyHistory() async {
     final client = panel;
     if (client == null) return const [];

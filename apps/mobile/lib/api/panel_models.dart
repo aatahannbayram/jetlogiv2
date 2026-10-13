@@ -446,3 +446,88 @@ class TaskReportDto {
   final DateTime? createdAt;
 }
 
+/// Haftanın bir günü için müsaitlik. [dayIndex] 0 = Pazar … 6 = Cumartesi.
+class AvailabilityDay {
+  const AvailabilityDay({
+    required this.dayIndex,
+    this.enabled = false,
+    this.ranges = const [],
+  });
+
+  final int dayIndex;
+  final bool enabled;
+
+  /// `HH:mm` başlangıç ve bitiş; gün başına en çok 4.
+  final List<({String start, String end})> ranges;
+
+  AvailabilityDay copyWith({
+    bool? enabled,
+    List<({String start, String end})>? ranges,
+  }) => AvailabilityDay(
+    dayIndex: dayIndex,
+    enabled: enabled ?? this.enabled,
+    ranges: ranges ?? this.ranges,
+  );
+}
+
+class AvailabilityDto {
+  const AvailabilityDto({required this.days, this.exceptions = const []});
+
+  /// Eksik günler kapalı olarak tamamlanır; her zaman 7 gün döner.
+  factory AvailabilityDto.fromJson(Map<String, dynamic> j) {
+    final byIndex = <int, AvailabilityDay>{};
+    for (final row in j['days'] as List? ?? const []) {
+      if (row is! Map) continue;
+      final index = (row['dayIndex'] as num?)?.toInt();
+      if (index == null || index < 0 || index > 6) continue;
+      byIndex[index] = AvailabilityDay(
+        dayIndex: index,
+        enabled: row['enabled'] == true,
+        ranges: [
+          for (final r in row['ranges'] as List? ?? const [])
+            if (r is Map && r['start'] is String && r['end'] is String)
+              (start: r['start'] as String, end: r['end'] as String),
+        ],
+      );
+    }
+    return AvailabilityDto(
+      days: [
+        for (var i = 0; i < 7; i++)
+          byIndex[i] ?? AvailabilityDay(dayIndex: i),
+      ],
+      exceptions: [
+        for (final row in j['exceptions'] as List? ?? const [])
+          if (row is Map && row['date'] is String && row['type'] is String)
+            {
+              'date': (row['date'] as String).split('T').first,
+              'type': row['type'],
+              if (row['startTime'] != null) 'startTime': row['startTime'],
+              if (row['endTime'] != null) 'endTime': row['endTime'],
+              if (row['note'] is String && (row['note'] as String).isNotEmpty)
+                'note': row['note'],
+            },
+      ],
+    );
+  }
+
+  /// Sıra [AvailabilityDay.dayIndex] ile aynıdır (0 = Pazar).
+  final List<AvailabilityDay> days;
+
+  /// Tarih istisnaları; uygulama düzenlemez, kaydederken aynen geri yollar.
+  final List<Map<String, Object?>> exceptions;
+
+  Map<String, Object?> toJson() => {
+    'days': [
+      for (final d in days)
+        {
+          'dayIndex': d.dayIndex,
+          'enabled': d.enabled && d.ranges.isNotEmpty,
+          'ranges': [
+            for (final r in d.ranges) {'start': r.start, 'end': r.end},
+          ],
+        },
+    ],
+    'exceptions': exceptions,
+  };
+}
+
