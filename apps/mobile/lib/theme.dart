@@ -125,10 +125,16 @@ class Dg {
   static Color get redBg => bad.withValues(alpha: 0.12);
 
   // ---- Tipografi ----
-  static const display = 'Geist';
-  static const sans = 'Geist';
-  static const statFamily = 'Geist';
+  // Başlık, gövde ve rakamlar Inter (değişken yazı tipi: kalınlık ve optik
+  // boyut eksenleri). Gönderi no ve saat gibi tek aralıklı yazılar Geist Mono.
+  static const display = 'Inter';
+  static const sans = 'Inter';
+  static const statFamily = 'Inter';
   static const mono = 'Geist Mono';
+
+  /// Inter'in optik boyut ekseni 14–32 aralığında; büyük başlıklarda harfler
+  /// daha sıkı ve keskin, küçük metinde daha açık ve okunur çizilir.
+  static double _opsz(double size) => size.clamp(14, 32).toDouble();
 
   // ---- Yumuşak kartlar ve kapsül düğmeler ----
   static const radiusPhone = 46.0;
@@ -207,10 +213,10 @@ class Dg {
 
   static TextStyle typeH2({Color? color}) => ui(
     size: 20,
-    weight: FontWeight.w600,
+    weight: FontWeight.w700,
     color: color ?? text1,
     height: 1.2,
-    letterSpacing: 20 * -0.01,
+    letterSpacing: 20 * -0.02,
   );
   static TextStyle typeBody({
     Color? color,
@@ -239,12 +245,12 @@ class Dg {
     FontWeight weight = FontWeight.w700,
     Color? color,
     bool italic = false,
-    double height = 1.04,
-    double letterSpacing = -0.03,
+    double height = 1.12,
+    double letterSpacing = -0.025,
   }) {
     return TextStyle(
       fontFamily: display,
-      fontFamilyFallback: const ['Inter'],
+      fontFamilyFallback: const ['Geist'],
       fontSize: size < 14 ? 14 : (size == 15 ? 16 : size),
       fontWeight: weight,
       fontStyle: italic ? FontStyle.italic : FontStyle.normal,
@@ -253,7 +259,10 @@ class Dg {
       // letterSpacing brief'te "em" cinsinden (-.03em) verildi; Flutter
       // mutlak px bekliyor, punto başına ölçekliyoruz.
       letterSpacing: size * letterSpacing,
-      fontVariations: [FontVariation('wght', _wght(weight))],
+      fontVariations: [
+        FontVariation('wght', _wght(weight)),
+        FontVariation('opsz', _opsz(size)),
+      ],
     );
   }
 
@@ -266,13 +275,23 @@ class Dg {
   }) {
     return TextStyle(
       fontFamily: sans,
-      fontFamilyFallback: const ['Inter'],
+      fontFamilyFallback: const ['Geist'],
       fontSize: size < 14 ? 14 : (size == 15 ? 16 : size),
       fontWeight: weight,
       color: color ?? ink,
       height: height,
-      letterSpacing: letterSpacing,
-      fontVariations: [FontVariation('wght', _wght(weight))],
+      // Harf aralığı verilmemişse boyuta göre: başlıklar sıkı, gövde normal.
+      letterSpacing: letterSpacing != 0
+          ? letterSpacing
+          : size >= 20
+          ? size * -0.02
+          : size >= 17
+          ? size * -0.012
+          : 0,
+      fontVariations: [
+        FontVariation('wght', _wght(weight)),
+        FontVariation('opsz', _opsz(size)),
+      ],
     );
   }
 
@@ -287,14 +306,17 @@ class Dg {
   }) {
     return TextStyle(
       fontFamily: statFamily,
-      fontFamilyFallback: const ['Inter'],
+      fontFamilyFallback: const ['Geist'],
       fontSize: size < 14 ? 14 : (size == 15 ? 16 : size),
       fontWeight: weight,
       color: color ?? ink,
       height: height,
       letterSpacing: size * letterSpacing,
       fontFeatures: const [FontFeature.tabularFigures()],
-      fontVariations: [FontVariation('wght', _wght(weight))],
+      fontVariations: [
+        FontVariation('wght', _wght(weight)),
+        FontVariation('opsz', _opsz(size)),
+      ],
     );
   }
 
@@ -335,10 +357,10 @@ class Dg {
   static ThemeData theme() {
     final text = TextTheme(
       displaySmall: serif(size: 36),
-      headlineMedium: serif(size: 26, letterSpacing: -0.03),
+      headlineMedium: serif(size: 26),
       titleLarge: ui(
-        size: 17,
-        weight: FontWeight.w600,
+        size: 18,
+        weight: FontWeight.w700,
         color: ink,
         height: 1.25,
       ),
@@ -414,7 +436,8 @@ class Dg {
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
-        titleTextStyle: serif(size: 20, weight: FontWeight.w600),
+        // Ekran başlığı: kalın ve sıkı, tek satırda.
+        titleTextStyle: serif(size: 22, weight: FontWeight.w700, height: 1.2),
       ),
       dividerColor: hairline,
       // Material butonları da ortak eylem paletini kullanır.
