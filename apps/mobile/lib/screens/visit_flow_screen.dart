@@ -46,9 +46,16 @@ class _Shot {
 /// Sunucudan gelen gereksinimlerle adım adım ziyaret kapatma: her fotoğraf
 /// kontrol listesiyle, ardından anket. "Yapamadım" yolunda önce neden seçilir.
 class VisitFlowScreen extends ConsumerStatefulWidget {
-  const VisitFlowScreen({super.key, required this.taskId});
+  const VisitFlowScreen({
+    super.key,
+    required this.taskId,
+    this.startFailed = false,
+  });
 
   final String taskId;
+
+  /// "Olmadı / teslim edilemedi" girişlerinden açılınca doğrudan neden adımı.
+  final bool startFailed;
 
   @override
   ConsumerState<VisitFlowScreen> createState() => _VisitFlowScreenState();
@@ -68,6 +75,15 @@ class _VisitFlowScreenState extends ConsumerState<VisitFlowScreen> {
   final shots = <String, _Shot>{};
   final values = <String, Object?>{};
   final texts = <String, TextEditingController>{};
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.startFailed) {
+      failed = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _loadReasons());
+    }
+  }
 
   @override
   void dispose() {

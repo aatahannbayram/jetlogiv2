@@ -7,6 +7,7 @@ import 'package:dijigoo_kurye/api/panel_client.dart';
 import 'package:dijigoo_kurye/l10n.dart';
 import 'package:dijigoo_kurye/screens/mistakes_screen.dart';
 import 'package:dijigoo_kurye/screens/result_screen.dart';
+import 'package:dijigoo_kurye/screens/return_screen.dart';
 import 'package:dijigoo_kurye/screens/wizard_screen.dart';
 import 'package:dijigoo_kurye/session.dart';
 import 'package:dijigoo_kurye/theme.dart';
@@ -310,6 +311,21 @@ void main() {
     });
     expect(_body('/finalize')['resultCode'], 'DELIVERY_FAILED');
     expect(_body('/finalize')['reasonCode'], '9335');
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(seconds: 10));
+  });
+
+  testWidgets('"teslim edilemedi" girişi de ziyaret akışını nedenle açar', (
+    tester,
+  ) async {
+    await _open(tester, const ReturnScreen(taskId: 's-9'));
+    expect(find.text('Neden yapamadın?'), findsOneWidget);
+    // Nedenler ekran açıldıktan sonra yüklenir.
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('Kalıcı Olarak Kapalı'), findsOneWidget);
+    expect(find.text('Ziyareti yapabildim'), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(seconds: 10));
   });

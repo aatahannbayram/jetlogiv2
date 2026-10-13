@@ -10,6 +10,7 @@ import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'result_screen.dart';
+import 'visit_flow_screen.dart';
 
 /// İade / Geri Teslim — akış şemasının Kurye app modül 8'i. İki sekme:
 /// "Teslim Edilemedi" (neden seç, not, fotoğraf — teslimat sonucunu
@@ -29,6 +30,19 @@ class ReturnScreen extends ConsumerStatefulWidget {
 class _ReturnScreenState extends ConsumerState<ReturnScreen> {
   int _tab = 0;
   bool _failClosed = false;
+  bool _requirementsReady = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final s = ref.read(sessionProvider);
+      if (s.visitRequirements(widget.taskId) == null) {
+        await s.loadTaskRequirements(widget.taskId);
+      }
+      if (mounted) setState(() => _requirementsReady = true);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,6 +54,19 @@ class _ReturnScreenState extends ConsumerState<ReturnScreen> {
         appBar: AppBar(),
         body: Center(child: Text(l.stopGone)),
       );
+    }
+    // Kontrol listesi ya da anket isteyen işlerde "olmadı" da ziyaret
+    // akışıyla kapanır: ürüne özel neden, kanıt fotoğrafı ve anket.
+    if (s.panelLoggedIn && !_failClosed) {
+      if (!_requirementsReady) {
+        return Scaffold(
+          appBar: AppBar(),
+          body: const Center(child: CircularProgressIndicator()),
+        );
+      }
+      if (s.visitRequirements(widget.taskId)?.guided ?? false) {
+        return VisitFlowScreen(taskId: widget.taskId, startFailed: true);
+      }
     }
 
     if (_failClosed) {
