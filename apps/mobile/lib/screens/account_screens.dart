@@ -5,6 +5,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../api/panel_models.dart';
 import '../l10n.dart';
 import '../motion.dart';
+import '../privacy.dart';
 import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -113,24 +114,28 @@ class _PasswordScreenState extends ConsumerState<PasswordScreen> {
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
-    return Scaffold(
-      appBar: AppBar(title: Text(l.passwordTitle)),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-        children: [
-          _field(_current, l.passwordCurrent),
-          _field(_next, l.passwordNew),
-          _field(_again, l.passwordAgain),
-          Text(l.passwordRules, style: Dg.ui(size: 14, color: Dg.ink2)),
-          _errorText(_error),
-          const SizedBox(height: 16),
-          DgButton(
-            label: l.passwordSave,
-            icon: LucideIcons.keyRound,
-            busy: _busy,
-            onPressed: _save,
-          ),
-        ],
+    // Şifre yazılırken ekran görüntüsü ve kayıt kapalı.
+    return PrivacyGate(
+      active: true,
+      child: Scaffold(
+        appBar: AppBar(title: Text(l.passwordTitle)),
+        body: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+          children: [
+            _field(_current, l.passwordCurrent),
+            _field(_next, l.passwordNew),
+            _field(_again, l.passwordAgain),
+            Text(l.passwordRules, style: Dg.ui(size: 14, color: Dg.ink2)),
+            _errorText(_error),
+            const SizedBox(height: 16),
+            DgButton(
+              label: l.passwordSave,
+              icon: LucideIcons.keyRound,
+              busy: _busy,
+              onPressed: _save,
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -6,6 +6,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../api/panel_models.dart';
 import '../l10n.dart';
+import '../privacy.dart';
 import '../scan.dart';
 import '../session.dart';
 import '../theme.dart';
@@ -278,55 +279,58 @@ class _ActivateScreenState extends ConsumerState<ActivateScreen> {
   Widget build(BuildContext context) {
     final l = context.l10n;
     final account = _account;
-    return Scaffold(
-      appBar: AppBar(title: Text(l.joinActivate)),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-        children: [
-          if (account == null) ...[
-            TextField(
-              controller: _link,
-              minLines: 2,
-              maxLines: 4,
-              autocorrect: false,
-              decoration: InputDecoration(hintText: l.linkHint),
-            ),
-            _error(_err),
-            const SizedBox(height: 16),
-            DgButton(label: l.linkContinue, busy: _busy, onPressed: _check),
-          ] else ...[
-            Text(
-              '${account['fullName'] ?? ''}',
-              style: Dg.ui(size: 18, weight: FontWeight.w700),
-            ),
-            Text(
-              '${account['email'] ?? ''}',
-              style: Dg.ui(size: 14, color: Dg.ink3),
-            ),
-            _label(l.activatePassword),
-            TextField(
-              controller: _password,
-              obscureText: true,
-              decoration: InputDecoration(hintText: l.passwordNew),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: _again,
-              obscureText: true,
-              decoration: InputDecoration(hintText: l.passwordAgain),
-            ),
-            const SizedBox(height: 10),
-            Text(l.activateRules, style: Dg.ui(size: 14, color: Dg.ink2)),
-            _error(_err),
-            const SizedBox(height: 16),
-            DgButton(
-              label: l.joinActivate,
-              icon: LucideIcons.keyRound,
-              busy: _busy,
-              onPressed: _activate,
-            ),
+    return PrivacyGate(
+      active: account != null,
+      child: Scaffold(
+        appBar: AppBar(title: Text(l.joinActivate)),
+        body: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+          children: [
+            if (account == null) ...[
+              TextField(
+                controller: _link,
+                minLines: 2,
+                maxLines: 4,
+                autocorrect: false,
+                decoration: InputDecoration(hintText: l.linkHint),
+              ),
+              _error(_err),
+              const SizedBox(height: 16),
+              DgButton(label: l.linkContinue, busy: _busy, onPressed: _check),
+            ] else ...[
+              Text(
+                '${account['fullName'] ?? ''}',
+                style: Dg.ui(size: 18, weight: FontWeight.w700),
+              ),
+              Text(
+                '${account['email'] ?? ''}',
+                style: Dg.ui(size: 14, color: Dg.ink3),
+              ),
+              _label(l.activatePassword),
+              TextField(
+                controller: _password,
+                obscureText: true,
+                decoration: InputDecoration(hintText: l.passwordNew),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _again,
+                obscureText: true,
+                decoration: InputDecoration(hintText: l.passwordAgain),
+              ),
+              const SizedBox(height: 10),
+              Text(l.activateRules, style: Dg.ui(size: 14, color: Dg.ink2)),
+              _error(_err),
+              const SizedBox(height: 16),
+              DgButton(
+                label: l.joinActivate,
+                icon: LucideIcons.keyRound,
+                busy: _busy,
+                onPressed: _activate,
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
