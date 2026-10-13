@@ -402,7 +402,7 @@ class _RouteTopBar extends ConsumerWidget {
                 ),
                 decoration: BoxDecoration(
                   color: Dg.neon,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(999),
                   boxShadow: _floatingPillShadow,
                 ),
                 child: Text(
@@ -415,18 +415,6 @@ class _RouteTopBar extends ConsumerWidget {
                     color: Dg.onNeon,
                   ),
                 ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            _MapChip(
-              on: s.showFleet,
-              onTap: s.toggleFleet,
-              child: Icon(
-                LucideIcons.users,
-                size: 18,
-                color: s.showFleet
-                    ? (Dg.dark ? Dg.night : Colors.white)
-                    : Dg.ink,
               ),
             ),
             const SizedBox(width: 8),
@@ -446,11 +434,10 @@ class _RouteTopBar extends ConsumerWidget {
 }
 
 class _MapChip extends StatelessWidget {
-  const _MapChip({required this.onTap, required this.child, this.on = false});
+  const _MapChip({required this.onTap, required this.child});
 
   final VoidCallback onTap;
   final Widget child;
-  final bool on;
 
   @override
   Widget build(BuildContext context) {
@@ -461,7 +448,7 @@ class _MapChip extends StatelessWidget {
         height: 48,
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: on ? Dg.night : Dg.surface,
+          color: Dg.surface,
           shape: BoxShape.circle,
           boxShadow: _floatingPillShadow,
         ),

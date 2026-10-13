@@ -917,6 +917,14 @@ class MapStrip extends StatelessWidget {
   }
 }
 
+/// Doygunluğu %35'e indirir ve çok az aydınlatır.
+const _calmMapFilter = ColorFilter.matrix(<double>[
+  0.4882, 0.4648, 0.0469, 0, 6, //
+  0.1382, 0.8148, 0.0469, 0, 6, //
+  0.1382, 0.4648, 0.3969, 0, 6, //
+  0, 0, 0, 1, 0,
+]);
+
 /// Kamera [MapController] ile yaşar — session her notify ettiğinde
 /// FlutterMap yeniden yaratılıp zoom sıfırlanmasın.
 class _StableMapView extends StatefulWidget {
@@ -1074,6 +1082,14 @@ class _StableMapViewState extends State<_StableMapView> {
           userAgentPackageName: 'com.dijigoo.dijigooKurye',
           tileDimension: useMapboxTiles ? 512 : 256,
           zoomOffset: useMapboxTiles ? -1 : 0,
+          // Sokak haritasının sarı-turuncu kalabalığı kısılır: sokak adları
+          // okunur kalır, rota ve iğneler öne çıkar.
+          tileBuilder: useMapboxTiles
+              ? null
+              : (context, tile, _) => ColorFiltered(
+                  colorFilter: _calmMapFilter,
+                  child: tile,
+                ),
         ),
         if (widget.line.length > 1)
           PolylineLayer(

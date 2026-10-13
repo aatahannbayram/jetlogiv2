@@ -120,9 +120,8 @@ void main() {
     await bindPhone(tester);
     await openDemo(tester);
     final nav = find.byType(DgPillNav);
-    Finder label() => find
-        .descendant(of: nav, matching: find.text('Menü'))
-        .hitTestable();
+    Finder label() =>
+        find.descendant(of: nav, matching: find.text('Menü')).hitTestable();
     expect(label(), findsOneWidget);
     final tall = tester.getSize(nav).height;
 
@@ -201,7 +200,9 @@ void main() {
     expect(find.text('Elif Koç', skipOffstage: false), findsWidgets);
   });
 
-  testWidgets('görev detayı rota özeti ve kuryeleri gösterir', (tester) async {
+  testWidgets('görev detayı rota özetini gösterir; kuryeler düğmesi yok', (
+    tester,
+  ) async {
     await bindPhone(tester);
     await openDemo(tester);
     await tester.tap(find.text('Rota'));
@@ -209,7 +210,7 @@ void main() {
     await tester.tap(find.text('Ahmet Yılmaz').first);
     await tester.pumpAndSettle();
     expect(find.textContaining('dk'), findsWidgets);
-    expect(find.text('Kuryeler'), findsWidgets);
+    expect(find.text('Kuryeler'), findsNothing);
     expect(find.textContaining('#1'), findsOneWidget);
     await tester.tap(find.byTooltip('Geri'));
     await tester.pumpAndSettle();

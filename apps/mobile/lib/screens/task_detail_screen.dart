@@ -156,12 +156,6 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                                     : '${l.travelLabel(meters, minutes)}  ·  ${l.approxRoute}',
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            _FleetToggle(
-                              on: session.showFleet,
-                              label: l.fleetOnMap,
-                              onTap: session.toggleFleet,
-                            ),
                           ],
                         ),
                       ),
@@ -522,84 +516,38 @@ class _RouteChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      height: 44,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
         color: Dg.neon,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(999),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x33000000),
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           DgIcon(
             LucideIcons.navigation,
-            size: 13,
+            size: 15,
             color: Dg.onNeon,
             weight: 600,
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 8),
           Flexible(
             child: Text(
               text,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontFamily: Dg.mono,
-                color: Dg.onNeon,
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-              ),
+              style: Dg.ui(size: 15, weight: FontWeight.w700, color: Dg.onNeon),
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _FleetToggle extends StatelessWidget {
-  const _FleetToggle({
-    required this.on,
-    required this.label,
-    required this.onTap,
-  });
-
-  final bool on;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: on ? Dg.night : Dg.surface,
-      borderRadius: BorderRadius.circular(16),
-      elevation: 3,
-      shadowColor: Colors.black.withValues(alpha: 0.35),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-          decoration: BoxDecoration(borderRadius: BorderRadius.circular(16)),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                LucideIcons.users,
-                size: 14,
-                color: on ? Dg.onStatus : Dg.ink,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: on ? Dg.onStatus : Dg.ink,
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -629,7 +577,7 @@ class _SheetBack extends StatelessWidget {
             child: SizedBox(
               width: 48,
               height: 48,
-              child: DgIcon(LucideIcons.arrowLeft, size: 17, color: Dg.ink),
+              child: DgIcon(LucideIcons.arrowLeft, size: 20, color: Dg.ink),
             ),
           ),
         ),
