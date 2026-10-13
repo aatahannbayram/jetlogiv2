@@ -408,7 +408,11 @@ class _MapShot extends StatelessWidget {
                 ),
                 child: Text(
                   indexLabel,
-                  style: Dg.typeNum(size: 12, weight: FontWeight.w600),
+                  // Etiket zemini her temada koyu; yazı da hep beyaz.
+                  style: Dg.typeNum(
+                    size: 12,
+                    weight: FontWeight.w600,
+                  ).copyWith(color: Colors.white),
                 ),
               ),
             ),
