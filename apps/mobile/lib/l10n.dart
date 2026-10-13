@@ -1540,6 +1540,12 @@ class L10n {
   };
   String get cancelRequest => _t('Talebi iptal et', 'Cancel request');
   String get contractsTitle => _t('Sözleşmelerim', 'My agreements');
+  String applicationNo(String number) =>
+      _t('Başvuru no: $number', 'Application no: $number');
+  String get custodyOnMe => _t('Üzerimdekiler', 'With me now');
+  String get custodyOverdue =>
+      _t('24 saati geçti, teslim et ya da şubeye bırak', 'Over 24 hours, deliver or return it');
+  String get custodyMoves => _t('Hareketler', 'Moves');
   String get contractsEmpty =>
       _t('Kayıtlı sözleşmen yok.', 'No agreements on file.');
   String consentDecision(String code) => switch (code) {

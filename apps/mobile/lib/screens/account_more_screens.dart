@@ -254,14 +254,31 @@ class ContractsScreen extends ConsumerWidget {
     final l = context.l10n;
     return _Loaded<Map<String, dynamic>>(
       title: l.contractsTitle,
-      load: () => ref.read(sessionProvider).panel!.fetchMyContracts(),
+      load: () async {
+        final panel = ref.read(sessionProvider).panel!;
+        final data = await panel.fetchMyContracts();
+        // Başvuru numarası ayrı uçtan gelir; gelmezse sözleşmeler yine görünür.
+        try {
+          data['myApplication'] = await panel.fetchMyApplication();
+        } catch (_) {}
+        return data;
+      },
       builder: (context, data) {
+        final number =
+            '${(data['myApplication'] as Map?)?['applicationNumber'] ?? (data['application'] as Map?)?['applicationNumber'] ?? ''}';
         final rows = [
           for (final c in data['consents'] as List? ?? const [])
             if (c is Map) c,
         ];
-        if (rows.isEmpty) return [_empty(l.contractsEmpty)];
+        final header = number.isEmpty
+            ? const SizedBox.shrink()
+            : Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Mono(l.applicationNo(number), size: 13, color: Dg.ink3),
+              );
+        if (rows.isEmpty) return [header, _empty(l.contractsEmpty)];
         return [
+          header,
           for (final c in rows)
             Padding(
               padding: const EdgeInsets.only(bottom: 10),

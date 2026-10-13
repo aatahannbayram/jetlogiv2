@@ -19,6 +19,7 @@ class CustodyHistoryScreen extends ConsumerStatefulWidget {
 
 class _CustodyHistoryScreenState extends ConsumerState<CustodyHistoryScreen> {
   List<CustodyMoveDto>? _items;
+  List<Map<String, dynamic>> _held = const [];
   bool _failed = false;
 
   @override
@@ -29,9 +30,16 @@ class _CustodyHistoryScreenState extends ConsumerState<CustodyHistoryScreen> {
 
   Future<void> _load() async {
     try {
-      final rows = await ref.read(sessionProvider).custodyHistory();
+      final session = ref.read(sessionProvider);
+      final rows = await session.custodyHistory();
+      // Üzerindekiler ayrı uçtan; gelmezse geçmiş yine görünür.
+      var held = const <Map<String, dynamic>>[];
+      try {
+        held = await session.panel!.fetchCustodyOnCourier();
+      } catch (_) {}
       if (mounted) {
         setState(() {
+          _held = held;
           _items = rows;
           _failed = false;
         });
@@ -70,7 +78,7 @@ class _CustodyHistoryScreenState extends ConsumerState<CustodyHistoryScreen> {
                 padding: EdgeInsets.only(top: 48),
                 child: Center(child: CircularProgressIndicator()),
               )
-            else if (items.isEmpty)
+            else if (items.isEmpty && _held.isEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 48),
                 child: Center(
@@ -80,7 +88,58 @@ class _CustodyHistoryScreenState extends ConsumerState<CustodyHistoryScreen> {
                   ),
                 ),
               )
-            else
+            else ...[
+              if (_held.isNotEmpty) ...[
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    '${l.custodyOnMe} · ${_held.length}',
+                    style: Dg.ui(
+                      size: 14,
+                      weight: FontWeight.w600,
+                      color: Dg.ink2,
+                    ),
+                  ),
+                ),
+                for (final h in _held)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: DgCard(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            [
+                              '${h['shipmentNumber'] ?? ''}',
+                              '${h['recipientName'] ?? ''}',
+                            ].where((e) => e.isNotEmpty).join(' · '),
+                            style: Dg.ui(size: 15, weight: FontWeight.w700),
+                          ),
+                          if (h['overdue'] == true)
+                            Text(
+                              l.custodyOverdue,
+                              style: Dg.ui(
+                                size: 13,
+                                weight: FontWeight.w600,
+                                color: Dg.hi,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 10, bottom: 8),
+                  child: Text(
+                    l.custodyMoves,
+                    style: Dg.ui(
+                      size: 14,
+                      weight: FontWeight.w600,
+                      color: Dg.ink2,
+                    ),
+                  ),
+                ),
+              ],
               for (final m in items)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 10),
@@ -128,6 +187,7 @@ class _CustodyHistoryScreenState extends ConsumerState<CustodyHistoryScreen> {
                     ),
                   ),
                 ),
+            ],
           ],
         ),
       ),

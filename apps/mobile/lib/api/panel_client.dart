@@ -215,6 +215,16 @@ class PanelApi {
   Future<Map<String, dynamic>> fetchMyContracts() async =>
       _map((await _get('/courier-my-contracts')).data?['data']);
 
+  /// Kuryenin kendi başvurusu: numara, durum, belge özeti.
+  Future<Map<String, dynamic>> fetchMyApplication() async => _map(
+    _map((await _get('/courier-application')).data?['data'])['application'],
+  );
+
+  /// Kuryenin üzerindeki gönderiler; `overdue` 24 saati geçenleri işaretler.
+  Future<List<Map<String, dynamic>>> fetchCustodyOnCourier() async => _maps(
+    _map((await _get('/courier-custody/overview')).data?['data'])['onCourier'],
+  );
+
   /// Son 7 günün vardiyaları ve toplamları.
   Future<Map<String, dynamic>> fetchShiftHistory() async =>
       _map((await _get('/courier-shifts')).data?['data']);
