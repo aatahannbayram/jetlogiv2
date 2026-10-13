@@ -289,3 +289,95 @@ class PanelApiException implements Exception {
   @override
   String toString() => 'PanelApiException($code, status: $statusCode)';
 }
+
+/// Kontrolde reddedilen bir fotoğraf ("Hatalarım" satırı).
+class PhotoMistakeDto {
+  const PhotoMistakeDto({
+    required this.evidenceId,
+    this.shipmentNumber = '',
+    this.requirementLabel = '',
+    this.requirementHint,
+    this.reasonCode,
+    this.reason,
+    this.capturedAt,
+    this.acknowledgedAt,
+  });
+
+  factory PhotoMistakeDto.fromJson(Map<String, dynamic> j) => PhotoMistakeDto(
+    evidenceId: j['evidenceId'] as String? ?? '',
+    shipmentNumber: j['shipmentNumber'] as String? ?? '',
+    requirementLabel: j['requirementLabel'] as String? ?? '',
+    requirementHint: j['requirementHint'] as String?,
+    reasonCode: j['reasonCode'] as String?,
+    reason: j['reason'] as String?,
+    capturedAt: DateTime.tryParse(j['capturedAt'] as String? ?? ''),
+    acknowledgedAt: DateTime.tryParse(j['acknowledgedAt'] as String? ?? ''),
+  );
+
+  final String evidenceId;
+  final String shipmentNumber;
+  final String requirementLabel;
+  final String? requirementHint;
+
+  /// WRONG_SUBJECT, WRONG_PLACE, SIGN_NOT_VISIBLE, STICKER_NOT_VISIBLE,
+  /// NOT_READABLE, BLURRY, TOO_DARK, PAGE_MISSING, SIGNATURE_MISSING, OTHER.
+  final String? reasonCode;
+  final String? reason;
+  final DateTime? capturedAt;
+  final DateTime? acknowledgedAt;
+
+  PhotoMistakeDto acknowledged(DateTime at) => PhotoMistakeDto(
+    evidenceId: evidenceId,
+    shipmentNumber: shipmentNumber,
+    requirementLabel: requirementLabel,
+    requirementHint: requirementHint,
+    reasonCode: reasonCode,
+    reason: reason,
+    capturedAt: capturedAt,
+    acknowledgedAt: acknowledgedAt ?? at,
+  );
+}
+
+/// `courier-mistakes` ve `courier-mistakes/count` yanıtı. Puan, [minPhotos]
+/// fotoğraftan sonra hesaplanır; öncesinde [score] null, [band] `UNRATED`.
+class PhotoMistakesDto {
+  const PhotoMistakesDto({
+    this.items = const [],
+    this.unacknowledged = 0,
+    this.score,
+    this.band = 'UNRATED',
+    this.photos = 0,
+    this.rejected = 0,
+    this.minPhotos = 10,
+    this.windowDays = 30,
+  });
+
+  factory PhotoMistakesDto.fromJson(Map<String, dynamic> j) {
+    final score = j['score'] is Map ? j['score'] as Map : const {};
+    return PhotoMistakesDto(
+      items: [
+        for (final row in j['items'] as List? ?? const [])
+          if (row is Map)
+            PhotoMistakeDto.fromJson(Map<String, dynamic>.from(row)),
+      ],
+      unacknowledged: (j['unacknowledged'] as num?)?.toInt() ?? 0,
+      score: (score['score'] as num?)?.toDouble(),
+      band: score['band'] as String? ?? 'UNRATED',
+      photos: (score['photos'] as num?)?.toInt() ?? 0,
+      rejected: (score['rejected'] as num?)?.toInt() ?? 0,
+      minPhotos: (score['minPhotos'] as num?)?.toInt() ?? 10,
+      windowDays: (score['windowDays'] as num?)?.toInt() ?? 30,
+    );
+  }
+
+  final List<PhotoMistakeDto> items;
+  final int unacknowledged;
+  final double? score;
+
+  /// GOOD, WATCH, RISK, UNRATED.
+  final String band;
+  final int photos;
+  final int rejected;
+  final int minPhotos;
+  final int windowDays;
+}

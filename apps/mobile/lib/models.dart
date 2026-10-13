@@ -374,6 +374,7 @@ enum NotifKind {
   stopPulled,
   stopCancelled,
   slaRisk,
+  photoRejected,
 }
 
 class AppNotification {

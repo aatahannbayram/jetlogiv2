@@ -13,6 +13,7 @@ import '../widgets.dart';
 import 'return_screen.dart';
 import 'kyc_screen.dart';
 import 'result_screen.dart';
+import 'visit_flow_screen.dart';
 
 class WizardScreen extends ConsumerStatefulWidget {
   const WizardScreen({super.key, required this.taskId});
@@ -36,12 +37,14 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
   final otp = TextEditingController();
   String? error;
   bool done = false;
+  bool _requirementsReady = false;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(sessionProvider).loadTaskRequirements(widget.taskId);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await ref.read(sessionProvider).loadTaskRequirements(widget.taskId);
+      if (mounted) setState(() => _requirementsReady = true);
     });
   }
 
@@ -200,6 +203,18 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
         appBar: AppBar(),
         body: Center(child: Text(l.stopGone)),
       );
+    }
+    // Kontrol listesi ya da anket isteyen işler ziyaret akışıyla kapanır.
+    if (s.panelLoggedIn && !done) {
+      if (!_requirementsReady) {
+        return Scaffold(
+          appBar: AppBar(),
+          body: const Center(child: CircularProgressIndicator()),
+        );
+      }
+      if (s.visitRequirements(widget.taskId)?.guided ?? false) {
+        return VisitFlowScreen(taskId: widget.taskId);
+      }
     }
 
     if (done) {

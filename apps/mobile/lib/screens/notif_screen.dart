@@ -11,6 +11,7 @@ import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'earnings_screen.dart';
+import 'mistakes_screen.dart';
 import 'sync_screen.dart';
 import 'tara_screen.dart';
 import 'task_detail_screen.dart';
@@ -48,6 +49,10 @@ Future<void> openAppNotification(
     case NotifOpenTarget.earnings:
       await nav.push(
         MaterialPageRoute<void>(builder: (_) => const EarningsScreen()),
+      );
+    case NotifOpenTarget.mistakes:
+      await nav.push(
+        MaterialPageRoute<void>(builder: (_) => const MistakesScreen()),
       );
     case NotifOpenTarget.none:
       break;

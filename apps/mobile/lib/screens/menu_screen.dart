@@ -14,6 +14,7 @@ import 'earnings_screen.dart';
 import 'envanter_screen.dart';
 import 'eod_screen.dart';
 import 'kyc_screen.dart';
+import 'mistakes_screen.dart';
 import 'profile_screen.dart';
 import 'support_screen.dart';
 import 'sync_screen.dart';
@@ -111,6 +112,16 @@ class MenuScreen extends ConsumerWidget {
         tone: _ChipTone.mute,
         open: () => const EarningsScreen(),
       ),
+      if (s.panelLoggedIn)
+        (
+          label: l.mistakesTitle,
+          icon: LucideIcons.cameraOff,
+          badge: (s.photoMistakes?.unacknowledged ?? 0) > 0
+              ? '${s.photoMistakes!.unacknowledged}'
+              : null,
+          tone: _ChipTone.mute,
+          open: () => const MistakesScreen(),
+        ),
       (
         label: l.identityCheck,
         icon: LucideIcons.badgeCheck,

@@ -183,15 +183,87 @@ class L10n {
   String get askFourDigit =>
       _t('Alıcıdan 6 haneli kodu isteyin', 'Ask the recipient for the 6-digit code');
   String get signHere => _t('Parmağınla imzala', 'Sign with your finger');
-  String get codeNotDelivery => _t('Kod sizin telefonunuza gider. Teslim kodu değil.', 'The code goes to your phone. It is not the delivery code.');
-  String get panelReadyHint => _t('İzinlere geç, sonra vardiyayı aç.', 'Continue to permissions, then open the shift.');
-  String get loginFailed => _t('Giriş olmadı. Bilgileri kontrol et.', 'Sign-in failed. Check the details.');
-  String get panelUnavailable => _t('Panel şu an ulaşılmıyor.', 'The panel is unavailable right now.');
-  String get codeMismatch => _t('Kod eşleşmedi. Yeniden deneyin.', 'Code did not match. Try again.');
-  String get activationSendFailed => _t('Kod gönderilemedi. Numarayı kontrol et.', 'Could not send the code. Check the number.');
-  String get waitToResend => _t('Yeni kod için biraz bekle.', 'Wait a moment before requesting a new code.');
-  String get proofPhotoRequired => _t('Bu gerekçe için kapı fotoğrafı zorunlu.', 'A door photo is required for this reason.');
-  String get supportHint => _t('Sorun mu var? Şube yöneticine ulaş', 'Need help? Contact the branch manager');
+  String get codeNotDelivery => _t(
+    'Kod sizin telefonunuza gider. Teslim kodu değil.',
+    'The code goes to your phone. It is not the delivery code.',
+  );
+  String get panelReadyHint => _t(
+    'İzinlere geç, sonra vardiyayı aç.',
+    'Continue to permissions, then open the shift.',
+  );
+  String get loginFailed => _t(
+    'Giriş olmadı. Bilgileri kontrol et.',
+    'Sign-in failed. Check the details.',
+  );
+
+  /// Sunucunun giriş hata koduna göre metin; tanınmayan kodda [fallback].
+  String loginError(
+    String? code, {
+    int? remainingAttempts,
+    DateTime? lockedUntil,
+    required String fallback,
+  }) {
+    switch (code) {
+      case 'ACCOUNT_TEMPORARILY_LOCKED':
+        if (lockedUntil == null) {
+          return _t(
+            'Çok fazla hatalı deneme. 15 dakika sonra tekrar dene.',
+            'Too many failed attempts. Try again in 15 minutes.',
+          );
+        }
+        final at = lockedUntil.toLocal();
+        final time =
+            '${at.hour.toString().padLeft(2, '0')}:${at.minute.toString().padLeft(2, '0')}';
+        return _t(
+          'Çok fazla hatalı deneme. Saat $time\'den sonra tekrar dene.',
+          'Too many failed attempts. Try again after $time.',
+        );
+      case 'INVALID_CREDENTIALS':
+        if (remainingAttempts == null) return fallback;
+        return _t(
+          'Bilgiler hatalı. $remainingAttempts deneme hakkın kaldı.',
+          'Wrong details. $remainingAttempts attempts left.',
+        );
+      case 'ACCOUNT_NOT_ACTIVATED' || 'PASSWORD_NOT_SET':
+        return _t(
+          'Hesabın henüz açılmamış. E-postana gelen bağlantıyla şifreni belirle.',
+          'Your account is not set up yet. Use the link in your email to set a password.',
+        );
+      case 'ACCOUNT_NOT_ACTIVE':
+        return _t(
+          'Hesabın kapalı. Yetkilinle görüş.',
+          'Your account is inactive. Contact your manager.',
+        );
+      case 'NO_ACTIVE_AGENCY_ACCESS' || 'AGENCY_ACCESS_DENIED':
+        return _t(
+          'Bu şubeye yetkin yok.',
+          'You have no access to this branch.',
+        );
+      default:
+        return fallback;
+    }
+  }
+
+  String get panelUnavailable =>
+      _t('Panel şu an ulaşılmıyor.', 'The panel is unavailable right now.');
+  String get codeMismatch =>
+      _t('Kod eşleşmedi. Yeniden deneyin.', 'Code did not match. Try again.');
+  String get activationSendFailed => _t(
+    'Kod gönderilemedi. Numarayı kontrol et.',
+    'Could not send the code. Check the number.',
+  );
+  String get waitToResend => _t(
+    'Yeni kod için biraz bekle.',
+    'Wait a moment before requesting a new code.',
+  );
+  String get proofPhotoRequired => _t(
+    'Bu gerekçe için kapı fotoğrafı zorunlu.',
+    'A door photo is required for this reason.',
+  );
+  String get supportHint => _t(
+    'Sorun mu var? Şube yöneticine ulaş',
+    'Need help? Contact the branch manager',
+  );
 
   String get devicePermissions => _t('Cihaz izinleri', 'Device permissions');
   String get permissionsIntro => _t('Vardiya ancak bunlar tamamsa açılır.', 'The shift opens only when these are ready.');
@@ -1115,6 +1187,175 @@ class L10n {
     'SLA riskte' => notifSlaRisk,
     'SLA uzatıldı' => notifSlaExtended,
     _ => title,
+  };
+
+  // Ziyaret akışı (kontrol listeli fotoğraf + anket)
+  String get visitCouldNot => _t('Ziyareti yapamadım', "Couldn't do the visit");
+  String get visitBackToDone => _t('Ziyareti yapabildim', 'I did the visit');
+  String get visitWhyTitle => _t('Neden yapamadın?', 'Why not?');
+  String get visitPickReason => _t('Bir neden seç.', 'Pick a reason.');
+  String get visitNoteHint =>
+      _t('Kısaca ne oldu? (istersen yaz)', 'What happened? (optional)');
+  String get visitTakePhoto => _t('Fotoğraf çek', 'Take photo');
+  String get visitPhotoReady => _t('Fotoğraf hazır', 'Photo ready');
+  String get visitPhotoNeeded =>
+      _t('Önce fotoğrafı çek.', 'Take the photo first.');
+  String get visitChecklistTitle => _t(
+    'Göndermeden önce bak, hepsini işaretle',
+    'Check each item before sending',
+  );
+  String get visitChecklistNeeded =>
+      _t('Listedeki her maddeyi işaretle.', 'Tick every item on the list.');
+  String visitPhotoCount(int n, int total) =>
+      _t('Fotoğraf $n / $total', 'Photo $n / $total');
+  String visitQuality(String quality) => switch (quality) {
+    'DARK' => _t('Fotoğraf karanlık çıktı.', 'The photo is too dark.'),
+    'BRIGHT' => _t('Fotoğraf çok parlak çıktı.', 'The photo is too bright.'),
+    'BLURRY' => _t('Fotoğraf bulanık çıktı.', 'The photo is blurry.'),
+    _ => '',
+  };
+  String get visitQualityAsk => _t(
+    'Tekrar çekmeni öneririz. Yine de bunu kullanacaksan nedenini seç.',
+    'Please retake it. To use it anyway, pick a reason.',
+  );
+  String get visitOverrideNeeded =>
+      _t('Tekrar çek ya da bir neden seç.', 'Retake it or pick a reason.');
+  String visitOverride(String code) => switch (code) {
+    'LIGHTING' => _t('Ortam karanlık, ışık yetersiz', 'Not enough light here'),
+    'REFLECTIVE' => _t('Cam ya da yüzey parlıyor', 'Glass or surface reflects'),
+    'NO_RETAKE' => _t('Tekrar çekme imkânım yok', "I can't retake it"),
+    _ => _t('Başka bir neden', 'Another reason'),
+  };
+  String get visitSurveyMissing =>
+      _t('Zorunlu soruları yanıtla.', 'Answer the required questions.');
+  String get visitRequired => _t('Zorunlu', 'Required');
+  String get visitYes => _t('Evet', 'Yes');
+  String get visitNo => _t('Hayır', 'No');
+  String get visitPickDate => _t('Tarih seç', 'Pick a date');
+  String get visitSend => _t('Ziyareti gönder', 'Send visit');
+  String get visitOffline => _t(
+    'İnternet yok. Bağlantı gelince tekrar dene.',
+    'No internet. Try again when you are connected.',
+  );
+  String get visitUploadFailed => _t(
+    'Fotoğraf yüklenemedi. Tekrar dene.',
+    'Photo upload failed. Try again.',
+  );
+  String get visitPhotoUnavailable => _t(
+    'Kamera açılamadı. Kamera iznini kontrol edip tekrar dene.',
+    'Camera could not open. Check the camera permission and try again.',
+  );
+  String get visitNoReasons => _t(
+    'Nedenler yüklenemedi. Aşağı çekip yenile.',
+    'Reasons could not be loaded. Try again.',
+  );
+
+  /// Sunucunun ziyareti reddetme kodu → kuryenin anlayacağı cümle. Kod `:`
+  /// ile ek bilgi taşıyabilir (ör. `PX_STICKER_PHOTOS_REQUIRED:1/3`).
+  String visitError(
+    String code, {
+    List<String> missing = const [],
+    String? serverMessage,
+  }) {
+    final key = code.split(':').first;
+    switch (key) {
+      case 'PX_STICKER_SURVEY_CONTRADICTS_DELIVERY':
+        return _t(
+          'Ankette sticker yapıştırılmadı dedin. Anketi düzelt ya da "Ziyareti yapamadım" ile kapat.',
+          'The survey says the sticker was not applied. Fix the survey or close the visit as not done.',
+        );
+      case 'PX_STICKER_SURVEY_CONTRADICTS_FAILURE':
+        return _t(
+          'Ankette sticker yapıştırıldı dedin. Anketi düzelt ya da ziyareti tamamlandı olarak kapat.',
+          'The survey says the sticker was applied. Fix the survey or close the visit as done.',
+        );
+      case 'PX_STICKER_SURVEY_REASON_MISMATCH':
+        return _t(
+          'Anketteki iptal nedeni, seçtiğin nedenle aynı olmalı.',
+          'The cancel reason in the survey must match the reason you picked.',
+        );
+      case 'PX_STICKER_SURVEY_REQUIRED':
+      case 'PX_STICKER_SURVEY_INCOMPLETE':
+      case 'FORM_FIELD_REQUIRED':
+      case 'FORM_FIELD_INVALID':
+        return _t('Ankette eksik yanıt var.', 'The survey is incomplete.');
+      case 'PX_STICKER_PHOTOS_REQUIRED':
+        return _t('Eksik fotoğraf var.', 'A photo is missing.');
+      case 'PX_STICKER_LOCATION_REQUIRED':
+      case 'LOCATION_PAIR_REQUIRED':
+        return _t(
+          'Konumun alınamadı. Konum iznini aç, açık alana çık ve tekrar dene.',
+          'Could not get your location. Allow location, step outside and try again.',
+        );
+      case 'PX_STICKER_TOO_FAR_FROM_ADDRESS':
+        return _t(
+          'Adrese uzak görünüyorsun. Adrese yaklaşıp tekrar dene.',
+          'You seem far from the address. Get closer and try again.',
+        );
+      case 'PX_STICKER_FAILURE_REASON_REQUIRED':
+      case 'DELIVERY_REASON_REQUIRED':
+        return visitPickReason;
+      case 'TASK_NOT_STARTED':
+        return _t('Önce görevi başlat.', 'Start the task first.');
+      case 'PHOTO_UNAVAILABLE':
+        return visitPhotoUnavailable;
+      case 'DELIVERY_REQUIREMENTS_MISSING':
+        final names = {
+          'PHOTO': _t('fotoğraf', 'photo'),
+          'FORM': _t('anket', 'survey'),
+          'LOCATION': _t('konum', 'location'),
+          'SIGNATURE': _t('imza', 'signature'),
+          'OTP': _t('doğrulama kodu', 'code'),
+        };
+        final list = [
+          for (final m in missing.toSet())
+            if (names[m] != null) names[m]!,
+        ];
+        if (list.isNotEmpty) {
+          return _t(
+            'Eksik: ${list.join(', ')}.',
+            'Missing: ${list.join(', ')}.',
+          );
+        }
+    }
+    return serverMessage ??
+        _t('Gönderilemedi. Tekrar dene.', 'Could not send. Try again.');
+  }
+
+  // Hatalarım ve fotoğraf puanı
+  String get mistakesTitle => _t('Hatalarım', 'My mistakes');
+  String get photoScoreTitle => _t('Fotoğraf puanın', 'Your photo score');
+  String photoScoreUnrated(int photos, int min) => _t(
+    '$min fotoğraftan sonra hesaplanır. Şu an $photos / $min.',
+    'Calculated after $min photos. Now $photos / $min.',
+  );
+  String photoScoreSummary(int photos, int rejected, int days) => _t(
+    'Son $days günde $photos fotoğraftan $rejected tanesi kabul edilmedi.',
+    '$rejected of $photos photos were rejected in the last $days days.',
+  );
+  String photoBand(String band) => switch (band) {
+    'GOOD' => _t('İyi', 'Good'),
+    'WATCH' => _t('Dikkat', 'Watch'),
+    'RISK' => _t('Riskli', 'At risk'),
+    _ => _t('Henüz yok', 'Not yet'),
+  };
+  String get mistakesEmpty =>
+      _t('Kabul edilmeyen fotoğrafın yok.', 'No rejected photos.');
+  String mistakesNew(int n) => _t('$n yeni', '$n new');
+  String get mistakeAck => _t('Okudum', 'Got it');
+  String get mistakeAcked => _t('Okundu', 'Read');
+  String get mistakeHowTo => _t('Doğrusu', 'How to do it');
+  String mistakeReason(String? code) => switch (code) {
+    'WRONG_SUBJECT' => _t('Yanlış şey çekilmiş', 'Wrong subject'),
+    'WRONG_PLACE' => _t('Yanlış yerde çekilmiş', 'Wrong place'),
+    'SIGN_NOT_VISIBLE' => _t('Tabela görünmüyor', 'Sign not visible'),
+    'STICKER_NOT_VISIBLE' => _t('Sticker görünmüyor', 'Sticker not visible'),
+    'NOT_READABLE' => _t('Yazı okunmuyor', 'Not readable'),
+    'BLURRY' => _t('Fotoğraf bulanık', 'Blurry photo'),
+    'TOO_DARK' => _t('Fotoğraf karanlık', 'Photo too dark'),
+    'PAGE_MISSING' => _t('Sayfa eksik', 'Page missing'),
+    'SIGNATURE_MISSING' => _t('İmza eksik', 'Signature missing'),
+    _ => _t('Fotoğraf kabul edilmedi', 'Photo rejected'),
   };
 }
 

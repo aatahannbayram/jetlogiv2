@@ -1862,4 +1862,62 @@ void main() {
     await s.onForeground();
     expect(hits, 0);
   });
+
+  test('finalize anahtar ve notla gider; eksik gereksinimde görev açık kalır', () async {
+    final hits = <String>[];
+    final dio = _panelActionDio(hits: hits);
+    final keys = <String?>[];
+    Map<String, dynamic>? body;
+    var reject = true;
+    dio.interceptors.insert(
+      0,
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          if (!options.path.contains('/finalize')) return handler.next(options);
+          keys.add(options.headers['Idempotency-Key'] as String?);
+          body = Map<String, dynamic>.from(options.data as Map);
+          if (!reject) return handler.next(options);
+          handler.reject(
+            DioException(
+              requestOptions: options,
+              response: Response(
+                requestOptions: options,
+                statusCode: 422,
+                data: {
+                  'success': false,
+                  'error': {
+                    'code': 'DELIVERY_REQUIREMENTS_MISSING',
+                    'missing': [
+                      {'type': 'PHOTO', 'code': 'DELIVERY'},
+                      {'type': 'OTP'},
+                    ],
+                  },
+                },
+              ),
+              type: DioExceptionType.badResponse,
+            ),
+          );
+        },
+      ),
+    );
+    final s = SessionController(panel: PanelApi(dio), api: MobileApi(dio: dio));
+    expect(await s.loginWithPanel(identifier: 'a@b.com', password: 'x'), isTrue);
+    await s.startTask('s-9');
+
+    await s.deliverTask('s-9', receivedBy: 'Bora');
+    expect(keys.single, hasLength(36));
+    expect(body!.containsKey('outcome'), isFalse);
+    // Ölçüm yokken depo varsayılanı konum diye gönderilmez.
+    expect(body!.containsKey('latitude'), isFalse);
+    expect(s.taskById('s-9').status, TaskStatus.inProgress);
+    final warn = s.notifications.firstWhere((n) => n.taskId == 's-9');
+    expect(warn.body, contains('fotoğraf, doğrulama kodu eksik'));
+
+    reject = false;
+    await s.returnTask('s-9', reason: 'Alıcı adreste yok', note: 'Kapı kapalı');
+    expect(keys, hasLength(2));
+    expect(keys.last, isNot(keys.first), reason: 'gövde değişti, anahtar yeni');
+    expect(body!['resultCode'], 'DELIVERY_FAILED');
+    expect(body!['note'], 'Kapı kapalı');
+  });
 }

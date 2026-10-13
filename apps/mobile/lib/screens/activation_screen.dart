@@ -117,11 +117,17 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
     if (!mounted) return;
     setState(() => _panelBusy = false);
     if (!ok) {
-      final code = ref.read(sessionProvider).lastPanelError;
+      final s = ref.read(sessionProvider);
+      final code = s.lastPanelError;
       setState(
         () => _error = code == 'PANEL_UNAVAILABLE'
             ? l.panelUnavailable
-            : l.loginFailed,
+            : l.loginError(
+                code,
+                remainingAttempts: s.loginRemainingAttempts,
+                lockedUntil: s.loginLockedUntil,
+                fallback: l.loginFailed,
+              ),
       );
       return;
     }

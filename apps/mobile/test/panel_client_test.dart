@@ -430,4 +430,103 @@ void main() {
       expect(ticket.status, 'open');
     });
   });
+
+  group('Yazma sözleşmesi (courier-guide §5)', () {
+    Dio rejecting(int status, Map<String, dynamic> error) {
+      final dio = Dio(BaseOptions(baseUrl: 'http://panel.test'));
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            handler.reject(
+              DioException(
+                requestOptions: options,
+                response: Response(
+                  requestOptions: options,
+                  statusCode: status,
+                  data: {'success': false, 'error': error},
+                ),
+                type: DioExceptionType.badResponse,
+              ),
+            );
+          },
+        ),
+      );
+      return dio;
+    }
+
+    test('anahtarı zorunlu uçlar Idempotency-Key gönderir', () async {
+      final keys = <String, String?>{};
+      final dio = _mockDio((options) {
+        keys[options.path] = options.headers['Idempotency-Key'] as String?;
+        return {'success': true, 'data': <String, dynamic>{}};
+      });
+      final api = PanelApi(dio);
+      await api.finalizeTask(
+        's-1',
+        outcome: 'DELIVERED',
+        idempotencyKey: 'key-finalize-3',
+      );
+      await api.markNotificationRead('n-1');
+      await api.markAllNotificationsRead();
+      await api.completeTraining('tr-1');
+      expect(keys['/courier-tasks/s-1/finalize'], 'key-finalize-3');
+      for (final path in [
+        '/courier-notifications/n-1/read',
+        '/courier-notifications/read-all',
+        '/courier-trainings/tr-1/complete',
+      ]) {
+        expect(keys[path]?.length, greaterThanOrEqualTo(8), reason: path);
+      }
+    });
+
+    test('görev listesinde 401 PanelApiException olur', () async {
+      await expectLater(
+        () =>
+            PanelApi(rejecting(401, {'code': 'UNAUTHENTICATED'})).fetchTasks(),
+        throwsA(
+          isA<PanelApiException>().having((e) => e.statusCode, 'status', 401),
+        ),
+      );
+    });
+
+    test('hata ek alanları error içinden okunur', () async {
+      PanelApiException? locked;
+      try {
+        await PanelApi(
+          rejecting(423, {
+            'code': 'ACCOUNT_TEMPORARILY_LOCKED',
+            'message': 'Hesap kilitli.',
+            'remainingAttempts': 0,
+            'lockedUntil': '2026-10-13T09:15:00.000Z',
+          }),
+        ).login(identifier: 'k@example.com', password: 'x');
+      } on PanelApiException catch (e) {
+        locked = e;
+      }
+      expect(locked?.remainingAttempts, 0);
+      expect(locked?.lockedUntil, DateTime.utc(2026, 10, 13, 9, 15));
+      expect(locked?.serverMessage, 'Hesap kilitli.');
+
+      PanelApiException? missing;
+      try {
+        await PanelApi(
+          rejecting(422, {
+            'code': 'DELIVERY_REQUIREMENTS_MISSING',
+            'missing': [
+              {'type': 'PHOTO', 'code': 'DELIVERY', 'required': 1, 'actual': 0},
+              {'type': 'OTP'},
+            ],
+          }),
+        ).finalizeTask(
+          's-1',
+          outcome: 'DELIVERED',
+          idempotencyKey: 'key-12345',
+        );
+      } on PanelApiException catch (e) {
+        missing = e;
+      }
+      expect(missing?.missing, ['PHOTO', 'OTP']);
+      expect(missing?.isRetryable, isFalse);
+    });
+  });
 }

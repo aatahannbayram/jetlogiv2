@@ -218,7 +218,12 @@ class _SubeLoginScreenState extends ConsumerState<SubeLoginScreen> {
                           Padding(
                             padding: EdgeInsets.only(top: 10),
                             child: Text(
-                              l.subeLoginFailed,
+                              l.loginError(
+                                s.lastAgencyError,
+                                remainingAttempts: s.loginRemainingAttempts,
+                                lockedUntil: s.loginLockedUntil,
+                                fallback: l.subeLoginFailed,
+                              ),
                               style: TextStyle(color: Dg.bad, fontSize: 14),
                             ),
                           ),

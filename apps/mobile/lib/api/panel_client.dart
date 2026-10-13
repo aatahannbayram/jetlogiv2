@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
@@ -206,10 +208,14 @@ class PanelApi {
     return data['evidenceId'] as String? ?? challengeId;
   }
 
-  Future<List<({String code, String name})>> fetchDeliveryReasons() async {
+  /// [shipmentId] verilirse liste o gönderinin ürününe göre süzülür (ör.
+  /// Pluxee ziyaretinde yalnız ziyaret nedenleri döner).
+  Future<List<({String code, String name})>> fetchDeliveryReasons({
+    String? shipmentId,
+  }) async {
     final res = await _get(
       '/courier-tasks/delivery-reasons',
-      queryParameters: {'locale': 'tr'},
+      queryParameters: {'locale': 'tr', 'shipmentId': ?shipmentId},
     );
     final failed = (res.data?['data'] as Map?)?['failed'] as List? ?? const [];
     return [
@@ -234,12 +240,26 @@ class PanelApi {
     required String evidenceType,
     String contentType = 'image/jpeg',
     String? requirementCode,
+    String? category,
+    Map<String, Object?>? captureCheck,
+    double? latitude,
+    double? longitude,
+    DateTime? capturedAt,
   }) async {
     final key = Vault.newUuid();
     final form = FormData.fromMap({
       'evidenceType': evidenceType,
       'idempotencyKey': key,
       if (requirementCode != null) 'requirementCode': requirementCode,
+      'category': ?category,
+      // Çekim anı kontrolleri JSON metni olarak gider.
+      if (captureCheck != null) 'captureCheck': jsonEncode(captureCheck),
+      if (latitude != null && longitude != null) ...{
+        'latitude': latitude,
+        'longitude': longitude,
+      },
+      if (capturedAt != null)
+        'capturedAt': capturedAt.toUtc().toIso8601String(),
       'file': MultipartFile.fromBytes(
         bytes,
         filename: filename,
@@ -258,6 +278,60 @@ class PanelApi {
     }
     final data = res.data?['data'] as Map? ?? const {};
     return data['evidenceId'] as String? ?? data['id'] as String?;
+  }
+
+  /// Ziyaret anketini kaydeder. [submitted] false ise taslak kalır.
+  Future<void> saveTaskForm(
+    String shipmentId, {
+    required String formVersionId,
+    required Map<String, Object?> values,
+    bool submitted = true,
+  }) async {
+    try {
+      await dio.put<Map<String, dynamic>>(
+        '/courier-tasks/$shipmentId/form',
+        data: {
+          'formVersionId': formVersionId,
+          'status': submitted ? 'SUBMITTED' : 'DRAFT',
+          'values': values,
+        },
+        options: Options(headers: {'Idempotency-Key': Vault.newUuid()}),
+      );
+    } on DioException catch (e) {
+      throw _panelException(e);
+    }
+  }
+
+  /// Hatalarım: kontrolde reddedilen fotoğraflar ve fotoğraf puanı.
+  Future<PhotoMistakesDto> fetchPhotoMistakes() async {
+    final res = await _get('/courier-mistakes');
+    return PhotoMistakesDto.fromJson(
+      Map<String, dynamic>.from(res.data?['data'] as Map? ?? const {}),
+    );
+  }
+
+  /// Ana sayfa kartı için: okunmamış hata sayısı ve puan.
+  Future<PhotoMistakesDto> fetchPhotoMistakeCount() async {
+    final res = await _get('/courier-mistakes/count');
+    return PhotoMistakesDto.fromJson(
+      Map<String, dynamic>.from(res.data?['data'] as Map? ?? const {}),
+    );
+  }
+
+  Future<void> acknowledgePhotoMistake(String evidenceId) async {
+    await _post('/courier-mistakes/$evidenceId/acknowledge', const {});
+  }
+
+  Future<List<int>> fetchPhotoMistakeFile(String evidenceId) async {
+    try {
+      final res = await dio.get<List<int>>(
+        '/courier-mistakes/$evidenceId/file',
+        options: Options(responseType: ResponseType.bytes),
+      );
+      return res.data ?? const [];
+    } on DioException catch (e) {
+      throw _panelException(e);
+    }
   }
 
   Future<({String? city, String? district, String? vehicle, String? status})>
@@ -352,6 +426,9 @@ class PanelApi {
     String? receivedBy,
     String? otpEvidenceId,
     String? note,
+    double? latitude,
+    double? longitude,
+    DateTime? capturedAt,
   }) async {
     final delivered = outcome != 'FAILED' && outcome != 'DELIVERY_FAILED';
     final res = await _post('/courier-tasks/$shipmentId/finalize', {
@@ -360,6 +437,12 @@ class PanelApi {
       if (delivered && receivedBy != null) 'receivedByName': receivedBy,
       if (delivered && otpEvidenceId != null) 'otpEvidenceId': otpEvidenceId,
       if (note != null && note.isNotEmpty) 'note': note,
+      if (latitude != null && longitude != null) ...{
+        'latitude': latitude,
+        'longitude': longitude,
+        if (capturedAt != null)
+          'capturedAt': capturedAt.toUtc().toIso8601String(),
+      },
     }, idempotencyKey: idempotencyKey);
     return PanelFinalizeResultDto.fromJson(
       Map<String, dynamic>.from(res.data?['data'] as Map? ?? const {}),

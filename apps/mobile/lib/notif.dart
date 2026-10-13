@@ -8,13 +8,14 @@ enum NotifFilter { all, unread, alerts }
 
 enum NotifDayGroup { today, yesterday, earlier }
 
-enum NotifOpenTarget { task, sync, custody, earnings, none }
+enum NotifOpenTarget { task, sync, custody, earnings, mistakes, none }
 
 bool notifIsAlert(NotifKind kind) =>
     kind == NotifKind.syncFail ||
     kind == NotifKind.stopCancelled ||
     kind == NotifKind.stopPulled ||
-    kind == NotifKind.slaRisk;
+    kind == NotifKind.slaRisk ||
+    kind == NotifKind.photoRejected;
 
 NotifOpenTarget notifOpenTarget(NotifKind kind) => switch (kind) {
   NotifKind.stopAssigned ||
@@ -24,6 +25,7 @@ NotifOpenTarget notifOpenTarget(NotifKind kind) => switch (kind) {
   NotifKind.syncFail => NotifOpenTarget.sync,
   NotifKind.custody => NotifOpenTarget.custody,
   NotifKind.bonus => NotifOpenTarget.earnings,
+  NotifKind.photoRejected => NotifOpenTarget.mistakes,
   NotifKind.shift => NotifOpenTarget.none,
 };
 
@@ -34,6 +36,7 @@ NotifKind notifKindFromPush(String kind) => switch (kind) {
   'SHIFT_REMINDER' => NotifKind.shift,
   'CUSTODY_TAKEN' => NotifKind.custody,
   'SLA_AT_RISK' => NotifKind.slaRisk,
+  'EVIDENCE_REJECTED' => NotifKind.photoRejected,
   'SUPPORT_REPLY' || 'ANNOUNCEMENT' || 'ROUTE_RECALCULATED' => NotifKind.shift,
   _ => NotifKind.stopAssigned,
 };
@@ -44,6 +47,11 @@ NotifKind notifKindFromPush(String kind) => switch (kind) {
         icon: LucideIcons.truck,
         tint: Dg.greenBg,
         ink: Dg.green,
+      ),
+      NotifKind.photoRejected => (
+        icon: LucideIcons.cameraOff,
+        tint: Dg.redBg,
+        ink: Dg.red,
       ),
       NotifKind.stopCancelled || NotifKind.syncFail => (
         icon: LucideIcons.circleAlert,

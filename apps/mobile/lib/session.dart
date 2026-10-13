@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
@@ -18,6 +19,7 @@ import 'api/agency_client.dart';
 import 'api/agency_models.dart';
 import 'api/branch_models.dart';
 import 'branch_workspace.dart';
+import 'capture_check.dart';
 import 'api/panel_client.dart';
 import 'api/panel_models.dart';
 import 'data/outbox.dart';
@@ -31,8 +33,10 @@ import 'log.dart';
 import 'media_upload.dart';
 import 'models.dart';
 import 'road.dart';
+import 'scan.dart';
 import 'secure.dart';
 import 'theme.dart';
+import 'visit_requirements.dart';
 
 final sessionProvider = ChangeNotifierProvider<SessionController>((ref) {
   return SessionController();
@@ -126,6 +130,10 @@ class SessionController extends ChangeNotifier {
     onSessionExpired: _agencySessionExpired,
   );
   String? lastAgencyError;
+
+  /// Son giriş hatasının ayrıntısı (kurye ve şube girişi ortak).
+  int? loginRemainingAttempts;
+  DateTime? loginLockedUntil;
   bool agencyLoginBusy = false;
   List<AgencyDto> agencySelectionOptions = const [];
 
@@ -1215,17 +1223,26 @@ class SessionController extends ChangeNotifier {
         (n) => n.id.startsWith(_serverNotifPrefix) || n.id.startsWith('demo-'),
       );
       for (final item in remote.reversed) {
-        final urgent = item.severity != 'INFO';
+        final rejected = item.category == 'EVIDENCE_REJECTED';
+        final urgent = rejected || item.severity != 'INFO';
         final id = '$_serverNotifPrefix${item.id}';
         notifications.insert(
           0,
           AppNotification(
             id: id,
-            kind: urgent ? NotifKind.slaRisk : NotifKind.shift,
+            kind: rejected
+                ? NotifKind.photoRejected
+                : urgent
+                ? NotifKind.slaRisk
+                : NotifKind.shift,
             title: _notifTitle(item.category),
             body: item.body,
             createdAt: item.createdAt ?? DateTime.now(),
-            icon: urgent ? LucideIcons.circleAlert : LucideIcons.bell,
+            icon: rejected
+                ? LucideIcons.cameraOff
+                : urgent
+                ? LucideIcons.circleAlert
+                : LucideIcons.bell,
             tint: urgent ? Dg.hiBg : Dg.greenBg,
             ink: urgent ? Dg.hi : Dg.green,
           ),
@@ -1241,6 +1258,7 @@ class SessionController extends ChangeNotifier {
 
   String _notifTitle(String category) => switch (category) {
     'ANNOUNCEMENT' => 'Duyuru',
+    'EVIDENCE_REJECTED' => 'Fotoğrafın kabul edilmedi',
     'HANDOVER' || 'CUSTODY' => 'Zimmet',
     'SHIFT' || 'SHIFT_AUTO_CLOSED' => 'Vardiya',
     'LEAVE_REVIEWED' || 'LEAVE' => 'İzin',
@@ -1275,6 +1293,7 @@ class SessionController extends ChangeNotifier {
     final client = panel;
     if (!_usesPanelTasks || client == null) return;
     unawaited(loadCourierNotifications());
+    unawaited(loadPhotoMistakeCount());
     unawaited(registerCourierDevice());
     try {
       courierCounts = await client.fetchDashboardCounts();
@@ -1788,6 +1807,8 @@ class SessionController extends ChangeNotifier {
     required String password,
   }) async {
     lastPanelError = null;
+    loginRemainingAttempts = null;
+    loginLockedUntil = null;
     final id = identifier.trim();
     if (kAllowDebugBypass &&
         id == panelDemoIdentifier &&
@@ -1818,6 +1839,8 @@ class SessionController extends ChangeNotifier {
       return true;
     } on PanelApiException catch (e) {
       lastPanelError = e.code;
+      loginRemainingAttempts = e.remainingAttempts;
+      loginLockedUntil = e.lockedUntil;
       notifyListeners();
       return false;
     } catch (_) {
@@ -1837,6 +1860,8 @@ class SessionController extends ChangeNotifier {
     String? agencyId,
   }) async {
     lastAgencyError = null;
+    loginRemainingAttempts = null;
+    loginLockedUntil = null;
     agencySelectionOptions = const [];
     agencyLoginBusy = true;
     notifyListeners();
@@ -1889,6 +1914,8 @@ class SessionController extends ChangeNotifier {
     } on AgencyApiException catch (e) {
       agencyLoginBusy = false;
       lastAgencyError = e.code;
+      loginRemainingAttempts = e.remainingAttempts;
+      loginLockedUntil = e.lockedUntil;
       agencySelectionOptions = e.agencies;
       notifyListeners();
       return false;
@@ -2237,17 +2264,214 @@ class SessionController extends ChangeNotifier {
   }
 
   Map<String, dynamic>? taskRequirements;
+  String? _requirementsTaskId;
+  bool taskRequirementsLoading = false;
 
   Future<void> loadTaskRequirements(String taskId) async {
     if (!_usesPanelTasks) return;
     final client = panel;
     if (client == null) return;
+    if (_requirementsTaskId != taskId) taskRequirements = null;
+    _requirementsTaskId = taskId;
+    taskRequirementsLoading = true;
+    notifyListeners();
     try {
       taskRequirements = await client.fetchRequirements(taskId);
     } catch (_) {
       taskRequirements = null;
     }
+    taskRequirementsLoading = false;
     notifyListeners();
+  }
+
+  /// [taskId] için yüklenmiş gereksinimler; başka görevinkiler dönmez.
+  VisitRequirements? visitRequirements(String taskId) {
+    final raw = taskRequirements;
+    if (raw == null || _requirementsTaskId != taskId) return null;
+    return VisitRequirements.fromJson(raw);
+  }
+
+  /// Bu görevin ürününe özel "yapılamadı" nedenleri.
+  Future<List<({String code, String name})>> visitFailReasons(
+    String taskId,
+  ) async {
+    final client = panel;
+    if (client == null) return const [];
+    return client.fetchDeliveryReasons(shipmentId: taskId);
+  }
+
+  /// Ziyaret fotoğrafını çekim kontrolleriyle yükler. Kurye konumu biliniyorsa
+  /// adrese uzaklık da gider (sunucu engellemez, yalnız işaretler).
+  Future<String?> uploadVisitPhoto(
+    String taskId, {
+    required String? path,
+    required PhotoRequirement requirement,
+    required CaptureQuality? quality,
+    String? overrideReason,
+  }) async {
+    final client = panel;
+    if (client == null) throw PanelApiException('PANEL_UNAVAILABLE');
+    final t = taskOrNull(taskId);
+    final distance = selfLocated && t != null
+        ? haversineMeters(
+            LatLng(selfLat, selfLng),
+            LatLng(t.lat, t.lng),
+          ).round()
+        : null;
+    final check = captureCheckJson(
+      quality: quality,
+      selfChecked: true,
+      overrideReason: overrideReason,
+      distanceMeters: distance,
+      maxDistanceMeters: requirement.maxDistanceMeters,
+    );
+    if (inWidgetTest && (path == null || path.startsWith('test://'))) {
+      return Vault.newUuid();
+    }
+    if (path == null || path.isEmpty || path.startsWith('test://')) {
+      throw PanelApiException('PHOTO_UNAVAILABLE');
+    }
+    final List<int> bytes;
+    try {
+      bytes = await File(path).readAsBytes();
+    } catch (_) {
+      throw PanelApiException('PHOTO_UNAVAILABLE');
+    }
+    return client.uploadTaskEvidence(
+      shipmentId: taskId,
+      bytes: bytes,
+      filename: 'photo.jpg',
+      evidenceType: 'PHOTO',
+      requirementCode: requirement.code,
+      category: requirement.categoryCode,
+      captureCheck: check,
+      latitude: selfLocated ? selfLat : null,
+      longitude: selfLocated ? selfLng : null,
+      capturedAt: DateTime.now(),
+    );
+  }
+
+  /// Anketi (varsa) gönderir ve ziyareti kapatır. Sunucu reddederse
+  /// [PanelApiException] fırlatır; görev açık kalır, kurye düzeltip yeniden
+  /// gönderir.
+  Future<void> finalizeVisit(
+    String taskId, {
+    required bool delivered,
+    String? reasonCode,
+    String? note,
+    VisitForm? form,
+    Map<String, Object?> formValues = const {},
+  }) async {
+    final client = panel;
+    if (client == null) throw PanelApiException('PANEL_UNAVAILABLE');
+    if (!selfLocated) await refreshSelfPosition();
+    if (form != null) {
+      try {
+        await client.saveTaskForm(
+          taskId,
+          formVersionId: form.formVersionId,
+          values: form.cleanValues(formValues),
+        );
+      } on PanelApiException catch (e) {
+        // Aynı yanıtlarla daha önce gönderilmişse sorun yok.
+        if (e.code != 'FORM_ALREADY_SUBMITTED') rethrow;
+      }
+    }
+    final res = await client.finalizeTask(
+      taskId,
+      outcome: delivered ? 'DELIVERED' : 'FAILED',
+      idempotencyKey: Vault.newUuid(),
+      reasonCode: reasonCode,
+      note: note,
+      latitude: selfLocated ? selfLat : null,
+      longitude: selfLocated ? selfLng : null,
+      capturedAt: DateTime.now(),
+    );
+    final t = taskOrNull(taskId);
+    if (t != null) {
+      t.status = delivered ? TaskStatus.delivered : TaskStatus.failed;
+      final state = res.currentStateCode;
+      if (state != null && state.isNotEmpty) t.wireStatus = state;
+    }
+    notifyListeners();
+    unawaited(ensureDayRoute());
+    unawaited(loadPhotoMistakeCount());
+  }
+
+  /// Hatalarım: kontrolde reddedilen fotoğraflar ve fotoğraf puanı.
+  PhotoMistakesDto? photoMistakes;
+  bool photoMistakesLoading = false;
+
+  Future<void> loadPhotoMistakes() async {
+    final client = panel;
+    if (!_usesPanelTasks || client == null) return;
+    photoMistakesLoading = true;
+    notifyListeners();
+    try {
+      photoMistakes = await client.fetchPhotoMistakes();
+    } catch (_) {
+      // Liste gelmezse eldeki kalır.
+    }
+    photoMistakesLoading = false;
+    notifyListeners();
+  }
+
+  /// Ana sayfa kartı için yalnız sayaç ve puan; liste varsa korunur.
+  Future<void> loadPhotoMistakeCount() async {
+    final client = panel;
+    if (!_usesPanelTasks || client == null) return;
+    try {
+      final c = await client.fetchPhotoMistakeCount();
+      photoMistakes = PhotoMistakesDto(
+        items: photoMistakes?.items ?? const [],
+        unacknowledged: c.unacknowledged,
+        score: c.score,
+        band: c.band,
+        photos: c.photos,
+        rejected: c.rejected,
+        minPhotos: c.minPhotos,
+        windowDays: c.windowDays,
+      );
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  Future<bool> acknowledgePhotoMistake(String evidenceId) async {
+    final client = panel;
+    final current = photoMistakes;
+    if (client == null || current == null) return false;
+    try {
+      await client.acknowledgePhotoMistake(evidenceId);
+    } catch (_) {
+      return false;
+    }
+    final now = DateTime.now();
+    final items = [
+      for (final m in current.items)
+        m.evidenceId == evidenceId ? m.acknowledged(now) : m,
+    ];
+    photoMistakes = PhotoMistakesDto(
+      items: items,
+      unacknowledged: items.where((m) => m.acknowledgedAt == null).length,
+      score: current.score,
+      band: current.band,
+      photos: current.photos,
+      rejected: current.rejected,
+      minPhotos: current.minPhotos,
+      windowDays: current.windowDays,
+    );
+    notifyListeners();
+    return true;
+  }
+
+  Future<List<int>> photoMistakeFile(String evidenceId) async {
+    final client = panel;
+    if (client == null) return const [];
+    try {
+      return await client.fetchPhotoMistakeFile(evidenceId);
+    } catch (_) {
+      return const [];
+    }
   }
 
   /// Panel oturumunda profil JetDiji'den gelir. Eski BFF çağrılmaz.
@@ -2907,6 +3131,12 @@ class SessionController extends ChangeNotifier {
         if (receivedBy != null) 'receivedBy': receivedBy,
         if (outcome != 'FAILED' && deliveryOtpToken != null)
           'otpEvidenceId': deliveryOtpToken,
+        // Yalnız gerçek ölçüm gider; depo varsayılanı konum sayılmaz.
+        if (selfLocated) ...{
+          'latitude': selfLat,
+          'longitude': selfLng,
+          'capturedAt': DateTime.now().toUtc().toIso8601String(),
+        },
       },
     );
   }
@@ -2995,17 +3225,36 @@ class SessionController extends ChangeNotifier {
           t.status = taskStatusFromPanel(state);
         }
       case SyncOperation.panelLocation:
+        // Kuyrukta beklemiş konum bayattır; sunucu yalnız taze konum ister.
+        final waited =
+            DateTime.now().toUtc().difference(event.occurredAt.toUtc()) >
+            const Duration(minutes: 4);
         await client.sendLocation(
           id!,
           purposeCode:
               (event.payload['purposeCode'] as String?) ?? 'ACTIVE_TASK',
-          latitude: _asDouble(event.payload['latitude']) ?? selfLat,
-          longitude: _asDouble(event.payload['longitude']) ?? selfLng,
+          latitude: waited
+              ? selfLat
+              : _asDouble(event.payload['latitude']) ?? selfLat,
+          longitude: waited
+              ? selfLng
+              : _asDouble(event.payload['longitude']) ?? selfLng,
         );
       case SyncOperation.panelFinalize:
+        final outcome = (event.payload['outcome'] as String?) ?? 'DELIVERED';
+        final capturedRaw = event.payload['capturedAt'];
         final res = await client.finalizeTask(
           id!,
-          outcome: (event.payload['outcome'] as String?) ?? 'DELIVERED',
+          outcome: outcome,
+          // Teslim edilemedi'de bu alan kuryenin açıklamasını taşır.
+          note: outcome == 'FAILED'
+              ? event.payload['receivedBy'] as String?
+              : null,
+          latitude: _asDouble(event.payload['latitude']),
+          longitude: _asDouble(event.payload['longitude']),
+          capturedAt: capturedRaw is String
+              ? DateTime.tryParse(capturedRaw)
+              : null,
           idempotencyKey:
               event.payload['idempotencyKey'] as String? ??
               event.clientEventId,
@@ -3049,6 +3298,41 @@ class SessionController extends ChangeNotifier {
     }
   }
 
+  /// Sunucu teslim sonucunu kabul etmedi: görev kapanmış görünmesin, kurye
+  /// neyin eksik olduğunu bilsin.
+  void _onFinalizeRejected(String id, PanelApiException e) {
+    final t = _maybeTask(id);
+    if (t == null) return;
+    // Aynı görev farklı sonuçla zaten kapanmış; liste yenilenince düzelir.
+    if (e.code == 'FINALIZE_IDEMPOTENCY_CONFLICT') return;
+    t.status = TaskStatus.inProgress;
+    t.wireStatus = 'OUT_FOR_DELIVERY';
+    t.receivedBy = null;
+    t.signed = false;
+    const labels = {
+      'PHOTO': 'fotoğraf',
+      'SIGNATURE': 'imza',
+      'OTP': 'doğrulama kodu',
+      'FORM': 'anket',
+      'LOCATION': 'konum',
+    };
+    final missing = [
+      for (final m in e.missing.toSet())
+        if (labels[m] != null) labels[m]!,
+    ];
+    _prependNotification(
+      kind: NotifKind.syncFail,
+      title: 'Teslim kaydedilmedi',
+      body: missing.isNotEmpty
+          ? '${_taskName(id)}: ${missing.join(', ')} eksik. Tamamlayıp tekrar gönder.'
+          : '${_taskName(id)}: ${e.serverMessage ?? 'Teslim sonucu kabul edilmedi.'} Durağı açıp tekrar dene.',
+      icon: LucideIcons.circleAlert,
+      tint: Dg.redBg,
+      ink: Dg.red,
+      taskId: id,
+    );
+  }
+
   Future<void> _flushPanelOutbox() async {
     if (!storageOk || !online || !_usesPanelTasks) return;
     final client = panel;
@@ -3084,6 +3368,9 @@ class SessionController extends ChangeNotifier {
         await outbox.applyResults([
           (id: event.clientEventId, status: 'rejected'),
         ]);
+        if (event.operation == SyncOperation.panelFinalize) {
+          _onFinalizeRejected(id, e);
+        }
         if (event.operation == SyncOperation.panelAccept ||
             event.operation == SyncOperation.panelStart) {
           hardBlock.add(id);

@@ -12,6 +12,7 @@ import '../shell_nav.dart';
 import '../theme.dart';
 import '../coach.dart';
 import '../widgets.dart';
+import 'mistakes_screen.dart';
 import 'eod_screen.dart';
 import 'next_stop_card.dart';
 import 'notif_screen.dart';
@@ -236,6 +237,20 @@ class HomeScreen extends ConsumerWidget {
                             color: Dg.ink3,
                           ),
                         ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+              if (s.photoMistakes != null) ...[
+                const SizedBox(height: 14),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: Dg.pagePad),
+                  child: PhotoScoreCard(
+                    data: s.photoMistakes!,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const MistakesScreen(),
                       ),
                     ),
                   ),

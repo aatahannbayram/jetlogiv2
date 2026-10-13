@@ -1,6 +1,8 @@
+import 'package:dijigoo_kurye/api/agency_client.dart';
 import 'package:dijigoo_kurye/api/agency_models.dart';
 import 'package:dijigoo_kurye/api/branch_models.dart';
 import 'package:dijigoo_kurye/scan_router.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -160,6 +162,104 @@ void main() {
       expect(rejected.tone, ScanTone.bad);
       expect(rejected.title, 'Gönderi bulunamadı.');
       expect((await router.handle(ScanContext.lookup, 'A')).tone, ScanTone.bad);
+    });
+  });
+
+  group('AgencyPortalApi (branch-guide)', () {
+    test('kurye eğitimleri targetType=COURIER ile istenir', () async {
+      Map<String, dynamic>? query;
+      final dio = Dio(BaseOptions(baseUrl: 'http://agency.test'));
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            query = options.queryParameters;
+            handler.resolve(
+              Response<Map<String, dynamic>>(
+                requestOptions: options,
+                statusCode: 200,
+                data: {
+                  'success': true,
+                  'data': {
+                    'targetType': 'COURIER',
+                    'trainings': [
+                      {
+                        'id': 't1',
+                        'title': 'Kart teslim kuralları',
+                        'isMandatory': true,
+                        'status': 'PUBLISHED',
+                        'editable': true,
+                        'stats': {'learners': 8, 'completed': 5},
+                      },
+                    ],
+                  },
+                },
+              ),
+            );
+          },
+        ),
+      );
+      final rows = await AgencyPortalApi(dio).fetchManagedTrainings();
+      expect(query?['targetType'], 'COURIER');
+      expect(rows.single.learners, 8);
+      expect(rows.single.completed, 5);
+    });
+
+    test('bildirim okundu Idempotency-Key ile gider', () async {
+      String? key;
+      final dio = Dio(BaseOptions(baseUrl: 'http://agency.test'));
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            key = options.headers['Idempotency-Key'] as String?;
+            handler.resolve(
+              Response<Map<String, dynamic>>(
+                requestOptions: options,
+                statusCode: 200,
+                data: {'success': true, 'data': <String, dynamic>{}},
+              ),
+            );
+          },
+        ),
+      );
+      await AgencyPortalApi(dio).markNotificationRead('n1');
+      expect(key?.length, greaterThanOrEqualTo(8));
+    });
+
+    test('girişte kalan deneme ve kilit süresi error içinden okunur', () async {
+      final dio = Dio(BaseOptions(baseUrl: 'http://agency.test'));
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            handler.reject(
+              DioException(
+                requestOptions: options,
+                response: Response(
+                  requestOptions: options,
+                  statusCode: 423,
+                  data: {
+                    'success': false,
+                    'error': {
+                      'code': 'ACCOUNT_TEMPORARILY_LOCKED',
+                      'remainingAttempts': 0,
+                      'lockedUntil': '2026-10-13T09:15:00.000Z',
+                    },
+                  },
+                ),
+                type: DioExceptionType.badResponse,
+              ),
+            );
+          },
+        ),
+      );
+      AgencyApiException? error;
+      try {
+        await AgencyPortalApi(dio).login(email: 'a@b.co', password: 'x');
+      } on AgencyApiException catch (e) {
+        error = e;
+      }
+      expect(error?.code, 'ACCOUNT_TEMPORARILY_LOCKED');
+      expect(error?.remainingAttempts, 0);
+      expect(error?.lockedUntil, DateTime.utc(2026, 10, 13, 9, 15));
     });
   });
 }
