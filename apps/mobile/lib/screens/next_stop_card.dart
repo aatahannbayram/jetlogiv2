@@ -48,7 +48,7 @@ class _NextStopPagerState extends ConsumerState<NextStopPager> {
     final stops = s.orderedOpenTasks;
     if (stops.isEmpty) return const _NoOpenStop();
     return SizedBox(
-      height: 420 + (MediaQuery.textScalerOf(context).scale(16) - 16) * 24,
+      height: 436 + (MediaQuery.textScalerOf(context).scale(16) - 16) * 24,
       child: PageView.builder(
         controller: _pages,
         padEnds: false,
@@ -229,53 +229,59 @@ class _NextStopCardState extends ConsumerState<NextStopCard> {
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                 child: _MetaLine(task: task),
               ),
-              // Yardımcı işlemler tek satırda, eşit genişlikte.
+              // Yardımcı işlemler tek satırda, eşit genişlik ve yükseklikte.
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
-                child: Row(
-                  children: [
-                    if (widget.offerArrive &&
-                        !s.selfLocated &&
-                        !arrivedManual) ...[
+                child: IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (widget.offerArrive &&
+                          !s.selfLocated &&
+                          !arrivedManual) ...[
+                        Expanded(
+                          flex: 5,
+                          child: _Ghost(
+                            key: const Key('next-stop-arrived'),
+                            icon: LucideIcons.mapPin,
+                            label: l.arrivedHere,
+                            onTap: () {
+                              HapticFeedback.mediumImpact();
+                              widget.onArrived();
+                              setState(() => _arrivedHere = true);
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
                       Expanded(
+                        flex: 4,
                         child: _Ghost(
-                          key: const Key('next-stop-arrived'),
-                          icon: LucideIcons.mapPin,
-                          label: l.arrivedHere,
-                          onTap: () {
-                            HapticFeedback.mediumImpact();
-                            widget.onArrived();
-                            setState(() => _arrivedHere = true);
-                          },
+                          icon: LucideIcons.phone,
+                          label: l.call,
+                          onTap: () => s.callTask(context, task),
                         ),
                       ),
                       const SizedBox(width: 8),
-                    ],
-                    Expanded(
-                      child: _Ghost(
-                        icon: LucideIcons.phone,
-                        label: l.call,
-                        onTap: () => s.callTask(context, task),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _Ghost(
-                        icon: LucideIcons.circleX,
-                        label: l.kpiFailed,
-                        onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => ReturnScreen(taskId: task.id),
+                      Expanded(
+                        flex: 6,
+                        child: _Ghost(
+                          icon: LucideIcons.circleX,
+                          label: l.couldNotDeliverShort,
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => ReturnScreen(taskId: task.id),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    _Ghost(
-                      icon: LucideIcons.ellipsis,
-                      onTap: () => _more(context, l),
-                    ),
-                  ],
+                      const SizedBox(width: 8),
+                      _Ghost(
+                        icon: LucideIcons.ellipsis,
+                        onTap: () => _more(context, l),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               Padding(
@@ -576,8 +582,9 @@ class _Ghost extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         child: Container(
           constraints: const BoxConstraints(minHeight: 56, minWidth: 52),
-          alignment: Alignment.center,
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+          // İkonlar aynı hizada kalsın diye içerik üstten başlar.
+          alignment: label == null ? Alignment.center : Alignment.topCenter,
+          padding: const EdgeInsets.fromLTRB(4, 10, 4, 8),
           // İkon üstte, yazı altta: dar kartta da hepsi aynı boyda sığar.
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -587,9 +594,10 @@ class _Ghost extends StatelessWidget {
               if (label != null)
                 Text(
                   label!,
-                  maxLines: 1,
+                  maxLines: 2,
+                  textAlign: TextAlign.center,
                   overflow: TextOverflow.ellipsis,
-                  style: Dg.ui(size: 13, weight: FontWeight.w600),
+                  style: Dg.ui(size: 13, weight: FontWeight.w600, height: 1.15),
                 ),
             ],
           ),
