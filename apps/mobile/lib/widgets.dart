@@ -664,11 +664,21 @@ class NotifCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          DgIcon(
-            n.icon,
-            size: compact ? 18 : 20,
-            color: unread ? Dg.text1 : Dg.text3,
-            weight: 500,
+          // Okunmamış bildirimin ikonu mor rozetle öne çıkar.
+          Container(
+            width: compact ? 34 : 40,
+            height: compact ? 34 : 40,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: unread ? Dg.plumSoft : Dg.elev,
+              shape: BoxShape.circle,
+            ),
+            child: DgIcon(
+              n.icon,
+              size: compact ? 17 : 19,
+              color: unread ? Dg.plum : Dg.text3,
+              weight: 500,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -2214,6 +2224,86 @@ class DgOnlineChip extends StatelessWidget {
   }
 }
 
+/// Boş ekran ve tanıtım görseli: iç içe yumuşak halkalar, ortada ana ikon,
+/// çevresinde iki küçük vurgu. Vektördür; dosya boyutu ve ağ gerektirmez,
+/// temaya kendiliğinden uyar.
+class DgIllustration extends StatelessWidget {
+  const DgIllustration({super.key, required this.icon, this.size = 132});
+
+  final IconData icon;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final core = size * 0.5;
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Dg.plum.withValues(alpha: Dg.dark ? 0.07 : 0.05),
+            ),
+          ),
+          Container(
+            width: size * 0.74,
+            height: size * 0.74,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Dg.plum.withValues(alpha: Dg.dark ? 0.12 : 0.08),
+            ),
+          ),
+          Container(
+            width: core,
+            height: core,
+            alignment: Alignment.center,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: Dg.primaryGradient,
+            ),
+            child: DgIcon(icon, size: core * 0.46, color: Dg.onAction),
+          ),
+          // Küçük vurgular: turuncu nokta ve yeşil işaret.
+          Positioned(
+            top: size * 0.12,
+            right: size * 0.14,
+            child: Container(
+              width: size * 0.13,
+              height: size * 0.13,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: Dg.orange,
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: size * 0.14,
+            left: size * 0.1,
+            child: Container(
+              width: size * 0.2,
+              height: size * 0.2,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Dg.go,
+                border: Border.all(color: Dg.ground, width: 3),
+              ),
+              child: Icon(
+                LucideIcons.sparkles,
+                size: size * 0.09,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class DgEmptyState extends StatelessWidget {
   const DgEmptyState({
     super.key,
@@ -2232,18 +2322,12 @@ class DgEmptyState extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(28, 48, 28, 24),
       child: Column(
         children: [
-          Container(
-            width: 64,
-            height: 64,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(color: Dg.elev, shape: BoxShape.circle),
-            child: DgIcon(icon, size: 26, color: Dg.ink3),
-          ),
-          const SizedBox(height: 16),
+          DgIllustration(icon: icon),
+          const SizedBox(height: 18),
           Text(
             title,
             textAlign: TextAlign.center,
-            style: Dg.ui(size: 16, weight: FontWeight.w700),
+            style: Dg.ui(size: 18, weight: FontWeight.w700),
           ),
           if (body != null) ...[
             const SizedBox(height: 6),
@@ -2460,7 +2544,12 @@ class StatTile extends StatelessWidget {
     this.onTap,
     this.dark = false,
     this.valueColor,
+    this.icon,
   });
+
+  /// Kutunun sağ üstünde küçük ikon: sayının neyi saydığı bir bakışta
+  /// anlaşılır.
+  final IconData? icon;
 
   /// Verilirse sayı bu renkte yazılır (ör. ilgi bekleyen kutuda kehribar).
   final Color? valueColor;
@@ -2481,14 +2570,30 @@ class StatTile extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              label,
-              style: Dg.ui(
-                size: 14,
-                weight: FontWeight.w500,
-                height: 1.25,
-                color: dark ? Dg.mutedOnNight : Dg.ink3,
-              ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    label,
+                    style: Dg.ui(
+                      size: 14,
+                      weight: FontWeight.w500,
+                      height: 1.25,
+                      color: dark ? Dg.mutedOnNight : Dg.ink3,
+                    ),
+                  ),
+                ),
+                if (icon != null) ...[
+                  const SizedBox(width: 6),
+                  DgIcon(
+                    icon!,
+                    size: 18,
+                    color: valueColor ?? Dg.ink3,
+                    weight: 500,
+                  ),
+                ],
+              ],
             ),
             const SizedBox(height: 8),
             Text(

@@ -186,17 +186,8 @@ class _IntroSheetState extends State<_IntroSheet> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(
-                    width: 56,
-                    height: 56,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: Dg.plumSoft,
-                      shape: BoxShape.circle,
-                    ),
-                    child: DgIcon(step.icon, size: 26, color: Dg.plum),
-                  ),
-                  const SizedBox(height: 14),
+                  Center(child: DgIllustration(icon: step.icon, size: 148)),
+                  const SizedBox(height: 16),
                   Text(
                     step.title,
                     style: Dg.ui(

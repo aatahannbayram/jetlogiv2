@@ -43,7 +43,16 @@ class SubeSection extends StatelessWidget {
 
 /// İkişerli KPI ızgarası.
 class SubeKpiGrid extends StatelessWidget {
-  const SubeKpiGrid(this.tiles, {super.key, this.attention = false});
+  const SubeKpiGrid(
+    this.tiles, {
+    super.key,
+    this.attention = false,
+    this.icons = const [],
+  });
+
+  /// Kutularla aynı sırada ikonlar; eksik olan kutu ikonsuz kalır.
+  final List<IconData> icons;
+  IconData? _icon(int i) => i < icons.length ? icons[i] : null;
 
   final List<(String, String)> tiles;
 
@@ -68,6 +77,7 @@ class SubeKpiGrid extends StatelessWidget {
                   label: tiles[i].$1,
                   value: tiles[i].$2,
                   valueColor: _tint(tiles[i].$2),
+                  icon: _icon(i),
                 ),
                 if (columns == 2) ...[
                   const SizedBox(width: 12),
@@ -76,6 +86,7 @@ class SubeKpiGrid extends StatelessWidget {
                       label: tiles[i + 1].$1,
                       value: tiles[i + 1].$2,
                       valueColor: _tint(tiles[i + 1].$2),
+                      icon: _icon(i + 1),
                     )
                   else
                     const Spacer(),

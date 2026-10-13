@@ -77,7 +77,10 @@ class _SubeShellScreenState extends ConsumerState<SubeShellScreen> {
       ),
       // Büyük yazı ayarında yüzen düğme içeriği kapatır; alt çubuğun üstüne
       // tam genişlikte düğme olarak iner.
-      floatingActionButton: largeText
+      // Gönderi seçiliyken "Kuryeye zimmetle" düğmesi öne geçer; iki düğme
+      // üst üste binmesin diye okutma düğmesi gizlenir.
+      floatingActionButton:
+          largeText || (_index == 1 && s.branch.picked.isNotEmpty)
           ? null
           : FloatingActionButton.extended(
               onPressed: openScan,

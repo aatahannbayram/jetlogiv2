@@ -138,12 +138,25 @@ class _InboxTile extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
-              padding: const EdgeInsets.only(top: 6, right: 10),
-              child: Icon(
-                item.read ? LucideIcons.circle : LucideIcons.circleDot,
-                size: 12,
-                color: color,
+            Container(
+              width: 38,
+              height: 38,
+              margin: const EdgeInsets.only(right: 12),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: item.read
+                    ? Dg.elev
+                    : color.withValues(alpha: Dg.dark ? 0.18 : 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: DgIcon(
+                switch (item.severity) {
+                  'CRITICAL' => LucideIcons.circleAlert,
+                  'WARNING' => LucideIcons.triangleAlert,
+                  _ => LucideIcons.bell,
+                },
+                size: 18,
+                color: item.read ? Dg.ink3 : color,
               ),
             ),
             Expanded(

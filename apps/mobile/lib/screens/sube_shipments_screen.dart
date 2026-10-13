@@ -110,8 +110,7 @@ class _SubeShipmentsScreenState extends ConsumerState<SubeShipmentsScreen> {
           ),
           if (branch.picked.isNotEmpty)
             Padding(
-              // Sabit "Barkod Okut" düğmesinin üstünde kalır.
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 84),
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
               child: DgButton(
                 label: '${l.assignToCourier} · ${branch.picked.length}',
                 icon: LucideIcons.userPlus,
