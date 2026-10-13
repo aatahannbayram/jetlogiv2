@@ -1823,17 +1823,21 @@ class DgPillNav extends StatelessWidget {
                                 style: Dg.ui(
                                   size: 14,
                                   weight: selected
-                                      ? FontWeight.w700
+                                      ? FontWeight.w600
                                       : FontWeight.w500,
                                   color: selected
                                       ? Dg.dockActive
                                       : Dg.mutedOnDock,
                                 ).copyWith(fontSize: 12),
-                                child: Text(
-                                  items[i].$3,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  textAlign: TextAlign.center,
+                                // Dar ekranda kesilmek yerine küçülür.
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    items[i].$3,
+                                    maxLines: 1,
+                                    softWrap: false,
+                                    textAlign: TextAlign.center,
+                                  ),
                                 ),
                               ),
                             ),

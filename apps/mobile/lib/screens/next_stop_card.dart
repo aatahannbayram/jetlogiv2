@@ -15,7 +15,7 @@ import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'return_screen.dart';
-import 'shell_screen.dart' show RouteScreen;
+import 'task_detail_screen.dart';
 import 'wizard_screen.dart';
 
 class NextStopPager extends ConsumerStatefulWidget {
@@ -149,12 +149,15 @@ class _NextStopCardState extends ConsumerState<NextStopCard> {
 
     return RepaintBoundary(
       child: SingleChildScrollView(
-        // Karta dokunmak rotayı açar; içindeki düğmeler kendi işini yapar.
+        // Karta dokunmak o durağın kendi ekranını açar; içindeki düğmeler
+        // kendi işini yapar.
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onTap: () => Navigator.of(
-            context,
-          ).push(MaterialPageRoute<void>(builder: (_) => const RouteScreen())),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => TaskDetailScreen(taskId: task.id),
+            ),
+          ),
           child: Container(
             decoration: BoxDecoration(
               color: Dg.surface1,
@@ -200,7 +203,7 @@ class _NextStopCardState extends ConsumerState<NextStopCard> {
                   travelLabel: travel.isEmpty ? null : travel,
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute<void>(
-                      builder: (_) => const RouteScreen(),
+                      builder: (_) => TaskDetailScreen(taskId: task.id),
                     ),
                   ),
                 ),

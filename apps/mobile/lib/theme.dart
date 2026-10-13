@@ -35,7 +35,18 @@ class Dg {
   static Color get onStatus => dark ? night : Colors.white;
 
   /// Content is separated by spacing and tonal surfaces, without shadows.
-  static const cardShadow = <BoxShadow>[];
+  /// Koyu temada yüzeyler tonla ayrışır; açık temada kartlar tam beyaz
+  /// yerine kırık beyazdır ve çok hafif bir gölgeyle zeminden kalkar.
+  static List<BoxShadow> get cardShadow => dark
+      ? const []
+      : const [
+          BoxShadow(
+            color: Color(0x12202422),
+            blurRadius: 24,
+            offset: Offset(0, 8),
+            spreadRadius: -6,
+          ),
+        ];
   static List<BoxShadow> get dockShadow => [
     BoxShadow(
       color: night.withValues(alpha: dark ? 0.40 : 0.12),
@@ -164,9 +175,9 @@ class Dg {
 
   // ---- Kurye ve şube için ortak taş–kömür saha paleti ----
   static Color get bg =>
-      dark ? const Color(0xFF171918) : const Color(0xFFF5F5F2);
+      dark ? const Color(0xFF171918) : const Color(0xFFF1F1EC);
   static Color get surface1 =>
-      dark ? const Color(0xFF222524) : const Color(0xFFFFFFFF);
+      dark ? const Color(0xFF222524) : const Color(0xFFFAFAF7);
   static Color get surface2 =>
       dark ? const Color(0xFF2D302F) : const Color(0xFFEBEEEA);
   static Color get stroke =>
@@ -176,7 +187,7 @@ class Dg {
   static Color get text2 =>
       dark ? const Color(0xFFD2D7D3) : const Color(0xFF4A4A4A);
   static Color get text3 =>
-      dark ? const Color(0xFFB4BCB6) : const Color(0xFF626B65);
+      dark ? const Color(0xFFB4BCB6) : const Color(0xFF5A635D);
   static Color get brand =>
       dark ? const Color(0xFFF5953A) : const Color(0xFFB04400);
 

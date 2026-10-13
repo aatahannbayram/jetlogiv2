@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../brand.dart';
 import '../l10n.dart';
 import '../motion.dart';
 import '../session.dart';
@@ -52,90 +53,108 @@ class HomeScreen extends ConsumerWidget {
                   padding: const EdgeInsets.symmetric(horizontal: Dg.pagePad),
                   child: Column(
                     children: [
-                      Row(
-                        children: [
-                          // Profil sol üstte; dokununca profil açılır.
-                          Expanded(
-                            child: GestureDetector(
+                      // Üst alan tek parça: logo, durum ve bildirim üstte;
+                      // altında küçük profil satırı (dokununca profil açılır).
+                      Container(
+                        padding: const EdgeInsets.fromLTRB(16, 6, 6, 12),
+                        decoration: BoxDecoration(
+                          color: Dg.surface,
+                          borderRadius: BorderRadius.circular(Dg.rLg),
+                          boxShadow: Dg.cardShadow,
+                        ),
+                        child: Column(
+                          children: [
+                            Row(
+                              children: [
+                                DijigooWordmark(height: 22, onDark: Dg.dark),
+                                const Spacer(),
+                                DgOnlineChip(
+                                  online: s.online && s.shiftOpen,
+                                  onTap: s.shiftOpen ? s.toggleOnline : () {},
+                                ),
+                                const SizedBox(width: 2),
+                                IconButton(
+                                  onPressed: () => ref
+                                      .read(shellNavProvider)
+                                      .go(ShellNav.notif),
+                                  icon: Stack(
+                                    clipBehavior: Clip.none,
+                                    children: [
+                                      DgIcon(
+                                        LucideIcons.bell,
+                                        size: 22,
+                                        color: Dg.ink,
+                                      ),
+                                      if (s.unreadNotifCount > 0)
+                                        Positioned(
+                                          top: -2,
+                                          right: -3,
+                                          child: Container(
+                                            width: 8,
+                                            height: 8,
+                                            decoration: BoxDecoration(
+                                              color: Dg.warn,
+                                              shape: BoxShape.circle,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            GestureDetector(
                               behavior: HitTestBehavior.opaque,
                               onTap: () => Navigator.of(context).push(
                                 MaterialPageRoute<void>(
                                   builder: (_) => const ProfileScreen(),
                                 ),
                               ),
-                              child: Row(
-                                children: [
-                                  InitialsAvatar(
-                                    name: s.courier.fullName,
-                                    photoUrl: s.courier.photoUrl,
-                                    online: s.online,
-                                    size: 44,
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          s.courier.fullName,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: Dg.ui(
-                                            size: 16,
-                                            weight: FontWeight.w700,
-                                          ),
-                                        ),
-                                        Text(
-                                          '${s.courier.district} / ${s.courier.city}',
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: Dg.ui(
-                                            size: 12,
-                                            color: Dg.ink2,
-                                          ),
-                                        ),
-                                      ],
+                              child: Padding(
+                                padding: const EdgeInsets.only(right: 10),
+                                child: Row(
+                                  children: [
+                                    InitialsAvatar(
+                                      name: s.courier.fullName,
+                                      photoUrl: s.courier.photoUrl,
+                                      online: s.online,
+                                      size: 32,
                                     ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          DgOnlineChip(
-                            online: s.online && s.shiftOpen,
-                            onTap: s.shiftOpen ? s.toggleOnline : () {},
-                          ),
-                          const SizedBox(width: 10),
-                          IconButton(
-                            onPressed: () =>
-                                ref.read(shellNavProvider).go(ShellNav.notif),
-                            icon: Stack(
-                              clipBehavior: Clip.none,
-                              children: [
-                                DgIcon(
-                                  LucideIcons.bell,
-                                  size: 22,
-                                  color: Dg.ink,
-                                ),
-                                if (s.unreadNotifCount > 0)
-                                  Positioned(
-                                    top: -2,
-                                    right: -3,
-                                    child: Container(
-                                      width: 8,
-                                      height: 8,
-                                      decoration: BoxDecoration(
-                                        color: Dg.warn,
-                                        shape: BoxShape.circle,
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text.rich(
+                                        TextSpan(
+                                          text: s.courier.fullName,
+                                          children: [
+                                            TextSpan(
+                                              text:
+                                                  '  ·  ${s.courier.district} / ${s.courier.city}',
+                                              style: Dg.ui(
+                                                size: 13,
+                                                color: Dg.ink3,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: Dg.ui(
+                                          size: 14,
+                                          weight: FontWeight.w600,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                              ],
+                                    DgIcon(
+                                      LucideIcons.chevronRight,
+                                      size: 16,
+                                      color: Dg.ink3,
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                       const SizedBox(height: 14),
                       if (s.showPanelFieldError)

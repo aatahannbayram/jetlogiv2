@@ -177,7 +177,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
           // artık ekranın en fazla %48'i; taşan içerik kaydırılır.
           ConstrainedBox(
             constraints: BoxConstraints(
-              maxHeight: MediaQuery.sizeOf(context).height * 0.48,
+              maxHeight: MediaQuery.sizeOf(context).height * 0.6,
             ),
             // Kart haritanın üstüne biner: yuvarlak köşelerin arkasında
             // boşluk değil harita görünür. Tutamak sabittir, içerik onun
@@ -313,6 +313,8 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                                   label: l.deliveryWindowLeft,
                                   value: t.slaMinutesLeft == null
                                       ? t.window
+                                      : t.slaMinutesLeft! < 0
+                                      ? l.minutesLate(-t.slaMinutesLeft!)
                                       : l.slaLeft(t.slaLabel),
                                 ),
                                 if (t.otpRequired) ...[
@@ -355,79 +357,92 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                                     ],
                                   ],
                                 ),
-                                const SizedBox(height: 16),
-                                if (done)
-                                  Container(
-                                        width: double.infinity,
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 16,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: Dg.loBg,
-                                          borderRadius: BorderRadius.circular(
-                                            Dg.radiusPill,
-                                          ),
-                                        ),
-                                        child: Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          children: [
-                                            Icon(
-                                              LucideIcons.circleCheck,
-                                              size: 20,
-                                              color: Dg.lo,
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Text(
-                                              l.deliveredOk,
-                                              style: Dg.ui(
-                                                size: 16,
-                                                weight: FontWeight.w700,
-                                                color: Dg.lo,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      )
-                                      .animate()
-                                      .scale(
-                                        begin: const Offset(0.96, 0.96),
-                                        duration: 220.ms,
-                                        curve: Curves.easeOutBack,
-                                      )
-                                      .fadeIn(duration: 180.ms)
-                                else if (canAct)
-                                  SlideToAct(
-                                    label: guided
-                                        ? l.visitSlide
-                                        : l.slideToDeliver,
-                                    onConfirm: start,
-                                  ),
-                                if (canAct) ...[
-                                  const SizedBox(height: 10),
-                                  // Kuryenin gözünden kaçmasın: tam genişlikte kırmızı.
-                                  DgButton(
-                                    label: guided
-                                        ? l.visitCouldNot
-                                        : l.couldNotDeliverShort,
-                                    icon: LucideIcons.circleX,
-                                    tone: DgButtonTone.danger,
-                                    onPressed: () async {
-                                      final failed = await Navigator.of(context)
-                                          .push<bool>(
-                                            MaterialPageRoute<bool>(
-                                              builder: (_) =>
-                                                  ReturnScreen(taskId: t.id),
-                                            ),
-                                          );
-                                      if (failed == true && context.mounted) {
-                                        Navigator.of(context).pop();
-                                      }
-                                    },
-                                  ),
-                                ],
                               ],
                             ),
+                          ),
+                        ),
+                        // Asıl eylemler kaymaz: kurye kaydırmadan her zaman görür.
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(
+                            Dg.pagePad,
+                            10,
+                            Dg.pagePad,
+                            12,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              if (done)
+                                Container(
+                                      width: double.infinity,
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 16,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Dg.loBg,
+                                        borderRadius: BorderRadius.circular(
+                                          Dg.radiusPill,
+                                        ),
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Icon(
+                                            LucideIcons.circleCheck,
+                                            size: 20,
+                                            color: Dg.lo,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            l.deliveredOk,
+                                            style: Dg.ui(
+                                              size: 16,
+                                              weight: FontWeight.w700,
+                                              color: Dg.lo,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    )
+                                    .animate()
+                                    .scale(
+                                      begin: const Offset(0.96, 0.96),
+                                      duration: 220.ms,
+                                      curve: Curves.easeOutBack,
+                                    )
+                                    .fadeIn(duration: 180.ms)
+                              else if (canAct)
+                                SlideToAct(
+                                  label: guided
+                                      ? l.visitSlide
+                                      : l.slideToDeliver,
+                                  onConfirm: start,
+                                ),
+                              if (canAct) ...[
+                                const SizedBox(height: 10),
+                                // Kuryenin gözünden kaçmasın: tam genişlikte kırmızı.
+                                DgButton(
+                                  label: guided
+                                      ? l.visitCouldNot
+                                      : l.couldNotDeliverShort,
+                                  icon: LucideIcons.circleX,
+                                  tone: DgButtonTone.danger,
+                                  onPressed: () async {
+                                    final failed = await Navigator.of(context)
+                                        .push<bool>(
+                                          MaterialPageRoute<bool>(
+                                            builder: (_) =>
+                                                ReturnScreen(taskId: t.id),
+                                          ),
+                                        );
+                                    if (failed == true && context.mounted) {
+                                      Navigator.of(context).pop();
+                                    }
+                                  },
+                                ),
+                              ],
+                            ],
                           ),
                         ),
                       ],

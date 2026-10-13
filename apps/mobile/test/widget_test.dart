@@ -3,6 +3,7 @@ import 'package:dijigoo_kurye/api/courier_tasks.dart';
 import 'package:dijigoo_kurye/api/panel_models.dart';
 import 'package:dijigoo_kurye/app.dart';
 import 'package:dijigoo_kurye/l10n.dart';
+import 'package:dijigoo_kurye/screens/task_detail_screen.dart';
 import 'package:dijigoo_kurye/screens/return_screen.dart';
 import 'package:dijigoo_kurye/screens/sync_screen.dart';
 import 'package:dijigoo_kurye/session.dart';
@@ -99,17 +100,18 @@ void main() {
     expect(find.byKey(const Key('sms-login')), findsOneWidget);
   });
 
-  testWidgets('sıradaki durak kartına dokununca rota açılır; üç nokta yok', (
+  testWidgets('sıradaki durak kartına dokununca o durak açılır; üç nokta yok', (
     tester,
   ) async {
     await bindPhone(tester);
     await openDemo(tester);
     expect(find.byIcon(LucideIcons.ellipsis), findsNothing);
-    expect(find.byType(RouteScreen), findsNothing);
+    expect(find.byType(TaskDetailScreen), findsNothing);
     // Kartın düğme olmayan bir yerine (adres başlığı) dokunulur.
     await tester.tap(find.text('Cumhuriyet Cd. No:14').first);
     await tester.pumpAndSettle();
-    expect(find.byType(RouteScreen), findsOneWidget);
+    expect(find.byType(TaskDetailScreen), findsOneWidget);
+    expect(find.byType(RouteScreen), findsNothing);
   });
 
   testWidgets('alt menü aşağı kaydırınca küçülür, yukarı kaydırınca büyür', (
@@ -141,7 +143,10 @@ void main() {
     await bindPhone(tester);
     await openDemo(tester);
     expect(find.text('Ahmet Yılmaz'), findsWidgets);
-    expect(find.text('Güney / Denizli'), findsOneWidget);
+    expect(
+      find.textContaining('Güney / Denizli', findRichText: true),
+      findsOneWidget,
+    );
 
     await tapHomeKey(tester, const Key('next-stop-arrived'));
     await tapHomeKey(tester, const Key('next-stop-cta'));
