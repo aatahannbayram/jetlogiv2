@@ -45,6 +45,9 @@ final sessionProvider = ChangeNotifierProvider<SessionController>((ref) {
 
 enum AppPhase { onboard, splash, activation, permissions, shift, main, subeMain }
 
+const _debugLoginId = String.fromEnvironment('DEBUG_LOGIN_ID');
+const _debugLoginPw = String.fromEnvironment('DEBUG_LOGIN_PW');
+
 class SessionController extends ChangeNotifier {
   SessionController({
     OutboxStore? outbox,
@@ -266,10 +269,24 @@ class SessionController extends ChangeNotifier {
     return true;
   }
 
+  /// Rota başlangıcı: ölçülmüş konum; ölçüm yoksa varsayılan depo. Depo
+  /// duraklardan uzaksa (başka şehir) ilk durak alınır — yoksa Ankara'daki
+  /// kuryeye Denizli'den 380 km'lik ilk bacak ve ülke çapında harita çıkar.
+  LatLng get _routeOrigin {
+    if (selfLocated && _gpsFitsStops(selfLat, selfLng)) {
+      return LatLng(selfLat, selfLng);
+    }
+    const depot = LatLng(_depotLat, _depotLng);
+    final stops = _openStopPoints;
+    if (stops.isEmpty ||
+        originNearStops(origin: depot, stops: stops, maxMeters: 60000)) {
+      return depot;
+    }
+    return stops.first;
+  }
+
   Future<void> ensureDayRoute({String? pinFirstId}) async {
-    final origin = _gpsFitsStops(selfLat, selfLng)
-        ? LatLng(selfLat, selfLng)
-        : const LatLng(_depotLat, _depotLng);
+    final origin = _routeOrigin;
     final stops = _openRouteStops;
     final pin = pinFirstId ?? nextStop?.id;
     final key = dayRouteCacheKey(origin, stops, pinFirstId: pin);
@@ -1513,6 +1530,7 @@ class SessionController extends ChangeNotifier {
         token != null && token.isNotEmpty && token != 'demo-access';
     if (!liveAuth &&
         !liveApi &&
+        !panelLoggedIn &&
         phase == AppPhase.splash &&
         demoFieldAllowed()) {
       skipToDemo();
@@ -1549,6 +1567,26 @@ class SessionController extends ChangeNotifier {
   }
 
   /// Cookie jar’da panel oturumu varsa profili ve görev listesini yükle.
+  /// Yalnız geliştirme derlemesi: `--dart-define=DEBUG_LOGIN_ID=…` ve
+  /// `DEBUG_LOGIN_PW=…` verilmişse o kurye hesabıyla girip ana sayfayı açar
+  /// (simülatörde ekrana dokunmadan gerçek veriyle bakabilmek için).
+  /// Vardiya yalnız ekranda açık görünür; sunucuya vardiya isteği gitmez.
+  Future<bool> debugAutoLogin() async {
+    if (!kDebugMode || _debugLoginId.isEmpty) return false;
+    final ok = await loginWithPanel(
+      identifier: _debugLoginId,
+      password: _debugLoginPw,
+    );
+    if (!ok) return false;
+    configReady = true;
+    phase = AppPhase.main;
+    shiftOpen = true;
+    shiftPhotoTaken = true;
+    shiftStartedAt ??= DateTime.now();
+    notifyListeners();
+    return true;
+  }
+
   Future<void> restorePanelSession() async {
     final client = panel;
     if (client == null) return;

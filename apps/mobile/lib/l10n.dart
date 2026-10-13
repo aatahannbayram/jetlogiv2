@@ -801,7 +801,7 @@ class L10n {
           '$delivered delivered · $failed failed',
         );
   String apptCount(int n) => _t('$n randevulu', '$n by appointment');
-  String lateCount(int n) => _t('$n gecikiyor', '$n running late');
+  String lateCount(int n) => _t('$n acil', '$n urgent');
   String toBranchCount(int n) =>
       _t('$n şubeye dönecek', '$n to return to branch');
   String get breakStart => _t('Molaya çık', 'Start break');

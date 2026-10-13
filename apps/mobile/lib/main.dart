@@ -110,7 +110,9 @@ Future<void> _bootstrap() async {
         ..storageOk = storageOk;
   await session.restoreUiPrefs();
   await session.restoreLocalShift();
-  if (_openLogin && !kReleaseMode) {
+  if (await session.debugAutoLogin()) {
+    // Geliştirme: komut satırından verilen hesapla açıldı.
+  } else if (_openLogin && !kReleaseMode) {
     session.phase = AppPhase.activation;
   } else if (_demoAutostart && !kReleaseMode) {
     session.skipToDemo();

@@ -961,18 +961,48 @@ class _StableMapViewState extends State<_StableMapView> {
     super.dispose();
   }
 
-  String get _key =>
-      '${widget.line.length}|${widget.points.length}|${widget.couriers.length}|${widget.fit.length}|${widget.fitEpoch}|${widget.fitPadding}';
+  /// Dokunulabilen haritada kullanıcının kaydırmasını ezmemek için yalnız
+  /// sayılar; sabit (kart) haritada kadrajın kendisi de anahtara girer ki
+  /// görevler ve konum sonradan gelince harita yeniden kadrajlansın.
+  String get _key {
+    final base =
+        '${widget.line.length}|${widget.points.length}|${widget.couriers.length}|${widget.fit.length}|${widget.fitEpoch}|${widget.fitPadding}';
+    if (widget.interactive || widget.fit.isEmpty) return base;
+    final a = widget.fit.first;
+    final b = widget.fit.last;
+    String r(double v) => v.toStringAsFixed(4);
+    return '$base|${r(a.latitude)},${r(a.longitude)}|${r(b.latitude)},${r(b.longitude)}';
+  }
+
+  /// Dolgu haritadan büyükse (alçak kart haritası) kadraj hesabı çöker ve
+  /// harita dünya ölçeğine uzaklaşır; dolgu harita boyuna göre kısılır.
+  EdgeInsets _safePadding() {
+    final size = context.size;
+    final pad = widget.fitPadding;
+    if (size == null || size.isEmpty) return pad;
+    double cap(double v, double max) => v > max ? max : v;
+    return EdgeInsets.fromLTRB(
+      cap(pad.left, size.width / 4),
+      cap(pad.top, size.height / 4),
+      cap(pad.right, size.width / 4),
+      cap(pad.bottom, size.height / 4),
+    );
+  }
 
   void _fitIfNeeded() {
-    if (!widget.interactive || widget.fit.length < 2) return;
+    if (widget.fit.isEmpty) return;
+    if (widget.interactive && widget.fit.length < 2) return;
     if (_fitKey == _key) return;
     _fitKey = _key;
     try {
+      if (widget.fit.length < 2) {
+        _controller.move(widget.fit.first, 14.5);
+        return;
+      }
       _controller.fitCamera(
         CameraFit.coordinates(
           coordinates: widget.fit,
-          padding: widget.fitPadding,
+          padding: _safePadding(),
           maxZoom: 15.4,
         ),
       );
@@ -987,7 +1017,7 @@ class _StableMapViewState extends State<_StableMapView> {
     final fit = widget.fit;
     final center = widget.center;
     return FlutterMap(
-      mapController: widget.interactive ? _controller : null,
+      mapController: _controller,
       options: MapOptions(
         initialCenter: fit.isNotEmpty ? fit.first : center,
         initialZoom: fit.length > 1 ? 13.4 : 14.5,

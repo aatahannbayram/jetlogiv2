@@ -127,8 +127,11 @@ class _NextStopCardState extends ConsumerState<NextStopCard> {
       task.window,
       slaMinutesLeft: task.slaMinutesLeft,
     );
-    final minutes = slice?.minutes ?? task.etaMinutes;
-    final km = meters == null ? null : (meters / 1000).toStringAsFixed(1);
+    // Konum ölçülmeden mesafe ve süre uydurulmaz.
+    final minutes = s.selfLocated ? slice?.minutes ?? task.etaMinutes : null;
+    final km = meters == null || !s.selfLocated
+        ? null
+        : (meters / 1000).toStringAsFixed(1);
     final index = s.visitNumber(task.id);
     final total = s.orderedOpenTasks.length;
     final mapH = phase == NextStopPhase.enroute ? 112.0 : 64.0;

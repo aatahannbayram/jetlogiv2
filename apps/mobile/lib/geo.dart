@@ -75,13 +75,19 @@ bool originNearStops({
   return false;
 }
 
+/// Harita kadrajına girecek en uzak nokta. GPS kabul eşiğinden
+/// ([kImplausibleOriginMeters]) bilerek dardır: başka şehirdeki bir nokta
+/// kadraja girince harita ülke ölçeğine uzaklaşıyordu.
+const kMapFitMeters = 80000.0;
+
 /// Kamera / rota fit listesinden durak kümesine uzak noktaları atar.
 List<LatLng> keepNearStops(Iterable<LatLng> candidates, Iterable<LatLng> stops) {
   final cluster = stops.toList();
   if (cluster.isEmpty) return candidates.toList();
   return [
     for (final p in candidates)
-      if (originNearStops(origin: p, stops: cluster)) p,
+      if (originNearStops(origin: p, stops: cluster, maxMeters: kMapFitMeters))
+        p,
   ];
 }
 
