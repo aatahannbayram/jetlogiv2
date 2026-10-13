@@ -8,6 +8,7 @@ import '../l10n.dart';
 import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import '../zpl_printer.dart';
 import 'sube_widgets.dart';
 
 /// Koli / paket etiketi üretir ve ağdaki Zebra yazıcıya basar. Barkodu
@@ -53,8 +54,55 @@ class _SubeLabelsScreenState extends ConsumerState<SubeLabelsScreen> {
     subeSnack(context, error ?? done);
   }
 
+  /// Telefonla eşleşmiş Bluetooth cihazlarından yazıcı seçtirir.
+  Future<void> _pickBluetooth(BranchWorkspace branch) async {
+    final l = context.l10n;
+    final List<({String name, String address})> devices;
+    try {
+      devices = await pairedBluetoothPrinters();
+    } catch (_) {
+      if (mounted) subeSnack(context, l.btPrinterNone);
+      return;
+    }
+    if (!mounted) return;
+    if (devices.isEmpty) {
+      subeSnack(context, l.btPrinterNone);
+      return;
+    }
+    final picked = await showModalBottomSheet<({String name, String address})>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheet) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          children: [
+            Text(
+              l.btPrinterTitle,
+              style: Dg.ui(size: 18, weight: FontWeight.w700),
+            ),
+            for (final d in devices)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: DgIcon(LucideIcons.printer, color: Dg.ink2),
+                title: Text(d.name.isEmpty ? d.address : d.name),
+                onTap: () => Navigator.of(sheet).pop(d),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (picked == null) return;
+    branch.setPrinterHost(
+      bluetoothPrinterHost(address: picked.address, name: picked.name),
+    );
+  }
+
   Future<void> _print(BranchWorkspace branch, List<PrintableLabel> items) {
-    branch.setPrinterHost(_printer.text);
+    // Bluetooth yazıcı seçiliyken boş IP alanı ayarı ezmesin.
+    if (!isBluetoothPrinter(branch.printerHost)) {
+      branch.setPrinterHost(_printer.text);
+    }
     return _guard(() => branch.printLabels(items), context.l10n.labelsPrinted);
   }
 
@@ -84,14 +132,48 @@ class _SubeLabelsScreenState extends ConsumerState<SubeLabelsScreen> {
           else if (!canOperate)
             Text(l.noPermission, style: Dg.ui(size: 13, color: Dg.ink3))
           else ...[
-            TextField(
-              controller: _printer,
-              keyboardType: TextInputType.url,
-              decoration: InputDecoration(
-                labelText: l.printerAddress,
-                hintText: l.printerHint,
+            if (isBluetoothPrinter(branch.printerHost))
+              // Bluetooth yazıcı seçiliyken IP alanı yerine cihaz adı.
+              Row(
+                children: [
+                  DgIcon(LucideIcons.bluetooth, size: 18, color: Dg.ink2),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      l.btPrinterSelected(
+                        printerDisplayName(branch.printerHost),
+                      ),
+                      style: Dg.ui(size: 15, weight: FontWeight.w600),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => branch.setPrinterHost(''),
+                    child: Text(l.btPrinterRemove),
+                  ),
+                ],
+              )
+            else ...[
+              TextField(
+                controller: _printer,
+                keyboardType: TextInputType.url,
+                decoration: InputDecoration(
+                  labelText: l.printerAddress,
+                  hintText: l.printerHint,
+                ),
               ),
-            ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () => _pickBluetooth(branch),
+                  icon: DgIcon(
+                    LucideIcons.bluetooth,
+                    size: 16,
+                    color: Dg.brand,
+                  ),
+                  label: Text(l.btPrinterPick),
+                ),
+              ),
+            ],
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
               initialValue: type,

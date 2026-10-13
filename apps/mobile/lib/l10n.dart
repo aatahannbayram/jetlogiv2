@@ -1810,6 +1810,17 @@ class L10n {
       _t('Tanımlı depo yok.', 'No warehouses defined.');
   String shipmentsCount(int n) => _t('$n gönderi', '$n shipments');
 
+  // Bluetooth yazıcı
+  String get btPrinterPick => _t('Bluetooth yazıcı seç', 'Pick a Bluetooth printer');
+  String btPrinterSelected(String name) =>
+      _t('Bluetooth yazıcı: $name', 'Bluetooth printer: $name');
+  String get btPrinterRemove => _t('Kaldır', 'Remove');
+  String get btPrinterNone => _t(
+    'Eşleşmiş yazıcı bulunamadı. Önce telefonun Bluetooth ayarlarından yazıcıyı eşleştir, Bluetooth iznini ver.',
+    'No paired printer found. Pair the printer in the phone\'s Bluetooth settings and allow Bluetooth.',
+  );
+  String get btPrinterTitle => _t('Eşleşmiş cihazlar', 'Paired devices');
+
   // Hızlı destek ve şube fatura talepleri
   String get supportCallMe => _t('Beni arayın', 'Call me');
   String get supportChat => _t('Canlı destek', 'Live support');

@@ -95,6 +95,8 @@
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Etiketleri Bluetooth yazıcıya göndermek için kullanılır.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Barkod okutmak, teslim ve vardiya kanıtı çekmek için kamera gerekir.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>

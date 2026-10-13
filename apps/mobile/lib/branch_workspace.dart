@@ -664,8 +664,11 @@ class BranchWorkspace {
           await _sendZpl(printerHost, label.zpl);
         }
       } catch (_) {
-        return 'Yazıcıya ulaşılamadı ($printerHost). '
-            'Aynı ağda olduğunuzu ve adresi kontrol edin.';
+        return isBluetoothPrinter(printerHost)
+            ? 'Yazıcıya ulaşılamadı (${printerDisplayName(printerHost)}). '
+                  'Yazıcının açık ve telefona yakın olduğunu kontrol edin.'
+            : 'Yazıcıya ulaşılamadı ($printerHost). '
+                  'Aynı ağda olduğunuzu ve adresi kontrol edin.';
       }
     }
     final ids = [for (final l in items) l.id]..sort();

@@ -942,4 +942,21 @@ void main() {
     s.online = false;
     expect(await s.requestQuickSupport('CALL_REQUEST'), isFalse);
   });
+
+  test('Bluetooth yazıcı adresi ağ adresinden ayrılır, adıyla gösterilir', () {
+    final host = bluetoothPrinterHost(
+      address: 'AC:3F:A4:11:22:33',
+      name: 'ZQ320|Depo',
+    );
+    expect(host, 'bt:AC:3F:A4:11:22:33|ZQ320 Depo');
+    expect(isBluetoothPrinter(host), isTrue);
+    expect(printerDisplayName(host), 'ZQ320 Depo');
+    expect(isBluetoothPrinter('192.168.1.50:6101'), isFalse);
+    expect(printerDisplayName(' 192.168.1.50 '), '192.168.1.50');
+    // Adı olmayan cihazda adres gösterilir.
+    expect(
+      printerDisplayName(bluetoothPrinterHost(address: 'AA:BB', name: '')),
+      'AA:BB',
+    );
+  });
 }

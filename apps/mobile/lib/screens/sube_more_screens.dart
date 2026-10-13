@@ -165,7 +165,8 @@ class _SubePrepScreenState extends ConsumerState<SubePrepScreen> {
     } on AgencyApiException catch (e) {
       if (mounted) subeSnack(context, e.serverMessage ?? l.reportFailedLoad);
     } catch (_) {
-      if (mounted) subeSnack(context, l.prepPrinterDown(host));
+      if (mounted)
+        subeSnack(context, l.prepPrinterDown(printerDisplayName(host)));
     }
     if (mounted) setState(() => _printing = false);
   }
