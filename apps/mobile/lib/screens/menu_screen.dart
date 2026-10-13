@@ -246,7 +246,12 @@ class _ProfileCard extends StatelessWidget {
                     Text(c.fullName, style: Dg.typeH2()),
                     const SizedBox(height: Dg.s4),
                     Text(
-                      '${session.plate} · ${c.vehicle}',
+                      [
+                        // Panel oturumunda plaka sunucudan gelmez; örnek
+                        // plaka gösterilmez.
+                        if (!session.panelLoggedIn) session.plate,
+                        l.vehicleLabel(c.vehicle),
+                      ].join(' · '),
                       style: Dg.typeCaption(),
                     ),
                     const SizedBox(height: Dg.s4),

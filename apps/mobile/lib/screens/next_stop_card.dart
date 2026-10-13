@@ -337,6 +337,7 @@ class _NextStopCardState extends ConsumerState<NextStopCard> {
                           child: _Ghost(
                             icon: LucideIcons.circleX,
                             label: l.couldNotDeliverShort,
+                            danger: true,
                             onTap: () => Navigator.of(context).push(
                               MaterialPageRoute<void>(
                                 builder: (_) => ReturnScreen(taskId: task.id),
@@ -426,7 +427,7 @@ class _MapShot extends StatelessWidget {
                     vertical: 5,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xE60B0B0F),
+                    color: Dg.neon,
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Row(
@@ -593,7 +594,16 @@ class _MetaLine extends StatelessWidget {
 }
 
 class _Ghost extends StatelessWidget {
-  const _Ghost({super.key, required this.onTap, this.label, this.icon});
+  const _Ghost({
+    super.key,
+    required this.onTap,
+    this.label,
+    this.icon,
+    this.danger = false,
+  });
+
+  /// Olumsuz işlem (teslim edilemedi): kırmızı yazı ve ikon, kırmızımsı zemin.
+  final bool danger;
   final VoidCallback onTap;
   final String? label;
   final IconData? icon;
@@ -606,7 +616,7 @@ class _Ghost extends StatelessWidget {
         : null,
     child: Material(
       // Çerçeve yok; hafif dolgu düğme olduğunu belli eder.
-      color: Dg.surface2,
+      color: danger ? Dg.redBg : Dg.surface2,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: onTap,
@@ -620,7 +630,8 @@ class _Ghost extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (icon != null) DgIcon(icon!, size: 20, color: Dg.ink2),
+              if (icon != null)
+                DgIcon(icon!, size: 20, color: danger ? Dg.bad : Dg.ink2),
               if (icon != null && label != null) const SizedBox(height: 4),
               if (label != null)
                 Text(
@@ -628,7 +639,12 @@ class _Ghost extends StatelessWidget {
                   maxLines: 2,
                   textAlign: TextAlign.center,
                   overflow: TextOverflow.ellipsis,
-                  style: Dg.ui(size: 13, weight: FontWeight.w600, height: 1.15),
+                  style: Dg.ui(
+                    size: 13,
+                    weight: FontWeight.w600,
+                    height: 1.15,
+                    color: danger ? Dg.bad : null,
+                  ),
                 ),
             ],
           ),

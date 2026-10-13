@@ -7,7 +7,7 @@ class Dg {
   Dg._();
 
   /// [DijigooApp.build] her rebuild'de `s.darkModeUi`'den set eder.
-  static bool dark = false;
+  static bool dark = true;
 
   // ---- Zemin / yüzey ----
   /// Sıcak taş yüzeyler ve kömür tonları; turuncu yalnız eylem ve vurgu için.
@@ -175,8 +175,13 @@ class Dg {
       dark ? const Color(0xFFFF8A32) : const Color(0xFFAF4100);
   static Color get ok =>
       dark ? const Color(0xFF6EE7A0) : const Color(0xFF16733E);
+  /// Olumsuz metin ve düğmeler: belirgin kırmızı.
   static Color get bad =>
-      dark ? const Color(0xFFFF9AAB) : const Color(0xFFB42340);
+      dark ? const Color(0xFFFF6666) : const Color(0xFFCC1F1F);
+
+  /// Neon mor: harita üstündeki rota etiketi gibi bilgi vurguları.
+  static const neon = Color(0xFF9B5CFF);
+  static const onNeon = Color(0xFFFFFFFF);
   static Color get hairline =>
       dark ? const Color(0x0FFFFFFF) : const Color(0x0F000000);
 

@@ -498,7 +498,7 @@ class _RouteChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        gradient: Dg.primaryGradient,
+        color: Dg.neon,
         borderRadius: BorderRadius.circular(18),
       ),
       child: Row(
@@ -507,7 +507,7 @@ class _RouteChip extends StatelessWidget {
           DgIcon(
             LucideIcons.navigation,
             size: 13,
-            color: Dg.onAction,
+            color: Dg.onNeon,
             weight: 600,
           ),
           const SizedBox(width: 6),
@@ -518,7 +518,7 @@ class _RouteChip extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 fontFamily: Dg.mono,
-                color: Dg.onAction,
+                color: Dg.onNeon,
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
               ),

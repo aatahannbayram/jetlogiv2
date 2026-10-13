@@ -340,8 +340,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Menü'));
     await tester.pumpAndSettle();
-    expect(find.text('Panel oturumu kapandı'), findsOneWidget);
-    expect(find.text('Panel oturumu açık'), findsNothing);
+    expect(find.text('Oturumun kapandı, tekrar giriş yap'), findsOneWidget);
+    expect(find.text('Giriş yapıldı'), findsNothing);
   });
 
   testWidgets('çıkış panel oturumunu da kapatacağını söyler', (tester) async {
@@ -368,7 +368,7 @@ void main() {
     await tester.tap(find.text('Çıkış yap'));
     await tester.pumpAndSettle();
     expect(
-      find.text('Panel oturumu da kapanacak. Tekrar giriş yapman gerekecek.'),
+      find.text('Oturumun da kapanacak. Tekrar giriş yapman gerekecek.'),
       findsOneWidget,
     );
   });
@@ -387,7 +387,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Menü'));
     await tester.pumpAndSettle();
-    expect(find.text('Panel oturumu açık'), findsOneWidget);
+    expect(find.text('Giriş yapıldı'), findsOneWidget);
   });
 
   testWidgets('menü ekranı yeni bölümlere gider', (tester) async {

@@ -401,7 +401,7 @@ class _RouteTopBar extends ConsumerWidget {
                   vertical: 10,
                 ),
                 decoration: BoxDecoration(
-                  gradient: Dg.primaryGradient,
+                  color: Dg.neon,
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: _floatingPillShadow,
                 ),
@@ -412,7 +412,7 @@ class _RouteTopBar extends ConsumerWidget {
                   style: Dg.ui(
                     size: 13,
                     weight: FontWeight.w700,
-                    color: Dg.onAction,
+                    color: Dg.onNeon,
                   ),
                 ),
               ),

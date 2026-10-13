@@ -148,8 +148,9 @@ class L10n {
   String openStops(int n) => _t('$n açık durak', '$n open stops');
   String openInQueue(int n, String name) =>
       _t('$n açık · sırada $name', '$n open · next $name');
-  String get panelSessionOn => _t('Panel oturumu açık', 'Panel session is on');
-  String get panelSessionOff => _t('Panel oturumu kapandı', 'Panel session ended');
+  String get panelSessionOn => _t('Giriş yapıldı', 'Signed in');
+  String get panelSessionOff =>
+      _t('Oturumun kapandı, tekrar giriş yap', 'Signed out, sign in again');
   String get retryNow => _t('Yeniden dene', 'Try again');
   String get panelTasksFailed =>
       _t('Görevler alınamadı.', 'Could not load tasks.');
@@ -423,7 +424,7 @@ class L10n {
   String get trainingEmpty =>
       _t('Şu an atanmış bir eğitim yok.', 'No training assigned right now.');
   String get fieldWork => _t('SAHA İŞLERİ', 'FIELD');
-  String get menuDaily => _t('Günlük döngü', 'Daily loop');
+  String get menuDaily => _t('Günlük işler', 'Daily work');
   String get menuOther => _t('Diğer', 'Other');
   String get account => _t('HESAP', 'ACCOUNT');
   String get deliveredShort => _t('teslim', 'done');
@@ -554,7 +555,7 @@ class L10n {
   String get openSettings => _t('Ayarlar', 'Settings');
   String get logout => _t('Çıkış yap', 'Sign out');
   String get logoutPanelBody => _t(
-    'Panel oturumu da kapanacak. Tekrar giriş yapman gerekecek.',
+    'Oturumun da kapanacak. Tekrar giriş yapman gerekecek.',
     'The panel session will also close. You will need to sign in again.',
   );
   String get logoutBody => _t(
@@ -1499,6 +1500,9 @@ class L10n {
     'LIGHT_COMMERCIAL' => _t('Hafif ticari', 'Light commercial'),
     _ => _t('Diğer', 'Other'),
   };
+  /// Sunucudan gelen araç kodu (MOTORCYCLE…) ise Türkçesi; değilse olduğu gibi.
+  String vehicleLabel(String raw) =>
+      RegExp(r'^[A-Z_]+$').hasMatch(raw) ? vehicle(raw) : raw;
   String get editWork => _t('Çalışma şeklim', 'How I work');
   String workModel(String code) => switch (code) {
     'FULL_TIME' => _t('Tam zamanlı', 'Full time'),
