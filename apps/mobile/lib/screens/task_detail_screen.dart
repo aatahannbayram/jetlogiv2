@@ -37,6 +37,8 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
       final s = ref.read(sessionProvider);
       unawaited(s.ensureDayRoute());
       if (!s.routeLoading) unawaited(s.loadRoute());
+      // Ziyaret işi mi (kontrol listesi / anket) bilmek için.
+      unawaited(s.loadTaskRequirements(widget.taskId));
     });
   }
 
@@ -45,6 +47,8 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
     final l = context.l10n;
     final session = ref.watch(sessionProvider);
     final t = session.taskOrNull(widget.taskId);
+    final guided =
+        session.visitRequirements(widget.taskId)?.guided ?? false;
     if (t == null) {
       return Scaffold(
         backgroundColor: Dg.night,
@@ -356,7 +360,10 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                               )
                               .fadeIn(duration: 180.ms)
                         else if (canAct)
-                          SlideToAct(label: l.slideToDeliver, onConfirm: start),
+                          SlideToAct(
+                            label: guided ? l.visitSlide : l.slideToDeliver,
+                            onConfirm: start,
+                          ),
                         if (canAct) ...[
                           const SizedBox(height: 8),
                           Center(
@@ -374,7 +381,9 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                                 }
                               },
                               child: Text(
-                                l.couldNotDeliverShort,
+                                guided
+                                    ? l.visitCouldNot
+                                    : l.couldNotDeliverShort,
                                 style: TextStyle(
                                   color: Dg.red,
                                   fontWeight: FontWeight.w700,

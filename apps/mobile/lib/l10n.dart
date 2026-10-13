@@ -1191,6 +1191,8 @@ class L10n {
 
   // Ziyaret akışı (kontrol listeli fotoğraf + anket)
   String get visitCouldNot => _t('Ziyareti yapamadım', "Couldn't do the visit");
+  String get visitSlide =>
+      _t('Ziyareti kapatmak için kaydır', 'Slide to close the visit');
   String get visitBackToDone => _t('Ziyareti yapabildim', 'I did the visit');
   String get visitWhyTitle => _t('Neden yapamadın?', 'Why not?');
   String get visitPickReason => _t('Bir neden seç.', 'Pick a reason.');

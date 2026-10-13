@@ -467,7 +467,9 @@ class _ShiftOpenCard extends StatelessWidget {
           // Tek büyük sayı: bugün kaç durak kaldı. Altında bir satır özet;
           // dikkat isteyen durumlar yalnız varsa görünür.
           CountUp(
-            session.remainingCount,
+            // Sıradaki durak da kalanlara dahil; kart "1 / 8" derken
+            // burada 7 yazmasın.
+            session.orderedOpenTasks.length,
             style: Dg.stat(size: 44, color: Dg.ink),
           ),
           const SizedBox(height: 2),
