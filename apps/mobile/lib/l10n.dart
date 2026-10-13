@@ -318,6 +318,7 @@ class L10n {
   String get arrivedHere => _t('Vardım', 'I arrived');
   String get appointment => _t('Randevu', 'Appointment');
   String minutesLeft(int n) => _t('$n dk kaldı', '$n min left');
+  String minutesLate(int n) => _t('$n dk gecikti', '$n min late');
   String stopIndexOf(int i, int n) => '$i / $n';
   String get moreActions => _t('Daha fazla', 'More');
   String get itemsSheetTitle => _t('Kalemler', 'Items');

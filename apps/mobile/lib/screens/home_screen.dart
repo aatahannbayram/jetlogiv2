@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-import '../brand.dart';
 import '../l10n.dart';
 import '../motion.dart';
 import '../session.dart';
@@ -13,6 +12,7 @@ import '../theme.dart';
 import '../coach.dart';
 import '../widgets.dart';
 import 'mistakes_screen.dart';
+import 'profile_screen.dart';
 import 'eod_screen.dart';
 import 'next_stop_card.dart';
 import 'notif_screen.dart';
@@ -54,8 +54,55 @@ class HomeScreen extends ConsumerWidget {
                     children: [
                       Row(
                         children: [
-                          DijigooWordmark(height: 26, onDark: Dg.dark),
-                          const Spacer(),
+                          // Profil sol üstte; dokununca profil açılır.
+                          Expanded(
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () => Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => const ProfileScreen(),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  InitialsAvatar(
+                                    name: s.courier.fullName,
+                                    photoUrl: s.courier.photoUrl,
+                                    online: s.online,
+                                    size: 44,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          s.courier.fullName,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: Dg.ui(
+                                            size: 16,
+                                            weight: FontWeight.w700,
+                                          ),
+                                        ),
+                                        Text(
+                                          '${s.courier.district} / ${s.courier.city}',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: Dg.ui(
+                                            size: 12,
+                                            color: Dg.ink2,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
                           DgOnlineChip(
                             online: s.online && s.shiftOpen,
                             onTap: s.shiftOpen ? s.toggleOnline : () {},
@@ -100,40 +147,7 @@ class HomeScreen extends ConsumerWidget {
                             onRetry: () => unawaited(s.loadPanelTasks()),
                           ),
                         ),
-                      Row(
-                        children: [
-                          InitialsAvatar(
-                            name: s.courier.fullName,
-                            photoUrl: s.courier.photoUrl,
-                            online: s.online,
-                            size: 44,
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  l.greeting(DateTime.now().hour),
-                                  style: Dg.ui(size: 12, color: Dg.ink3),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  s.courier.fullName,
-                                  style: Dg.ui(
-                                    size: 17,
-                                    weight: FontWeight.w700,
-                                  ),
-                                ),
-                                Text(
-                                  '${s.courier.district} / ${s.courier.city}',
-                                  style: Dg.ui(size: 12, color: Dg.ink2),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
+                      if (s.shiftOpen) _DaySummary(session: s),
                     ],
                   ),
                 ),
@@ -463,48 +477,10 @@ class _ShiftOpenCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          // Tek büyük sayı: bugün kaç durak kaldı. Altında bir satır özet;
-          // dikkat isteyen durumlar yalnız varsa görünür.
-          CountUp(
-            // Sıradaki durak da kalanlara dahil; kart "1 / 8" derken
-            // burada 7 yazmasın.
-            session.orderedOpenTasks.length,
-            style: Dg.stat(size: 44, color: Dg.ink),
-          ),
-          const SizedBox(height: 2),
-          Text(l.kpiLeftHint, style: Dg.ui(size: 15, color: Dg.ink2)),
-          const SizedBox(height: 12),
-          Text(
-            l.doneLine(session.deliveredCount, session.returnCount),
-            style: Dg.ui(size: 14, color: Dg.ink3),
-          ),
-          if (session.appointmentCount > 0 ||
-              session.slaRiskCount > 0 ||
-              session.returnCount > 0) ...[
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 14,
-              runSpacing: 6,
-              children: [
-                if (session.slaRiskCount > 0)
-                  _flag(l.lateCount(session.slaRiskCount), Dg.hi),
-                if (session.appointmentCount > 0)
-                  _flag(l.apptCount(session.appointmentCount), Dg.text2),
-                if (session.returnCount > 0)
-                  _flag(l.toBranchCount(session.returnCount), Dg.text2),
-              ],
-            ),
-          ],
         ],
       ),
     );
   }
-
-  Widget _flag(String text, Color color) => Text(
-    text,
-    style: Dg.ui(size: 13, weight: FontWeight.w600, color: color),
-  );
 }
 
 class _NoStopCard extends StatelessWidget {
@@ -530,6 +506,70 @@ class _NoStopCard extends StatelessWidget {
                 Text(
                   context.l10n.noOpenTasksLeft,
                   style: Dg.ui(size: 14, color: Dg.ink2, height: 1.4),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Günün özeti, en üstte: kaç durak kaldı, kaçı bitti, dikkat isteyenler.
+class _DaySummary extends StatelessWidget {
+  const _DaySummary({required this.session});
+  final SessionController session;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final flags = [
+      if (session.slaRiskCount > 0) (l.lateCount(session.slaRiskCount), Dg.hi),
+      if (session.appointmentCount > 0)
+        (l.apptCount(session.appointmentCount), Dg.text2),
+      if (session.returnCount > 0)
+        (l.toBranchCount(session.returnCount), Dg.text2),
+    ];
+    return Padding(
+      padding: const EdgeInsets.only(top: 14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          CountUp(
+            // Sıradaki durak da kalanlara dahil.
+            session.orderedOpenTasks.length,
+            style: Dg.stat(size: 44, color: Dg.ink),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l.kpiLeftHint,
+                  style: Dg.ui(size: 15, weight: FontWeight.w600),
+                ),
+                // Bitenler ve dikkat isteyenler aynı satırda; sığmazsa alta
+                // iner (büyük yazı ayarında da okunur).
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 2,
+                  children: [
+                    Text(
+                      l.doneLine(session.deliveredCount, session.returnCount),
+                      style: Dg.ui(size: 13, color: Dg.ink3),
+                    ),
+                    for (final (text, color) in flags)
+                      Text(
+                        text,
+                        style: Dg.ui(
+                          size: 13,
+                          weight: FontWeight.w600,
+                          color: color,
+                        ),
+                      ),
+                  ],
                 ),
               ],
             ),

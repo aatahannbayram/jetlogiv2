@@ -48,7 +48,7 @@ class _NextStopPagerState extends ConsumerState<NextStopPager> {
     final stops = s.orderedOpenTasks;
     if (stops.isEmpty) return const _NoOpenStop();
     return SizedBox(
-      height: 480 + (MediaQuery.textScalerOf(context).scale(16) - 16) * 24,
+      height: 420 + (MediaQuery.textScalerOf(context).scale(16) - 16) * 24,
       child: PageView.builder(
         controller: _pages,
         padEnds: false,
@@ -193,13 +193,9 @@ class _NextStopCardState extends ConsumerState<NextStopCard> {
                   MaterialPageRoute<void>(builder: (_) => const RouteScreen()),
                 ),
               ),
-              if (appt != null)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-                  child: _ApptPill(window: appt),
-                ),
+              // Önce nereye gidildiği, sonra ne zaman, en sonda kime.
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                 child: Text(
                   addr.street,
                   maxLines: 1,
@@ -221,49 +217,61 @@ class _NextStopCardState extends ConsumerState<NextStopCard> {
                     style: Dg.ui(size: 14, color: Dg.text2),
                   ),
                 ),
+              if (appt != null)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                  child: _ApptPill(window: appt),
+                ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                 child: _MetaLine(task: task),
               ),
-              const SizedBox(height: 12),
+              // Yardımcı işlemler tek satırda, eşit genişlikte.
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+                child: Row(
                   children: [
-                    _Ghost(
-                      icon: LucideIcons.phone,
-                      label: l.call,
-                      onTap: () => s.callTask(context, task),
+                    if (widget.offerArrive &&
+                        !s.selfLocated &&
+                        !arrivedManual) ...[
+                      Expanded(
+                        child: _Ghost(
+                          key: const Key('next-stop-arrived'),
+                          icon: LucideIcons.mapPin,
+                          label: l.arrivedHere,
+                          onTap: () {
+                            HapticFeedback.mediumImpact();
+                            widget.onArrived();
+                            setState(() => _arrivedHere = true);
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    Expanded(
+                      child: _Ghost(
+                        icon: LucideIcons.phone,
+                        label: l.call,
+                        onTap: () => s.callTask(context, task),
+                      ),
                     ),
-                    _Ghost(
-                      icon: LucideIcons.circleX,
-                      label: l.kpiFailed,
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => ReturnScreen(taskId: task.id),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _Ghost(
+                        icon: LucideIcons.circleX,
+                        label: l.kpiFailed,
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => ReturnScreen(taskId: task.id),
+                          ),
                         ),
                       ),
                     ),
+                    const SizedBox(width: 8),
                     _Ghost(
                       icon: LucideIcons.ellipsis,
                       onTap: () => _more(context, l),
                     ),
-                    if (widget.offerArrive &&
-                        !s.selfLocated &&
-                        !arrivedManual) ...[
-                      _Ghost(
-                        key: const Key('next-stop-arrived'),
-                        icon: LucideIcons.mapPin,
-                        label: l.arrivedHere,
-                        onTap: () {
-                          HapticFeedback.mediumImpact();
-                          widget.onArrived();
-                          setState(() => _arrivedHere = true);
-                        },
-                      ),
-                    ],
                   ],
                 ),
               ),
@@ -440,7 +448,7 @@ class _ApptPillState extends State<_ApptPill> {
     final ink = danger ? Dg.bad : Dg.warn;
     final clock = widget.window.label.toUpperCase();
     final text = danger && _left != null
-        ? '${l.appointment.toUpperCase()} $clock · ${l.minutesLeft(_left!)}'
+        ? '${l.appointment.toUpperCase()} $clock · ${_left! < 0 ? l.minutesLate(-_left!) : l.minutesLeft(_left!)}'
         : '${l.appointment.toUpperCase()} $clock';
     return Align(
       alignment: Alignment.centerLeft,
@@ -557,24 +565,29 @@ class _Ghost extends StatelessWidget {
         ? MaterialLocalizations.of(context).moreButtonTooltip
         : null,
     child: Material(
-      color: Colors.transparent,
+      // Çerçeve yok; hafif dolgu düğme olduğunu belli eder.
+      color: Dg.surface2,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(14),
         child: Container(
-          constraints: const BoxConstraints(
-            minHeight: Dg.touchMin,
-            minWidth: Dg.touchMin,
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-          child: Row(
+          constraints: const BoxConstraints(minHeight: 56, minWidth: 52),
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+          // İkon üstte, yazı altta: dar kartta da hepsi aynı boyda sığar.
+          child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (icon != null) DgIcon(icon!, size: 18, color: Dg.ink2),
-              if (icon != null && label != null) const SizedBox(width: 7),
+              if (icon != null) DgIcon(icon!, size: 20, color: Dg.ink2),
+              if (icon != null && label != null) const SizedBox(height: 4),
               if (label != null)
-                Text(label!, style: Dg.ui(size: 14, weight: FontWeight.w600)),
+                Text(
+                  label!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Dg.ui(size: 13, weight: FontWeight.w600),
+                ),
             ],
           ),
         ),
