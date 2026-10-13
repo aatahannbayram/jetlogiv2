@@ -59,6 +59,7 @@ class _SubeDispatchScreenState extends ConsumerState<SubeDispatchScreen> {
           else ...[
             if (canOperate) ...[
               DropdownButtonFormField<String>(
+                isExpanded: true,
                 initialValue: type,
                 decoration: InputDecoration(labelText: l.transferTypeLabel),
                 items: [
@@ -72,11 +73,19 @@ class _SubeDispatchScreenState extends ConsumerState<SubeDispatchScreen> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
+                isExpanded: true,
                 initialValue: centerId,
                 decoration: InputDecoration(labelText: l.transferCenter),
                 items: [
                   for (final c in options.centers)
-                    DropdownMenuItem(value: c.id, child: Text(c.name)),
+                    DropdownMenuItem(
+                      value: c.id,
+                      child: Text(
+                        c.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
                 ],
                 onChanged: (v) => setState(() => _centerId = v),
               ),

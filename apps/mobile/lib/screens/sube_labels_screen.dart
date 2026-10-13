@@ -165,33 +165,45 @@ class _SubeLabelsScreenState extends ConsumerState<SubeLabelsScreen> {
                 alignment: Alignment.centerLeft,
                 child: TextButton.icon(
                   onPressed: () => _pickBluetooth(branch),
-                  icon: DgIcon(
-                    LucideIcons.bluetooth,
-                    size: 16,
-                    color: Dg.plum,
-                  ),
+                  icon: DgIcon(LucideIcons.bluetooth, size: 16, color: Dg.plum),
                   label: Text(l.btPrinterPick),
                 ),
               ),
             ],
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
+              isExpanded: true,
               initialValue: type,
               decoration: InputDecoration(labelText: l.labelType),
               items: [
                 for (final t in data.labelTypes)
-                  DropdownMenuItem(value: t, child: Text(l.labelTypeName(t))),
+                  DropdownMenuItem(
+                    value: t,
+                    child: Text(
+                      l.labelTypeName(t),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
               ],
               onChanged: (v) => setState(() => _type = v),
             ),
             if (data.warehouses.length > 1) ...[
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
+                isExpanded: true,
                 initialValue: warehouseId,
                 decoration: InputDecoration(labelText: l.pickWarehouse),
                 items: [
                   for (final w in data.warehouses)
-                    DropdownMenuItem(value: w.id, child: Text(w.name)),
+                    DropdownMenuItem(
+                      value: w.id,
+                      child: Text(
+                        w.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
                 ],
                 onChanged: (v) => setState(() => _warehouseId = v),
               ),

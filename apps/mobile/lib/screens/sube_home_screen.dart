@@ -9,6 +9,8 @@ import '../session.dart';
 import '../shell_nav.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import 'sube_dispatch_screen.dart';
+import 'sube_eod_screen.dart';
 import 'sube_widgets.dart';
 
 class SubeHomeScreen extends ConsumerWidget {
@@ -28,20 +30,27 @@ class SubeHomeScreen extends ConsumerWidget {
     // filtresiyle gelir.
     void openTile(String label) {
       final nav = ref.read(subeNavProvider);
+      void push(Widget screen) =>
+          Navigator.of(context)
+              .push(MaterialPageRoute<void>(builder: (_) => screen));
       if (label == l.kpiWaiting) {
         nav.go(SubeNav.shipments, filter: 'waiting');
       } else if (label == l.kpiAwaitAccept) {
         nav.go(SubeNav.shipments, filter: 'queue');
       } else if (label == l.kpiUrgent) {
         nav.go(SubeNav.shipments, filter: 'priority');
-      } else if (label == l.kpiAssigned) {
+      } else if (label == l.kpiAssigned || label == l.kpiToday) {
         nav.go(SubeNav.shipments, filter: 'out');
       } else if (label == l.kpiActiveCouriers) {
         nav.go(SubeNav.couriers);
-      } else if (label == l.kpiAwaitReturn ||
-          label == l.kpiPendingOps ||
-          label == l.kpiReturnToCenter) {
+      } else if (label == l.kpiAwaitReturn || label == l.kpiPendingOps) {
         nav.go(SubeNav.stock);
+      } else if (label == l.kpiReturnToCenter) {
+        // Merkeze iade doğrudan sevk ekranını açar.
+        push(const SubeDispatchScreen());
+      } else if (label == l.kpiDelivered || label == l.kpiCancelled) {
+        // Günün sonucu: teslim ve iptaller gün sonu ekranında.
+        push(const SubeEodScreen());
       } else {
         nav.go(SubeNav.shipments, filter: 'all');
       }
