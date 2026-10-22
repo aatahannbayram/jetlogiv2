@@ -5,14 +5,16 @@
   <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="JetLogi kurye ve şube uygulaması">
   <meta name="theme-color" content="#202422">
 
   <!-- iOS: Ana Ekrana Ekle ile tam ekran açılır. -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <!-- black-translucent ana ekran modunda sayfayı durum çubuğunun altına
+       uzatır, Flutter'da dokunma noktaları kayar; düz siyah çubuk kullan. -->
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="JetLogi">
   <meta name="format-detection" content="telephone=no">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -23,7 +25,8 @@
   <link rel="manifest" href="manifest.json">
   <style>
     html, body { margin: 0; height: 100%; background: #202422; overscroll-behavior: none; }
-    #boot { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+    /* Açılış logosu dokunuşları asla yutmamalı. */
+    #boot { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
     #boot img { width: 96px; height: 96px; border-radius: 22px; opacity: .9; }
   </style>
 </head>
@@ -31,10 +34,13 @@
   <div id="boot"><img src="icons/Icon-192.png" alt=""></div>
   <script>
     // İlk Flutter karesi çizilince açılış görselini kaldır.
-    window.addEventListener('flutter-first-frame', function () {
+    function dropBoot() {
       var el = document.getElementById('boot');
       if (el) el.remove();
-    });
+    }
+    window.addEventListener('flutter-first-frame', dropBoot);
+    // Olay kaçarsa da (yavaş ağ, eski Safari) katman kalmasın.
+    setTimeout(dropBoot, 15000);
   </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>

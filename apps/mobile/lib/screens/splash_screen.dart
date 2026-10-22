@@ -12,6 +12,7 @@ import '../brand.dart';
 import '../motion.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import 'sube_login_screen.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -218,102 +219,137 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                                           ),
                                         ],
                                       ),
-                                      const SizedBox(height: 14),
-                                      Container(
-                                        width: double.infinity,
-                                        padding: const EdgeInsets.all(14),
-                                        decoration: BoxDecoration(
-                                          color: onHero.withValues(alpha: 0.05),
-                                          borderRadius: BorderRadius.circular(
-                                            16,
+                                      // Girişsiz kişiye "0 açık durak" anlamsız.
+                                      if (!guest) ...[
+                                        const SizedBox(height: 14),
+                                        Container(
+                                          width: double.infinity,
+                                          padding: const EdgeInsets.all(14),
+                                          decoration: BoxDecoration(
+                                            color: onHero.withValues(alpha: 0.05),
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Container(
+                                                width: 36,
+                                                height: 36,
+                                                alignment: Alignment.center,
+                                                decoration: BoxDecoration(
+                                                  color: Dg.violetBg,
+                                                  borderRadius:
+                                                      BorderRadius.circular(12),
+                                                ),
+                                                child: Icon(
+                                                  LucideIcons.mapPin,
+                                                  size: 18,
+                                                  color: Dg.dark
+                                                      ? const Color(0xFFE3D9F2)
+                                                      : Dg.violet,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 12),
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      s.demo
+                                                          ? l.todayStopsGuney
+                                                          : l.todayFieldHint,
+                                                      style: TextStyle(
+                                                        color: onHero,
+                                                        fontSize: 16,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                        height: 1.3,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 4),
+                                                    Text(
+                                                      next == null
+                                                          ? l.openStops(open)
+                                                          : l.openInQueue(
+                                                              open,
+                                                              next.recipient,
+                                                            ),
+                                                      style: TextStyle(
+                                                        color: muted,
+                                                        fontSize: 14,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                              if (next != null)
+                                                InitialsAvatar(
+                                                  name: next.recipient,
+                                                  photoUrl: next.personPhoto,
+                                                  size: 32,
+                                                ),
+                                            ],
                                           ),
                                         ),
-                                        child: Row(
-                                          children: [
-                                            Container(
-                                              width: 36,
-                                              height: 36,
-                                              alignment: Alignment.center,
-                                              decoration: BoxDecoration(
-                                                color: Dg.violetBg,
-                                                borderRadius:
-                                                    BorderRadius.circular(12),
-                                              ),
-                                              child: Icon(
-                                                LucideIcons.mapPin,
-                                                size: 18,
-                                                color: Dg.dark
-                                                    ? const Color(0xFFE3D9F2)
-                                                    : Dg.violet,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 12),
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    s.demo
-                                                        ? l.todayStopsGuney
-                                                        : l.todayFieldHint,
-                                                    style: TextStyle(
-                                                      color: onHero,
-                                                      fontSize: 16,
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                      height: 1.3,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(height: 4),
-                                                  Text(
-                                                    next == null
-                                                        ? l.openStops(open)
-                                                        : l.openInQueue(
-                                                            open,
-                                                            next.recipient,
-                                                          ),
-                                                    style: TextStyle(
-                                                      color: muted,
-                                                      fontSize: 14,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                            if (next != null)
-                                              InitialsAvatar(
-                                                name: next.recipient,
-                                                photoUrl: next.personPhoto,
-                                                size: 32,
-                                              ),
-                                          ],
-                                        ),
-                                      ),
+                                      ],
                                       const SizedBox(height: 16),
-                                      DgButton(
-                                        label: s.forceUpdate
-                                            ? l.updateApp
-                                            : l.startShiftCta,
-                                        icon: LucideIcons.play,
-                                        busy: !canGo,
-                                        onPressed: canGo
-                                            ? () => ref
-                                                  .read(sessionProvider)
-                                                  .enterField()
-                                            : null,
-                                      ),
-                                      const SizedBox(height: 8),
-                                      DgButton(
-                                        label: l.showActivation,
-                                        icon: LucideIcons.key,
-                                        tone: Dg.dark
-                                            ? DgButtonTone.onDark
-                                            : DgButtonTone.secondary,
-                                        onPressed: () => ref
-                                            .read(sessionProvider)
-                                            .finishSplash(),
-                                      ),
+                                      // Girişsiz: kurye ve şube girişi ayrı;
+                                      // "Vardiyaya başla" yalnız kuryeye.
+                                      if (guest && !s.forceUpdate) ...[
+                                        DgButton(
+                                          key: const Key('courier-login'),
+                                          label: l.courierLoginCta,
+                                          icon: LucideIcons.truck,
+                                          busy: !canGo,
+                                          onPressed: canGo
+                                              ? () => ref
+                                                    .read(sessionProvider)
+                                                    .finishSplash()
+                                              : null,
+                                        ),
+                                        const SizedBox(height: 8),
+                                        DgButton(
+                                          key: const Key('sube-login-link'),
+                                          label: l.subeLoginCta,
+                                          icon: LucideIcons.store,
+                                          tone: Dg.dark
+                                              ? DgButtonTone.onDark
+                                              : DgButtonTone.secondary,
+                                          onPressed: () => Navigator.of(context)
+                                              .push(
+                                                MaterialPageRoute(
+                                                  builder: (_) =>
+                                                      const SubeLoginScreen(),
+                                                ),
+                                              ),
+                                        ),
+                                      ] else ...[
+                                        DgButton(
+                                          label: s.forceUpdate
+                                              ? l.updateApp
+                                              : l.startShiftCta,
+                                          icon: LucideIcons.play,
+                                          busy: !canGo,
+                                          onPressed: canGo
+                                              ? () => ref
+                                                    .read(sessionProvider)
+                                                    .enterField()
+                                              : null,
+                                        ),
+                                        const SizedBox(height: 8),
+                                        DgButton(
+                                          label: l.showActivation,
+                                          icon: LucideIcons.key,
+                                          tone: Dg.dark
+                                              ? DgButtonTone.onDark
+                                              : DgButtonTone.secondary,
+                                          onPressed: () => ref
+                                              .read(sessionProvider)
+                                              .finishSplash(),
+                                        ),
+                                      ],
                                       if (demoFieldAllowed()) ...[
                                         const SizedBox(height: 8),
                                         TextButton(

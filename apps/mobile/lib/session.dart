@@ -70,6 +70,7 @@ class SessionController extends ChangeNotifier {
        readPush = readPush ?? readPushPermit {
     configReady = !waitForConfig;
     if (!kReleaseMode && !waitForConfig) {
+      courier = Courier.demo;
       tasks.addAll(_buildDemoTasks());
       notifications.addAll(_buildDemoNotifications());
       custodyItems = _buildDemoCustodyItems();

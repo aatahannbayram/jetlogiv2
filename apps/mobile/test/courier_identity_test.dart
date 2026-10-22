@@ -52,7 +52,8 @@ PanelApi _server({CookieJar? jar}) {
 
 void main() {
   test('girişten önce kimsenin adı görünmez', () {
-    final s = SessionController();
+    // Uygulamadaki kurulum (main.dart): demo tohumu yok.
+    final s = SessionController(waitForConfig: true);
     expect(s.courier.fullName, isEmpty);
     expect(s.courier.phone, isEmpty);
     expect(s.courier.district, isEmpty);

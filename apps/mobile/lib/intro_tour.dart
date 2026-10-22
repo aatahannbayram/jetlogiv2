@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import 'l10n.dart';
+import 'onboard_art.dart';
 import 'theme.dart';
 import 'widgets.dart';
 
@@ -11,9 +12,13 @@ class IntroStep {
     required this.icon,
     required this.title,
     required this.body,
+    this.scene,
   });
 
   final IconData icon;
+
+  /// Varsa ikon yerine uygulamayı andıran sahne gösterilir.
+  final OnboardScene? scene;
   final String title;
   final String body;
 }
@@ -23,21 +28,25 @@ List<IntroStep> courierIntroSteps(L10n l) => [
     icon: LucideIcons.mapPin,
     title: l.introCourier1Title,
     body: l.introCourier1Body,
+    scene: OnboardScene.route,
   ),
   IntroStep(
     icon: LucideIcons.packageCheck,
     title: l.introCourier2Title,
     body: l.introCourier2Body,
+    scene: OnboardScene.proof,
   ),
   IntroStep(
     icon: LucideIcons.qrCode,
     title: l.introCourier3Title,
     body: l.introCourier3Body,
+    scene: OnboardScene.scan,
   ),
   IntroStep(
     icon: LucideIcons.cloudUpload,
     title: l.introCourier4Title,
     body: l.introCourier4Body,
+    scene: OnboardScene.offline,
   ),
 ];
 
@@ -46,21 +55,25 @@ List<IntroStep> branchIntroSteps(L10n l) => [
     icon: LucideIcons.house,
     title: l.introBranch1Title,
     body: l.introBranch1Body,
+    scene: OnboardScene.branchSummary,
   ),
   IntroStep(
     icon: LucideIcons.packageCheck,
     title: l.introBranch2Title,
     body: l.introBranch2Body,
+    scene: OnboardScene.branchAssign,
   ),
   IntroStep(
     icon: LucideIcons.users,
     title: l.introBranch3Title,
     body: l.introBranch3Body,
+    scene: OnboardScene.branchCouriers,
   ),
   IntroStep(
     icon: LucideIcons.layoutGrid,
     title: l.introBranch4Title,
     body: l.introBranch4Body,
+    scene: OnboardScene.branchOps,
   ),
 ];
 
@@ -186,7 +199,17 @@ class _IntroSheetState extends State<_IntroSheet> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Center(child: DgIllustration(icon: step.icon, size: 148)),
+                  if (step.scene case final scene?)
+                    OnboardArt(
+                      scene: scene,
+                      // Kısa ekranda kart sığsın.
+                      height: (MediaQuery.sizeOf(context).height * 0.28).clamp(
+                        140.0,
+                        230.0,
+                      ),
+                    )
+                  else
+                    Center(child: DgIllustration(icon: step.icon, size: 148)),
                   const SizedBox(height: 16),
                   Text(
                     step.title,

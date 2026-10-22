@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:latlong2/latlong.dart';
 
 import '../l10n.dart';
 import '../session.dart';
 import '../brand.dart';
 import '../motion.dart';
+import '../onboard_art.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
@@ -24,20 +24,35 @@ class _OnboardScreenState extends ConsumerState<OnboardScreen> {
   final _pages = PageController();
   int _index = 0;
 
-  List<(String, String, String)> _slides(L10n l) {
+  List<(String, String, String, OnboardScene)> _slides(L10n l) {
     if (widget.forBranch) {
       return [
-        (l.subeOnboard1Kicker, l.subeOnboard1Title, l.subeOnboard1Body),
-        (l.subeOnboard2Kicker, l.subeOnboard2Title, l.subeOnboard2Body),
-        (l.subeOnboard3Kicker, l.subeOnboard3Title, l.subeOnboard3Body),
+        (
+          l.subeOnboard1Kicker,
+          l.subeOnboard1Title,
+          l.subeOnboard1Body,
+          OnboardScene.branchSummary,
+        ),
+        (
+          l.subeOnboard2Kicker,
+          l.subeOnboard2Title,
+          l.subeOnboard2Body,
+          OnboardScene.branchAssign,
+        ),
+        (
+          l.subeOnboard3Kicker,
+          l.subeOnboard3Title,
+          l.subeOnboard3Body,
+          OnboardScene.branchStock,
+        ),
       ];
     }
     return [
-      (l.onboard1Kicker, l.onboard1Title, l.onboard1Body),
-      (l.onboard2Kicker, l.onboard2Title, l.onboard2Body),
-      (l.onboard4Kicker, l.onboard4Title, l.onboard4Body),
-      (l.onboard3Kicker, l.onboard3Title, l.onboard3Body),
-      (l.onboard5Kicker, l.onboard5Title, l.onboard5Body),
+      (l.onboard1Kicker, l.onboard1Title, l.onboard1Body, OnboardScene.stops),
+      (l.onboard2Kicker, l.onboard2Title, l.onboard2Body, OnboardScene.route),
+      (l.onboard4Kicker, l.onboard4Title, l.onboard4Body, OnboardScene.scan),
+      (l.onboard3Kicker, l.onboard3Title, l.onboard3Body, OnboardScene.proof),
+      (l.onboard5Kicker, l.onboard5Title, l.onboard5Body, OnboardScene.shift),
     ];
   }
 
@@ -104,50 +119,68 @@ class _OnboardScreenState extends ConsumerState<OnboardScreen> {
                 onPageChanged: (i) => setState(() => _index = i),
                 itemBuilder: (context, i) {
                   final s = slides[i];
-                  return SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _Art(index: i),
-                        const SizedBox(height: 20),
-                        Column(
-                              key: ValueKey(i),
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(s.$1, style: Dg.kicker(color: Dg.ink3)),
-                                const SizedBox(height: 8),
-                                Text(
-                                  s.$2,
-                                  style: Dg.serif(
-                                    size: 34,
-                                    weight: FontWeight.w700,
-                                    height: 1.08,
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                Text(
-                                  s.$3,
-                                  style: Dg.ui(
-                                    size: 16,
-                                    color: Dg.ink2,
-                                    height: 1.4,
-                                  ),
-                                ),
-                              ],
-                            )
-                            .animate()
-                            .fadeIn(
-                              duration: 260.ms,
-                              curve: Curves.easeOutCubic,
-                            )
-                            .slideY(
-                              begin: 0.06,
-                              end: 0,
-                              duration: 260.ms,
-                              curve: Curves.easeOutCubic,
+                  return LayoutBuilder(
+                    builder: (context, box) => SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
+                      child: ConstrainedBox(
+                        // Kısa metinde altta boşluk kalmasın: sayfa ortalanır.
+                        constraints: BoxConstraints(
+                          minHeight: box.maxHeight - 16,
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            OnboardArt(
+                              scene: s.$4,
+                              height: (box.maxHeight * 0.52).clamp(
+                                200.0,
+                                320.0,
+                              ),
                             ),
-                      ],
+                            const SizedBox(height: 28),
+                            Column(
+                                  key: ValueKey(i),
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      s.$1,
+                                      style: Dg.kicker(color: Dg.plum),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      s.$2,
+                                      style: Dg.serif(
+                                        size: 30,
+                                        weight: FontWeight.w700,
+                                        height: 1.12,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Text(
+                                      s.$3,
+                                      style: Dg.ui(
+                                        size: 16,
+                                        color: Dg.ink2,
+                                        height: 1.45,
+                                      ),
+                                    ),
+                                  ],
+                                )
+                                .animate()
+                                .fadeIn(
+                                  duration: 260.ms,
+                                  curve: Curves.easeOutCubic,
+                                )
+                                .slideY(
+                                  begin: 0.06,
+                                  end: 0,
+                                  duration: 260.ms,
+                                  curve: Curves.easeOutCubic,
+                                ),
+                          ],
+                        ),
+                      ),
                     ),
                   );
                 },
@@ -184,140 +217,6 @@ class _OnboardScreenState extends ConsumerState<OnboardScreen> {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _Art extends StatelessWidget {
-  const _Art({required this.index});
-  final int index;
-
-  @override
-  Widget build(BuildContext context) {
-    return switch (index) {
-      // LayoutBuilder so the map strip shrinks on short screens (e.g.
-      // iPhone SE) instead of overflowing the Expanded slot below it —
-      // 252 is the natural height on everything else, 130 is the info
-      // block beneath it (row + name + address + time, with its padding).
-      0 => LayoutBuilder(
-        builder: (context, constraints) {
-          final mapHeight = constraints.hasBoundedHeight
-              ? (constraints.maxHeight - 130).clamp(160.0, 252.0)
-              : 252.0;
-          return DgCard(
-            lime: true,
-            hero: true,
-            padding: EdgeInsets.zero,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                MapStrip(eta: 6, height: mapHeight),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Wrap(
-                        spacing: 12,
-                        runSpacing: 8,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          Mono('DGO-8841', color: Dg.ink),
-                          StatusChip(
-                            label: L10n.of(context).inQueue,
-                            tone: 'lime',
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Ahmet Yılmaz',
-                        style: Dg.serif(size: 26, color: Dg.ink),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Kayalık Mah. No:14, Güney',
-                        style: TextStyle(
-                          fontFamily: Dg.sans,
-                          fontSize: 16,
-                          color: Dg.ink2,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Teslimat  ·  14:30–15:00',
-                        style: TextStyle(
-                          fontFamily: Dg.sans,
-                          fontSize: 14,
-                          color: Dg.ink2,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-      1 => MapStrip(
-        height: 280,
-        clipTopOnly: false,
-        points: const [
-          LatLng(38.1512, 29.0614),
-          LatLng(38.1481, 29.0558),
-          LatLng(38.1554, 29.0692),
-          LatLng(38.1460, 29.0488),
-        ],
-        label: L10n.of(context).fourStops,
-      ),
-      _ => DgCard(
-        hero: true,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Dg.purple,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: const Text(
-                'Bu teslimde kod var.',
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            _line(LucideIcons.camera, L10n.of(context).doorPhoto),
-            _line(LucideIcons.pin, 'Alıcı kodu'),
-            _line(LucideIcons.idCard, 'Sözleşme panelde'),
-          ],
-        ),
-      ),
-    };
-  }
-
-  static Widget _line(IconData icon, String t) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        children: [
-          DgIcon(icon, size: 20, color: Dg.ink),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              t,
-              style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 16),
-            ),
-          ),
-        ],
       ),
     );
   }

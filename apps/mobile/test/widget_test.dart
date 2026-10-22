@@ -4,6 +4,7 @@ import 'package:dijigoo_kurye/api/panel_models.dart';
 import 'package:dijigoo_kurye/app.dart';
 import 'package:dijigoo_kurye/brand.dart';
 import 'package:dijigoo_kurye/l10n.dart';
+import 'package:dijigoo_kurye/models.dart';
 import 'package:dijigoo_kurye/screens/task_detail_screen.dart';
 import 'package:dijigoo_kurye/screens/return_screen.dart';
 import 'package:dijigoo_kurye/screens/sync_screen.dart';
@@ -72,7 +73,7 @@ void main() {
     await tester.pumpWidget(const ProviderScope(child: DijigooApp()));
     await tester.pump();
     expect(find.text('Atla'), findsOneWidget);
-    expect(find.text('Üstteki durak senin.'), findsOneWidget);
+    expect(find.text('Sıradaki durağın hep en üstte.'), findsOneWidget);
     await tester.tap(find.text('Atla'));
     await tester.pumpAndSettle();
     expect(find.text('Bugünün durakları Güney’de.'), findsOneWidget);
@@ -584,13 +585,19 @@ void main() {
 
   testWidgets('şube demo girişi acente ana sayfasını açar', (tester) async {
     await bindPhone(tester);
-    await tester.pumpWidget(const ProviderScope(child: DijigooApp()));
+    // Gerçek açılıştaki gibi henüz kimse giriş yapmamış.
+    final session = SessionController()..courier = Courier.empty;
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [sessionProvider.overrideWith((ref) => session)],
+        child: const DijigooApp(),
+      ),
+    );
     await tester.pump();
     await tester.tap(find.text('Atla'));
     await tester.pumpAndSettle();
     await tester.pump(const Duration(milliseconds: 600));
-    await tester.tap(find.text('Aktivasyonu göster'));
-    await tester.pumpAndSettle();
+    // Girişsiz açılışta şube girişi ayrı düğme; kurye formundan geçilmez.
     await tester.tap(find.byKey(const Key('sube-login-link')));
     await tester.pumpAndSettle();
     expect(find.text('Şube Girişi'), findsOneWidget);

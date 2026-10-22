@@ -46,30 +46,54 @@ class L10n {
   String get signature => _t('İmza', 'Signature');
   String get all => _t('Tümü', 'All');
 
-  String get onboard1Kicker => _t('Liste', 'List');
-  String get onboard1Title => _t('Üstteki durak senin.', 'The top stop is yours.');
-  String get onboard1Body => _t('Numara, adres, saat kartta.', 'Number, address and window are on the card.');
-  String get onboard2Kicker => _t('Yol', 'Route');
-  String get onboard2Title => _t('Durağa bas, harita açılsın.', 'Tap a stop to open the map.');
-  String get onboard2Body => _t('Sıra Güney. Mola üstte. Yol tarifi telefonda açılır.', 'Order is Güney. Break is on top. Directions open on the phone.');
-  String get onboard3Kicker => _t('Kapanış', 'Close-out');
-  String get onboard3Title => _t('Foto ve kod yoksa bitmez.', 'No photo or code, no close.');
-  String get onboard3Body => _t('Kim aldı, kapı, kod. Sözleşme panele kalır.', 'Who took it, door, code. The contract stays on the panel.');
-  String get onboard4Kicker => _t('Zimmet', 'Custody');
-  String get onboard4Title => _t('Barkodu okut, zimmeti kabul et.', 'Scan the barcode, accept custody.');
-  String get onboard4Body => _t('Eksik veya fazla varsa uyuşmazlık yaz.', 'If counts differ, log a discrepancy.');
-  String get onboard5Kicker => _t('Saha', 'Field');
-  String get onboard5Title => _t('Girişte müsait olursun.', 'You are available after login.');
-  String get onboard5Body => _t('Vardiya selfie’si yok. Kapatmak gün sonundan.', 'No shift selfie. Close from end of day.');
-  String get subeOnboard1Kicker => _t('Şube', 'Branch');
-  String get subeOnboard1Title => _t('Günün işi tek bakışta.', 'Today’s work at a glance.');
-  String get subeOnboard1Body => _t('Dağıtılacak, zimmet, stok ayrı kartlar.', 'To-deliver, custody and stock are separate cards.');
-  String get subeOnboard2Kicker => _t('Zimmet', 'Assign');
-  String get subeOnboard2Title => _t('Gönderiyi kuryeye ver.', 'Hand the shipment to a courier.');
-  String get subeOnboard2Body => _t('Seç, müsait kuryeyi ata, uyuşmazlığı yaz.', 'Select, assign an available courier, note gaps.');
-  String get subeOnboard3Kicker => _t('Stok', 'Stock');
-  String get subeOnboard3Title => _t('Stok gönderi değildir.', 'Stock is not a shipment.');
-  String get subeOnboard3Body => _t('Sayım ve koli şube stoğu içindir.', 'Counts and parcels are for branch stock.');
+  String get onboard1Kicker =>
+      _t('Duraklar', 'Stops');
+  String get onboard1Title =>
+      _t('Sıradaki durağın hep en üstte.', 'Your next stop is always on top.');
+  String get onboard1Body =>
+      _t('Kartta alıcının adı, adresi ve teslim saati yazar.', 'The card shows the recipient, the address and the delivery time.');
+  String get onboard2Kicker =>
+      _t('Rota', 'Route');
+  String get onboard2Title =>
+      _t('Durakları haritada sırayla gör.', 'See your stops in order on the map.');
+  String get onboard2Body =>
+      _t('Yol tarifine dokun, telefonunun haritası açılsın.', 'Tap Directions to open your phone\'s maps.');
+  String get onboard3Kicker =>
+      _t('Teslim', 'Delivery');
+  String get onboard3Title =>
+      _t('Fotoğraf ve kodla teslim et.', 'Deliver with a photo and a code.');
+  String get onboard3Body =>
+      _t('Kapının fotoğrafını çek, alıcının kodunu gir. Bunlar olmadan teslim bitmez.', 'Take a door photo and enter the recipient\'s code. Without them the delivery can\'t be closed.');
+  String get onboard4Kicker =>
+      _t('Zimmet', 'Pickup');
+  String get onboard4Title =>
+      _t('Paketleri okutarak teslim al.', 'Scan parcels to take them over.');
+  String get onboard4Body =>
+      _t('Şubede barkodları okut. Eksik ya da fazla paket varsa uygulamaya yaz.', 'Scan the barcodes at the branch. If a parcel is missing or extra, note it in the app.');
+  String get onboard5Kicker =>
+      _t('Vardiya', 'Shift');
+  String get onboard5Title =>
+      _t('Giriş yapınca işe hazırsın.', 'Sign in and you\'re ready to work.');
+  String get onboard5Body =>
+      _t('Günü ana sayfadaki Gün sonu düğmesiyle bitir.', 'Finish the day with End day on the home screen.');
+  String get subeOnboard1Kicker =>
+      _t('Şube', 'Branch');
+  String get subeOnboard1Title =>
+      _t('Günün işi tek ekranda.', 'Today\'s work on one screen.');
+  String get subeOnboard1Body =>
+      _t('Dağıtılacak, zimmetteki ve stoktaki paketleri ayrı kutularda görürsün.', 'To-deliver, assigned and stock parcels each have their own box.');
+  String get subeOnboard2Kicker =>
+      _t('Zimmet', 'Assign');
+  String get subeOnboard2Title =>
+      _t('Gönderiyi kuryeye ver.', 'Hand shipments to a courier.');
+  String get subeOnboard2Body =>
+      _t('Gönderileri seç, müsait kuryeyi ata. Kurye kabul edince zimmet geçer.', 'Select shipments and pick an available courier. Custody moves once they accept.');
+  String get subeOnboard3Kicker =>
+      _t('Stok', 'Stock');
+  String get subeOnboard3Title =>
+      _t('Stok ayrı tutulur.', 'Stock is kept separate.');
+  String get subeOnboard3Body =>
+      _t('Sayım ve koliler şube stoğu içindir, kuryeye giden gönderilerle karışmaz.', 'Counts and parcels are branch stock and never mix with courier shipments.');
   String get tipHomeTitle => _t('Bugünün özeti', 'Today at a glance');
   String get tipHomeBody => _t('Kartlarda elindeki paketler ve teslimatların var. Barkod okutmak için alttaki düğmeyi kullan.', 'Cards show the parcels you hold and your deliveries. Use the button below to scan.');
   String get tipGotIt => _t('Anladım', 'Got it');
@@ -138,6 +162,8 @@ class L10n {
 
   String get startShiftCta => _t('Vardiyaya başla', 'Start shift');
   String get showActivation => _t('Aktivasyonu göster', 'Show activation');
+  String get courierLoginCta => _t('Kurye girişi', 'Courier sign in');
+  String get subeLoginCta => _t('Şube girişi', 'Branch sign in');
   String get openDemo => _t('Demoyu aç', 'Open demo');
   String get updateApp => _t('Uygulamayı güncelle', 'Update the app');
   String get todayStopsGuney => _t('Bugünün durakları Güney’de.', 'Today’s stops are in Güney.');
