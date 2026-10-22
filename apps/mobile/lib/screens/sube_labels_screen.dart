@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -5,6 +6,8 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../api/branch_models.dart';
 import '../branch_workspace.dart';
 import '../l10n.dart';
+import '../label_pdf.dart';
+import '../label_print_sheet.dart';
 import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
@@ -98,12 +101,33 @@ class _SubeLabelsScreenState extends ConsumerState<SubeLabelsScreen> {
     );
   }
 
-  Future<void> _print(BranchWorkspace branch, List<PrintableLabel> items) {
+  Future<void> _print(BranchWorkspace branch, List<PrintableLabel> items) async {
+    if (kIsWeb) return _printPdf(branch, items);
     // Bluetooth yazıcı seçiliyken boş IP alanı ayarı ezmesin.
     if (!isBluetoothPrinter(branch.printerHost)) {
       branch.setPrinterHost(_printer.text);
     }
     return _guard(() => branch.printLabels(items), context.l10n.labelsPrinted);
+  }
+
+  /// Web: etiket PDF'i hazırlanır, ayrı bir "Yazdır" dokunuşuyla telefonun
+  /// paylaş/yazdır menüsü açılır; ancak o zaman sunucuda basıldı sayılır.
+  Future<void> _printPdf(
+    BranchWorkspace branch,
+    List<PrintableLabel> items,
+  ) async {
+    setState(() => _busy = true);
+    final pdf = await buildLabelPdfWithAppFont([
+      for (final item in items) labelSheetFromPrintable(item),
+    ]);
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (!await showLabelPdfSheet(context, pdf, items.length)) return;
+    if (!mounted) return;
+    await _guard(
+      () => branch.printLabels(items, viaPdf: true),
+      context.l10n.labelsPrinted,
+    );
   }
 
   @override
@@ -132,7 +156,13 @@ class _SubeLabelsScreenState extends ConsumerState<SubeLabelsScreen> {
           else if (!canOperate)
             Text(l.noPermission, style: Dg.ui(size: 13, color: Dg.ink3))
           else ...[
-            if (isBluetoothPrinter(branch.printerHost))
+            if (kIsWeb)
+              // Tarayıcı Bluetooth'a / ağ yazıcısına erişemez.
+              Text(
+                l.webPrinterNote,
+                style: Dg.ui(size: 13, color: Dg.ink3),
+              )
+            else if (isBluetoothPrinter(branch.printerHost))
               // Bluetooth yazıcı seçiliyken IP alanı yerine cihaz adı.
               Row(
                 children: [

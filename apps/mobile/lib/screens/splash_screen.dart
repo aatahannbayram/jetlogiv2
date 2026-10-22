@@ -52,6 +52,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     final next = s.nextStop;
     final onHero = Dg.onHero;
     final muted = Dg.onHeroMuted;
+    final guest = s.courier.fullName.trim().isEmpty;
+    final place = [
+      s.courier.district,
+      s.courier.city,
+    ].where((e) => e.trim().isNotEmpty).join(' / ');
     return Scaffold(
       backgroundColor: Dg.dark ? Dg.night : Dg.ground,
       body: Stack(
@@ -156,11 +161,31 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                                     children: [
                                       Row(
                                         children: [
-                                          InitialsAvatar(
-                                            name: s.courier.fullName,
-                                            photoUrl: s.courier.photoUrl,
-                                            size: 52,
-                                          ),
+                                          // Girişten önce kimsenin adı yok:
+                                          // nötr karşılama gösterilir.
+                                          if (guest)
+                                            Container(
+                                              width: 52,
+                                              height: 52,
+                                              alignment: Alignment.center,
+                                              decoration: BoxDecoration(
+                                                color: onHero.withValues(
+                                                  alpha: 0.08,
+                                                ),
+                                                shape: BoxShape.circle,
+                                              ),
+                                              child: Icon(
+                                                LucideIcons.user,
+                                                size: 24,
+                                                color: muted,
+                                              ),
+                                            )
+                                          else
+                                            InitialsAvatar(
+                                              name: s.courier.fullName,
+                                              photoUrl: s.courier.photoUrl,
+                                              size: 52,
+                                            ),
                                           const SizedBox(width: 12),
                                           Expanded(
                                             child: Column(
@@ -168,21 +193,26 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                                                   CrossAxisAlignment.start,
                                               children: [
                                                 Text(
-                                                  s.courier.fullName,
+                                                  guest
+                                                      ? l.guestTitle
+                                                      : s.courier.fullName,
                                                   style: TextStyle(
                                                     color: onHero,
                                                     fontWeight: FontWeight.w700,
                                                     fontSize: 17,
                                                   ),
                                                 ),
-                                                const SizedBox(height: 3),
-                                                Text(
-                                                  '${s.courier.district} / ${s.courier.city}',
-                                                  style: TextStyle(
-                                                    color: muted,
-                                                    fontSize: 14,
+                                                if (guest ||
+                                                    place.isNotEmpty) ...[
+                                                  const SizedBox(height: 3),
+                                                  Text(
+                                                    guest ? l.guestHint : place,
+                                                    style: TextStyle(
+                                                      color: muted,
+                                                      fontSize: 14,
+                                                    ),
                                                   ),
-                                                ),
+                                                ],
                                               ],
                                             ),
                                           ),

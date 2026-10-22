@@ -55,6 +55,33 @@ class Courier {
       affiliation == CourierAffiliation.independent &&
       compensationType == CompensationType.pieceRate;
 
+  /// Giriş yapılmamış: ekranlarda kimsenin adı görünmez.
+  static const empty = Courier(
+    fullName: '',
+    code: '',
+    phone: '',
+    city: '',
+    district: '',
+    vehicle: '',
+    employment: '',
+    availability: '',
+    hours: '',
+  );
+
+  /// Yalnız demo saha ([SessionController.skipToDemo]) için örnek kurye.
+  static const demo = Courier(
+    fullName: 'Ece Demir',
+    code: 'DGC-2026-9CF4875F',
+    phone: '+90 532 ••• •• 26',
+    city: 'Denizli',
+    district: 'Güney',
+    vehicle: 'Otomobil',
+    employment: 'Yarı zamanlı',
+    availability: 'Müsait',
+    hours: 'Pzt–Cum 09:00–18:00',
+    compensationType: CompensationType.fixedMonthly,
+  );
+
   Courier copyWith({
     String? fullName,
     String? code,
@@ -508,9 +535,17 @@ class FleetCourier {
   bool get onBreak => status == 'break';
 }
 
+/// `+905000000612` → `+90 500 000 06 12`. Tanınmayan biçim olduğu gibi döner.
+String formatTrPhone(String raw) {
+  final d = raw.replaceAll(RegExp(r'\D'), '');
+  if (d.length != 12 || !d.startsWith('90')) return raw;
+  return '+90 ${d.substring(2, 5)} ${d.substring(5, 8)} '
+      '${d.substring(8, 10)} ${d.substring(10)}';
+}
+
 /// Demo / known people — local portraits so the field UI works offline.
 String? personPhotoAsset(String name) => switch (name.trim()) {
-  'Ruken Turhan' => 'assets/images/avatars/ruken.jpg',
+  'Ece Demir' => 'assets/images/avatars/demo_courier.jpg',
   'Ahmet Yılmaz' => 'assets/images/avatars/ahmet.jpg',
   'Elif Koç' => 'assets/images/avatars/elif.jpg',
   'Mehmet Aydın' => 'assets/images/avatars/mehmet.jpg',

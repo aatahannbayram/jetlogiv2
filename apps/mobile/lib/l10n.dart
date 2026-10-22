@@ -157,6 +157,9 @@ class L10n {
   String get stopGone => _t('Bu durak artık listede yok.', 'This stop is no longer on the list.');
 
   String get welcomeShift => _t('Vardiyana hoş geldin', 'Welcome to your shift');
+  String get guestTitle => _t('Hoş geldin', 'Welcome');
+  String get guestHint =>
+      _t('Kendi hesabınla giriş yap', 'Sign in with your own account');
   String get welcomeBody => _t(
     'Telefonunla giriş yap, vardiyayı aç ve rotan hazır olsun.',
     'Sign in with your phone, open the shift, and your route is ready.',
@@ -276,6 +279,7 @@ class L10n {
   String get permPush => _t('Bildirim', 'Notifications');
   String get permPushHint => _t('Yeni görev ve zorunlu güncelleme.', 'New tasks and required updates.');
   String get grantAllThree => _t('Üç izni de ver', 'Allow all three');
+  String get grantAll => _t('İzinleri ver', 'Allow all');
   String get goToShift => _t('Vardiyaya geç', 'Go to shift');
   String get noRecipientPhone =>
       _t('Alıcı telefonu yok.', 'Recipient phone is missing.');
@@ -942,6 +946,16 @@ class L10n {
   String printLabelsN(int n) => _t('$n etiketi yazdır', 'Print $n labels');
   String get printLabel => _t('Yazdır', 'Print');
   String get labelsPrinted => _t('Yazıcıya gönderildi', 'Sent to printer');
+  String webLabelsReady(int n) => _t('$n etiket hazır', '$n labels ready');
+  String get webPrintHint => _t(
+    'Açılan menüden Yazdır\'ı seçin; etiket AirPrint yazıcıdan 100×75 mm basılır.',
+    'Choose Print in the menu; the label prints 100×75 mm on an AirPrint printer.',
+  );
+  String get webPrintNow => _t('Yazdır', 'Print');
+  String get webPrinterNote => _t(
+    'Web sürümünde yazıcı ayarı yok: etiketler telefonun yazdırma menüsüyle (AirPrint) basılır.',
+    'No printer setup on the web: labels print through the phone\'s print menu (AirPrint).',
+  );
   String get newLabels => _t('Yeni etiketler', 'New labels');
   String get recentLabels => _t('Son etiketler', 'Recent labels');
   String printedTimes(int n) => _t('$n kez basıldı', 'Printed $n times');

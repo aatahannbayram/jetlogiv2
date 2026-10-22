@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
+
 import 'package:permission_handler/permission_handler.dart';
 import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
 
@@ -29,6 +31,7 @@ String printerDisplayName(String host) {
 /// Telefonla eşleştirilmiş Bluetooth cihazları. İzin verilmezse ya da
 /// Bluetooth kapalıysa boş döner.
 Future<List<({String name, String address})>> pairedBluetoothPrinters() async {
+  if (kIsWeb) return const [];
   if (Platform.isAndroid) {
     final status = await Permission.bluetoothConnect.request();
     if (!status.isGranted) return const [];
@@ -63,6 +66,10 @@ Future<void> _sendZplBluetooth(String host, String zpl) async {
 /// [host] `192.168.1.50`, `192.168.1.50:6101` ya da `bt:…` biçiminde olabilir.
 /// Bağlantı kurulamazsa [SocketException] fırlatır.
 Future<void> sendZplToPrinter(String host, String zpl) async {
+  // Tarayıcı Bluetooth'a ve ham TCP soketine erişemez (iOS Safari).
+  if (kIsWeb) {
+    throw UnsupportedError('Yazıcı web sürümünde desteklenmiyor');
+  }
   if (isBluetoothPrinter(host)) return _sendZplBluetooth(host, zpl);
   final parts = host.trim().split(':');
   final port = parts.length > 1 ? int.tryParse(parts[1]) ?? 9100 : 9100;

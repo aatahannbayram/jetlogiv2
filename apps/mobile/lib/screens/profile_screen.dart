@@ -296,7 +296,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               behavior: HitTestBehavior.opaque,
               child: Column(
                 children: [
-                  Text(c.vehicle, style: Dg.ui(size: 13, color: Dg.ink3)),
+                  Text(
+                    context.l10n.vehicleLabel(c.vehicle),
+                    style: Dg.ui(size: 13, color: Dg.ink3),
+                  ),
                   Text(c.code, style: Dg.ui(size: 13, color: Dg.ink3)),
                 ],
               ),
@@ -478,25 +481,28 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     s.toggleBeep,
                     icon: LucideIcons.volume2,
                   ),
-                  const DgDivider(),
-                  _switchRow(
-                    context.l10n.newStopAlerts,
-                    !s.notifyEnabled
-                        ? context.l10n.off
-                        : s.notifyOsBlocked
-                        ? context.l10n.notifyNeedOs
-                        : context.l10n.onNotify,
-                    s.notifyEnabled,
-                    () async {
-                      final permit = await s.toggleNotifyPref();
-                      if (!context.mounted) return;
-                      if (permit == null || permit == PushPermit.granted) {
-                        return;
-                      }
-                      explainPushPermit(context, permit);
-                    },
-                    icon: LucideIcons.bellRing,
-                  ),
+                  // Web sürümünde bildirim yok; anahtar işe yaramazdı.
+                  if (!kIsWeb) ...[
+                    const DgDivider(),
+                    _switchRow(
+                      context.l10n.newStopAlerts,
+                      !s.notifyEnabled
+                          ? context.l10n.off
+                          : s.notifyOsBlocked
+                          ? context.l10n.notifyNeedOs
+                          : context.l10n.onNotify,
+                      s.notifyEnabled,
+                      () async {
+                        final permit = await s.toggleNotifyPref();
+                        if (!context.mounted) return;
+                        if (permit == null || permit == PushPermit.granted) {
+                          return;
+                        }
+                        explainPushPermit(context, permit);
+                      },
+                      icon: LucideIcons.bellRing,
+                    ),
+                  ],
                   const DgDivider(),
                   _switchRow(
                     s.shiftOpen

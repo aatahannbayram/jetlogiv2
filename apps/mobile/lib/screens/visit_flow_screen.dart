@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -7,6 +5,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../api/panel_models.dart';
 import '../capture_check.dart';
 import '../l10n.dart';
+import '../local_image.dart';
 import '../motion.dart';
 import '../scan.dart';
 import '../session.dart';
@@ -562,7 +561,7 @@ class _VisitFlowScreenState extends ConsumerState<VisitFlowScreen> {
             child: InkWell(
               onTap: busy ? null : () => _capture(p),
               child: real
-                  ? Image.file(File(path), fit: BoxFit.cover)
+                  ? localImage(path, fit: BoxFit.cover)
                   : Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [

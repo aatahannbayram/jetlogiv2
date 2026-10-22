@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -8,6 +9,8 @@ import '../api/agency_models.dart';
 import '../api/branch_models.dart';
 import '../data/vault.dart';
 import '../l10n.dart';
+import '../label_pdf.dart';
+import '../label_print_sheet.dart';
 import '../scan.dart';
 import '../session.dart';
 import '../theme.dart';
@@ -148,6 +151,7 @@ class _SubePrepScreenState extends ConsumerState<SubePrepScreen> {
 
   Future<void> _print() async {
     final l = context.l10n;
+    if (kIsWeb) return _printPdf();
     final host = ref.read(sessionProvider).branch.printerHost;
     if (host.isEmpty) {
       subeSnack(context, l.prepPrinterMissing);
@@ -169,6 +173,30 @@ class _SubePrepScreenState extends ConsumerState<SubePrepScreen> {
         subeSnack(context, l.prepPrinterDown(printerDisplayName(host)));
     }
     if (mounted) setState(() => _printing = false);
+  }
+
+  /// Web: gönderi etiketleri PDF olarak hazırlanır, telefonun yazdırma
+  /// menüsüyle (AirPrint) basılır.
+  Future<void> _printPdf() async {
+    final l = context.l10n;
+    setState(() => _printing = true);
+    try {
+      final rows = await _api(ref).fetchPrintRows(_picked.toList());
+      final pdf = await buildLabelPdfWithAppFont([
+        for (final row in rows) labelSheetFromShipmentRow(row),
+      ]);
+      if (!mounted) return;
+      setState(() => _printing = false);
+      if (!await showLabelPdfSheet(context, pdf, rows.length)) return;
+      if (!mounted) return;
+      subeSnack(context, l.prepPrinted(rows.length));
+      setState(_picked.clear);
+    } on AgencyApiException catch (e) {
+      if (mounted) subeSnack(context, e.serverMessage ?? l.reportFailedLoad);
+    } catch (_) {
+      if (mounted) subeSnack(context, l.reportFailedLoad);
+    }
+    if (mounted && _printing) setState(() => _printing = false);
   }
 
   @override

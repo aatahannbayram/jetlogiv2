@@ -40,7 +40,7 @@ Future<void> openDirections(BuildContext context, DeliveryTask task) async {
   final appleOs =
       defaultTargetPlatform == TargetPlatform.iOS ||
       defaultTargetPlatform == TargetPlatform.macOS;
-  final primary = appleOs ? apple : geo;
+  final primary = appleOs ? apple : (kIsWeb ? google : geo);
   Future<bool> open(Uri uri) async {
     try {
       return await launchUrl(uri, mode: LaunchMode.externalApplication);

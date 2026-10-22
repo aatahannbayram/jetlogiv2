@@ -1,6 +1,6 @@
 import 'dart:async';
-import 'dart:io';
 
+import 'package:cross_file/cross_file.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -1058,7 +1058,12 @@ class SessionController extends ChangeNotifier {
   /// dispatcher ataması bir sonraki öne gelişte görünür.
   Future<void> onForeground() async {
     await reconcilePushPermit();
-    if (!liveApi || phase != AppPhase.main) return;
+    // Vardiya açıkken uygulama doğrudan ana sayfayla açılır, splash'teki
+    // [bootstrap] çalışmaz: kurye oturumu (ad, görevler) burada yenilenir.
+    if (phase == AppPhase.main && !panelLoggedIn && !demo) {
+      await restorePanelSession();
+    }
+    if (!(liveApi || _usesPanelTasks) || phase != AppPhase.main) return;
     unawaited(registerPushToken());
     await refreshField();
   }
@@ -1202,18 +1207,9 @@ class SessionController extends ChangeNotifier {
     ];
   }
 
-  Courier courier = const Courier(
-    fullName: 'Ruken Turhan',
-    code: 'DGC-2026-9CF4875F',
-    phone: '+90 532 ••• •• 26',
-    city: 'Denizli',
-    district: 'Güney',
-    vehicle: 'Otomobil',
-    employment: 'Yarı zamanlı',
-    availability: 'Müsait',
-    hours: 'Pzt–Cum 09:00–18:00',
-    compensationType: CompensationType.fixedMonthly,
-  );
+  /// Giriş yapan kuryenin JetDiji'deki profili. Girişten önce boş; örnek
+  /// kurye yalnız demo sahada ([_seedDemoData]) yazılır.
+  Courier courier = Courier.empty;
 
   CourierDocumentListDto documents = const CourierDocumentListDto(
     items: [],
@@ -1619,6 +1615,8 @@ class SessionController extends ChangeNotifier {
       applyPanelProfile(profile);
       await loadPanelTasks();
       unawaited(loadCourierDashboard());
+      // İlçe, telefon, araç: açılışta da girişteki kadar tam profil.
+      unawaited(loadIdentity());
       await Future.wait([loadTickets(), loadCustody()]);
     } catch (_) {
       panelLoggedIn = false;
@@ -1702,6 +1700,7 @@ class SessionController extends ChangeNotifier {
   /// (bkz. [verifyLoginOtp]) kullanılıyor. İkincisi kendi izin/vardiya
   /// akışını normal şekilde sürdürdüğü için faz/vardiya burada değişmez.
   void _seedDemoData() {
+    if (courier.fullName.isEmpty) courier = Courier.demo;
     if (tasks.isEmpty) {
       tasks.addAll(_buildDemoTasks());
     }
@@ -1783,6 +1782,8 @@ class SessionController extends ChangeNotifier {
   /// Clears stored auth + resets in-memory shift/session state, dropping
   /// back to splash (which re-offers "Vardiyaya başla" / activation).
   Future<void> logout() async {
+    // Sonraki giren kişi öncekinin adını/telefonunu görmesin.
+    courier = Courier.empty;
     await vault?.clearTokens();
     await vault?.saveTaskWatermark(null);
     taskWatermark = null;
@@ -2447,7 +2448,7 @@ class SessionController extends ChangeNotifier {
     }
     final List<int> bytes;
     try {
-      bytes = await File(path).readAsBytes();
+      bytes = await XFile(path).readAsBytes();
     } catch (_) {
       throw PanelApiException('PHOTO_UNAVAILABLE');
     }
@@ -2707,9 +2708,13 @@ class SessionController extends ChangeNotifier {
         final profile = await client.fetchCourierProfile();
         final docs = await client.fetchMyDocuments();
         courier = courier.copyWith(
+          fullName: profile.fullName,
+          code: profile.code,
+          phone: profile.phone == null ? null : formatTrPhone(profile.phone!),
           city: profile.city ?? courier.city,
           district: profile.district ?? courier.district,
           vehicle: profile.vehicle ?? courier.vehicle,
+          employment: profile.workModel,
           availability: profile.status ?? courier.availability,
         );
         documents = docs;

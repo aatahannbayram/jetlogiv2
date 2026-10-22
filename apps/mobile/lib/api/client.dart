@@ -939,7 +939,7 @@ Map<String, dynamic> mockPayload(String path, RequestOptions options) {
       },
       'courier': {
         'id': '00000000-0000-4000-a000-000000000026',
-        'fullName': 'Ruken Turhan',
+        'fullName': 'Ece Demir',
         'phone': '+905321110026',
         'employeeCode': 'DGC-2026-9CF4875F',
         'status': 'active',

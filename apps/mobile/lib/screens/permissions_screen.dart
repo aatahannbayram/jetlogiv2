@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -22,7 +23,8 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen> {
   List<(IconData, String, String, String)> _items(L10n l) => [
     (LucideIcons.mapPin, l.permLocation, l.permLocationHint, 'loc'),
     (LucideIcons.camera, l.permCamera, l.permCameraHint, 'cam'),
-    (LucideIcons.bell, l.permPush, l.permPushHint, 'push'),
+    // Web sürümünde bildirim yok; bu izin verilemeyeceği için ekranı kilitlerdi.
+    if (!kIsWeb) (LucideIcons.bell, l.permPush, l.permPushHint, 'push'),
   ];
 
   Future<bool> _ask(String key) async {
@@ -59,7 +61,7 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen> {
     if (_busy) return;
     setState(() => _busy = true);
     PushPermit? push;
-    for (final key in ['loc', 'cam', 'push']) {
+    for (final key in [for (final i in _items(context.l10n)) i.$4]) {
       if (granted.contains(key)) continue;
       if (key == 'push') {
         push = await requestPushPermit();
@@ -161,7 +163,11 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen> {
             ),
           const SizedBox(height: 8),
           DgButton(
-            label: ready ? l.goToShift : l.grantAllThree,
+            label: ready
+                ? l.goToShift
+                : kIsWeb
+                ? l.grantAll
+                : l.grantAllThree,
             icon: ready ? LucideIcons.arrowRight : LucideIcons.shield,
             onPressed: _busy
                 ? null

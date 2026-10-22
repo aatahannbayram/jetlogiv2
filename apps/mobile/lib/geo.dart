@@ -26,7 +26,8 @@ List<LatLng> decodePolyline(String encoded, {int precision = 5}) {
       result |= (b & 0x1f) << shift;
       shift += 5;
     }
-    lat += (result & 1) != 0 ? ~(result >> 1) : (result >> 1);
+    // `~x` yerine `-x - 1`: web'de bit işlemleri işaretsiz 32 bit döner.
+    lat += (result & 1) != 0 ? -(result >> 1) - 1 : (result >> 1);
 
     shift = 0;
     result = 0;
@@ -36,7 +37,7 @@ List<LatLng> decodePolyline(String encoded, {int precision = 5}) {
       result |= (b & 0x1f) << shift;
       shift += 5;
     }
-    lng += (result & 1) != 0 ? ~(result >> 1) : (result >> 1);
+    lng += (result & 1) != 0 ? -(result >> 1) - 1 : (result >> 1);
 
     points.add(LatLng(lat / factor, lng / factor));
   }
@@ -343,7 +344,8 @@ String encodePolyline(List<LatLng> points, {int precision = 5}) {
 }
 
 void _encodePolylineValue(StringBuffer out, int value) {
-  var v = value < 0 ? ~(value << 1) : value << 1;
+  // Bit işlemi yerine aritmetik: web'de `~`/`<<` işaretsiz 32 bit çalışır.
+  var v = value < 0 ? -(value * 2) - 1 : value * 2;
   while (v >= 0x20) {
     out.writeCharCode((0x20 | (v & 0x1f)) + 63);
     v >>= 5;

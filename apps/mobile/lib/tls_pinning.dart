@@ -113,6 +113,8 @@ List<int> extractSubjectPublicKeyInfo(List<int> der) {
 }
 
 void attachTlsPinning(Dio dio) {
+  // Tarayıcıda TLS doğrulamasını tarayıcı yapar; dart:io adaptörü yok.
+  if (kIsWeb) return;
   dio.httpClientAdapter = IOHttpClientAdapter(
     validateCertificate: (cert, host, port) {
       if (cert == null) return !kReleaseMode;

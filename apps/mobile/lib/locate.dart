@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -66,7 +67,8 @@ Future<bool> requestLocationAccess() async {
 }
 
 Future<bool> requestCameraAccess() async {
-  if (_skipHardware) return true;
+  // Web'de kamera iznini fotoğraf/barkod açılırken tarayıcı kendisi sorar.
+  if (_skipHardware || kIsWeb) return true;
   try {
     final s = await Permission.camera.request();
     return s.isGranted || s.isLimited;
@@ -107,10 +109,7 @@ void explainPushPermit(BuildContext context, PushPermit permit) {
           permit == PushPermit.blocked ? l.notifyBlocked : l.notifyDenied,
         ),
         action: permit == PushPermit.blocked
-            ? SnackBarAction(
-                label: l.openSettings,
-                onPressed: openAppSettings,
-              )
+            ? SnackBarAction(label: l.openSettings, onPressed: openAppSettings)
             : null,
       ),
     );

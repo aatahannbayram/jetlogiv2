@@ -18,6 +18,9 @@ import 'zpl_printer.dart';
 /// Kural: sunucu teyidi gelmeden hiçbir işlem "tamamlandı" gösterilmez.
 /// Okutmalar (sayım, kurye dönüşü) [OutboxStore]'a yazılır ve sırayla
 /// gönderilir; atama / kurye değişikliği / sevk yalnız çevrimiçi çalışır.
+/// Web sürümünden PDF ile basılan etiketler sunucuya bu adla işaretlenir.
+const kWebPdfPrinter = 'web-airprint';
+
 class BranchWorkspace {
   BranchWorkspace({
     required this.outbox,
@@ -654,10 +657,15 @@ class BranchWorkspace {
 
   /// ZPL'i yazıcıya gönderir; yalnız baskı başarılıysa sunucuda "basıldı"
   /// işaretler. Yazıcıya ulaşılamazsa hiçbir etiket basılmış sayılmaz.
-  Future<String?> printLabels(List<PrintableLabel> items) async {
+  /// [viaPdf]: web sürümü etiketi PDF olarak telefonun yazdırma menüsüne
+  /// verdi; ZPL gönderilmez, yalnız "basıldı" işaretlenir.
+  Future<String?> printLabels(
+    List<PrintableLabel> items, {
+    bool viaPdf = false,
+  }) async {
     if (items.isEmpty) return null;
-    if (printerHost.isEmpty) return 'Önce yazıcı adresini girin.';
-    if (!demo) {
+    if (!viaPdf && printerHost.isEmpty) return 'Önce yazıcı adresini girin.';
+    if (!demo && !viaPdf) {
       try {
         for (final label in items) {
           if (label.zpl.isEmpty) return 'Etiketin baskı verisi yok.';
@@ -676,7 +684,7 @@ class BranchWorkspace {
       if (demo) return;
       await api!.markLabelsPrinted(
         labelIds: ids,
-        printer: printerHost,
+        printer: viaPdf ? kWebPdfPrinter : printerHost,
         idempotencyKey: key,
       );
       labels = await api!.fetchLabels();

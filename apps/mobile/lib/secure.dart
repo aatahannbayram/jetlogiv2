@@ -19,11 +19,27 @@ bool isHttpsUrl(String url) {
   return uri != null && uri.scheme == 'https';
 }
 
+/// Web'de `/api/...` gibi yol verilirse sitenin kendi adresine bağlanır;
+/// istek aynı kökenden çıktığı için CORS'a takılmaz, barındırma katmanı
+/// JetDiji'ye aktarır. Mobilde değer olduğu gibi döner.
+String resolveApiBase(String url) {
+  if (kIsWeb && url.startsWith('/')) return '${Uri.base.origin}$url';
+  return url;
+}
+
 /// Üretimde token veya konumun düz HTTP ile çıkmasını engeller.
 void assertHttpsInRelease(String url, String name) {
+  // Web'i bu Mac'te `tool/web_proxy.mjs` ile denerken köken http://localhost;
+  // trafik makineden çıkmaz, JetDiji'ye giden bacak yine https.
+  if (kIsWeb && _isLoopback(url)) return;
   if (kReleaseMode && !isHttpsUrl(url)) {
     throw StateError('$name must use https in release');
   }
+}
+
+bool _isLoopback(String url) {
+  final host = Uri.tryParse(url)?.host;
+  return host == 'localhost' || host == '127.0.0.1';
 }
 
 /// Günlük satırındaki koordinat, token ve telefonu kırpar.

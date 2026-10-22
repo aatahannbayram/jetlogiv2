@@ -1,6 +1,7 @@
-import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
+
+import 'package:cross_file/cross_file.dart';
 
 import 'scan.dart';
 
@@ -87,7 +88,7 @@ Future<CaptureQuality?> gradePhotoFile(String? path) async {
   if (path == null || path.isEmpty || path.startsWith('test://')) return null;
   if (inWidgetTest) return null;
   try {
-    final bytes = await File(path).readAsBytes();
+    final bytes = await XFile(path).readAsBytes();
     final codec = await ui.instantiateImageCodec(bytes, targetWidth: 320);
     final frame = await codec.getNextFrame();
     final image = frame.image;

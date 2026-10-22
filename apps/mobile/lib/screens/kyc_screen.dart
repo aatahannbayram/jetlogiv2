@@ -1,11 +1,10 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../l10n.dart';
+import '../local_image.dart';
 import '../log.dart';
 import '../motion.dart';
 import '../scan.dart';
@@ -339,7 +338,7 @@ class _PhotoSlot extends StatelessWidget {
   bool get _fileReady {
     final p = path;
     if (p == null || p.startsWith('test://')) return false;
-    return File(p).existsSync();
+    return localFileExists(p);
   }
 
   @override
@@ -359,7 +358,7 @@ class _PhotoSlot extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           if (_fileReady)
-            Image.file(File(path!), fit: BoxFit.cover)
+            localImage(path!, fit: BoxFit.cover)
           else
             ColoredBox(color: taken ? Dg.greenBg : Dg.elev),
           Center(

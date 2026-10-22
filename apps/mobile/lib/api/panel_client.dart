@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
+import 'package:flutter/foundation.dart';
 
 import '../data/vault.dart';
 import '../secure.dart';
@@ -18,6 +19,9 @@ const kPanelApiBase = String.fromEnvironment(
 );
 
 const kPanelBearerKey = 'dg.jetdiji.courier.token';
+
+/// Web: tarayıcıda açık kurye oturumu olduğunu hatırlatan işaret (sır değil).
+const kPanelWebSessionKey = 'dg.jetdiji.courier.web';
 
 /// Client for jetlogi-panel's courier-facing `public/v1/courier-*` API.
 ///
@@ -57,17 +61,19 @@ class PanelApi {
   /// Production factory — session cookie Keychain/Keystore'da.
   /// Release'de `PANEL_API_BASE` HTTPS olmak zorunda.
   static Future<PanelApi> create({required Vault vault}) async {
-    assertHttpsInRelease(kPanelApiBase, 'PANEL_API_BASE');
+    final base = resolveApiBase(kPanelApiBase);
+    assertHttpsInRelease(base, 'PANEL_API_BASE');
     final dio = Dio(
       BaseOptions(
-        baseUrl: kPanelApiBase,
+        baseUrl: base,
         connectTimeout: const Duration(seconds: 4),
         receiveTimeout: const Duration(seconds: 8),
         headers: const {'accept': 'application/json'},
       ),
     );
     final cookieJar = PersistCookieJar(storage: VaultCookieStorage(vault));
-    dio.interceptors.add(CookieManager(cookieJar));
+    // Tarayıcı çerezi kendisi yönetir; Cookie başlığını elle yazmaya izin vermez.
+    if (!kIsWeb) dio.interceptors.add(CookieManager(cookieJar));
     attachTlsPinning(dio);
     final api = PanelApi(dio, cookieJar, vault);
     final saved = await vault.readSecret(kPanelBearerKey);
@@ -79,6 +85,9 @@ class PanelApi {
   /// Call [fetchSession] to confirm the server still accepts it.
   Future<bool> get hasStoredSession async {
     if (_accessToken != null && _accessToken!.isNotEmpty) return true;
+    // Web'de oturum çerezi HttpOnly: uygulama göremez, tarayıcı taşır.
+    // Girişte bırakılan işarete bakılır; geçerliliği [fetchSession] söyler.
+    if (kIsWeb) return await _vault?.readSecret(kPanelWebSessionKey) == '1';
     final saved = await _vault?.readSecret(kPanelBearerKey);
     if (saved != null && saved.isNotEmpty) {
       _accessToken = saved;
@@ -107,6 +116,7 @@ class PanelApi {
   }
 
   Future<PanelCourierProfileDto> _openSession(Map? data) async {
+    if (kIsWeb) await _vault?.writeSecret(kPanelWebSessionKey, '1');
     final token = data?['accessToken'] as String?;
     if (token != null && token.isNotEmpty) {
       _accessToken = token;
@@ -409,6 +419,7 @@ class PanelApi {
     } finally {
       _accessToken = null;
       await _vault?.deleteSecret(kPanelBearerKey);
+      await _vault?.deleteSecret(kPanelWebSessionKey);
       await _cookieJar?.deleteAll();
     }
   }
@@ -425,7 +436,10 @@ class PanelApi {
         Map<String, dynamic>.from(courier),
       );
     } on DioException catch (e) {
-      if (e.response?.statusCode == 401) return null;
+      if (e.response?.statusCode == 401) {
+        await _vault?.deleteSecret(kPanelWebSessionKey);
+        return null;
+      }
       rethrow;
     }
   }
@@ -691,17 +705,37 @@ class PanelApi {
     }
   }
 
-  Future<({String? city, String? district, String? vehicle, String? status})>
+  Future<
+    ({
+      String? fullName,
+      String? code,
+      String? phone,
+      String? city,
+      String? district,
+      String? vehicle,
+      String? workModel,
+      String? status,
+    })
+  >
   fetchCourierProfile() async {
     final res = await _get('/courier-profile');
     final courier = (res.data?['data'] as Map?)?['courier'] as Map? ?? const {};
     final city = courier['city'];
     final district = courier['district'];
+    String? text(String key) {
+      final v = courier[key];
+      return v is String && v.trim().isNotEmpty ? v.trim() : null;
+    }
+
     return (
+      fullName: text('fullName'),
+      code: text('courierCode'),
+      phone: text('phone'),
       city: city is Map ? city['name'] as String? : null,
       district: district is Map ? district['name'] as String? : null,
-      vehicle: courier['vehicleType'] as String?,
-      status: courier['status'] as String?,
+      vehicle: text('vehicleType'),
+      workModel: text('workModel'),
+      status: text('status'),
     );
   }
 

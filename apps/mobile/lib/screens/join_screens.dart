@@ -1,5 +1,4 @@
-import 'dart:io';
-
+import 'package:cross_file/cross_file.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -934,7 +933,7 @@ class _DocumentPortalScreenState extends ConsumerState<DocumentPortalScreen> {
     try {
       final bytes = path.startsWith('test://')
           ? const <int>[1]
-          : await File(path).readAsBytes();
+          : await XFile(path).readAsBytes();
       await ref
           .read(sessionProvider)
           .panel!

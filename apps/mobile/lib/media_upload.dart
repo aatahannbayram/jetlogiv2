@@ -1,8 +1,8 @@
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
+import 'package:cross_file/cross_file.dart';
 
 import 'api/client.dart';
 import 'api/panel_client.dart';
@@ -100,7 +100,7 @@ Future<String?> uploadFileEvidence({
     if (path == null || path.isEmpty) return null;
   }
   try {
-    final bytes = await File(path).readAsBytes();
+    final bytes = await XFile(path).readAsBytes();
     return uploadEvidence(
       api: api,
       panel: panel,

@@ -74,8 +74,9 @@ Future<void> _bootstrap() async {
     db = AppDatabase.memory();
     cipherOn = false;
     // Release kilitler; debug/simülatörde SQLCipher veya keychain
-    // takılırsa demo saha yine açılsın.
-    storageOk = !kReleaseMode;
+    // takılırsa demo saha yine açılsın. Web'de kuyruk zaten şifresiz ve
+    // tarayıcı deposu reddedilebilir (gizli sekme); uygulama yine açılır.
+    storageOk = kIsWeb || !kReleaseMode;
   }
   final api = MobileApi.tryCreate(vault: vault);
   if (api == null) {
@@ -129,7 +130,8 @@ Future<void> _bootstrap() async {
       child: const DijigooApp(),
     ),
   );
-  if (storageOk) {
+  // Web: yerel bildirim eklentisi yok, FCM web yapılandırması henüz yok.
+  if (storageOk && !kIsWeb) {
     unawaited(FieldAlerts.attach().then((_) => session.resyncAlerts()));
     FieldPush.incoming.addListener(() {
       final data = FieldPush.incoming.value;

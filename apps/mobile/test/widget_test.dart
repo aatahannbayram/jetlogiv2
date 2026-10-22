@@ -364,7 +364,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Menü'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Ruken Turhan'));
+    await tester.tap(find.text('Ece Demir'));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
       find.text('Çıkış yap'),
@@ -446,9 +446,9 @@ void main() {
     // Profil artık ayrı bir sekme değil — Menü'nün üst kartından açılıyor.
     await tester.tap(find.text('Menü'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Ruken Turhan'));
+    await tester.tap(find.text('Ece Demir'));
     await tester.pumpAndSettle();
-    expect(find.text('Ruken Turhan'), findsWidgets);
+    expect(find.text('Ece Demir'), findsWidgets);
 
     for (var i = 0; i < 5; i++) {
       await tester.tap(find.text('DGC-2026-9CF4875F'));

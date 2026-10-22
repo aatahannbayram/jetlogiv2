@@ -1,6 +1,7 @@
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
+import 'package:flutter/foundation.dart';
 
 import '../data/vault.dart';
 import '../secure.dart';
@@ -20,6 +21,9 @@ const kAgencyApiBase = String.fromEnvironment(
 );
 
 const kAgencyBearerKey = 'dg.jetdiji.agency.token';
+
+/// Web: tarayıcıda açık şube oturumu olduğunu hatırlatan işaret (sır değil).
+const kAgencyWebSessionKey = 'dg.jetdiji.agency.web';
 
 /// Client for dijigoo-ops's "Acente Portalı" (agency portal) — the backend
 /// for the Şube/Acente app role. Same shape as [PanelApi] on purpose (dio +
@@ -52,10 +56,11 @@ class AgencyPortalApi {
   String? _accessToken;
 
   static Future<AgencyPortalApi> create({required Vault vault}) async {
-    assertHttpsInRelease(kAgencyApiBase, 'AGENCY_API_BASE');
+    final base = resolveApiBase(kAgencyApiBase);
+    assertHttpsInRelease(base, 'AGENCY_API_BASE');
     final dio = Dio(
       BaseOptions(
-        baseUrl: kAgencyApiBase,
+        baseUrl: base,
         connectTimeout: const Duration(seconds: 4),
         receiveTimeout: const Duration(seconds: 8),
         headers: const {'accept': 'application/json'},
@@ -64,7 +69,8 @@ class AgencyPortalApi {
     final cookieJar = PersistCookieJar(
       storage: VaultCookieStorage(vault, prefix: 'dg.agency.ck.'),
     );
-    dio.interceptors.add(CookieManager(cookieJar));
+    // Tarayıcı çerezi kendisi yönetir; Cookie başlığını elle yazmaya izin vermez.
+    if (!kIsWeb) dio.interceptors.add(CookieManager(cookieJar));
     attachTlsPinning(dio);
     final api = AgencyPortalApi(dio, cookieJar, vault);
     final saved = await vault.readSecret(kAgencyBearerKey);
@@ -77,6 +83,8 @@ class AgencyPortalApi {
   /// that.
   Future<bool> get hasStoredSession async {
     if (_accessToken != null && _accessToken!.isNotEmpty) return true;
+    // Web: HttpOnly çerez görünmez; girişte bırakılan işarete bakılır.
+    if (kIsWeb) return await _vault?.readSecret(kAgencyWebSessionKey) == '1';
     final saved = await _vault?.readSecret(kAgencyBearerKey);
     if (saved != null && saved.isNotEmpty) {
       _accessToken = saved;
@@ -102,6 +110,7 @@ class AgencyPortalApi {
       'password': password,
       if (agencyId != null) 'agencyId': agencyId,
     });
+    if (kIsWeb) await _vault?.writeSecret(kAgencyWebSessionKey, '1');
     final token = (res.data?['data'] as Map?)?['accessToken'] as String?;
     if (token != null && token.isNotEmpty) {
       _accessToken = token;
@@ -125,6 +134,7 @@ class AgencyPortalApi {
     } finally {
       _accessToken = null;
       await _vault?.deleteSecret(kAgencyBearerKey);
+      await _vault?.deleteSecret(kAgencyWebSessionKey);
       await _cookieJar?.deleteAll();
     }
   }
