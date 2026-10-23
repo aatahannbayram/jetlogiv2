@@ -388,9 +388,8 @@ class PanelApi {
 
   /// SMS ile giriş, 1. adım: kayıtlı telefona 6 haneli kod gönderir. Hesap
   /// bulunamasa da yanıt aynıdır. Kod 5 dk geçerli, 60 sn'de bir istenir.
-  Future<({String? challengeId, int resendAfterSeconds})> requestSmsLogin(
-    String identifier,
-  ) async {
+  Future<({String? challengeId, int resendAfterSeconds, String? maskedPhone})>
+  requestSmsLogin(String identifier) async {
     final res = await _post('/courier-auth/sms/request', {
       'identifier': identifier,
     });
@@ -398,6 +397,8 @@ class PanelApi {
     return (
       challengeId: data['challengeId'] as String?,
       resendAfterSeconds: (data['resendAfterSeconds'] as num?)?.toInt() ?? 60,
+      // Hesap yoksa JetDiji yine 200 döner ama SMS göndermez; tek ipucu bu alanın boş olması.
+      maskedPhone: data['maskedPhone'] as String?,
     );
   }
 

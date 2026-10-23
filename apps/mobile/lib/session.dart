@@ -1820,6 +1820,12 @@ class SessionController extends ChangeNotifier {
     if (client != null) {
       try {
         final sms = await client.requestSmsLogin(phone.trim());
+        if (sms.challengeId != null && sms.maskedPhone == null) {
+          lastActivationError = 'COURIER_NOT_FOUND';
+          activationBusy = false;
+          notifyListeners();
+          return false;
+        }
         if (sms.challengeId != null) {
           challengeId = sms.challengeId;
           otpResendAt = DateTime.now().add(

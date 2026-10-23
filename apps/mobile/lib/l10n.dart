@@ -1401,6 +1401,10 @@ class L10n {
       'Çok fazla deneme yapıldı. Biraz bekleyip yeni kod iste.',
       'Too many attempts. Wait a bit and ask for a new code.',
     ),
+    'COURIER_NOT_FOUND' => _t(
+      'Bu numaraya kayıtlı kurye bulunamadı.',
+      'No courier is registered with this number.',
+    ),
     'SMS_SEND_FAILED' => _t(
       'Kod gönderilemedi. Biraz sonra tekrar dene.',
       'Could not send the code. Try again shortly.',
