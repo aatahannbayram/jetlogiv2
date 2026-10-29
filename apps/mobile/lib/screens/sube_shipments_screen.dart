@@ -8,6 +8,7 @@ import '../l10n.dart';
 import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import 'sube_nav.dart';
 import 'sube_widgets.dart';
 
 class SubeShipmentsScreen extends ConsumerStatefulWidget {
@@ -22,6 +23,18 @@ class _SubeShipmentsScreenState extends ConsumerState<SubeShipmentsScreen> {
   String _filter = 'all';
   bool _busy = false;
 
+  @override
+  void initState() {
+    super.initState();
+    final pending = ref.read(subeShipmentFilterProvider);
+    if (pending != null) {
+      _filter = pending;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) ref.read(subeShipmentFilterProvider.notifier).state = null;
+      });
+    }
+  }
+
   bool _matches(BranchShipmentRow r) => switch (_filter) {
     'waiting' => r.stage == BranchStage.awaitingCourier,
     'queue' => r.stage == BranchStage.inQueue,
@@ -35,6 +48,12 @@ class _SubeShipmentsScreenState extends ConsumerState<SubeShipmentsScreen> {
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
+    // Dashboard kartı / hızlı işlem "şu filtreyle aç" dediyse uygula.
+    ref.listen<String?>(subeShipmentFilterProvider, (_, next) {
+      if (next == null) return;
+      setState(() => _filter = next);
+      ref.read(subeShipmentFilterProvider.notifier).state = null;
+    });
     final branch = ref.watch(sessionProvider).branch;
     final canOperate = branch.capabilities.operate;
     final chips = <(String, String)>[

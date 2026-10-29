@@ -5,20 +5,22 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../l10n.dart';
 import '../session.dart';
 import '../theme.dart';
-import '../widgets.dart';
 import 'sube_count_screen.dart';
 import 'sube_dispatch_screen.dart';
 import 'sube_eod_screen.dart';
-import 'sube_manage_screens.dart';
 import 'sube_inbox_screen.dart';
+import 'sube_labels_screen.dart';
+import 'sube_manage_screens.dart';
+import 'sube_more_screens.dart';
+import 'sube_nav.dart';
+import 'sube_performance_screen.dart';
 import 'sube_shifts_screen.dart';
 import 'sube_sms_screen.dart';
-import 'sube_labels_screen.dart';
-import 'sube_performance_screen.dart';
-import 'sube_more_screens.dart';
+import 'sube_stock_screen.dart';
 import 'sube_widgets.dart';
 
-/// İşlemler: sayım, merkeze sevk, etiket, performans, gün sonu ve çıkış.
+/// İşlemler merkezi: aynı işi yapan sayfalar tek girişte toplanır, gruplar
+/// saha → stok/zimmet → iletişim → şube sırasında. Çıkış Profil'dedir.
 class SubeOpsScreen extends ConsumerWidget {
   const SubeOpsScreen({super.key});
 
@@ -29,113 +31,116 @@ class SubeOpsScreen extends ConsumerWidget {
     void open(Widget page) =>
         Navigator.of(context)
             .push(MaterialPageRoute<void>(builder: (_) => page));
+    final violet = Dg.violet;
+    final ok = Dg.ok;
+    final warn = Dg.warn;
     return Scaffold(
       appBar: AppBar(title: Text(l.subeOpsTitle)),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 96),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
         children: [
           SubeStatusBanner(branch: s.branch),
-          if (!s.branch.demo)
-            _OpTile(
-              icon: LucideIcons.building2,
-              label: l.agencyInfoTitle,
-              onTap: () => open(const SubeAgencyInfoScreen()),
-            ),
-          _OpTile(
-            icon: LucideIcons.clipboardList,
-            label: l.subeCountTitle,
-            onTap: () => open(const SubeCountScreen()),
+          SubeOverline(l.opsGroupField),
+          SubeGroup(
+            children: [
+              SubeNavTile(
+                icon: LucideIcons.userPlus,
+                label: l.quickAssign,
+                onTap: () => openShipmentsWith(ref, 'waiting'),
+              ),
+              SubeNavTile(
+                icon: LucideIcons.undo2,
+                tint: warn,
+                label: l.courierReturnTitle,
+                onTap: () => open(const SubeStockScreen()),
+              ),
+              SubeNavTile(
+                icon: LucideIcons.chartColumn,
+                tint: ok,
+                label: l.subePerformanceTitle,
+                onTap: () => open(const SubePerformanceScreen()),
+              ),
+              SubeNavTile(
+                icon: LucideIcons.sunset,
+                tint: violet,
+                label: l.branchEodTitle,
+                onTap: () => open(const SubeEodScreen()),
+              ),
+            ],
           ),
-          if (!s.branch.demo)
-            _OpTile(
-              icon: LucideIcons.packageCheck,
-              label: l.prepTitle,
-              onTap: () => open(const SubePrepScreen()),
-            ),
-          _OpTile(
-            icon: LucideIcons.truck,
-            label: l.subeDispatchTitle,
-            onTap: () => open(const SubeDispatchScreen()),
+          SubeOverline(l.opsGroupStock),
+          SubeGroup(
+            children: [
+              SubeNavTile(
+                icon: LucideIcons.boxes,
+                label: l.subeStockTitle,
+                onTap: () => open(const SubeStockScreen()),
+              ),
+              SubeNavTile(
+                icon: LucideIcons.clipboardList,
+                tint: violet,
+                label: l.subeCountTitle,
+                onTap: () => open(const SubeCountScreen()),
+              ),
+              SubeNavTile(
+                icon: LucideIcons.arrowUpFromLine,
+                label: l.transferOutgoing,
+                onTap: () => open(const SubeDispatchScreen()),
+              ),
+              if (!s.branch.demo)
+                SubeNavTile(
+                  icon: LucideIcons.listChecks,
+                  tint: ok,
+                  label: l.prepTitle,
+                  onTap: () => open(const SubePrepScreen()),
+                ),
+              SubeNavTile(
+                icon: LucideIcons.tag,
+                tint: violet,
+                label: l.subeLabelsTitle,
+                onTap: () => open(const SubeLabelsScreen()),
+              ),
+            ],
           ),
-          _OpTile(
-            icon: LucideIcons.tag,
-            label: l.subeLabelsTitle,
-            onTap: () => open(const SubeLabelsScreen()),
+          SubeOverline(l.opsGroupComms),
+          SubeGroup(
+            children: [
+              SubeNavTile(
+                icon: LucideIcons.bell,
+                label: l.subeInboxTitle,
+                onTap: () => open(const SubeInboxScreen()),
+              ),
+              SubeNavTile(
+                icon: LucideIcons.messageSquare,
+                tint: violet,
+                label: l.subeSmsTitle,
+                onTap: () => open(const SubeSmsScreen()),
+              ),
+              SubeNavTile(
+                icon: LucideIcons.graduationCap,
+                tint: ok,
+                label: l.subeTrainingTitle,
+                onTap: () => open(const SubeTrainingScreen()),
+              ),
+            ],
           ),
-          _OpTile(
-            icon: LucideIcons.chartColumn,
-            label: l.subePerformanceTitle,
-            onTap: () => open(const SubePerformanceScreen()),
-          ),
-          _OpTile(
-            icon: LucideIcons.bell,
-            label: l.subeInboxTitle,
-            onTap: () => open(const SubeInboxScreen()),
-          ),
-          _OpTile(
-            icon: LucideIcons.calendarClock,
-            label: l.subeShiftsTitle,
-            onTap: () => open(const SubeShiftsScreen()),
-          ),
-          _OpTile(
-            icon: LucideIcons.messageSquare,
-            label: l.subeSmsTitle,
-            onTap: () => open(const SubeSmsScreen()),
-          ),
-          _OpTile(
-            icon: LucideIcons.graduationCap,
-            label: l.subeTrainingTitle,
-            onTap: () => open(const SubeTrainingScreen()),
-          ),
-          _OpTile(
-            icon: LucideIcons.fileCheck,
-            label: l.subeComplianceTitle,
-            onTap: () => open(const SubeComplianceScreen()),
-          ),
-          _OpTile(
-            icon: LucideIcons.sunset,
-            label: l.branchEodTitle,
-            onTap: () => open(const SubeEodScreen()),
-          ),
-          const SizedBox(height: 16),
-          DgButton(
-            label: l.subeLogout,
-            icon: LucideIcons.logOut,
-            tone: DgButtonTone.secondary,
-            onPressed: s.logoutAgency,
+          SubeOverline(l.opsGroupBranch),
+          SubeGroup(
+            children: [
+              SubeNavTile(
+                icon: LucideIcons.calendarClock,
+                label: l.subeShiftsTitle,
+                onTap: () => open(const SubeShiftsScreen()),
+              ),
+              SubeNavTile(
+                icon: LucideIcons.fileCheck,
+                tint: violet,
+                label: l.subeComplianceTitle,
+                onTap: () => open(const SubeComplianceScreen()),
+              ),
+            ],
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _OpTile extends StatelessWidget {
-  const _OpTile({required this.icon, required this.label, required this.onTap});
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: DgCard(
-        onTap: onTap,
-        child: Row(
-          children: [
-            DgIconChip(icon: icon, accent: true, size: 36),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                label,
-                style: Dg.ui(size: 15, weight: FontWeight.w600),
-              ),
-            ),
-            DgIcon(LucideIcons.chevronRight, size: 18, color: Dg.ink3),
-          ],
-        ),
       ),
     );
   }

@@ -1,7 +1,9 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-/// Kurye ve şube ekranlarının ortak görsel sistemi.
+/// Kurye ve şube ekranlarının ortak görsel sistemi — Dijigoo kurumsal
+/// kimliği (Kılavuz 5.2): lacivert zemin, marka mavisi eylem, mor → mavi →
+/// turkuaz yardımcı akış, tek yazı ailesi Inter.
 /// Renkler uygulamanın kayıtlı açık/koyu tema tercihinden okunur.
 class Dg {
   Dg._();
@@ -10,8 +12,8 @@ class Dg {
   static bool dark = false;
 
   // ---- Zemin / yüzey ----
-  /// Sıcak taş yüzeyler ve kömür tonları; turuncu yalnız eylem ve vurgu için.
-  /// İkincil metin her iki temada da okunaklı kalır.
+  /// Lacivert/beyaz yüzeyler; marka mavisi yalnız eylem ve vurgu için.
+  /// İkincil metin her iki temada da okunaklı kalır (kontrast ≥ 4.5:1).
   /// https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html
   /// https://m3.material.io/styles/color/system/overview
   static Color get ground => bg;
@@ -24,11 +26,26 @@ class Dg {
 
   /// Koşulsuz koyu — temadan bağımsız gerçek siyah/gece yüzeyler için
   /// (giriş/tören ekranı gradyanının tabanı, PhoneShell çerçevesi).
-  static const night = Color(0xFF202422);
-  static const onNight = Color(0xFFF8F5F0);
-  static const mutedOnNight = Color(0xFFD2D7D3);
-  static const action = Color(0xFFFF7800);
-  static const onAction = Color(0xFF101010);
+  static const night = Color(0xFF0A0F2B);
+  static const onNight = Color(0xFFFFFFFF);
+  static const mutedOnNight = Color(0xFFC5CAD3);
+  static const action = Color(0xFF2563FF);
+  static const onAction = Color(0xFFFFFFFF);
+
+  // ---- Dijigoo kurumsal renkleri (Kılavuz s.9) ----
+  static const navy = Color(0xFF0A0F2B);
+  static const brandBlue = Color(0xFF2563FF);
+  static const brandPurple = Color(0xFF8B5CF6);
+  static const brandTurquoise = Color(0xFF06D6FF);
+
+  /// Ana renk akışı (s.10): yardımcı grafik — sekme göstergesi, ince ayraç,
+  /// ilerleme. Logoya uygulanmaz.
+  static const brandFlow = LinearGradient(
+    colors: [brandPurple, brandBlue, brandTurquoise],
+  );
+
+  /// Koyu temada vurgu metni için turkuaz (10.8:1), açıkta koyu marka mavisi.
+  static Color get highlight => dark ? brandTurquoise : brand;
   static const touchMin = 48.0;
   static const buttonMin = 56.0;
   static Color get onStatus => dark ? night : Colors.white;
@@ -45,21 +62,21 @@ class Dg {
   ];
 
   // ---- Eylem ve vurgu ----
-  /// Sakin yüzeyler üzerinde sıcak turuncu eylem vurgusu.
+  /// Sakin yüzeyler üzerinde marka mavisi eylem vurgusu.
   static Color get primaryGradientStart => action;
   static Color get primaryGradientEnd => heroAccentOrange;
   static const primaryGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFFFF8A24), Color(0xFFFF7800), Color(0xFFF56600)],
+    colors: [Color(0xFF2563FF), Color(0xFF1F56E8), Color(0xFF1A49C9)],
   );
 
-  // Persistent charcoal dock, independent of the content theme.
-  static const dock = Color(0xFF202422);
-  static const onDock = Color(0xFFF7F4EE);
-  static const mutedOnDock = Color(0xFFC9C4BB);
-  static const dockActive = Color(0xFFFF8A32);
-  static const dockSelected = Color(0xFF3D332A);
+  // Temadan bağımsız lacivert dock.
+  static const dock = Color(0xFF121936);
+  static const onDock = Color(0xFFFFFFFF);
+  static const mutedOnDock = Color(0xFF9CA3AF);
+  static const dockActive = Color(0xFF06D6FF);
+  static const dockSelected = Color(0xFF1E2A55);
 
   static Color get purpleActive => brand;
 
@@ -68,22 +85,24 @@ class Dg {
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
     colors: dark
-        ? const [Color(0xFF2D3330), Color(0xFF252A27), Color(0xFF202422)]
-        : const [Color(0xFFF0F2EB), Color(0xFFF8F9F5), Color(0xFFF5F5F2)],
+        ? const [Color(0xFF131C4A), Color(0xFF0D1338), Color(0xFF0A0F2B)]
+        : const [Color(0xFFE9EDFF), Color(0xFFF3F5FC), Color(0xFFF4F5F8)],
   );
-  static const heroAccentOrange = Color(0xFFFF7800);
+  static const heroAccentOrange = brandBlue;
+  /// Eylem gradyanı: her durağı beyaz metinle ≥ 4.5:1. Marka akışı
+  /// (mor/turkuaz) metin taşımaz, bkz. [brandFlow].
   static const emberGradient = LinearGradient(
     begin: Alignment.centerLeft,
     end: Alignment.centerRight,
-    colors: [Color(0xFFFF8A24), Color(0xFFFF7800), Color(0xFFF56600)],
+    colors: [Color(0xFF2563FF), Color(0xFF1F56E8), Color(0xFF1A49C9)],
   );
 
   static Color get onHero => dark ? Colors.white : ink;
-  static Color get onHeroMuted => dark ? const Color(0xFFD2D7D3) : ink2;
+  static Color get onHeroMuted => dark ? const Color(0xFFC5CAD3) : ink2;
 
-  /// Giriş/tören ekranındaki cam-efekti kart yüzeyi.
+  /// Giriş/tören ekranındaki kart yüzeyi (blur yok, yarı opak dolgu).
   static Color get heroGlass =>
-      dark ? const Color(0xCC242320) : const Color(0xF2FFFFFF);
+      dark ? const Color(0xE6121936) : const Color(0xF2FFFFFF);
 
   // Legacy brand-purple isimleri — hâlâ referans veren yerler (menü ikon
   // rozetleri, harita polyline'ı, hero kart zemini gibi "marka moru" ama
@@ -113,8 +132,9 @@ class Dg {
 
   // Design-token tints for menu/notification icon badges — koyu temada
   // tint arka planı %10 alpha'ya düşer, ink rengi olduğu gibi kalır.
-  static Color get violet => brand;
-  static Color get violetBg => brandSoft;
+  static Color get violet => dark ? const Color(0xFFA78BFA) : brandPurple;
+  static Color get violetBg =>
+      brandPurple.withValues(alpha: dark ? 0.18 : 0.12);
   static Color get blue => brand;
   static Color get blueBg => brandSoft;
   static Color get amber => warn;
@@ -125,10 +145,12 @@ class Dg {
   static Color get redBg => bad.withValues(alpha: 0.12);
 
   // ---- Tipografi ----
-  static const display = 'Geist';
-  static const sans = 'Geist';
-  static const statFamily = 'Geist';
-  static const mono = 'Geist Mono';
+  // Kılavuz s.11: tek aile Inter (başlık SemiBold/Bold, gövde Regular,
+  // buton Medium). Kod/barkod da Inter + sabit genişlikli rakam.
+  static const display = 'Inter';
+  static const sans = 'Inter';
+  static const statFamily = 'Inter';
+  static const mono = 'Inter';
 
   // ---- Yumuşak kartlar ve kapsül düğmeler ----
   static const radiusPhone = 46.0;
@@ -144,7 +166,7 @@ class Dg {
   /// `SizedBox(height: Dg.bottomNavClearance)` veya liste `padding.bottom`).
   static const bottomNavClearance = 76.0;
 
-  /// Kartlar artık gölgeyle yüzmüyor — Instagram/Uber satır dili.
+  /// Kartlar gölgeyle yüzmüyor; ton farkıyla ayrışıyor.
   static const shadow = <BoxShadow>[];
 
   static const shadowHero = <BoxShadow>[];
@@ -154,38 +176,39 @@ class Dg {
   /// simüle eder (Flutter'ın `BoxShadow`'u gerçek inset desteklemiyor).
   static const insetHighlight = Color(0x1FFFFFFF);
 
-  // ---- Kurye ve şube için ortak taş–kömür saha paleti ----
+  // ---- Kurye ve şube için ortak lacivert saha paleti ----
   static Color get bg =>
-      dark ? const Color(0xFF171918) : const Color(0xFFF5F5F2);
+      dark ? const Color(0xFF0A0F2B) : const Color(0xFFF4F5F8);
   static Color get surface1 =>
-      dark ? const Color(0xFF222524) : const Color(0xFFFFFFFF);
+      dark ? const Color(0xFF121936) : const Color(0xFFFFFFFF);
   static Color get surface2 =>
-      dark ? const Color(0xFF2D302F) : const Color(0xFFEBEEEA);
+      dark ? const Color(0xFF1A2244) : const Color(0xFFEDF0F6);
   static Color get stroke =>
-      dark ? const Color(0xFF8C8B82) : const Color(0xFF807B72);
+      dark ? const Color(0xFF6B7591) : const Color(0xFF737C8C);
   static Color get text1 =>
-      dark ? const Color(0xFFF8F5F0) : const Color(0xFF101010);
+      dark ? const Color(0xFFFFFFFF) : const Color(0xFF0A0F2B);
   static Color get text2 =>
-      dark ? const Color(0xFFD2D7D3) : const Color(0xFF4A4A4A);
+      dark ? const Color(0xFFC5CAD3) : const Color(0xFF374151);
   static Color get text3 =>
-      dark ? const Color(0xFFB4BCB6) : const Color(0xFF626B65);
+      dark ? const Color(0xFF9CA3AF) : const Color(0xFF5B6472);
   static Color get brand =>
-      dark ? const Color(0xFFFF8A32) : const Color(0xFFB04400);
+      dark ? const Color(0xFF5B8CFF) : const Color(0xFF1D4FE0);
+  // Durum renkleri kılavuzda yok; her zaman ikon + metinle kullanılır.
   static Color get warn =>
-      dark ? const Color(0xFFFF8A32) : const Color(0xFFAF4100);
+      dark ? const Color(0xFFFBBF24) : const Color(0xFF9A4508);
   static Color get ok =>
-      dark ? const Color(0xFF6EE7A0) : const Color(0xFF16733E);
+      dark ? const Color(0xFF4ADE80) : const Color(0xFF136C37);
   static Color get bad =>
-      dark ? const Color(0xFFFF9AAB) : const Color(0xFFB42340);
+      dark ? const Color(0xFFF87171) : const Color(0xFFB91C1C);
   static Color get hairline =>
-      dark ? const Color(0x0FFFFFFF) : const Color(0x0F000000);
+      dark ? const Color(0x14FFFFFF) : const Color(0x140A0F2B);
 
   /// Legacy decorative edge: subtle and separate from control outlines.
   static Color get cardEdge => hairline;
   static Color get warnSoft => warn.withValues(alpha: 0.12);
   static Color get brandSoft => brand.withValues(alpha: 0.12);
   static Color get muteSoft =>
-      dark ? const Color(0xFF2D302F) : const Color(0xFFEBEEEA);
+      dark ? const Color(0xFF1A2244) : const Color(0xFFEDF0F6);
 
   static const rSm = 10.0;
   static const rMd = 14.0;
@@ -457,7 +480,7 @@ class Dg {
       chipTheme: ChipThemeData(
         side: BorderSide.none,
         backgroundColor: surface2,
-        selectedColor: warnSoft,
+        selectedColor: brandSoft,
         showCheckmark: false,
         labelStyle: ui(size: 14, weight: FontWeight.w600, color: ink),
         shape: RoundedRectangleBorder(

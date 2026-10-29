@@ -1091,7 +1091,11 @@ class SessionController extends ChangeNotifier {
     final stored = await vault?.locale;
     if (stored == 'en' || stored == 'tr') localeCode = stored!;
     final dark = await vault?.darkMode;
-    if (dark != null) darkModeUi = dark;
+    // Kayıtlı tercih yoksa sistem temasını izle.
+    darkModeUi =
+        dark ??
+        WidgetsBinding.instance.platformDispatcher.platformBrightness ==
+            Brightness.dark;
     _readNotificationIds.addAll(await vault?.readNotificationIds ?? const {});
     _dismissedNotificationIds.addAll(
       await vault?.dismissedNotificationIds ?? const {},

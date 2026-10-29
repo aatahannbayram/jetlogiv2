@@ -11,13 +11,15 @@ import '../widgets.dart';
 import 'onboard_screen.dart';
 import 'sube_couriers_screen.dart';
 import 'sube_home_screen.dart';
+import 'sube_nav.dart';
 import 'sube_ops_screen.dart';
+import 'sube_profile_screen.dart';
 import 'sube_scan_sheet.dart';
 import 'sube_shipments_screen.dart';
-import 'sube_stock_screen.dart';
 
-/// Şube/Acente kabuğu: Ana Sayfa • Gönderiler • Kuryeler • Stok & Zimmet •
-/// İşlemler ve sabit "Barkod Okut". Okutma, açık sekmenin bağlamına gider.
+/// Şube/Acente kabuğu: Ana Sayfa • Gönderiler • Kuryeler • İşlemler •
+/// Profil ve sabit "Barkod Okut". Okutma, açık sekmenin bağlamına gider.
+/// Stok & Zimmet, İşlemler'in altındadır.
 class SubeShellScreen extends ConsumerStatefulWidget {
   const SubeShellScreen({super.key});
 
@@ -27,7 +29,6 @@ class SubeShellScreen extends ConsumerStatefulWidget {
 
 class _SubeShellScreenState extends ConsumerState<SubeShellScreen> {
   bool _navCompact = false;
-  int _index = 0;
 
   @override
   void initState() {
@@ -44,75 +45,91 @@ class _SubeShellScreenState extends ConsumerState<SubeShellScreen> {
       return const OnboardScreen(forBranch: true);
     }
     final l = context.l10n;
+    final index = ref.watch(subeTabProvider);
     const pages = [
       SubeHomeScreen(),
       SubeShipmentsScreen(),
       SubeCouriersScreen(),
-      SubeStockScreen(),
       SubeOpsScreen(),
+      SubeProfileScreen(),
     ];
-    // İşlemler sekmesinde okutma, alt ekranların (sayım, sevk) kendi
-    // düğmesinden yapılır; orada genel sorgu açılır.
+    // İşlemler'de okutma, alt ekranların (sayım, sevk) kendi düğmesinden
+    // yapılır; orada ve Profil'de genel sorgu açılır.
     final scans = <(ScanContext, String)>[
       (ScanContext.lookup, 'Gönderi barkodu okutun'),
       (ScanContext.assign, 'Zimmete eklenecek gönderiyi okutun'),
       (ScanContext.lookup, 'Gönderi barkodu okutun'),
-      (ScanContext.courierReturn, 'Kuryeden dönen gönderiyi okutun'),
+      (ScanContext.lookup, 'Gönderi barkodu okutun'),
       (ScanContext.lookup, 'Gönderi barkodu okutun'),
     ];
     final largeText = MediaQuery.textScalerOf(context).scale(14) > 20;
     void openScan() => showSubeScanSheet(
       context,
-      scanContext: scans[_index].$1,
-      hint: scans[_index].$2,
+      scanContext: scans[index].$1,
+      hint: scans[index].$2,
     );
+    final unread = (s.branch.inbox ?? const []).where((i) => !i.read).length;
     return Scaffold(
       body: SafeArea(
         bottom: false,
         child: NavShrinkOnScroll(
           compact: _navCompact,
           onCompact: (v) => setState(() => _navCompact = v),
-          child: DgTabStack(index: _index, children: pages),
+          child: DgTabStack(index: index, children: pages),
         ),
       ),
       // Büyük yazı ayarında yüzen düğme içeriği kapatır; alt çubuğun üstüne
-      // tam genişlikte düğme olarak iner.
-      floatingActionButton: largeText
+      // tam genişlikte düğme olarak iner. Profil'de okutma düğmesi yok.
+      floatingActionButton: largeText || index == SubeTab.profile
           ? null
-          : FloatingActionButton.extended(
-              onPressed: openScan,
-              icon: DgIcon(LucideIcons.qrCode, color: Dg.onAction, weight: 600),
-              label: Text(l.scanAction),
+          : AnimatedScale(
+              scale: _navCompact ? 0.9 : 1,
+              duration: DgMotion.quick,
+              curve: DgMotion.enter,
+              child: FloatingActionButton.extended(
+                onPressed: openScan,
+                icon: DgIcon(
+                  LucideIcons.scanLine,
+                  color: Dg.onAction,
+                  weight: 600,
+                ),
+                label: Text(l.scanAction),
+              ),
             ),
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (largeText)
+          if (largeText && index != SubeTab.profile)
             Padding(
               padding: const EdgeInsets.all(12),
               child: DgButton(
                 label: l.scanAction,
-                icon: LucideIcons.qrCode,
+                icon: LucideIcons.scanLine,
                 onPressed: openScan,
               ),
             ),
           DgPillNav(
-            index: _index,
+            index: index,
             compact: _navCompact,
-            onChanged: (i) => setState(() {
-              _index = i;
-              _navCompact = false;
-            }),
+            badges: [0, 0, 0, 0, unread],
+            onChanged: (i) {
+              ref.read(subeTabProvider.notifier).state = i;
+              setState(() => _navCompact = false);
+            },
             items: [
-              (LucideIcons.home, LucideIcons.home, l.subeTabHome),
+              (LucideIcons.house, LucideIcons.house, l.subeTabHome),
               (
                 LucideIcons.package,
                 LucideIcons.packageCheck,
                 l.subeTabShipments,
               ),
-              (LucideIcons.users, LucideIcons.users, l.subeTabCouriers),
-              (LucideIcons.archive, LucideIcons.archiveRestore, l.subeTabStock),
+              (LucideIcons.users, LucideIcons.usersRound, l.subeTabCouriers),
               (LucideIcons.layoutGrid, LucideIcons.layoutGrid, l.subeTabOps),
+              (
+                LucideIcons.circleUser,
+                LucideIcons.circleUserRound,
+                l.subeTabProfile,
+              ),
             ],
           ),
         ],

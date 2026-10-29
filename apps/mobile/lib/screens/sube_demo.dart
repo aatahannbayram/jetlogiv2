@@ -307,7 +307,7 @@ const kSubeDemoSmsTemplates = [
   SmsTemplate(
     key: 'DELIVERY_TODAY',
     name: 'Bugün teslimat',
-    body: 'Gönderiniz bugün dağıtımda. JetLogi',
+    body: 'Gönderiniz bugün dağıtımda. Dijigoo',
   ),
 ];
 

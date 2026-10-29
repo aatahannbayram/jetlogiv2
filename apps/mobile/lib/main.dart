@@ -11,6 +11,7 @@ import 'push.dart';
 import 'api/agency_client.dart';
 import 'api/panel_client.dart';
 import 'app.dart';
+import 'motion.dart';
 import 'data/database.dart';
 import 'data/outbox.dart';
 import 'data/vault.dart';
@@ -129,6 +130,7 @@ Future<void> _bootstrap() async {
       child: const DijigooApp(),
     ),
   );
+  MotionGovernor.instance.watchStartup();
   if (storageOk) {
     unawaited(FieldAlerts.attach().then((_) => session.resyncAlerts()));
     FieldPush.incoming.addListener(() {

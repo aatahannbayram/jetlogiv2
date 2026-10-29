@@ -56,41 +56,28 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
       backgroundColor: Dg.dark ? Dg.night : Dg.ground,
       body: Stack(
         children: [
-          if (Dg.dark)
-            Align(
-              alignment: Alignment.topCenter,
-              child: AspectRatio(
-                aspectRatio: 1290 / 1596,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Image.asset(
-                      'assets/images/jetlogi_splash_bg.png',
-                      fit: BoxFit.cover,
-                      filterQuality: FilterQuality.high,
-                    ),
-                    const DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.transparent,
-                            Colors.transparent,
-                            Dg.night,
-                          ],
-                          stops: [0.0, 0.55, 1.0],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            )
-          else
-            const Positioned.fill(
-              child: HeroBackground(child: SizedBox.expand()),
+          const Positioned.fill(
+            child: HeroBackground(child: SizedBox.expand()),
+          ),
+          // Marka dalgası: önceden üretilmiş tek görsel, belirip hafifçe
+          // yükselir (yalnız opaklık + transform).
+          Positioned(
+            left: 0,
+            right: 0,
+            top: 0,
+            child: AspectRatio(
+              aspectRatio: 1440 / 900,
+              child: BrandWave(opacity: Dg.dark ? 1 : 0.55)
+                  .animate()
+                  .fadeIn(duration: DgMotion.emphasized)
+                  .slideY(
+                    begin: 0.06,
+                    end: 0,
+                    duration: 900.ms,
+                    curve: DgMotion.emphasizedCurve,
+                  ),
             ),
+          ),
           NightGrain(
             child: SafeArea(
               child: LayoutBuilder(
@@ -107,12 +94,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                           children: [
                             Row(
                               children: [
-                                Appear(
-                                  child: DijigooWordmark(
-                                    height: 28,
-                                    onDark: Dg.dark,
-                                  ),
-                                ),
                                 const Spacer(),
                                 if (s.panelLoggedIn)
                                   Text(
@@ -139,6 +120,38 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                               ],
                             ),
                             const Spacer(),
+                            // İmza an 1: logo bütün olarak belirir (kılavuz:
+                            // sonsuzluk yeniden çizilmez/döndürülmez).
+                            Appear(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  DijigooWordmark(height: 52, onDark: Dg.dark),
+                                  const SizedBox(height: 14),
+                                  Text(
+                                    l.brandTagline,
+                                    style: Dg.ui(
+                                      size: 20,
+                                      weight: FontWeight.w500,
+                                      color: onHero,
+                                      height: 1.25,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Container(
+                                    width: 56,
+                                    height: 3,
+                                    decoration: const BoxDecoration(
+                                      gradient: Dg.brandFlow,
+                                      borderRadius: BorderRadius.all(
+                                        Radius.circular(2),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 28),
                             Container(
                                   padding: const EdgeInsets.fromLTRB(
                                     18,
@@ -212,9 +225,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                                               child: Icon(
                                                 LucideIcons.mapPin,
                                                 size: 18,
-                                                color: Dg.dark
-                                                    ? const Color(0xFFE3D9F2)
-                                                    : Dg.violet,
+                                                color: Dg.violet,
                                               ),
                                             ),
                                             const SizedBox(width: 12),
@@ -302,14 +313,14 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                                 )
                                 .animate(delay: 160.ms)
                                 .fadeIn(
-                                  duration: 420.ms,
-                                  curve: Curves.easeOutCubic,
+                                  duration: DgMotion.emphasized,
+                                  curve: DgMotion.enter,
                                 )
                                 .slideY(
                                   begin: 0.08,
                                   end: 0,
-                                  duration: 420.ms,
-                                  curve: Curves.easeOutCubic,
+                                  duration: DgMotion.emphasized,
+                                  curve: DgMotion.emphasizedCurve,
                                 ),
                           ],
                         ),

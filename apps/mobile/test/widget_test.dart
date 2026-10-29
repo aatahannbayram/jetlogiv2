@@ -601,16 +601,16 @@ void main() {
     expect(find.text('Güney Acente'), findsOneWidget);
     expect(find.text('Bugün dağıtılacak'), findsOneWidget);
 
-    await tester.tap(find.text('Gönderi'));
+    await tester.tap(find.text('Gönderiler'));
     await tester.pumpAndSettle();
     expect(find.text('JL100238546'), findsOneWidget);
     await tester.tap(find.text('JL100238546'));
     await tester.pumpAndSettle();
     expect(find.textContaining('Kuryeye zimmetle'), findsOneWidget);
 
-    await tester.tap(find.text('İşlem'));
+    await tester.tap(find.text('İşlemler'));
     await tester.pumpAndSettle();
-    expect(find.text('Merkeze Sevk'), findsOneWidget);
+    expect(find.text('Merkeze transfer'), findsOneWidget);
     expect(find.text('Sayım'), findsOneWidget);
   });
 
