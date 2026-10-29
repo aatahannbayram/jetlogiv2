@@ -108,10 +108,38 @@ class DgPillTabs extends StatelessWidget {
     return c == null ? labels[i] : '${labels[i]} ($c)';
   }
 
+  /// Eşit genişlikli bölmelere her etiket sığıyor mu (yazı ölçeği dahil).
+  bool _fits(BuildContext context, double width) {
+    final segment = (width - 8) / labels.length - 12;
+    final scaler = MediaQuery.textScalerOf(context);
+    final style = Dg.ui(size: 14, weight: FontWeight.w600);
+    for (var i = 0; i < labels.length; i++) {
+      final painter = TextPainter(
+        text: TextSpan(text: _text(i), style: style),
+        textDirection: TextDirection.ltr,
+        textScaler: scaler,
+        maxLines: 1,
+      )..layout();
+      final w = painter.width;
+      painter.dispose();
+      if (w > segment) return false;
+    }
+    return true;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final reduce = MediaQuery.disableAnimationsOf(context);
     if (labels.length > 4) return _scrolling(context);
+    // Etiket bölmeye sığmazsa kesilmesin: kayan haplara geçilir.
+    return LayoutBuilder(
+      builder: (context, outer) => _fits(context, outer.maxWidth)
+          ? _segmented(context)
+          : _scrolling(context),
+    );
+  }
+
+  Widget _segmented(BuildContext context) {
+    final reduce = MediaQuery.disableAnimationsOf(context);
     return Container(
       height: 44,
       padding: const EdgeInsets.all(4),

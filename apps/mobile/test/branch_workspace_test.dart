@@ -1012,4 +1012,71 @@ void main() {
       expect(call.key, startsWith('card-COURIER-c1-'));
     });
   });
+
+  group('P6 eğitim ve uyum', () {
+    test(
+      'eğitim merkezi ayrıştırılır, tamamlama ilerleme ve onay gönderir',
+      () async {
+        final t = _setup((c) {
+          if (c.path.endsWith('/branch/training') && c.method == 'GET') {
+            return {
+              'targetType': 'BRANCH',
+              'trainings': [
+                {
+                  'id': 'tr1',
+                  'title': 'Açılış',
+                  'primaryType': 'VIDEO',
+                  'isMandatory': true,
+                  'status': 'IN_PROGRESS',
+                  'progress': {'progressPercent': 40},
+                  'totalDurationSeconds': 600,
+                  'lessonTypes': ['VIDEO'],
+                },
+              ],
+              'summary': {'total': 1, 'completed': 0, 'mandatoryPending': 1},
+            };
+          }
+          return _defaults(c);
+        });
+        await t.branch.loadTrainingCenter('BRANCH');
+        final tab = t.branch.trainingTabs['BRANCH']!;
+        expect(tab.learner.single.progressPercent, 40);
+        expect(tab.learner.single.durationSeconds, 600);
+        expect(tab.mandatoryPending, 1);
+        final error = await t.branch.completeTraining(
+          tab.learner.single,
+          targetType: 'BRANCH',
+          viewedSeconds: 75,
+        );
+        expect(error, isNull);
+        final progress = t.server.to('/branch/training/tr1/progress').single;
+        expect(progress.body['viewedSeconds'], 75);
+        expect(progress.key, isNotNull);
+        final complete = t.server.to('/branch/training/tr1/complete').single;
+        expect(complete.body['acknowledged'], isTrue);
+      },
+    );
+
+    test('şube sözleşme / evrak kalemleri uyum ucundan okunur', () async {
+      final t = _setup((c) {
+        if (c.path.endsWith('/branch/compliance')) {
+          return {
+            'schemaReady': false,
+            'contracts': [
+              {'type': 'PARTNERSHIP', 'status': 'NOT_AVAILABLE'},
+            ],
+            'documents': [
+              {'type': 'IDENTITY', 'status': 'NOT_AVAILABLE'},
+            ],
+            'couriers': <Object>[],
+          };
+        }
+        return _defaults(c);
+      });
+      await t.branch.loadCompliance();
+      expect(t.branch.branchDocs?.schemaReady, isFalse);
+      expect(t.branch.branchDocs?.contracts.single.status, 'NOT_AVAILABLE');
+      expect(t.branch.compliance, isEmpty);
+    });
+  });
 }

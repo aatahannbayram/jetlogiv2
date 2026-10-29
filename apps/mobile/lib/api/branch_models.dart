@@ -1614,6 +1614,168 @@ class ManagedTraining {
   }
 }
 
+/// Öğrenen eğitimi (targetType BRANCH / CUSTOMER_PROCESS). `status`:
+/// NOT_STARTED | IN_PROGRESS | COMPLETED | EXPIRED. İçerik bağlantısı ve
+/// açıklama yalnız detayda gelir.
+class LearnerTraining {
+  const LearnerTraining({
+    required this.id,
+    this.title = '',
+    this.summary,
+    this.description,
+    this.coverUrl,
+    this.primaryType = 'TEXT',
+    this.category = '',
+    this.mandatory = false,
+    this.lessonCount = 0,
+    this.lessonTypes = const [],
+    this.durationSeconds,
+    this.minimumViewSeconds = 0,
+    this.dueAt,
+    this.overdue = false,
+    this.status = 'NOT_STARTED',
+    this.progressPercent,
+    this.contentUrl,
+    this.contentBody,
+  });
+
+  final String id;
+  final String title;
+  final String? summary;
+  final String? description;
+  final String? coverUrl;
+  final String primaryType;
+  final String category;
+  final bool mandatory;
+  final int lessonCount;
+  final List<String> lessonTypes;
+  final int? durationSeconds;
+  final int minimumViewSeconds;
+  final DateTime? dueAt;
+  final bool overdue;
+  final String status;
+
+  /// Sunucunun verdiği ilerleme yüzdesi; yoksa null (uydurulmaz).
+  final num? progressPercent;
+  final String? contentUrl;
+  final String? contentBody;
+
+  bool get completed => status == 'COMPLETED';
+
+  factory LearnerTraining.fromJson(Map<String, dynamic> j) {
+    final progress = _map(j['progress']);
+    final seconds = _numOrNull(j['totalDurationSeconds']);
+    final minutes = _numOrNull(j['durationMinutes']);
+    return LearnerTraining(
+      id: _str(j, 'id'),
+      title: _str(j, 'title'),
+      summary: _strOrNull(j, 'summary'),
+      description: _strOrNull(j, 'description'),
+      coverUrl: _strOrNull(j, 'coverUrl'),
+      primaryType: _strOrNull(j, 'primaryType') ?? 'TEXT',
+      category: _str(j, 'category'),
+      mandatory: _bool(j, 'isMandatory'),
+      lessonCount: _int(j, 'lessonCount'),
+      lessonTypes: [
+        for (final t in j['lessonTypes'] as List? ?? const [])
+          if (t is String) t,
+      ],
+      durationSeconds:
+          seconds?.toInt() ?? (minutes == null ? null : (minutes * 60).toInt()),
+      minimumViewSeconds: _int(j, 'minimumViewSeconds'),
+      dueAt: _date(j, 'dueAt'),
+      overdue: _bool(j, 'overdue'),
+      status: _strOrNull(j, 'status') ?? 'NOT_STARTED',
+      progressPercent:
+          _numOrNull(progress['progressPercent']) ??
+          _numOrNull(progress['percent']),
+      contentUrl: _strOrNull(j, 'contentUrl'),
+      contentBody: _strOrNull(j, 'contentBody'),
+    );
+  }
+}
+
+/// GET branch/training?targetType=: öğrenen eğitimleri (BRANCH /
+/// CUSTOMER_PROCESS, özetli) ya da kuryelere düşenler (COURIER).
+class TrainingCenterData {
+  const TrainingCenterData({
+    required this.targetType,
+    this.learner = const [],
+    this.managed = const [],
+    this.total = 0,
+    this.completed = 0,
+    this.mandatoryPending = 0,
+    this.overdue = 0,
+    this.hasSummary = false,
+    this.targetTypes = const ['BRANCH', 'COURIER', 'CUSTOMER_PROCESS'],
+  });
+
+  final String targetType;
+  final List<LearnerTraining> learner;
+  final List<ManagedTraining> managed;
+  final int total;
+  final int completed;
+  final int mandatoryPending;
+  final int overdue;
+  final bool hasSummary;
+  final List<String> targetTypes;
+
+  factory TrainingCenterData.fromJson(Map<String, dynamic> j) {
+    final type = _strOrNull(j, 'targetType') ?? 'BRANCH';
+    final rows = _list(j['trainings']);
+    final summary = _map(j['summary']);
+    final types = [
+      for (final t in j['targetTypes'] as List? ?? const [])
+        if (t is String) t,
+    ];
+    return TrainingCenterData(
+      targetType: type,
+      learner: type == 'COURIER'
+          ? const []
+          : [for (final r in rows) LearnerTraining.fromJson(r)],
+      managed: type == 'COURIER'
+          ? [for (final r in rows) ManagedTraining.fromJson(r)]
+          : const [],
+      total: _int(summary, 'total'),
+      completed: _int(summary, 'completed'),
+      mandatoryPending: _int(summary, 'mandatoryPending'),
+      overdue: _int(summary, 'overdue'),
+      hasSummary: summary.isNotEmpty,
+      targetTypes: types.isEmpty
+          ? const ['BRANCH', 'COURIER', 'CUSTOMER_PROCESS']
+          : types,
+    );
+  }
+}
+
+typedef TrainingFaq = ({String question, String answer});
+
+/// Şube sözleşme ve evrak kalemleri (compliance `contracts` / `documents`).
+/// `schemaReady: false` iken her kalem NOT_AVAILABLE gelir.
+class BranchDocs {
+  const BranchDocs({
+    this.schemaReady = false,
+    this.contracts = const [],
+    this.documents = const [],
+  });
+
+  final bool schemaReady;
+  final List<({String type, String status})> contracts;
+  final List<({String type, String status})> documents;
+
+  factory BranchDocs.fromJson(Map<String, dynamic> j) => BranchDocs(
+    schemaReady: _bool(j, 'schemaReady'),
+    contracts: [
+      for (final r in _list(j['contracts']))
+        (type: _str(r, 'type'), status: _str(r, 'status')),
+    ],
+    documents: [
+      for (final r in _list(j['documents']))
+        (type: _str(r, 'type'), status: _str(r, 'status')),
+    ],
+  );
+}
+
 /// Kurye belgesi (başvuru evrakı). `status`: APPROVED | IN_REVIEW |
 /// MISSING | REJECTED | EXPIRED (süresi geçmiş onay) …
 class ComplianceDoc {

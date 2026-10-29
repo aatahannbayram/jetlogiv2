@@ -4,14 +4,18 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../api/branch_models.dart';
 import '../l10n.dart';
+import '../motion.dart';
 import '../session.dart';
 import '../theme.dart';
+import '../ui/ui.dart';
 import '../widgets.dart';
 import 'sube_manage_screens.dart';
 import 'sube_more_screens.dart';
 import 'sube_widgets.dart';
 
-/// Şube kullanıcısının bildirim kutusu, duyurular ve operasyon uyarıları.
+/// Bildirimler (mockup 22): kategori sekmeleri (Tümü / Okunmamış /
+/// kategoriler / duyurular / operasyon uyarıları), okunmamış noktası;
+/// dokununca okundu işaretlenir. Yönetici duyuru yayımlar.
 class SubeInboxScreen extends ConsumerStatefulWidget {
   const SubeInboxScreen({super.key});
 
@@ -20,6 +24,9 @@ class SubeInboxScreen extends ConsumerStatefulWidget {
 }
 
 class _SubeInboxScreenState extends ConsumerState<SubeInboxScreen> {
+  /// Seçili sekme anahtarı: `all`, `unread`, `cat:<KOD>`, `news`, `alerts`.
+  String _tab = 'all';
+
   @override
   void initState() {
     super.initState();
@@ -54,8 +61,40 @@ class _SubeInboxScreenState extends ConsumerState<SubeInboxScreen> {
   Widget build(BuildContext context) {
     final l = context.l10n;
     final branch = ref.watch(sessionProvider).branch;
-    final inbox = branch.inbox;
+    final inbox = branch.inbox ?? const <InboxItem>[];
     final news = branch.announcements;
+    final categories = {for (final i in inbox) i.category}.toList()..sort();
+    final tabs = <(String, String, int)>[
+      ('all', l.all, inbox.length),
+      ('unread', l.inboxUnread, inbox.where((i) => !i.read).length),
+      for (final c in categories)
+        (
+          'cat:$c',
+          l.inboxCategory(c),
+          inbox.where((i) => i.category == c).length,
+        ),
+      if (news != null && news.announcements.isNotEmpty)
+        ('news', l.subeAnnouncements, news.announcements.length),
+      if (news != null && news.alerts.isNotEmpty)
+        ('alerts', l.subeAlerts, news.alerts.length),
+    ];
+    final index = tabs
+        .indexWhere((t) => t.$1 == _tab)
+        .clamp(0, tabs.length - 1);
+    final key = tabs[index].$1;
+    final items = switch (key) {
+      'unread' => [
+        for (final i in inbox)
+          if (!i.read) i,
+      ],
+      'news' => news?.announcements ?? const <InboxItem>[],
+      'alerts' => news?.alerts ?? const <InboxItem>[],
+      'all' => inbox,
+      _ => [
+        for (final i in inbox)
+          if ('cat:${i.category}' == key) i,
+      ],
+    };
     return Scaffold(
       appBar: AppBar(
         title: Text(l.subeInboxTitle),
@@ -75,8 +114,15 @@ class _SubeInboxScreenState extends ConsumerState<SubeInboxScreen> {
       body: RefreshIndicator(
         onRefresh: branch.loadInbox,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
           children: [
+            DgPillTabs(
+              labels: [for (final t in tabs) t.$2],
+              counts: [for (final t in tabs) t.$3],
+              index: index,
+              onChanged: (i) => setState(() => _tab = tabs[i].$1),
+            ),
+            const SizedBox(height: 12),
             SubeStatusBanner(branch: branch, onRetry: branch.loadInbox),
             if (branch.capabilities.manage) ...[
               DgButton(
@@ -87,30 +133,25 @@ class _SubeInboxScreenState extends ConsumerState<SubeInboxScreen> {
               ),
               const SizedBox(height: 12),
             ],
-            if (inbox == null && branch.loading)
-              const Padding(
-                padding: EdgeInsets.only(top: 48),
-                child: Center(child: CircularProgressIndicator()),
-              ),
-            if (inbox != null) ...[
-              if (inbox.isEmpty &&
-                  (news?.announcements.isEmpty ?? true) &&
-                  (news?.alerts.isEmpty ?? true))
-                DgEmptyState(icon: LucideIcons.bell, title: l.nothingWaiting),
-              for (final item in inbox)
-                _InboxTile(item: item, onTap: () => branch.markRead(item)),
-            ],
-            if (news != null && news.alerts.isNotEmpty) ...[
-              SubeSection(l.subeAlerts, trailing: '${news.alerts.length}'),
-              for (final item in news.alerts) _InboxTile(item: item),
-            ],
-            if (news != null && news.announcements.isNotEmpty) ...[
-              SubeSection(
-                l.subeAnnouncements,
-                trailing: '${news.announcements.length}',
-              ),
-              for (final item in news.announcements) _InboxTile(item: item),
-            ],
+            if (branch.inbox == null && branch.loading)
+              for (var i = 0; i < 3; i++)
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 10),
+                  child: DgSkeleton(height: 64, radius: 16),
+                )
+            else if (items.isEmpty)
+              DgEmptyState(icon: LucideIcons.bell, title: l.inboxEmpty)
+            else
+              for (var i = 0; i < items.length; i++)
+                StaggerIn(
+                  index: i,
+                  child: _InboxTile(
+                    item: items[i],
+                    onTap: key == 'news' || key == 'alerts'
+                        ? null
+                        : () => branch.markRead(items[i]),
+                  ),
+                ),
           ],
         ),
       ),
@@ -126,58 +167,67 @@ class _InboxTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = switch (item.severity) {
-      'CRITICAL' => Dg.hi,
-      'WARNING' => Dg.mid,
-      _ => Dg.ink3,
+    final l = context.l10n;
+    final tone = switch (item.severity) {
+      'CRITICAL' => DgTone.bad,
+      'WARNING' => DgTone.warn,
+      _ => DgTone.info,
     };
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
-      child: DgCard(
+      child: DgPanel(
         onTap: onTap,
+        padding: const EdgeInsets.all(12),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 38,
-              height: 38,
-              margin: const EdgeInsets.only(right: 12),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: item.read
-                    ? Dg.elev
-                    : color.withValues(alpha: Dg.dark ? 0.18 : 0.12),
-                shape: BoxShape.circle,
-              ),
-              child: DgIcon(
-                switch (item.severity) {
-                  'CRITICAL' => LucideIcons.circleAlert,
-                  'WARNING' => LucideIcons.triangleAlert,
-                  _ => LucideIcons.bell,
-                },
-                size: 18,
-                color: item.read ? Dg.ink3 : color,
-              ),
+            DgIconBadge(
+              icon: switch (item.severity) {
+                'CRITICAL' => LucideIcons.circleAlert,
+                'WARNING' => LucideIcons.triangleAlert,
+                _ => LucideIcons.bell,
+              },
+              tone: item.read ? DgTone.neutral : tone,
+              size: 38,
+              soft: true,
             ),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    item.body.isEmpty ? item.category : item.body,
+                    item.body.isEmpty
+                        ? l.inboxCategory(item.category)
+                        : item.body,
                     style: Dg.ui(
-                      size: 14,
+                      size: 15,
                       weight: item.read ? FontWeight.w400 : FontWeight.w600,
                     ),
                   ),
-                  if (item.createdAt != null)
-                    Text(
-                      subeClock(item.createdAt!),
-                      style: Dg.ui(size: 12, color: Dg.ink3),
-                    ),
+                  const SizedBox(height: 2),
+                  Text(
+                    [
+                      l.inboxCategory(item.category),
+                      if (item.createdAt != null) subeClock(item.createdAt!),
+                    ].join(' · '),
+                    style: Dg.typeCaption(),
+                  ),
                 ],
               ),
             ),
+            if (!item.read)
+              Padding(
+                padding: const EdgeInsets.only(left: 8, top: 6),
+                child: Container(
+                  width: 9,
+                  height: 9,
+                  decoration: BoxDecoration(
+                    color: Dg.brandTurquoise,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
           ],
         ),
       ),

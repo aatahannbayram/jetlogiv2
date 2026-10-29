@@ -696,12 +696,66 @@ class AgencyPortalApi {
   }
 
   /// Kuryelerin evrak / onay durumu.
-  Future<List<CourierCompliance>> fetchCompliance() async {
+  Future<List<CourierCompliance>> fetchCompliance() async =>
+      (await fetchComplianceOverview()).couriers;
+
+  /// Uyum özeti: kurye belgeleri ve şube sözleşme / evrak kalemleri.
+  Future<({List<CourierCompliance> couriers, BranchDocs docs})>
+  fetchComplianceOverview() async {
     final data = await _data(_get('/branch/compliance'));
+    return (
+      couriers: [
+        for (final row in data['couriers'] as List? ?? const [])
+          if (row is Map)
+            CourierCompliance.fromJson(Map<String, dynamic>.from(row)),
+      ],
+      docs: BranchDocs.fromJson(data),
+    );
+  }
+
+  /// Eğitim Merkezi sekmesi: [targetType] BRANCH | COURIER |
+  /// CUSTOMER_PROCESS.
+  Future<TrainingCenterData> fetchTrainingCenter(String targetType) async =>
+      TrainingCenterData.fromJson(
+        await _data(
+          _get('/branch/training', queryParameters: {'targetType': targetType}),
+        ),
+      );
+
+  /// Öğrenen eğitimi detayı (içerik bağlantısı, açıklama).
+  Future<LearnerTraining> fetchTrainingDetail(String trainingId) async =>
+      LearnerTraining.fromJson(
+        await _data(_get('/branch/training/$trainingId')),
+      );
+
+  /// Öğrenen eylemi: `progress` ({viewedSeconds} kümülatif) ya da
+  /// `complete` ({acknowledged: true}; en kısa süre dolmadıysa 409).
+  Future<void> trainingAction(
+    String trainingId,
+    String action,
+    Map<String, Object?> body, {
+    required String idempotencyKey,
+  }) async {
+    await _post(
+      '/branch/training/$trainingId/$action',
+      body,
+      idempotencyKey: idempotencyKey,
+    );
+  }
+
+  Future<List<TrainingFaq>> fetchTrainingFaq(String targetType) async {
+    final res = await _get(
+      '/branch/training/faq',
+      queryParameters: {'targetType': targetType},
+    );
+    final rows = res.data?['data'];
     return [
-      for (final row in data['couriers'] as List? ?? const [])
-        if (row is Map)
-          CourierCompliance.fromJson(Map<String, dynamic>.from(row)),
+      for (final r in rows is List ? rows : const [])
+        if (r is Map)
+          (
+            question: '${r['question'] ?? r['title'] ?? ''}',
+            answer: '${r['answer'] ?? r['body'] ?? ''}',
+          ),
     ];
   }
 

@@ -82,6 +82,12 @@ class BranchWorkspace {
   /// Şubeye bağlı kuryeler (GET agency/couriers).
   List<BranchCourier>? roster;
 
+  /// Eğitim Merkezi sekmeleri: targetType → veri.
+  final trainingTabs = <String, TrainingCenterData>{};
+
+  /// Şube sözleşme / evrak kalemleri (uyum ucu).
+  BranchDocs? branchDocs;
+
   /// Ana sayfanın "Teslim edilemeyen" kutusu için bugünün performansı
   /// (Performans ekranının seçili aralığından bağımsız).
   PerformanceData? todayPerformance;
@@ -162,6 +168,8 @@ class BranchWorkspace {
     compliance = null;
     courierMap = null;
     roster = null;
+    trainingTabs.clear();
+    branchDocs = null;
     todayPerformance = null;
     freshLabels = const [];
     _restored = false;
@@ -631,10 +639,106 @@ class BranchWorkspace {
   Future<void> loadCompliance() async {
     if (demo) {
       compliance ??= kSubeDemoCompliance;
+      branchDocs ??= kSubeDemoBranchDocs;
       onChanged();
       return;
     }
-    await _run(() async => compliance = await api!.fetchCompliance());
+    await _run(() async {
+      final overview = await api!.fetchComplianceOverview();
+      compliance = overview.couriers;
+      branchDocs = overview.docs;
+    });
+  }
+
+  // ── Eğitim Merkezi ─────────────────────────────────────────────────────
+
+  /// [targetType]: BRANCH (kendi eğitimlerim) | COURIER (kuryelere düşen) |
+  /// CUSTOMER_PROCESS (müşteri süreçleri).
+  Future<void> loadTrainingCenter(String targetType) async {
+    if (demo) {
+      trainingTabs[targetType] ??= kSubeDemoTrainingCenter(targetType);
+      onChanged();
+      return;
+    }
+    await _run(
+      () async =>
+          trainingTabs[targetType] = await api!.fetchTrainingCenter(targetType),
+    );
+  }
+
+  /// Eğitim detayı (içerik bağlantısı / metni). Hata fırlatır.
+  Future<LearnerTraining?> trainingDetail(String trainingId) async {
+    if (demo) return kSubeDemoTrainingDetail(trainingId);
+    return api!.fetchTrainingDetail(trainingId);
+  }
+
+  /// İçeriğin açık kaldığı süreyi (cihazda ölçülen, [viewedSeconds])
+  /// bildirir ve eğitimi tamamlar. En kısa izleme süresini sunucu denetler;
+  /// dolmadıysa sunucunun mesajı döner.
+  Future<String?> completeTraining(
+    LearnerTraining training, {
+    required String targetType,
+    int viewedSeconds = 0,
+  }) {
+    return _action('training-complete|${training.id}', (key) async {
+      if (demo) {
+        _demoCompleteTraining(training.id, targetType);
+        return;
+      }
+      if (viewedSeconds > 0) {
+        await api!.trainingAction(training.id, 'progress', {
+          'viewedSeconds': viewedSeconds,
+        }, idempotencyKey: _newId());
+      }
+      await api!.trainingAction(training.id, 'complete', {
+        'acknowledged': true,
+      }, idempotencyKey: key);
+      trainingTabs[targetType] = await api!.fetchTrainingCenter(targetType);
+    }, refreshAfter: false);
+  }
+
+  Future<List<TrainingFaq>> trainingFaq(String targetType) async {
+    if (demo) return kSubeDemoFaq;
+    return api!.fetchTrainingFaq(targetType);
+  }
+
+  void _demoCompleteTraining(String id, String targetType) {
+    final tab = trainingTabs[targetType] ?? kSubeDemoTrainingCenter(targetType);
+    final target = tab.learner.where((t) => t.id == id).firstOrNull;
+    if (target == null || target.completed) return;
+    trainingTabs[targetType] = TrainingCenterData(
+      targetType: tab.targetType,
+      hasSummary: tab.hasSummary,
+      targetTypes: tab.targetTypes,
+      total: tab.total,
+      completed: tab.completed + 1,
+      mandatoryPending: target.mandatory
+          ? (tab.mandatoryPending - 1).clamp(0, tab.total)
+          : tab.mandatoryPending,
+      overdue: target.overdue
+          ? (tab.overdue - 1).clamp(0, tab.total)
+          : tab.overdue,
+      learner: [
+        for (final t in tab.learner)
+          t.id == id
+              ? LearnerTraining(
+                  id: t.id,
+                  title: t.title,
+                  summary: t.summary,
+                  coverUrl: t.coverUrl,
+                  primaryType: t.primaryType,
+                  category: t.category,
+                  mandatory: t.mandatory,
+                  lessonCount: t.lessonCount,
+                  lessonTypes: t.lessonTypes,
+                  durationSeconds: t.durationSeconds,
+                  dueAt: t.dueAt,
+                  status: 'COMPLETED',
+                  progressPercent: 100,
+                )
+              : t,
+      ],
+    );
   }
 
   /// Sayım yönetici işlemi (yetki: `manage`): barkod için elle adet girer.

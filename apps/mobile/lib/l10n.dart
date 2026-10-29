@@ -1075,6 +1075,147 @@ class L10n {
       _t('Transfer merkeze gönderildi', 'Transfer sent to HQ');
   String get newTransfer => _t('Yeni transfer', 'New transfer');
   String draftCount(int n) => _t('$n kalem okutuldu', '$n items scanned');
+
+  // ---- P6: eğitim, fatura, iş ortaklığı, bildirim, hızlı gönder, profil ----
+  String get trainingCenterTitle => _t('Eğitim Merkezi', 'Training centre');
+  String trainingTab(String code) => switch (code) {
+    'BRANCH' => _t('Şube', 'Branch'),
+    'COURIER' => _t('Kurye', 'Courier'),
+    'CUSTOMER_PROCESS' => _t('Müşteri', 'Customer'),
+    _ => code,
+  };
+  String get trainingFilterVideo => _t('Video', 'Video');
+  String get trainingFilterPdf => _t('PDF', 'PDF');
+  String get trainingFilterLive => _t('Canlı', 'Live');
+  String trainingDoneOf(int done, int total) =>
+      _t('$done / $total tamamlandı', '$done / $total completed');
+  String trainingMandatoryPending(int n) =>
+      _t('$n zorunlu eğitim bekliyor', '$n mandatory pending');
+  String trainingStatus(String code) => switch (code) {
+    'NOT_STARTED' => _t('Başlanmadı', 'Not started'),
+    'IN_PROGRESS' => _t('Devam ediyor', 'In progress'),
+    'COMPLETED' => _t('Tamamlandı', 'Completed'),
+    'EXPIRED' => _t('Süresi doldu', 'Expired'),
+    _ => code,
+  };
+  String get trainingMandatoryPill => _t('Zorunlu', 'Mandatory');
+  String trainingMinutes(int n) => _t('$n dk', '$n min');
+  String trainingLessons(int n) => _t('$n ders', '$n lessons');
+  String get trainingOpen => _t('İçeriği aç', 'Open content');
+  String get trainingComplete => _t('Tamamladım', 'Mark as done');
+  String get trainingCompletedMsg => _t('Eğitim tamamlandı', 'Training completed');
+  String trainingDue(String date) => _t('Son tarih $date', 'Due $date');
+  String get trainingFaqTitle => _t('Sıkça sorulan sorular', 'FAQ');
+  String trainingLearners(int done, int total) =>
+      _t('$done / $total kurye tamamladı', '$done / $total couriers done');
+  String get trainingTabEmpty =>
+      _t('Bu sekmede eğitim yok', 'No trainings here');
+  String get trainingNoContent =>
+      _t('Bu eğitimin içerik bağlantısı yok.', 'This training has no link.');
+  String get trainingManage => _t('Kurye eğitimlerini yönet', 'Manage courier trainings');
+  String get invoiceTabList => _t('Faturalar', 'Invoices');
+  String get invoiceTabSupport => _t('Destek talepleri', 'Support requests');
+  String get invoicesWhat => _t('Faturalar ve hakediş', 'Invoices and earnings');
+  String get invoiceDetailTitle => _t('Fatura Detayı', 'Invoice detail');
+  String get invoiceNo => _t('Fatura no', 'Invoice no');
+  String get invoicePeriod => _t('Dönem', 'Period');
+  String get invoiceAmount => _t('Tutar', 'Amount');
+  String get invoiceVat => _t('KDV', 'VAT');
+  String get invoiceTotal => _t('Toplam', 'Total');
+  String get invoiceDue => _t('Vade', 'Due date');
+  String get invoiceLines => _t('Kalemler', 'Lines');
+  String invoiceStatus(String code) => switch (code) {
+    'PAID' => _t('Ödendi', 'Paid'),
+    'PENDING' || 'ISSUED' => _t('Bekliyor', 'Pending'),
+    'OVERDUE' => _t('Gecikmiş', 'Overdue'),
+    'DRAFT' => _t('Taslak', 'Draft'),
+    _ => code,
+  };
+  String get earningsThisMonth => _t('Bu ay hakediş', 'Earnings this month');
+  String get earningsPaid => _t('Ödenen', 'Paid');
+  String get earningsOpen => _t('Bekleyen', 'Outstanding');
+  String get partnerDocsTitle => _t('İş Ortaklığı Evrakları', 'Partner documents');
+  String get secContracts => _t('Sözleşmeler', 'Contracts');
+  String get secBranchDocs => _t('Şube evrakları', 'Branch documents');
+  String contractType(String code) => switch (code) {
+    'PARTNERSHIP' => _t('İş ortaklığı sözleşmesi', 'Partnership agreement'),
+    'KVKK' => _t('KVKK taahhütnamesi', 'Data protection undertaking'),
+    'SLA' => _t('Hizmet seviyesi (SLA)', 'Service level (SLA)'),
+    _ => code,
+  };
+  String branchDocType(String code) => switch (code) {
+    'IDENTITY' => _t('Yetkili kimliği', 'Authorised person ID'),
+    'TAX_PLATE' => _t('Vergi levhası', 'Tax certificate'),
+    'AUTHORIZATION' => _t('Yetki belgesi', 'Authorisation'),
+    'SIGNATURE_CIRCULAR' => _t('İmza sirküleri', 'Signature circular'),
+    'BRANCH_PHOTO' => _t('Şube fotoğrafı', 'Branch photo'),
+    _ => code,
+  };
+  String partnerDocStatus(String code) => switch (code) {
+    'NOT_AVAILABLE' => _t('Bekleniyor', 'Pending'),
+    'SIGNED' => _t('İmzalı', 'Signed'),
+    'APPROVED' => _t('Onaylı', 'Approved'),
+    'IN_REVIEW' => _t('İncelemede', 'In review'),
+    'PENDING' => _t('İmza bekliyor', 'Awaiting signature'),
+    'MISSING' => _t('Eksik', 'Missing'),
+    'EXPIRED' => _t('Süresi doldu', 'Expired'),
+    _ => code,
+  };
+  String get partnerDocsWhat =>
+      _t('Sözleşme ve evrak durumu', 'Contract and document status');
+  String get distributionPlanTitle => _t('Dağıtım planlama', 'Distribution planning');
+  String get distributionPlanWhat =>
+      _t('Dağıtım planlama talebi', 'Distribution planning requests');
+  String get inboxUnread => _t('Okunmamış', 'Unread');
+  String inboxCategory(String code) => switch (code) {
+    'HANDOVER' => _t('Zimmet', 'Custody'),
+    'COUNT' => _t('Sayım', 'Count'),
+    'SLA' => _t('SLA', 'SLA'),
+    'OPERATION' => _t('Operasyon', 'Operations'),
+    'TRAINING' => _t('Eğitim', 'Training'),
+    'ANNOUNCEMENT' => _t('Duyuru', 'Announcement'),
+    'TRANSFER' => _t('Transfer', 'Transfer'),
+    'SYSTEM' => _t('Sistem', 'System'),
+    '' => _t('Genel', 'General'),
+    _ => code,
+  };
+  String get inboxEmpty => _t('Bildirim yok', 'No notifications');
+  String get offlineTitle => _t('Hızlı Gönder', 'Quick send');
+  String offlinePending(int n) =>
+      _t('$n işlem gönderilmeyi bekliyor', '$n actions waiting to send');
+  String get offlineAllSent => _t('Bekleyen işlem yok', 'Nothing waiting');
+  String offlineLastSync(String time) =>
+      _t('Son eşitleme $time', 'Last sync $time');
+  String get offlineNeverSynced => _t('Henüz eşitlenmedi', 'Not synced yet');
+  String get offlineSendNow => _t('Hemen gönder', 'Send now');
+  String syncOpLabel(String wire) => switch (wire) {
+    'BRANCH_COUNT_SCAN' => _t('Sayım okutması', 'Count scan'),
+    'BRANCH_RETURN_SCAN' => _t('Kurye dönüş okutması', 'Courier return scan'),
+    _ => wire,
+  };
+  String syncStatus(String code) => switch (code) {
+    'pending' => _t('Bekliyor', 'Waiting'),
+    'applied' => _t('Gönderildi', 'Sent'),
+    'rejected' => _t('Reddedildi', 'Rejected'),
+    _ => code,
+  };
+  String get offlineHistory => _t('Son işlemler', 'Recent actions');
+  String offlineStill(int n) => _t(
+    '$n işlem hâlâ bekliyor; bağlantıyı kontrol edin.',
+    '$n actions still waiting; check your connection.',
+  );
+  String get offlineHint => _t(
+    'Okutmalar önce telefona kaydedilir, bağlantı gelince sırayla gönderilir.',
+    'Scans are saved on the phone first and sent in order once online.',
+  );
+  String get profileTitle => _t('Profilim', 'My profile');
+  String get profileSupport => _t('Yardım & destek', 'Help & support');
+  String get profileCallSupport => _t('Destek ekibini ara', 'Call support');
+  String get supportLineWhat =>
+      _t('Şube destek hattı numarası', 'The branch support line number');
+  String get profilePartnerDocs => _t('İş ortaklığı evrakları', 'Partner documents');
+  String get profileInvoices => _t('Fatura & hakediş', 'Invoices & earnings');
+  String get profileOffline => _t('Hızlı gönder', 'Quick send');
   String get courierDetail => _t('Detay', 'Details');
   String mapShipmentsTitle(int n) =>
       _t('Üzerindeki gönderiler ($n)', 'Parcels on hand ($n)');

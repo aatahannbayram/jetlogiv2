@@ -4,6 +4,7 @@ import 'package:dijigoo_kurye/scan_router.dart';
 import 'package:dijigoo_kurye/screens/sube_count_screen.dart';
 import 'package:dijigoo_kurye/session.dart';
 import 'package:dijigoo_kurye/ui/ui.dart';
+import 'package:dijigoo_kurye/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -29,6 +30,37 @@ void main() {
     );
     await tester.pumpAndSettle();
     return session;
+  }
+
+  /// Hap sekmeye dokunur. Etiket bölmeye sığmazsa (test yazı tipi geniş)
+  /// sekmeler yatay kayar; önce görünür kılınır.
+  Future<void> tapPill(WidgetTester tester, String label) async {
+    final target = find.text(label);
+    final pills = find.descendant(
+      of: find.byType(DgPillTabs),
+      matching: find.byType(Scrollable),
+    );
+    if (pills.evaluate().isNotEmpty) {
+      await tester.scrollUntilVisible(target, 80, scrollable: pills.first);
+    }
+    await tester.pumpAndSettle();
+    await tester.tap(target);
+    await tester.pumpAndSettle();
+  }
+
+  /// Listede kaydırıp ortalar (alttaki yüzen menünün arkasında kalmasın)
+  /// ve dokunur.
+  Future<void> openItem(WidgetTester tester, String label) async {
+    final target = find.text(label);
+    await tester.scrollUntilVisible(
+      target,
+      200,
+      scrollable: find.byType(Scrollable).hitTestable().first,
+    );
+    await Scrollable.ensureVisible(tester.element(target), alignment: 0.4);
+    await tester.pumpAndSettle();
+    await tester.tap(target);
+    await tester.pumpAndSettle();
   }
 
   testWidgets('ana sayfa şube özetini ve beş sekmeyi gösterir', (tester) async {
@@ -305,22 +337,18 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Kurye Detayı'), findsOneWidget);
     expect(find.text('Birincil şube'), findsOneWidget);
-    await tester.tap(find.text('Evraklar'));
-    await tester.pumpAndSettle();
+    await tapPill(tester, 'Evraklar');
     expect(find.text('4 / 4 belge onaylı'), findsOneWidget);
     expect(find.text('Ehliyet'), findsOneWidget);
-    await tester.tap(find.text('Kart'));
-    await tester.pumpAndSettle();
+    await tapPill(tester, 'Kart');
     expect(find.byType(QrImageView), findsOneWidget);
     expect(find.text('KRY-001'), findsWidgets);
-    await tester.tap(find.text('Cihaz'));
-    await tester.pumpAndSettle();
+    await tapPill(tester, 'Cihaz');
     expect(find.text('Merkez bağlantısı bekleniyor'), findsOneWidget);
     Navigator.of(tester.element(find.text('Kurye Detayı'))).pop();
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Pasif (1)'));
-    await tester.pumpAndSettle();
+    await tapPill(tester, 'Pasif (1)');
     expect(find.text('Selin Kara'), findsOneWidget);
     await tester.tap(find.byKey(const Key('new-courier')));
     await tester.pumpAndSettle();
@@ -373,8 +401,7 @@ void main() {
       200,
       scrollable: find.byType(Scrollable).hitTestable().first,
     );
-    await tester.tap(find.text('Dönüş (1)'));
-    await tester.pumpAndSettle();
+    await tapPill(tester, 'Dönüş (1)');
     expect(find.text('JL100238553'), findsOneWidget);
     expect(find.text('Kurye dönüşü başlat'), findsOneWidget);
     Navigator.of(tester.element(find.text('JL100238553'))).pop();
@@ -400,6 +427,89 @@ void main() {
           .statusCode,
       'POSTED',
     );
+    final pills = find
+        .descendant(
+          of: find.byType(DgPillTabs),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    await tester.scrollUntilVisible(
+      find.text('Tamamlanan (3)'),
+      80,
+      scrollable: pills,
+    );
     expect(find.text('Tamamlanan (3)'), findsOneWidget);
+  });
+
+  testWidgets('eğitim merkezi: içerik açılır, eğitim tamamlanır', (
+    tester,
+  ) async {
+    final session = await openBranch(tester);
+    await tester.tap(find.text('İşlemler'));
+    await tester.pumpAndSettle();
+    await openItem(tester, 'Eğitim Merkezi');
+    expect(find.text('1 / 4 tamamlandı'), findsOneWidget);
+    expect(find.text('2 zorunlu eğitim bekliyor'), findsOneWidget);
+    await tester.tap(find.text('Şube açılış kontrol listesi'));
+    await tester.pumpAndSettle();
+    final done = find.byKey(const Key('training-complete'));
+    // İçerik açılmadan tamamlanamaz.
+    expect(tester.widget<DgButton>(done).onPressed, isNull);
+    await tester.tap(find.text('İçeriği aç'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('demo eğitimidir'), findsOneWidget);
+    await tester.tap(done);
+    await tester.pumpAndSettle();
+    expect(
+      session.branch.trainingTabs['BRANCH']!.learner.first.completed,
+      isTrue,
+    );
+    expect(find.text('2 / 4 tamamlandı'), findsOneWidget);
+    // SSS ucu.
+    await tester.scrollUntilVisible(
+      find.text('Sıkça sorulan sorular'),
+      200,
+      scrollable: find.byType(Scrollable).hitTestable().first,
+    );
+    expect(find.text('Sıkça sorulan sorular'), findsOneWidget);
+  });
+
+  testWidgets('fatura, iş ortaklığı evrakları, hızlı gönder ve profil', (
+    tester,
+  ) async {
+    final session = await openBranch(tester);
+    await tester.tap(find.text('İşlemler'));
+    await tester.pumpAndSettle();
+    await openItem(tester, 'Fatura ve hakediş');
+    await tester.tap(find.text('DGF-2026-0010'));
+    await tester.pumpAndSettle();
+    expect(find.text('Fatura Detayı'), findsOneWidget);
+    expect(find.text('Kart teslimatı × 410'), findsOneWidget);
+    Navigator.of(tester.element(find.text('Fatura Detayı'))).pop();
+    await tester.pumpAndSettle();
+    Navigator.of(tester.element(find.text('DGF-2026-0010'))).pop();
+    await tester.pumpAndSettle();
+
+    await openItem(tester, 'İş Ortaklığı Evrakları');
+    expect(find.text('İş ortaklığı sözleşmesi'), findsOneWidget);
+    expect(find.text('İmzalı'), findsWidgets);
+    Navigator.of(tester.element(find.text('İş ortaklığı sözleşmesi'))).pop();
+    await tester.pumpAndSettle();
+
+    // Kurye dönüşü okutması kuyruğa yazılır ve gönderilir.
+    await session.branch.scan(ScanContext.courierReturn, 'JL100238553');
+    await openItem(tester, 'Hızlı Gönder');
+    expect(find.text('Bekleyen işlem yok'), findsOneWidget);
+    expect(find.text('JL100238553'), findsOneWidget);
+    expect(find.text('Gönderildi'), findsOneWidget);
+    Navigator.of(tester.element(find.text('Bekleyen işlem yok'))).pop();
+    await tester.pumpAndSettle();
+
+    // Kaydırınca alt menü küçülüp etiketi gizler; sekmeye ipucuyla dokun.
+    await tester.tap(find.byTooltip('Profil'));
+    await tester.pumpAndSettle();
+    expect(find.text('Profilim'), findsOneWidget);
+    await openItem(tester, 'Destek ekibini ara');
+    expect(find.text('Merkez bağlantısı bekleniyor'), findsOneWidget);
   });
 }

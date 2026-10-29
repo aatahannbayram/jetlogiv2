@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../api/branch_models.dart';
 import '../api/client.dart' show kAppVersion;
+import '../branch_workspace.dart';
 import '../brand.dart';
 import '../l10n.dart';
 import '../motion.dart';
@@ -12,6 +14,7 @@ import '../ui/ui.dart';
 import '../widgets.dart';
 import 'sube_header.dart';
 import 'sube_inbox_screen.dart';
+import 'sube_partner_screens.dart';
 import 'sube_more_screens.dart';
 import 'sube_widgets.dart';
 
@@ -38,7 +41,7 @@ class SubeProfileScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 120),
         children: [
-          DgPageTitle(l.subeTabProfile),
+          DgPageTitle(l.profileTitle),
           Appear(
             child: Container(
               padding: const EdgeInsets.all(18),
@@ -74,14 +77,18 @@ class SubeProfileScreen extends ConsumerWidget {
                           runSpacing: 6,
                           children: [
                             if (caps.operate)
-                              StatusChip(
+                              DgStatusPill(
                                 label: l.profileCanOperate,
-                                tone: 'lime',
+                                tone: DgTone.ok,
+                                icon: LucideIcons.circleCheck,
+                                dense: true,
                               ),
                             if (caps.manage)
-                              StatusChip(
+                              DgStatusPill(
                                 label: l.profileCanManage,
-                                tone: 'lime',
+                                tone: DgTone.accent,
+                                icon: LucideIcons.shieldCheck,
+                                dense: true,
                               ),
                           ],
                         ),
@@ -117,6 +124,18 @@ class SubeProfileScreen extends ConsumerWidget {
                   onTap: () => open(const SubeAgencyInfoScreen()),
                 ),
               SubeNavTile(
+                icon: LucideIcons.fileSignature,
+                tint: Dg.violet,
+                label: l.profilePartnerDocs,
+                onTap: () => open(const SubePartnerDocsScreen()),
+              ),
+              SubeNavTile(
+                icon: LucideIcons.receipt,
+                tint: Dg.ok,
+                label: l.profileInvoices,
+                onTap: () => open(const SubeBillingScreen()),
+              ),
+              SubeNavTile(
                 icon: LucideIcons.bell,
                 tint: Dg.violet,
                 label: l.subeInboxTitle,
@@ -135,13 +154,53 @@ class SubeProfileScreen extends ConsumerWidget {
               ),
               _MotionRow(),
               _LanguageRow(code: s.localeCode, onChanged: s.setLocale),
+              SubeNavTile(
+                icon: LucideIcons.cloudUpload,
+                tint: Dg.warn,
+                label: l.profileOffline,
+                trailing: s.branch.pendingScans > 0
+                    ? DgStatusPill(
+                        label: '${s.branch.pendingScans}',
+                        tone: DgTone.warn,
+                        dense: true,
+                      )
+                    : null,
+                onTap: () => open(const SubeOfflineScreen()),
+              ),
+            ],
+          ),
+          SubeOverline(l.profileSupport),
+          SubeGroup(
+            children: [
+              SubeNavTile(
+                icon: LucideIcons.circleHelp,
+                label: l.trainingFaqTitle,
+                onTap: () => _faq(context, s.branch),
+              ),
+              SubeNavTile(
+                icon: LucideIcons.headset,
+                tint: Dg.ok,
+                label: l.profileCallSupport,
+                onTap: () => showModalBottomSheet<void>(
+                  context: context,
+                  backgroundColor: Dg.surface,
+                  showDragHandle: true,
+                  builder: (ctx) => SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      child: DgPendingBackend(what: l.supportLineWhat),
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 24),
           DgButton(
+            key: const Key('sube-logout'),
             label: l.subeLogout,
             icon: LucideIcons.logOut,
-            tone: DgButtonTone.secondary,
+            tone: DgButtonTone.danger,
             onPressed: s.logoutAgency,
           ),
           const SizedBox(height: 28),
@@ -161,6 +220,56 @@ class SubeProfileScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// Sıkça sorulan sorular (Eğitim Merkezi SSS ucu, şube kullanıcısı).
+Future<void> _faq(BuildContext context, BranchWorkspace branch) {
+  final l = context.l10n;
+  final future = branch
+      .trainingFaq('BRANCH')
+      .catchError((Object _) => const <TrainingFaq>[]);
+  return showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: Dg.surface,
+    showDragHandle: true,
+    isScrollControlled: true,
+    builder: (ctx) => ConstrainedBox(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(ctx).height * 0.8,
+      ),
+      child: FutureBuilder<List<TrainingFaq>>(
+        future: future,
+        builder: (ctx, snap) {
+          final items = snap.data ?? const <TrainingFaq>[];
+          return ListView(
+            shrinkWrap: true,
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+            children: [
+              Text(l.trainingFaqTitle, style: Dg.typeH2()),
+              const SizedBox(height: 8),
+              if (snap.connectionState != ConnectionState.done)
+                const DgSkeleton(height: 120, radius: 12)
+              else if (items.isEmpty)
+                Text(l.nothingWaiting, style: Dg.typeCaption())
+              else
+                for (final f in items)
+                  ExpansionTile(
+                    tilePadding: EdgeInsets.zero,
+                    childrenPadding: const EdgeInsets.only(bottom: 10),
+                    expandedAlignment: Alignment.centerLeft,
+                    shape: const Border(),
+                    title: Text(
+                      f.question,
+                      style: Dg.ui(size: 15, weight: FontWeight.w600),
+                    ),
+                    children: [Text(f.answer, style: Dg.typeCaption())],
+                  ),
+            ],
+          );
+        },
+      ),
+    ),
+  );
 }
 
 class _InfoRow extends StatelessWidget {
@@ -184,12 +293,14 @@ class _InfoRow extends StatelessWidget {
           children: [
             DgIcon(icon, size: 19, color: Dg.text3),
             const SizedBox(width: 14),
-            Expanded(child: Text(label, style: Dg.typeLabel())),
+            Text(label, style: Dg.typeLabel()),
             const SizedBox(width: 12),
-            Flexible(
+            Expanded(
               child: Text(
                 value,
                 textAlign: TextAlign.end,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
                 style: Dg.typeBody(weight: FontWeight.w500),
               ),
             ),

@@ -28,6 +28,9 @@ import 'package:dijigoo_kurye/screens/sube_assign_flow.dart';
 import 'package:dijigoo_kurye/screens/sube_return_flow.dart';
 import 'package:dijigoo_kurye/screens/sube_courier_map_screen.dart';
 import 'package:dijigoo_kurye/screens/sube_count_reconcile_screen.dart';
+import 'package:dijigoo_kurye/screens/sube_training_center_screen.dart';
+import 'package:dijigoo_kurye/screens/sube_partner_screens.dart';
+import 'package:dijigoo_kurye/screens/sube_profile_screen.dart';
 import 'package:dijigoo_kurye/screens/sube_courier_detail_screen.dart';
 import 'package:dijigoo_kurye/screens/sube_demo.dart';
 import 'package:dijigoo_kurye/screens/sube_couriers_screen.dart';
@@ -149,6 +152,11 @@ void main() {
     'branch-return': const SubeReturnFlow(),
     'branch-courier-map': const SubeCourierMapScreen(),
     'branch-reconcile': const SubeCountReconcileScreen(),
+    'branch-training-center': const SubeTrainingCenterScreen(),
+    'branch-billing': const SubeBillingScreen(),
+    'branch-partner-docs': const SubePartnerDocsScreen(),
+    'branch-offline': const SubeOfflineScreen(),
+    'branch-profile': const SubeProfileScreen(),
     'branch-courier-detail': SubeCourierDetailScreen(
       courier: kSubeDemoRoster.first,
     ),

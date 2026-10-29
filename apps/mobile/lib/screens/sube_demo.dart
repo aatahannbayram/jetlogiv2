@@ -739,3 +739,195 @@ Map<String, dynamic> kSubeDemoPrintRow(BranchShipmentRow row) => {
     'addressLine': row.addressLine,
   },
 };
+
+const _demoBranchTrainings = [
+  LearnerTraining(
+    id: 'demo-lt1',
+    title: 'Şube açılış kontrol listesi',
+    summary: 'Güne başlamadan önce yapılacak 8 kontrol.',
+    primaryType: 'VIDEO',
+    category: 'OPERATION',
+    mandatory: true,
+    lessonCount: 3,
+    lessonTypes: ['VIDEO'],
+    durationSeconds: 600,
+    status: 'IN_PROGRESS',
+    progressPercent: 60,
+  ),
+  LearnerTraining(
+    id: 'demo-lt2',
+    title: 'Kart teslimatında kimlik doğrulama',
+    summary: 'Alıcıyı doğrulama adımları ve sık hatalar.',
+    primaryType: 'VIDEO',
+    category: 'COMPLIANCE',
+    mandatory: true,
+    lessonCount: 2,
+    lessonTypes: ['VIDEO', 'QUIZ'],
+    durationSeconds: 420,
+    overdue: true,
+  ),
+  LearnerTraining(
+    id: 'demo-lt3',
+    title: 'KVKK ve müşteri verisi',
+    summary: 'Şubede kişisel veriyle çalışma kuralları.',
+    primaryType: 'PDF',
+    category: 'COMPLIANCE',
+    lessonCount: 1,
+    lessonTypes: ['PDF'],
+    durationSeconds: 300,
+    status: 'COMPLETED',
+    progressPercent: 100,
+  ),
+  LearnerTraining(
+    id: 'demo-lt4',
+    title: 'Haftalık operasyon toplantısı',
+    summary: 'Bölge müdürüyle canlı oturum.',
+    primaryType: 'LIVE',
+    category: 'OPERATION',
+    lessonCount: 1,
+    lessonTypes: ['LIVE'],
+    durationSeconds: 1800,
+  ),
+];
+
+const _demoCustomerTrainings = [
+  LearnerTraining(
+    id: 'demo-lc1',
+    title: 'Banka kartı teslim süreci',
+    summary: 'Müşteriye özel teslim ve iade kuralları.',
+    primaryType: 'PDF',
+    category: 'CUSTOMER_PROCESS',
+    lessonCount: 1,
+    lessonTypes: ['PDF'],
+    durationSeconds: 480,
+  ),
+];
+
+/// Demo Eğitim Merkezi sekmesi.
+TrainingCenterData kSubeDemoTrainingCenter(String targetType) {
+  if (targetType == 'COURIER') {
+    return const TrainingCenterData(
+      targetType: 'COURIER',
+      managed: kSubeDemoTrainings,
+    );
+  }
+  final list = targetType == 'CUSTOMER_PROCESS'
+      ? _demoCustomerTrainings
+      : _demoBranchTrainings;
+  return TrainingCenterData(
+    targetType: targetType,
+    learner: list,
+    hasSummary: true,
+    total: list.length,
+    completed: list.where((t) => t.completed).length,
+    mandatoryPending: list.where((t) => t.mandatory && !t.completed).length,
+    overdue: list.where((t) => t.overdue).length,
+  );
+}
+
+/// Demo eğitim detayı: içerik metni (demo'da bağlantı yok).
+LearnerTraining? kSubeDemoTrainingDetail(String id) {
+  final t = [
+    ..._demoBranchTrainings,
+    ..._demoCustomerTrainings,
+  ].where((x) => x.id == id).firstOrNull;
+  if (t == null) return null;
+  return LearnerTraining(
+    id: t.id,
+    title: t.title,
+    summary: t.summary,
+    description: t.summary,
+    primaryType: t.primaryType,
+    category: t.category,
+    mandatory: t.mandatory,
+    lessonCount: t.lessonCount,
+    lessonTypes: t.lessonTypes,
+    durationSeconds: t.durationSeconds,
+    dueAt: t.dueAt,
+    overdue: t.overdue,
+    status: t.status,
+    progressPercent: t.progressPercent,
+    contentBody:
+        'Bu demo eğitimidir. Canlıda içerik (video, PDF ya da canlı oturum '
+        'bağlantısı) burada açılır.',
+  );
+}
+
+const List<TrainingFaq> kSubeDemoFaq = [
+  (
+    question: 'Zorunlu eğitimi bitirmezsem ne olur?',
+    answer:
+        'Hiçbir işlem kilitlenmez; panelde uyarı görünür ve son tarih '
+        'geçince geciken olarak işaretlenir.',
+  ),
+  (
+    question: 'Eğitim neden tamamlanmadı görünüyor?',
+    answer:
+        'Her eğitimin en kısa izleme süresi vardır. Süre dolmadan '
+        'tamamlanmış sayılmaz.',
+  ),
+  (
+    question: 'Kuryelere eğitim nasıl gönderilir?',
+    answer:
+        'Kurye sekmesinde "Yeni eğitim" ile metin eğitimi yayımlanır; '
+        'kuryelere bildirim gider.',
+  ),
+];
+
+/// Demo şube sözleşme / evrak durumu (canlıda uç NOT_AVAILABLE döner).
+const kSubeDemoBranchDocs = BranchDocs(
+  schemaReady: true,
+  contracts: [
+    (type: 'PARTNERSHIP', status: 'SIGNED'),
+    (type: 'KVKK', status: 'SIGNED'),
+    (type: 'SLA', status: 'PENDING'),
+  ],
+  documents: [
+    (type: 'IDENTITY', status: 'APPROVED'),
+    (type: 'TAX_PLATE', status: 'APPROVED'),
+    (type: 'AUTHORIZATION', status: 'IN_REVIEW'),
+    (type: 'SIGNATURE_CIRCULAR', status: 'MISSING'),
+    (type: 'BRANCH_PHOTO', status: 'APPROVED'),
+  ],
+);
+
+/// Demo fatura (canlı uçta fatura modeli yok: `schemaReady: false`).
+typedef DemoInvoice = ({
+  String id,
+  String number,
+  String period,
+  num amount,
+  num vat,
+  String status,
+  DateTime due,
+  List<({String label, int quantity, num amount})> lines,
+});
+
+final List<DemoInvoice> kSubeDemoInvoices = [
+  (
+    id: 'demo-inv-10',
+    number: 'DGF-2026-0010',
+    period: '2026-10',
+    amount: 18450,
+    vat: 3690,
+    status: 'PENDING',
+    due: DateTime(2026, 11, 15),
+    lines: const [
+      (label: 'Kart teslimatı', quantity: 410, amount: 14350),
+      (label: 'POS teslimatı', quantity: 82, amount: 4100),
+    ],
+  ),
+  (
+    id: 'demo-inv-09',
+    number: 'DGF-2026-0009',
+    period: '2026-09',
+    amount: 17120,
+    vat: 3424,
+    status: 'PAID',
+    due: DateTime(2026, 10, 15),
+    lines: const [
+      (label: 'Kart teslimatı', quantity: 388, amount: 13580),
+      (label: 'POS teslimatı', quantity: 71, amount: 3540),
+    ],
+  ),
+];

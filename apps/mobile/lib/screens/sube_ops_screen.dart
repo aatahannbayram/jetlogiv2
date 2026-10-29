@@ -17,11 +17,13 @@ import 'sube_inbox_screen.dart';
 import 'sube_labels_screen.dart';
 import 'sube_manage_screens.dart';
 import 'sube_more_screens.dart';
+import 'sube_partner_screens.dart';
 import 'sube_performance_screen.dart';
 import 'sube_return_flow.dart';
 import 'sube_shifts_screen.dart';
 import 'sube_sms_screen.dart';
 import 'sube_stock_screen.dart';
+import 'sube_training_center_screen.dart';
 import 'sube_widgets.dart';
 
 /// İşlemler merkezi: aynı işi yapan sayfalar tek girişte toplanır, gruplar
@@ -138,21 +140,32 @@ class SubeOpsScreen extends ConsumerWidget {
               SubeNavTile(
                 icon: LucideIcons.graduationCap,
                 tint: ok,
-                label: l.subeTrainingTitle,
-                onTap: () => open(const SubeTrainingScreen()),
+                label: l.trainingCenterTitle,
+                onTap: () => open(const SubeTrainingCenterScreen()),
               ),
             ],
           ),
           SubeOverline(l.opsGroupBranch),
           SubeGroup(
             children: [
-              if (!s.branch.demo)
-                SubeNavTile(
-                  icon: LucideIcons.receipt,
-                  tint: ok,
-                  label: l.invoicesTitle,
-                  onTap: () => open(const SubeInvoicesScreen()),
-                ),
+              SubeNavTile(
+                icon: LucideIcons.receipt,
+                tint: ok,
+                label: l.invoicesTitle,
+                onTap: () => open(const SubeBillingScreen()),
+              ),
+              SubeNavTile(
+                icon: LucideIcons.fileSignature,
+                tint: violet,
+                label: l.partnerDocsTitle,
+                onTap: () => open(const SubePartnerDocsScreen()),
+              ),
+              SubeNavTile(
+                icon: LucideIcons.cloudUpload,
+                tint: warn,
+                label: l.offlineTitle,
+                onTap: () => open(const SubeOfflineScreen()),
+              ),
               if (!s.branch.demo)
                 SubeNavTile(
                   icon: LucideIcons.building2,
