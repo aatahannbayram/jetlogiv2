@@ -341,15 +341,49 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                                       ],
                                       if (demoFieldAllowed()) ...[
                                         const SizedBox(height: 8),
-                                        TextButton(
-                                          key: const Key('open-demo'),
-                                          onPressed: () => ref
-                                              .read(sessionProvider)
-                                              .skipToDemo(),
-                                          child: Text(
-                                            l.openDemo,
-                                            style: TextStyle(color: muted),
-                                          ),
+                                        // Demo yayınında kurye demosu ve şube
+                                        // girişi yan yana; şube demosu
+                                        // sube@dijigoo.test / demo ile açılır.
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: TextButton(
+                                                key: const Key('open-demo'),
+                                                onPressed: () => ref
+                                                    .read(sessionProvider)
+                                                    .skipToDemo(),
+                                                child: Text(
+                                                  l.openDemo,
+                                                  style: TextStyle(
+                                                    color: muted,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                            if (!guest)
+                                              Expanded(
+                                                child: TextButton(
+                                                  key: const Key(
+                                                    'demo-sube-login',
+                                                  ),
+                                                  onPressed: () =>
+                                                      Navigator.of(
+                                                        context,
+                                                      ).push(
+                                                        MaterialPageRoute(
+                                                          builder: (_) =>
+                                                              const SubeLoginScreen(),
+                                                        ),
+                                                      ),
+                                                  child: Text(
+                                                    l.subeLoginCta,
+                                                    style: TextStyle(
+                                                      color: muted,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                          ],
                                         ),
                                       ],
                                     ],
