@@ -431,3 +431,116 @@ F1-F3 bittiğinde, ekran yeniden düzenlemesi başlamadan, Dashboard + Gönderil
 | Profil | Kullanıcı, rol/yetki, şube, tema, hareket seviyesi, dil, çıkış. |
 
 **Sonraki tur:** Gönderiler filtre çubuğu + toplu işlem çubuğu, Kurye Atama ve Kurye Dönüş adımlı akışları, Kuryeler sekmesindeki alt sekmeler ve kurye ekranlarının (görev listesi, ziyaret) aynı görsel dile geçmesi.
+
+---
+
+## 13. Mockup'lara geçiş: faz denetimi (P0–P7, 29.10.2026)
+
+Dal `feat/dijigoo-marka` (`JetLogiPro/jetdiji-courier-mobile`). Her faz analiz + tam test + ekran görüntüsü (koyu/açık; 375, 812 yatay, 768, 320@2x, 430@2x yazı ölçeği) sonrası canlıya (jetlogi-saha.vercel.app) ve demoya (dijigoo-demo.vercel.app) yayınlandı. Son durumda 913 test geçiyor, analizde hata yok.
+
+| Faz | Commit | Durum | Kapsam |
+|---|---|---|---|
+| P0 API kapsamı | (P1 içinde) | ✅ | `BranchFeatures`: uç var/yok bayrakları (branch.yaml 1.2.0, courier.yaml 1.4.0) |
+| P1 Görsel sistem v2 | 81abe90 | ✅ | `lib/ui/`: durum sözlüğü, haplar, sekmeler, arama, süzgeç, toplu işlem, stepper, sayım özeti, belge/bilgi satırı, zaman çizelgesi, dürüst boş durum, OTP + tuş takımı; koyu varsayılan |
+| P2 Giriş akışı | 9604fa3 | ✅ | 01 Açılış, 02 Şube/Kurye girişi, 03 SMS doğrulama. 04 Fotoğraf ve 05 QR ile giriş karar gereği çıkarıldı (uç yok) |
+| P3 Operasyon (1–6) | b417154 | ✅ | Dashboard, Gönderiler, Gönderi Detayı, Kurye Atama, Kurye Dönüş, Kurye Haritası |
+| P4 Kuryeler (7, 14–18) | 3572880 | ✅ | Kuryeler, Kurye Detayı (Genel/Kart/Evraklar/Cihaz), Performans & Gün Sonu |
+| P5 Stok (8–12) | 8ee4cfe | ✅ | Stok & Zimmet, Transfer Kabul, Merkeze Transfer, Sayım, Sayım Mutabakatı |
+| P6 Diğer (13, 19–24) | 51f7f99 | ✅ | Eğitim Merkezi, Fatura & Hakediş + Detay, İş Ortaklığı Evrakları, Bildirimler, Hızlı Gönder, Profilim |
+| P7 Kapanış | bu commit | ⚠️ | Hareket bağlantıları tamam; gerçek cihazda kare ölçümü ve preprod uçtan uca ziyaret kullanıcı kontrolünde (aşağıda) |
+
+### 13.1 24 ekran: veri kaynağı ve durum
+
+**Canlı** = gerçek uçtan veri. **Uç bekliyor** = canlıda dürüst boş durum ("Merkez bağlantısı bekleniyor"), demoda örnek veri. Hiçbir canlı ekranda uydurma veri yok.
+
+| # | Ekran | Dosya | Veri | Durum |
+|---|---|---|---|---|
+| 1 | Dashboard | `sube_home_screen.dart` | dashboard, dispatch, pending, performance?range=today (teslim edilemeyen), courier-shifts (mola) | Canlı |
+| 2 | Gönderiler | `sube_shipments_screen.dart` | dispatch; toplu: handover, handover/change, print-rows | Canlı. Tarih süzgeci ve Ürün eşleştir uç bekliyor |
+| 3 | Gönderi Detayı | `sube_shipment_detail_screen.dart` | courier-jobs?shipmentId= (detay, öneriler, son 12 hareket) + print-rows (müşteri, sözleşme, sipariş/referans no, SLA) | Canlı. Alıcı telefonu ve not uçta yok |
+| 4 | Kurye Atama | `sube_assign_flow.dart` | dispatch/options, reassign options, öneriler (bölge uyumu, aktif iş, varış) | Canlı |
+| 5 | Kurye Dönüş | `sube_return_flow.dart` | pending.returns, courier-return-scan (kuyruk) | Canlı |
+| 6 | Kurye Haritası | `sube_courier_map_screen.dart` | courier-map + courier-shifts | Canlı |
+| 7 | Performans & Gün Sonu | `sube_performance_screen.dart`, `sube_eod_screen.dart` | performance (today/7d/30d), pending | Canlı. Serbest tarih aralığı ve "Günü kapat" uç bekliyor |
+| 8 | Stok & Zimmet | `sube_stock_screen.dart` | incoming, pending, counts | Canlı. Şube stok sayaçları uç bekliyor |
+| 9 | Transfer Kabul | `sube_incoming_screen.dart` | incoming/{id}, scan, accept, confirm | Canlı |
+| 10 | Merkeze Transfer | `sube_dispatch_screen.dart` | outgoing, resolve, dispatch | Canlı. Barkodsuz kalem için önce iç etiket (Etiket ekranı) |
+| 11 | Sayım | `sube_count_screen.dart` | counts, scan, close, post, cancel | Canlı |
+| 12 | Sayım Mutabakatı | `sube_count_reconcile_screen.dart` | counts (durumlar), counts/{id}, post | Canlı |
+| 13 | Eğitim Merkezi | `sube_training_center_screen.dart` | training?targetType=BRANCH/COURIER/CUSTOMER_PROCESS, detay, progress, complete, faq | Canlı |
+| 14 | Kuryeler | `sube_couriers_screen.dart` | agency/couriers, dashboard (canlı durum), compliance (eksik evrak) | Canlı. Yeni kurye uç bekliyor |
+| 15 | Kurye Detayı | `sube_courier_detail_screen.dart` | agency/couriers, dashboard, courier-shifts, performance | Canlı |
+| 16 | Evraklar | (15'in sekmesi) | compliance (belge kalemleri, son geçerlilik, onaylar) | Canlı |
+| 17 | Kurye Kartı | (15'in sekmesi) | compliance/cards (QR, günlük anahtar) | Canlı. Yenile/iptal uç bekliyor |
+| 18 | Cihaz Bilgileri | (15'in sekmesi) | yok | Uç bekliyor |
+| 19 | Fatura & Hakediş | `sube_partner_screens.dart` (`SubeBillingScreen`) | invoices (schemaReady: false), invoices/support | Faturalar uç bekliyor; destek talepleri canlı |
+| 20 | Fatura Detayı | `SubeInvoiceDetailScreen` | yok | Yalnız demo |
+| 21 | İş Ortaklığı + Dağıtım Planlama | `SubePartnerDocsScreen` | compliance contracts/documents (NOT_AVAILABLE) | Kalemler canlı ("Bekleniyor"); dağıtım planlama uç bekliyor |
+| 22 | Bildirimler | `sube_inbox_screen.dart` | notifications, read, announcements | Canlı |
+| 23 | Hızlı Gönder | `SubeOfflineScreen` | cihazdaki kuyruk (OutboxStore), flush | Canlı (yerel) |
+| 24 | Profilim | `sube_profile_screen.dart` | agency-auth/session, training/faq | Canlı. Destek hattı numarası uç bekliyor |
+
+### 13.2 Hande'nin 20 maddesi (güncel)
+
+| # | Madde | Durum |
+|---|---|---|
+| 1 | Dashboard | ✅ |
+| 2 | Gönderiler (süzgeç, toplu işlem) | ✅ (tarih süzgeci ve ürün eşleştir uç bekliyor) |
+| 3 | Gönderi Detayı | ✅ (alıcı telefonu, not uçta yok) |
+| 4 | Kurye Atama | ✅ |
+| 5 | Kurye Dönüş | ✅ |
+| 6 | Kurye Haritası | ✅ |
+| 7 | Kuryeler | ✅ (yeni kurye uç bekliyor) |
+| 8 | Kurye Detayı | ✅ (cihaz uç bekliyor) |
+| 9 | Kurye Performansı | ✅ (serbest aralık uç bekliyor) |
+| 10 | Gün Sonu | ⚠️ özet ve listeler canlı; kapatma uç bekliyor |
+| 11 | Stok & Zimmet | ✅ (stok sayaçları uç bekliyor) |
+| 12 | Transfer Kabul | ✅ |
+| 13 | Merkeze Transfer | ✅ |
+| 14 | Sayım + Mutabakat | ✅ |
+| 15 | Eğitim Merkezi | ✅ |
+| 16 | Fatura & Hakediş | ⚠️ ekran var; fatura modeli uçta yok |
+| 17 | İş Ortaklığı + Dağıtım Planlama | ⚠️ ekran var; durumlar ve planlama uçta yok |
+| 18 | Bildirimler | ✅ |
+| 19 | Offline kuyruk | ✅ |
+| 20 | Profilim | ✅ |
+| G1 | Ortak barkod (kamera / manuel / sesli) | ⚠️ kamera + manuel var; sesli okutma yapılmadı |
+| G2 | Audit | ⚠️ yazmalarda Idempotency-Key ve tarama kimliği var; gönderi detayında sunucunun son 12 hareketi; ayrı geçmiş ekranı uç bekliyor |
+
+### 13.3 Hareket bağlantıları
+
+| Yer | Durum |
+|---|---|
+| Hap sekme kayan zemin, durum hapı renk geçişi, seçim kutusu | ✅ |
+| Liste ilk 6 satır kademeli giriş (`StaggerIn`) | ✅ |
+| KPI sayıları (`CountUp`), teslim / eğitim halkaları (`FlowProgressRing`) | ✅ |
+| Toplu işlem çubuğu aşağıdan kayar | ✅ |
+| Okutma nabzı (`ScanPulse`) | ✅ Kurye Dönüş |
+| Tamamlama halkası (`DoneRing`) | ✅ Kurye Dönüş, Merkeze Transfer |
+| Liste → detay gönderi no `Hero` | ✅ |
+| Harita iğnesi konum güncellemesinde 800 ms kayar | ✅ (hareket azaltılmışsa sıçrar) |
+| Stepper ilerlemesi | ✅ Kurye Dönüş, Transfer Kabul, Sayım |
+
+Performans kuralları: uzun listeler `ListView.builder`; KPI ızgarası ve sayaçlarda `IntrinsicHeight` yok (yükseklik yazı ölçeğinden); grafik tek `CustomPaint`; gizli sekme ve üstü örtülen harita ekranı yenileme yapmaz; okutma geri bildirimi (titreşim/ses) beklenmez. Gerçek cihazda kare ölçümü yapılmadı.
+
+### 13.4 Preprod uçtan uca kontrol listesi (kullanıcı)
+
+Şifreler bu belgeye yazılmaz; preprod demo hesapları ekipte paylaşılan mesajdadır.
+
+1. jetlogi-saha.vercel.app → Şube girişi (preprod şube hesabı). Ana sayfada şube adı, kod ve KPI'lar dolu mu?
+2. Gönderiler → zimmet bekleyen bir gönderiyi seç → Toplu İşlemler → Kurye ata → kurye seç → atandı mesajı; satır "Kabul bekliyor".
+3. Aynı gönderiyi aç → Gönderi Detayı: müşteri / SLA bölümü ve işlem geçmişi doluyor mu?
+4. Kurye uygulamasında (aynı link, Kurye girişi) zimmeti kabul et; şubede satır "Dağıtımda".
+5. Kurye bir ziyareti fotoğraflı tamamlar (fotoğraf kuralları ekip mesajında) → backend "finalize" kaydını görüyor mu?
+6. Şube → Kurye Dönüş → kurye seç → gönderi barkodunu elle gir → Kontrol → Dönüşü tamamla.
+7. Kurye Haritası: kurye konumu ve "Molada" sekmesi (kurye uygulamasında mola başlatılınca) doğru mu?
+8. Sayım başlat → birkaç barkod okut → tamamla → Sayım Mutabakatı'nda "Bekleyen".
+9. Eğitim Merkezi → bir eğitimi aç → en kısa süre dolunca "Tamamladım".
+10. Hızlı Gönder: uçak modunda okutma yap → bağlantı gelince "Hemen gönder".
+
+### 13.5 Açık konular
+
+- `todayToDeliver` anlamı (kalan iş mi, günün toplamı mı) Swagger'dan teyit edilmeli; teslim oranı "teslim / (teslim + kalan)" varsayımıyla hesaplanıyor.
+- Uç bekleyenler: cihaz bilgisi, yeni kurye / davet, kart yenile / iptal, fatura modeli, iş ortaklığı belge durumları, dağıtım planlama, gün sonu kapatma, şube stok sayaçları, barkodsuz serbest transfer kalemi, ürün eşleştirme, serbest tarih aralığı, şube destek hattı numarası, fotoğraf / QR ile giriş.
+- Sesli okutma (G1) ve ayrı audit geçmişi ekranı (G2) yapılmadı.
+- Mağaza (iOS/Android) derlemesi bu turda alınmadı; yalnız web PWA yayında.

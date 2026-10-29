@@ -58,8 +58,10 @@ class _SubeCourierMapScreenState extends ConsumerState<SubeCourierMapScreen> {
     // Ekran açıkken konumlar yarım dakikada bir yenilenir.
     if (!inWidgetTest) {
       _tick = Timer.periodic(const Duration(seconds: 30), (_) {
+        // Üstüne başka ekran açıldıysa (gönderi detayı) yenileme beklenir.
+        if (!mounted || ModalRoute.of(context)?.isCurrent == false) return;
         final branch = ref.read(sessionProvider).branch;
-        if (mounted && !branch.loading) unawaited(branch.loadCourierMap());
+        if (!branch.loading) unawaited(branch.loadCourierMap());
       });
     }
   }

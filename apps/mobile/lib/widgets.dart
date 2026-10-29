@@ -993,9 +993,55 @@ class _StableMapView extends StatefulWidget {
 }
 
 class _StableMapViewState extends State<_StableMapView>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   final _controller = MapController();
   String? _fitKey;
+
+  /// Kurye iğneleri yeni konuma 800 ms'de kayar; yalnız konum değişince
+  /// çalışır, hareket azaltılmışsa sıçrar. Yalnız iğne katmanı yeniden
+  /// çizilir.
+  late final AnimationController _pins = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 800),
+  );
+  Map<String, LatLng> _pinFrom = const {};
+  Map<String, LatLng> _pinTo = const {};
+
+  Map<String, LatLng> get _courierPoints => {
+    for (final c in widget.couriers) c.id: LatLng(c.lat, c.lng),
+  };
+
+  LatLng? _pinAt(String id) {
+    final a = _pinFrom[id], b = _pinTo[id];
+    if (a == null || b == null) return b;
+    final t = Curves.easeInOutCubic.transform(_pins.value);
+    return LatLng(
+      a.latitude + (b.latitude - a.latitude) * t,
+      a.longitude + (b.longitude - a.longitude) * t,
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant _StableMapView old) {
+    super.didUpdateWidget(old);
+    final next = _courierPoints;
+    final moved = next.entries.any((e) {
+      final was = _pinTo[e.key];
+      return was != null &&
+          (was.latitude != e.value.latitude ||
+              was.longitude != e.value.longitude);
+    });
+    if (moved && !inWidgetTest && !MediaQuery.disableAnimationsOf(context)) {
+      _pinFrom = {
+        for (final e in next.entries) e.key: _pinAt(e.key) ?? e.value,
+      };
+      _pinTo = next;
+      _pins.forward(from: 0);
+    } else {
+      _pinFrom = next;
+      _pinTo = next;
+    }
+  }
 
   /// Kadraj değişince kamera sıçramaz, kısa bir geçişle kayar. İlk
   /// kadrajda ve "hareketi azalt" açıkken geçiş yoktur.
@@ -1010,6 +1056,7 @@ class _StableMapViewState extends State<_StableMapView>
   @override
   void initState() {
     super.initState();
+    _pinFrom = _pinTo = _courierPoints;
     _glide.addListener(() {
       final a = _fromCenter, b = _toCenter;
       if (a == null || b == null) return;
@@ -1045,6 +1092,7 @@ class _StableMapViewState extends State<_StableMapView>
 
   @override
   void dispose() {
+    _pins.dispose();
     _glide.dispose();
     _controller.dispose();
     super.dispose();
@@ -1250,24 +1298,34 @@ class _StableMapViewState extends State<_StableMapView>
                 height: 30,
                 child: const _DestinationPin(),
               ),
-            for (final c in widget.couriers)
-              Marker(
-                point: LatLng(c.lat, c.lng),
-                width: c.self || c.id == widget.selectedCourierId ? 38 : 30,
-                height: c.self || c.id == widget.selectedCourierId ? 38 : 30,
-                child: widget.onCourierTap == null
-                    ? _CourierPin(courier: c)
-                    : GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: () => widget.onCourierTap!(c.id),
-                        child: _CourierPin(
-                          courier: c,
-                          selected: c.id == widget.selectedCourierId,
-                        ),
-                      ),
-              ),
           ],
         ),
+        if (widget.couriers.isNotEmpty)
+          AnimatedBuilder(
+            animation: _pins,
+            builder: (context, _) => MarkerLayer(
+              markers: [
+                for (final c in widget.couriers)
+                  Marker(
+                    point: _pinAt(c.id) ?? LatLng(c.lat, c.lng),
+                    width: c.self || c.id == widget.selectedCourierId ? 38 : 30,
+                    height: c.self || c.id == widget.selectedCourierId
+                        ? 38
+                        : 30,
+                    child: widget.onCourierTap == null
+                        ? _CourierPin(courier: c)
+                        : GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () => widget.onCourierTap!(c.id),
+                            child: _CourierPin(
+                              courier: c,
+                              selected: c.id == widget.selectedCourierId,
+                            ),
+                          ),
+                  ),
+              ],
+            ),
+          ),
         RichAttributionWidget(
           alignment: AttributionAlignment.bottomLeft,
           popupInitialDisplayDuration: Duration.zero,
