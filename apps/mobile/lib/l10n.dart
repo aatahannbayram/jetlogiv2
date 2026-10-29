@@ -769,11 +769,11 @@ class L10n {
       _t('Dijital çağın lojistik gücü', 'The logistics power of the digital age');
   // Alt menü etiketleri kısa tutulur: beş sekme 390 pt genişlikte tek
   // satıra sığmalı.
-  String get subeTabHome => _t('Ana', 'Home');
-  String get subeTabShipments => _t('Gönderi', 'Parcels');
-  String get subeTabCouriers => _t('Kurye', 'Couriers');
+  String get subeTabHome => _t('Ana Sayfa', 'Home');
+  String get subeTabShipments => _t('Gönderiler', 'Parcels');
+  String get subeTabCouriers => _t('Kuryeler', 'Couriers');
   String get subeTabStock => _t('Stok', 'Stock');
-  String get subeTabOps => _t('İşlem', 'Tasks');
+  String get subeTabOps => _t('İşlemler', 'Operations');
   String get subeTabProfile => _t('Profil', 'Profile');
 
   // ---- Şube final: dashboard, işlemler hub, profil ----

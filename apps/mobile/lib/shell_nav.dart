@@ -31,11 +31,13 @@ class SubeNav extends ChangeNotifier {
   /// Gönderiler sekmesinin açılacağı filtre; okununca sıfırlanır.
   String? pendingFilter;
 
+  // Hande'nin sabit alt menüsü: Ana Sayfa / Gönderiler / Kuryeler /
+  // İşlemler / Profil. Stok & Zimmet İşlemler'in altında.
   static const home = 0;
   static const shipments = 1;
   static const couriers = 2;
-  static const stock = 3;
-  static const ops = 4;
+  static const ops = 3;
+  static const profile = 4;
 
   void go(int i, {String? filter}) {
     index = i;

@@ -33,8 +33,14 @@ void main() {
     await openBranch(tester);
     expect(find.text('Güney Acente'), findsOneWidget);
     expect(find.text('Bugün dağıtılacak'), findsOneWidget);
-    expect(find.text('Zimmet bekleyen'), findsOneWidget);
-    for (final tab in ['Ana', 'Gönderi', 'Kurye', 'Stok', 'İşlem']) {
+    expect(find.text('Kurye ataması bekleyen'), findsOneWidget);
+    for (final tab in [
+      'Ana Sayfa',
+      'Gönderiler',
+      'Kuryeler',
+      'İşlemler',
+      'Profil',
+    ]) {
       expect(find.text(tab), findsOneWidget, reason: tab);
     }
     expect(find.text('Barkod Okut'), findsOneWidget);
@@ -44,7 +50,7 @@ void main() {
     tester,
   ) async {
     final session = await openBranch(tester);
-    await tester.tap(find.text('Gönderi'));
+    await tester.tap(find.text('Gönderiler'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('JL100238546'));
     await tester.pumpAndSettle();
@@ -69,11 +75,13 @@ void main() {
     tester,
   ) async {
     final session = await openBranch(tester);
-    await tester.tap(find.text('İşlem'));
+    await tester.tap(find.text('İşlemler'));
     await tester.pumpAndSettle();
-    expect(find.text('Merkeze Sevk'), findsOneWidget);
+    expect(find.text('Merkeze transfer'), findsOneWidget);
     expect(find.text('Etiket'), findsOneWidget);
     expect(find.text('Performans'), findsOneWidget);
+    await tester.ensureVisible(find.text('Sayım'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Sayım'));
     await tester.pumpAndSettle();
     expect(find.text('Depo seç'), findsOneWidget);
@@ -103,13 +111,15 @@ void main() {
 
   testWidgets('etiket ve performans ekranları açılır', (tester) async {
     await openBranch(tester);
-    await tester.tap(find.text('İşlem'));
+    await tester.tap(find.text('İşlemler'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Performans'));
     await tester.pumpAndSettle();
     expect(find.text('Teslim oranı'), findsOneWidget);
     expect(find.text('%87,9'), findsOneWidget);
     Navigator.of(tester.element(find.text('Teslim oranı'))).pop();
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Etiket'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Etiket'));
     await tester.pumpAndSettle();
@@ -122,9 +132,11 @@ void main() {
 
   testWidgets('bildirim, vardiya ve SMS ekranları açılır', (tester) async {
     await openBranch(tester);
-    await tester.tap(find.text('İşlem'));
+    await tester.tap(find.text('İşlemler'));
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.text('Bildirimler'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Bildirimler'));
     await tester.pumpAndSettle();
     expect(find.textContaining('zimmeti henüz kabul etmedi'), findsOneWidget);
@@ -133,6 +145,8 @@ void main() {
     ).pop();
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.text('Vardiya & İzin'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Vardiya & İzin'));
     await tester.pumpAndSettle();
     expect(find.text('Ali Can'), findsOneWidget);
@@ -148,18 +162,39 @@ void main() {
 
   testWidgets('SMS ekranı şablonu ve alıcıları gösterir', (tester) async {
     await openBranch(tester);
-    await tester.tap(find.text('İşlem'));
+    await tester.tap(find.text('İşlemler'));
     await tester.pumpAndSettle();
-    // Kutucuk listenin altında; sabit "Barkod Okut" düğmesinin üstüne çek.
-    await tester.dragUntilVisible(
-      find.text('Çıkış yap'),
-      find.byType(Scrollable).last,
-      const Offset(0, -200),
-    );
+    await tester.ensureVisible(find.text('SMS'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('SMS'));
     await tester.pumpAndSettle();
     expect(find.text('Bugün teslimat'), findsOneWidget);
     expect(find.text('Önizle'), findsOneWidget);
+  });
+
+  testWidgets('dashboard kartı Gönderiler\'i filtreli açar, çıkış Profil\'de', (
+    tester,
+  ) async {
+    await openBranch(tester);
+    await tester.ensureVisible(find.text('Kurye ataması bekleyen'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Kurye ataması bekleyen'));
+    await tester.pumpAndSettle();
+    expect(find.text('JL100238546'), findsOneWidget);
+    final chip = tester.widget<FilterChip>(
+      find.ancestor(
+        of: find.text('Zimmet Bekleyen'),
+        matching: find.byType(FilterChip),
+      ),
+    );
+    expect(chip.selected, isTrue);
+    await tester.tap(find.text('Profil'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Çıkış yap'),
+      200,
+      scrollable: find.byType(Scrollable).hitTestable().first,
+    );
+    expect(find.text('Çıkış yap'), findsOneWidget);
   });
 }

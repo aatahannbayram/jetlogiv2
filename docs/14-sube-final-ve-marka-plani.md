@@ -414,3 +414,20 @@ F1-F3 bittiğinde, ekran yeniden düzenlemesi başlamadan, Dashboard + Gönderil
 - "Teslim edilemeyen" kartı gösterilmiyor (sunucuda alan yok). "Hatalı / eksik işlem" kartı `kpis.pending` değerini gösteriyor; anlamı teyit edilmeli.
 - Gerçek cihazda/simülatörde derlenmedi; ikon ve splash dosyaları yalnız dosya düzeyinde doğrulandı.
 - Sıradaki: ortak filtre çubuğu + toplu işlem çubuğu, Kurye Atama ve Kurye Dönüş adımlı akışları, Kuryeler sekmeleri, Gün Sonu kilidi, Bekleyen İşlemler ekranı, `ScanPulse`/`DoneRing`'in okutma ve tamamlama ekranlarına bağlanması, sesli okutma.
+
+---
+
+## 12. İç ekranların yeni tasarıma geçmesi (web dalı, 29.10.2026)
+
+**Neden:** Yeni kimlik ilk turda web dalına yalnız tema katmanı (renk, yazı tipi, logo, ikon, hareket) olarak taşındı. Web dalının şube ekranları (eski 5 sekme: Ana / Gönderi / Kurye / Stok / İşlem, kutulu ana sayfa, düz İşlemler listesi) korunduğu için iç ekranlar kurumsal kimlik örneğindeki mobil uygulama görünümüne ve Hande'nin istediği yapıya uymadı.
+
+**Yapılacaklar (bu turda):**
+
+| Ekran | Değişiklik |
+|---|---|
+| Kabuk | Alt menü Ana Sayfa / Gönderiler / Kuryeler / İşlemler / Profil. Stok & Zimmet İşlemler'e iner, çıkış Profil'e. Web dalının `SubeNav` gezinmesi tek kaynak; paralel `sube_nav.dart` kaldırılır. |
+| Ana Sayfa | Lacivert marka başlığı (dalga paralaksı, selam, şube, son senkron, teslim halkası), "Bugün" kartları, "Canlı operasyon", "Hızlı işlemler". Web dalındaki tanıtım turu korunur. Her kart ilgili filtreli listeye/ekrana gider. |
+| İşlemler | Gruplu merkez: Saha, Stok & Zimmet, İletişim & Eğitim, Şube. Web dalının eklediği Fatura & Hakediş, Acente bilgileri ve Hazırlık listesi korunur. |
+| Profil | Kullanıcı, rol/yetki, şube, tema, hareket seviyesi, dil, çıkış. |
+
+**Sonraki tur:** Gönderiler filtre çubuğu + toplu işlem çubuğu, Kurye Atama ve Kurye Dönüş adımlı akışları, Kuryeler sekmesindeki alt sekmeler ve kurye ekranlarının (görev listesi, ziyaret) aynı görsel dile geçmesi.

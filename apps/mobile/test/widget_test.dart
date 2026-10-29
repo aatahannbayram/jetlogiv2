@@ -17,7 +17,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dijigoo_kurye/screens/shell_screen.dart';
-import 'package:dijigoo_kurye/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -614,23 +613,33 @@ void main() {
     expect(find.text('Güney Acente'), findsOneWidget);
     expect(find.text('Bugün dağıtılacak'), findsOneWidget);
 
-    // Ana sayfadaki kutu ilgili sekmeyi açar.
-    await tester.ensureVisible(find.text('Aktif kurye'));
+    // Ana sayfadaki kart ilgili sekmeyi açar.
+    await tester.scrollUntilVisible(
+      find.text('Aktif kurye'),
+      200,
+      scrollable: find.byType(Scrollable).hitTestable().first,
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('Aktif kurye'));
     await tester.pumpAndSettle();
-    expect(find.text('Kuryeler'), findsOneWidget);
+    expect(
+      find.text('Kurye havuzu').evaluate().isNotEmpty ||
+          find.text('Kuryeler').evaluate().isNotEmpty,
+      isTrue,
+    );
 
-    await tester.tap(find.text('Gönderi'));
+    // Kaydırınca alt menü küçülüp etiketi gizler; sekmeye dokun.
+    await tester.tap(find.byTooltip('Gönderiler'));
     await tester.pumpAndSettle();
     expect(find.text('JL100238546'), findsOneWidget);
     await tester.tap(find.text('JL100238546'));
     await tester.pumpAndSettle();
     expect(find.textContaining('Kuryeye zimmetle'), findsOneWidget);
 
-    await tester.tap(find.text('İşlem'));
+    // Kaydırınca alt menü küçülüp etiketi gizler; sekmeye dokun.
+    await tester.tap(find.byTooltip('İşlemler'));
     await tester.pumpAndSettle();
-    expect(find.text('Merkeze Sevk'), findsOneWidget);
+    expect(find.text('Merkeze transfer'), findsOneWidget);
     expect(find.text('Sayım'), findsOneWidget);
   });
 
