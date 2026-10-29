@@ -70,7 +70,7 @@ Stream<LiveFix> liveFixStream() async* {
       distanceFilter: 25,
       intervalDuration: const Duration(seconds: 15),
       foregroundNotificationConfig: const ForegroundNotificationConfig(
-        notificationTitle: 'JetLogi teslimat sürüyor',
+        notificationTitle: 'Dijigoo teslimat sürüyor',
         notificationText: 'Aktif görev boyunca konumunuz paylaşılıyor.',
         enableWakeLock: true,
       ),

@@ -131,10 +131,14 @@ class EarningsScreen extends ConsumerWidget {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
-                            Mono(
-                              '${(b.value * 100).round()}%',
-                              size: 10,
-                              color: b.value == 1 ? Dg.purple : Dg.ink3,
+                            // Dar sütunda tek satır kalsın; sığmazsa küçülür.
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Mono(
+                                '${(b.value * 100).round()}%',
+                                size: 10,
+                                color: b.value == 1 ? Dg.purple : Dg.ink3,
+                              ),
                             ),
                             const SizedBox(height: 4),
                             AnimatedContainer(

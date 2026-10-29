@@ -11,6 +11,7 @@ import 'push.dart';
 import 'api/agency_client.dart';
 import 'api/panel_client.dart';
 import 'app.dart';
+import 'motion.dart';
 import 'data/database.dart';
 import 'data/outbox.dart';
 import 'data/vault.dart';
@@ -131,6 +132,7 @@ Future<void> _bootstrap() async {
     ),
   );
   // Web: yerel bildirim eklentisi yok, FCM web yapılandırması henüz yok.
+  MotionGovernor.instance.watchStartup();
   if (storageOk && !kIsWeb) {
     unawaited(FieldAlerts.attach().then((_) => session.resyncAlerts()));
     FieldPush.incoming.addListener(() {

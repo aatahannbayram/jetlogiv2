@@ -235,8 +235,8 @@ void main() {
           await tester.pump();
           await tester.runAsync(() async {
             for (final asset in [
-              'assets/images/jetlogi_logo_white.png',
-              'assets/images/jetlogi_logo_color.png',
+              'assets/brand/wordmark_white.png',
+              'assets/brand/wordmark_navy.png',
             ]) {
               await precacheImage(AssetImage(asset), boundary.currentContext!);
             }

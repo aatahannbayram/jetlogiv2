@@ -105,11 +105,11 @@ void main() {
         if (out != null) {
           await tester.runAsync(() async {
             await precacheImage(
-              const AssetImage('assets/images/jetlogi_logo_color.png'),
+              const AssetImage('assets/brand/wordmark_navy.png'),
               boundary.currentContext!,
             );
             await precacheImage(
-              const AssetImage('assets/images/jetlogi_logo_white.png'),
+              const AssetImage('assets/brand/wordmark_white.png'),
               boundary.currentContext!,
             );
           });

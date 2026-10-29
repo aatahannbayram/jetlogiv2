@@ -1893,8 +1893,8 @@ class _SlideToActState extends State<SlideToAct>
   }
 }
 
-/// Charcoal navigation capsule. The courier scanner can occupy the central
-/// action slot; branch destinations remain equal navigation items.
+/// Lacivert navigasyon kapsülü. Kurye tarafında ortadaki yuva tarayıcı
+/// olabilir; şube sekmeleri eşit navigasyon öğeleridir.
 class DgPillNav extends StatelessWidget {
   const DgPillNav({
     super.key,
@@ -1994,16 +1994,15 @@ class DgPillNav extends StatelessWidget {
                                         width: 2,
                                       ),
                                     )
-                                  : selected
-                                  ? BoxDecoration(
-                                      border: Border(
-                                        bottom: BorderSide(
-                                          color: Dg.orange,
-                                          width: 2,
-                                        ),
-                                      ),
-                                    )
-                                  : null,
+                                  : BoxDecoration(
+                                      // Seçili sekme: yumuşak lacivert kapsül.
+                                      color: selected
+                                          ? Dg.dockSelected
+                                          : Dg.dockSelected.withValues(
+                                              alpha: 0,
+                                            ),
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
                               child: DgIcon(
                                 selected ? items[i].$2 : items[i].$1,
                                 color: primary
@@ -2137,12 +2136,42 @@ class DgPillNav extends StatelessWidget {
               items.length,
             );
             if (columns == items.length || !largeText) {
+              final slot = constraints.maxWidth / items.length;
+              const bar = 22.0;
+              final reduce = MediaQuery.disableAnimationsOf(context);
               return IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                child: Stack(
                   children: [
-                    for (var i = 0; i < items.length; i++)
-                      Expanded(child: item(i)),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        for (var i = 0; i < items.length; i++)
+                          Expanded(child: item(i)),
+                      ],
+                    ),
+                    // İmza an: seçili sekmenin altındaki marka akışı çizgisi
+                    // yaylanarak kayar. Tek AnimatedPositioned; gradyan sabit.
+                    if (primaryIndex != index)
+                      AnimatedPositioned(
+                        duration: reduce
+                            ? Duration.zero
+                            : const Duration(milliseconds: 320),
+                        curve: Curves.easeOutBack,
+                        left: slot * index + (slot - bar) / 2,
+                        bottom: 0,
+                        width: bar,
+                        height: 3,
+                        child: const IgnorePointer(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: Dg.brandFlow,
+                              borderRadius: BorderRadius.all(
+                                Radius.circular(2),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               );
@@ -3078,7 +3107,14 @@ class _VividHeroState extends State<_VividHero>
     final test = WidgetsBinding.instance.runtimeType.toString().contains(
       'Test',
     );
-    if (!test) _pulse.repeat(reverse: true);
+    // Tek seferlik süzülme; boşta sürekli kare üretmesin (perf bütçesi).
+    if (!test) {
+      _pulse.animateTo(
+        0.65,
+        duration: const Duration(milliseconds: 2400),
+        curve: Curves.easeOutCubic,
+      );
+    }
   }
 
   @override

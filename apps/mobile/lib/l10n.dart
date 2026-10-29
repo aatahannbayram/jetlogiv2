@@ -763,6 +763,8 @@ class L10n {
     'Approval posts stock movements and cannot be undone.',
   );
   String get barcodeLabel => _t('Barkod', 'Barcode');
+  String get brandTagline =>
+      _t('Dijital çağın lojistik gücü', 'The logistics power of the digital age');
   // Alt menü etiketleri kısa tutulur: beş sekme 390 pt genişlikte tek
   // satıra sığmalı.
   String get subeTabHome => _t('Ana', 'Home');
@@ -770,6 +772,51 @@ class L10n {
   String get subeTabCouriers => _t('Kurye', 'Couriers');
   String get subeTabStock => _t('Stok', 'Stock');
   String get subeTabOps => _t('İşlem', 'Tasks');
+  String get subeTabProfile => _t('Profil', 'Profile');
+
+  // ---- Şube final: dashboard, işlemler hub, profil ----
+  String get dashTotal => _t('Toplam gönderi', 'Total parcels');
+  String get dashToday => _t('Bugün', 'Today');
+  String get dashOut => _t('Dağıtımda', 'Out for delivery');
+  String get dashDelivered => _t('Teslim edilen', 'Delivered');
+  String get dashAwaitCourier =>
+      _t('Kurye ataması bekleyen', 'Awaiting courier');
+  String get dashFaulty => _t('Hatalı / eksik işlem', 'Faulty / incomplete');
+  String get dashAwaitReturn => _t('Kurye dönüş bekleyen', 'Awaiting return');
+  String get dashLiveOps => _t('Canlı operasyon', 'Live operations');
+  String get dashActiveCouriers => _t('Aktif kurye', 'Active couriers');
+  String get dashCouriersOut => _t('Dağıtımdaki kurye', 'Couriers out');
+  String get dashToCenter =>
+      _t('Merkeze transfer bekleyen', 'Awaiting transfer to HQ');
+  String get dashQuick => _t('Hızlı işlemler', 'Quick actions');
+  String get quickAssign => _t('Kurye ata', 'Assign courier');
+  String get quickReturn => _t('Kurye dönüş', 'Courier return');
+  String get quickTransfer => _t('Transfer', 'Transfer');
+  String get transferIncoming => _t('Gelen transfer kabul', 'Accept incoming');
+  String get transferOutgoing => _t('Merkeze transfer', 'Transfer to HQ');
+  String dashDeliveredOf(int done, int total) =>
+      _t('$done / $total teslim', '$done / $total delivered');
+  String get opsGroupField => _t('Saha', 'Field');
+  String get opsGroupStock => _t('Stok & zimmet', 'Stock & custody');
+  String get opsGroupComms => _t('İletişim & eğitim', 'Comms & training');
+  String get opsGroupBranch => _t('Şube', 'Branch');
+  String get courierReturnTitle => _t('Kurye dönüş', 'Courier return');
+  String get profileUser => _t('Kullanıcı bilgileri', 'User details');
+  String get profileBranch => _t('Şube bilgileri', 'Branch details');
+  String get profileRole => _t('Rol / yetki', 'Role / permissions');
+  String get profileCanOperate => _t('Operasyon', 'Operate');
+  String get profileCanManage => _t('Yönetim', 'Manage');
+  String get profileSettings => _t('Uygulama ayarları', 'App settings');
+  String get profileTheme => _t('Koyu tema', 'Dark theme');
+  String get profileMotion => _t('Hareket', 'Motion');
+  String get motionAuto => _t('Otomatik', 'Auto');
+  String get motionFull => _t('Tam', 'Full');
+  String get motionReduced => _t('Azaltılmış', 'Reduced');
+  String get profileLanguage => _t('Dil', 'Language');
+  String get profileNotifications => _t('Bildirim ayarları', 'Notifications');
+  String get profileHelp => _t('Yardım & destek', 'Help & support');
+  String get profileAbout => _t('Hakkında', 'About');
+  String get profileEmail => _t('E-posta', 'Email');
   String get subeInboxTitle => _t('Bildirimler', 'Notifications');
   String get subeAnnouncements => _t('Duyurular', 'Announcements');
   String get subeAlerts => _t('Operasyon uyarıları', 'Operational alerts');
@@ -1041,7 +1088,7 @@ class L10n {
   String get subeLogout => _t('Çıkış yap', 'Sign out');
   String get openProfile => _t('Profili aç', 'Open profile');
   String get fieldAppVersion =>
-      _t('v1.0.0 · JetLogi Saha', 'v1.0.0 · JetLogi Field');
+      _t('v1.0.0 · Dijigoo Saha', 'v1.0.0 · Dijigoo Field');
   String get demoCodesHint =>
       _t('Giriş 123456  ·  Teslim 482913', 'Login 123456  ·  Delivery 482913');
   String get storageLockedTitle =>

@@ -28,7 +28,7 @@ class DijigooApp extends ConsumerWidget {
       return L10nScope(
         l10n: l10n,
         child: MaterialApp(
-          title: 'JetLogi',
+          title: 'Dijigoo',
           debugShowCheckedModeBanner: false,
           locale: Locale(session.localeCode),
           theme: Dg.theme(),
@@ -48,7 +48,7 @@ class DijigooApp extends ConsumerWidget {
     return L10nScope(
       l10n: l10n,
       child: MaterialApp(
-        title: 'JetLogi',
+        title: 'Dijigoo',
         debugShowCheckedModeBanner: false,
         locale: Locale(session.localeCode),
         supportedLocales: const [Locale('tr'), Locale('en')],
@@ -58,10 +58,11 @@ class DijigooApp extends ConsumerWidget {
           GlobalCupertinoLocalizations.delegate,
         ],
         theme: Dg.theme(),
-        builder: (context, child) =>
-            PhoneShell(child: child ?? const SizedBox.shrink()),
+        builder: (context, child) => MotionScope(
+          child: PhoneShell(child: child ?? const SizedBox.shrink()),
+        ),
         home: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 320),
+          duration: DgMotion.emphasized,
           switchInCurve: Curves.easeOutCubic,
           switchOutCurve: Curves.easeInCubic,
           transitionBuilder: dgSwitchTransition,

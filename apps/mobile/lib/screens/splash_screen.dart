@@ -62,41 +62,28 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
       backgroundColor: Dg.dark ? Dg.night : Dg.ground,
       body: Stack(
         children: [
-          if (Dg.dark)
-            Align(
-              alignment: Alignment.topCenter,
-              child: AspectRatio(
-                aspectRatio: 1290 / 1596,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Image.asset(
-                      'assets/images/jetlogi_splash_bg.png',
-                      fit: BoxFit.cover,
-                      filterQuality: FilterQuality.high,
-                    ),
-                    const DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.transparent,
-                            Colors.transparent,
-                            Dg.night,
-                          ],
-                          stops: [0.0, 0.55, 1.0],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            )
-          else
-            const Positioned.fill(
-              child: HeroBackground(child: SizedBox.expand()),
+          const Positioned.fill(
+            child: HeroBackground(child: SizedBox.expand()),
+          ),
+          // Marka dalgası: önceden üretilmiş tek görsel, belirip hafifçe
+          // yükselir (yalnız opaklık + transform).
+          Positioned(
+            left: 0,
+            right: 0,
+            top: 0,
+            child: AspectRatio(
+              aspectRatio: 1440 / 900,
+              child: BrandWave(opacity: Dg.dark ? 1 : 0.55)
+                  .animate()
+                  .fadeIn(duration: DgMotion.emphasized)
+                  .slideY(
+                    begin: 0.06,
+                    end: 0,
+                    duration: 900.ms,
+                    curve: DgMotion.emphasizedCurve,
+                  ),
             ),
+          ),
           NightGrain(
             child: SafeArea(
               child: LayoutBuilder(
@@ -115,7 +102,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                               children: [
                                 Appear(
                                   child: DijigooWordmark(
-                                    height: 28,
+                                    height: 36,
                                     onDark: Dg.dark,
                                   ),
                                 ),
