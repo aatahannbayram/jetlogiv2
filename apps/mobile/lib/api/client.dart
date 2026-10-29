@@ -14,6 +14,14 @@ const kApiBase = String.fromEnvironment(
   defaultValue: 'https://kurye.dijigoo.com/api/mobile',
 );
 
+/// Eski Dijigoo kurye sunucusu ([kApiBase]) kurulsun mu. JetDiji dağıtımında
+/// (web PWA) kurye panel API'sini, şube acente API'sini kullanır; eski sunucu
+/// orada yoktur ve tarayıcıdan çağrılınca CORS hatası verir.
+/// `--dart-define=LEGACY_API=false` ile istemci hiç kurulmaz; açılıştaki
+/// yapılandırma ve vardiya istekleri gitmez, yapılandırma demo değerinde
+/// kalır (istek düştüğünde de böyleydi).
+const kLegacyApi = bool.fromEnvironment('LEGACY_API', defaultValue: true);
+
 const kAppVersion = '1.0.0';
 const kAppBuild = 42;
 

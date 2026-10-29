@@ -79,8 +79,10 @@ Future<void> _bootstrap() async {
     // tarayıcı deposu reddedilebilir (gizli sekme); uygulama yine açılır.
     storageOk = kIsWeb || !kReleaseMode;
   }
-  final api = MobileApi.tryCreate(vault: vault);
-  if (api == null) {
+  // Eski kurye sunucusu kapalı derlemede (web PWA) istemci yok; bu bir
+  // güvenlik hatası değildir, depolama kilidi açılmaz.
+  final api = kLegacyApi ? MobileApi.tryCreate(vault: vault) : null;
+  if (kLegacyApi && api == null) {
     storageOk = !kReleaseMode;
   }
   PanelApi? panel;
