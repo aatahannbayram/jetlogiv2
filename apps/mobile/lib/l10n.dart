@@ -779,6 +779,33 @@ class L10n {
   // ---- Şube final: dashboard, işlemler hub, profil ----
   String get dashTotal => _t('Toplam gönderi', 'Total parcels');
   String get dashToday => _t('Bugün', 'Today');
+
+  // ---- Görsel sistem v2 (mockup) ----
+  String get courierOut => _t('Dağıtımda', 'Out');
+  String get courierFree => _t('Müsait', 'Available');
+  String get countExpected => _t('Beklenen', 'Expected');
+  String get countRead => _t('Okunan', 'Scanned');
+  String get countMissing => _t('Eksik', 'Missing');
+  String get countExtra => _t('Fazla', 'Extra');
+  String get countDamaged => _t('Hasarlı', 'Damaged');
+  String get pendingBackendTitle =>
+      _t('Merkez bağlantısı bekleniyor', 'Waiting for HQ integration');
+  String get pendingBackendBody => _t(
+    'Bu bölüm JetDiji tarafındaki servis hazır olunca dolacak.',
+    'This section fills in once the JetDiji service is ready.',
+  );
+  String pendingBackendBodyFor(String what) => _t(
+    '$what JetDiji tarafındaki servis hazır olunca burada görünecek.',
+    '$what will appear here once the JetDiji service is ready.',
+  );
+  String get searchShipmentsHint =>
+      _t('Gönderi no, alıcı veya adres ara…', 'Search number, recipient, address…');
+  String get searchCouriersHint => _t('Kurye ara…', 'Search couriers…');
+  String get filterDate => _t('Tarih', 'Date');
+  String get filterDistrict => _t('İlçe', 'District');
+  String get filterStatus => _t('Durum', 'Status');
+  String get filterCourier => _t('Kurye', 'Courier');
+  String get bulkActions => _t('Toplu İşlemler', 'Bulk actions');
   String get dashOut => _t('Dağıtımda', 'Out for delivery');
   String get dashDelivered => _t('Teslim edilen', 'Delivered');
   String get dashAwaitCourier =>

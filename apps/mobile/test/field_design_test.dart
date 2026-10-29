@@ -108,6 +108,11 @@ void main() {
       for (final stop in Dg.emberGradient.colors) {
         expect(contrast(Dg.onAction, stop), greaterThanOrEqualTo(4.5));
       }
+      // Marka CTA: yazı ortadaki maviye oturur (≥ 4.5); uçlar dekor (≥ 3).
+      final cta = Dg.brandCta.colors;
+      expect(contrast(Colors.white, cta[1]), greaterThanOrEqualTo(4.5));
+      expect(contrast(Colors.white, cta.first), greaterThanOrEqualTo(3));
+      expect(contrast(Colors.white, cta.last), greaterThanOrEqualTo(3));
     });
   }
 

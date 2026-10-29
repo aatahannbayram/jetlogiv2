@@ -487,6 +487,7 @@ class ShakeError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (MediaQuery.disableAnimationsOf(context)) return child;
     return child
         .animate(key: ValueKey(trigger))
         .shake(hz: 4, duration: 320.ms, curve: Curves.easeOut);

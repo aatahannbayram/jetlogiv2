@@ -9,6 +9,7 @@ import '../l10n.dart';
 import '../models.dart';
 import '../scan.dart';
 import '../session.dart';
+import '../shell_nav.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'sube_widgets.dart';
@@ -36,8 +37,11 @@ class _SubeCouriersScreenState extends ConsumerState<SubeCouriersScreen> {
     // Ekran açıkken konumlar yarım dakikada bir yenilenir.
     if (!inWidgetTest) {
       _tick = Timer.periodic(const Duration(seconds: 30), (_) {
+        if (!mounted) return;
+        // Sekme gizliyken (DgTabStack hepsini canlı tutar) yenileme yok.
+        if (ref.read(subeNavProvider).index != SubeNav.couriers) return;
         final branch = ref.read(sessionProvider).branch;
-        if (mounted && !branch.loading) unawaited(branch.refresh());
+        if (!branch.loading) unawaited(branch.refresh());
       });
     }
   }

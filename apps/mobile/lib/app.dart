@@ -20,17 +20,21 @@ class DijigooApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final session = ref.watch(sessionProvider);
-    Dg.dark = session.darkModeUi;
-    final l10n = L10n(session.localeCode);
-    final phase = session.phase;
-    if (!session.storageOk) {
+    // Kök yalnız tema, dil, depolama ve aşama değişince yeniden kurulur;
+    // oturumdaki diğer her bildirim yalnız onu izleyen ekranları yeniler.
+    final dark = ref.watch(sessionProvider.select((s) => s.darkModeUi));
+    final localeCode = ref.watch(sessionProvider.select((s) => s.localeCode));
+    final phase = ref.watch(sessionProvider.select((s) => s.phase));
+    final storageOk = ref.watch(sessionProvider.select((s) => s.storageOk));
+    Dg.dark = dark;
+    final l10n = L10n(localeCode);
+    if (!storageOk) {
       return L10nScope(
         l10n: l10n,
         child: MaterialApp(
           title: 'Dijigoo',
           debugShowCheckedModeBanner: false,
-          locale: Locale(session.localeCode),
+          locale: Locale(localeCode),
           theme: Dg.theme(),
           home: const _StorageLockedPage(),
         ),
@@ -50,7 +54,7 @@ class DijigooApp extends ConsumerWidget {
       child: MaterialApp(
         title: 'Dijigoo',
         debugShowCheckedModeBanner: false,
-        locale: Locale(session.localeCode),
+        locale: Locale(localeCode),
         supportedLocales: const [Locale('tr'), Locale('en')],
         localizationsDelegates: const [
           GlobalMaterialLocalizations.delegate,

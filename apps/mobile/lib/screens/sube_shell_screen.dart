@@ -34,7 +34,10 @@ class _SubeShellScreenState extends ConsumerState<SubeShellScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(sessionProvider).branch.refresh();
+      final branch = ref.read(sessionProvider).branch;
+      branch.refresh();
+      // Üst bardaki zil rozeti açılışta dolsun (Bildirimler açılmadan).
+      branch.loadInbox();
     });
   }
 

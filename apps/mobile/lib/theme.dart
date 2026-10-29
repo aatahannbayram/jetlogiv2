@@ -44,6 +44,25 @@ class Dg {
     colors: [brandPurple, brandBlue, brandTurquoise],
   );
 
+  /// Marka ana düğmesi (mockup: mor → mavi → turkuaz). Yazı ortadaki
+  /// maviye oturur (beyazla 4.9:1); uçlar marka tonlarının koyu halleri,
+  /// beyazla ≥ 3:1 (yalnız dekor).
+  static const brandCta = LinearGradient(
+    begin: Alignment.centerLeft,
+    end: Alignment.centerRight,
+    colors: [Color(0xFF7C3AED), Color(0xFF2563FF), Color(0xFF0891B2)],
+  );
+
+  /// Dolu ikon dairesi renkleri (mockup KPI rozetleri); beyaz ikon taşır,
+  /// temadan bağımsız.
+  static const badgeBlue = Color(0xFF2563FF);
+  static const badgeGreen = Color(0xFF16A34A);
+  static const badgeRed = Color(0xFFDC2626);
+  static const badgeOrange = Color(0xFFEA580C);
+  static const badgePurple = Color(0xFF7C3AED);
+  static const badgeCyan = Color(0xFF0891B2);
+  static const badgeSlate = Color(0xFF475569);
+
   /// Koyu temada vurgu metni için turkuaz (10.8:1), açıkta koyu marka mavisi.
   static Color get highlight => dark ? brandTurquoise : brand;
 
