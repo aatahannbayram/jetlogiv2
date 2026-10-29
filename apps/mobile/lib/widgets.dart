@@ -786,11 +786,19 @@ class MapStrip extends StatelessWidget {
     this.fitPadding = const EdgeInsets.all(40),
     this.onTap,
     this.pinLabel,
+    this.onCourierTap,
+    this.selectedCourierId,
   });
 
   /// Hedef iğnesinin üstünde küçük balon (ör. "4 dk"). Tek hedefli
   /// haritalarda kullanılır.
   final String? pinLabel;
+
+  /// Kurye pinine dokunulunca kurye id'si (şube haritası).
+  final ValueChanged<String>? onCourierTap;
+
+  /// Vurgulanan kurye (seçili pin büyür, turkuaz halka).
+  final String? selectedCourierId;
 
   final int? eta;
   final double height;
@@ -894,6 +902,8 @@ class MapStrip extends StatelessWidget {
                   numberStops: numberStops,
                   fitPadding: fitPadding,
                   pinLabel: pinLabel,
+                  onCourierTap: onCourierTap,
+                  selectedCourierId: selectedCourierId,
                 ),
               ),
             ),
@@ -959,9 +969,13 @@ class _StableMapView extends StatefulWidget {
     required this.numberStops,
     required this.fitPadding,
     this.pinLabel,
+    this.onCourierTap,
+    this.selectedCourierId,
   });
 
   final String? pinLabel;
+  final ValueChanged<String>? onCourierTap;
+  final String? selectedCourierId;
   final LatLng center;
   final List<LatLng> fit;
   final List<LatLng> line;
@@ -1016,9 +1030,7 @@ class _StableMapViewState extends State<_StableMapView>
     final first = !_fittedOnce;
     _fittedOnce = true;
     final still =
-        first ||
-        MediaQuery.disableAnimationsOf(context) ||
-        inWidgetTest;
+        first || MediaQuery.disableAnimationsOf(context) || inWidgetTest;
     if (still) {
       _controller.move(center, zoom);
       return;
@@ -1155,10 +1167,8 @@ class _StableMapViewState extends State<_StableMapView>
           // okunur kalır, rota ve iğneler öne çıkar.
           tileBuilder: useMapboxTiles
               ? null
-              : (context, tile, _) => ColorFiltered(
-                  colorFilter: _calmMapFilter,
-                  child: tile,
-                ),
+              : (context, tile, _) =>
+                    ColorFiltered(colorFilter: _calmMapFilter, child: tile),
         ),
         if (widget.line.length > 1)
           PolylineLayer(
@@ -1205,8 +1215,7 @@ class _StableMapViewState extends State<_StableMapView>
                     ? 28
                     : (i == widget.points.length - 1 ? 40 : 14),
                 // Hedef iğnesinin ucu tam adrese değer.
-                alignment:
-                    !widget.numberStops && i == widget.points.length - 1
+                alignment: !widget.numberStops && i == widget.points.length - 1
                     ? Alignment.topCenter
                     : Alignment.center,
                 child: widget.numberStops
@@ -1244,9 +1253,18 @@ class _StableMapViewState extends State<_StableMapView>
             for (final c in widget.couriers)
               Marker(
                 point: LatLng(c.lat, c.lng),
-                width: c.self ? 34 : 30,
-                height: c.self ? 34 : 30,
-                child: _CourierPin(courier: c),
+                width: c.self || c.id == widget.selectedCourierId ? 38 : 30,
+                height: c.self || c.id == widget.selectedCourierId ? 38 : 30,
+                child: widget.onCourierTap == null
+                    ? _CourierPin(courier: c)
+                    : GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => widget.onCourierTap!(c.id),
+                        child: _CourierPin(
+                          courier: c,
+                          selected: c.id == widget.selectedCourierId,
+                        ),
+                      ),
               ),
           ],
         ),
@@ -1336,7 +1354,12 @@ class _PinPainter extends CustomPainter {
     final tip = Offset(size.width / 2, size.height - 1);
     final path = Path()
       ..moveTo(tip.dx, tip.dy)
-      ..quadraticBezierTo(c.dx - r * 0.25, c.dy + r * 1.05, c.dx - r * 0.82, c.dy + r * 0.57)
+      ..quadraticBezierTo(
+        c.dx - r * 0.25,
+        c.dy + r * 1.05,
+        c.dx - r * 0.82,
+        c.dy + r * 0.57,
+      )
       ..arcToPoint(
         Offset(c.dx + r * 0.82, c.dy + r * 0.57),
         radius: Radius.circular(r),
@@ -1428,9 +1451,10 @@ class _WaypointDot extends StatelessWidget {
 const _selfBlue = Color(0xFF2F7CF6);
 
 class _CourierPin extends StatelessWidget {
-  const _CourierPin({required this.courier});
+  const _CourierPin({required this.courier, this.selected = false});
 
   final FleetCourier courier;
+  final bool selected;
 
   @override
   Widget build(BuildContext context) {
@@ -1456,12 +1480,23 @@ class _CourierPin extends StatelessWidget {
         ),
       );
     }
-    final ring = courier.onBreak ? const Color(0xFFFFCB52) : Dg.go;
+    final ring = selected
+        ? Dg.brandTurquoise
+        : courier.status == 'offline'
+        ? const Color(0xFF9CA3AF)
+        : courier.status == 'out'
+        ? Dg.brandBlue
+        : courier.onBreak
+        ? const Color(0xFFFFCB52)
+        : Dg.go;
     return Container(
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: Dg.night,
-        border: Border.all(color: ring, width: courier.self ? 3 : 2),
+        border: Border.all(
+          color: ring,
+          width: courier.self || selected ? 3 : 2,
+        ),
         boxShadow: [
           BoxShadow(
             color: ring.withValues(alpha: 0.45),

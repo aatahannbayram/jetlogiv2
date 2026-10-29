@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -18,9 +20,11 @@ bool get inWidgetTest {
   }
 }
 
+/// Titreşim ve tık sesi. Beklenmez: platform kanalı geç (ya da hiç)
+/// yanıt verirse okutma döngüsü takılmasın.
 Future<void> playScanFeedback({required bool beep}) async {
-  await HapticFeedback.mediumImpact();
-  if (beep) await SystemSound.play(SystemSoundType.click);
+  unawaited(HapticFeedback.mediumImpact());
+  if (beep) unawaited(SystemSound.play(SystemSoundType.click));
 }
 
 /// Sistem kamerasını açar. İptalde null. Testte sahte bir yol döner.

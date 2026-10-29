@@ -77,6 +77,11 @@ class BranchWorkspace {
   List<SmsBatch>? smsHistory;
   List<ManagedTraining>? trainings;
   List<CourierCompliance>? compliance;
+  CourierMapData? courierMap;
+
+  /// Ana sayfanın "Teslim edilemeyen" kutusu için bugünün performansı
+  /// (Performans ekranının seçili aralığından bağımsız).
+  PerformanceData? todayPerformance;
 
   /// Bu oturumda üretilen, henüz basılmamış olabilecek etiketler.
   List<PrintableLabel> freshLabels = const [];
@@ -116,6 +121,20 @@ class BranchWorkspace {
       if (picked.contains(row.shipmentId)) row,
   ];
 
+  /// Toplu işlem için seçilebilir mi: şubeye henüz gelmemiş gönderi
+  /// seçilmez.
+  static bool pickable(BranchShipmentRow row) =>
+      row.stage != BranchStage.incoming;
+
+  /// Toplu zimmet / değişiklikte sunucunun kabul ettiği üst sınır.
+  static const maxBulk = 200;
+
+  /// Molada olan kuryeler (açık vardiyada `onBreak`).
+  Set<String> get couriersOnBreak => {
+    for (final c in shiftDay?.couriers ?? const <ShiftCourierRow>[])
+      if (c.onBreak) c.courierId,
+  };
+
   void reset() {
     demo = false;
     capabilities = const BranchCapabilities();
@@ -138,6 +157,8 @@ class BranchWorkspace {
     smsHistory = null;
     trainings = null;
     compliance = null;
+    courierMap = null;
+    todayPerformance = null;
     freshLabels = const [];
     _restored = false;
     error = null;
@@ -231,9 +252,7 @@ class BranchWorkspace {
         board = next;
         capabilities = next.capabilities;
         picked.removeWhere(
-          (id) => !next.rows.any(
-            (r) => r.shipmentId == id && r.stage == BranchStage.awaitingCourier,
-          ),
+          (id) => !next.rows.any((r) => r.shipmentId == id && pickable(r)),
         );
       }),
       load(() async => pending = await client.fetchPending()),
@@ -318,6 +337,73 @@ class BranchWorkspace {
       return;
     }
     await _run(() async => performance = await api!.fetchPerformance(range));
+  }
+
+  /// Ana sayfa ekleri: bugünün performansı (teslim edilemeyen) ve vardiya
+  /// (molada olanlar). Sessiz yüklenir; gelmezse kutu "—" gösterir.
+  Future<void> loadDashExtras() async {
+    if (demo) {
+      todayPerformance = kSubeDemoPerformance('today');
+      shiftDay ??= kSubeDemoShiftDay;
+      onChanged();
+      return;
+    }
+    final client = api;
+    if (client == null) return;
+    await Future.wait([
+      () async {
+        try {
+          todayPerformance = await client.fetchPerformance('today');
+        } catch (_) {}
+      }(),
+      () async {
+        try {
+          shiftDay = await client.fetchCourierShifts();
+        } catch (_) {}
+      }(),
+    ]);
+    onChanged();
+  }
+
+  /// Kurye haritası (konum + eldeki gönderiler). Mola sekmesi için vardiya
+  /// da okunur; gelmezse harita yine gösterilir, mola boş kalır.
+  Future<void> loadCourierMap() async {
+    if (demo) {
+      courierMap = kSubeDemoCourierMap;
+      shiftDay ??= kSubeDemoShiftDay;
+      onChanged();
+      return;
+    }
+    await _run(() async {
+      courierMap = await api!.fetchCourierMap();
+      try {
+        shiftDay = await api!.fetchCourierShifts();
+      } catch (_) {
+        // Mola bilgisi bir sonraki yüklemede gelir.
+      }
+    });
+  }
+
+  /// Tek gönderinin detayı; bu şubede değilse null. Hata fırlatır, ekran
+  /// [describeError] ile gösterir.
+  Future<ShipmentDetail?> shipmentDetail(String shipmentId) async {
+    if (demo) {
+      final row = rows.where((r) => r.shipmentId == shipmentId).firstOrNull;
+      return row == null ? null : kSubeDemoShipmentDetail(row);
+    }
+    return api!.fetchShipmentDetail(shipmentId);
+  }
+
+  /// Etiket satırları (müşteri, sipariş / referans no, SLA durumu, adres).
+  /// Veri değiştirmez; en fazla [maxBulk] gönderi. Demo'da örnek satır.
+  Future<List<Map<String, dynamic>>> printRows(List<String> shipmentIds) async {
+    if (demo) {
+      return [
+        for (final row in rows)
+          if (shipmentIds.contains(row.shipmentId)) kSubeDemoPrintRow(row),
+      ];
+    }
+    return api!.fetchPrintRows(shipmentIds);
   }
 
   // ── Bildirim, duyuru, vardiya, SMS ─────────────────────────────────────
@@ -703,6 +789,15 @@ class BranchWorkspace {
     onChanged();
   }
 
+  /// Görünen listedeki seçilebilir gönderilerin hepsini seçer.
+  void pickAll(Iterable<BranchShipmentRow> visible) {
+    picked.addAll([
+      for (final r in visible)
+        if (pickable(r)) r.shipmentId,
+    ]);
+    onChanged();
+  }
+
   /// Atama (`awaitingCourier`) ve "Değiştir" (`inQueue`) için kurye listesi.
   Future<DispatchOptions> courierOptions(String shipmentId) async {
     if (demo) return kSubeDemoOptions;
@@ -723,8 +818,18 @@ class BranchWorkspace {
   /// Seçili gönderileri kuryeye zimmetler. Başarıda null, aksi halde
   /// gösterilecek hata metni döner. Zimmet, kurye kendi uygulamasında
   /// okutup kabul edene kadar kesinleşmez (çift taraflı).
-  Future<String?> assignPicked(CourierOption courier) {
-    final ids = picked.toList()..sort();
+  Future<String?> assignPicked(CourierOption courier) =>
+      assignShipments(_pickedIn(BranchStage.awaitingCourier), courier);
+
+  /// [shipmentIds] gönderilerini kuryeye zimmetler (toplu, en fazla
+  /// [maxBulk]). Başarıda bu gönderiler seçimden düşer.
+  Future<String?> assignShipments(
+    List<String> shipmentIds,
+    CourierOption courier,
+  ) async {
+    final ids = [...shipmentIds]..sort();
+    if (ids.isEmpty) return null;
+    if (ids.length > maxBulk) return _tooMany;
     return _action('handover|${courier.id}|${ids.join(',')}', (key) async {
       if (demo) {
         _demoMove(ids, BranchStage.inQueue, courier);
@@ -735,9 +840,40 @@ class BranchWorkspace {
           idempotencyKey: key,
         );
       }
-      picked.clear();
+      picked.removeAll(ids);
     });
   }
+
+  /// Kurye kabulü bekleyen zimmetleri toplu olarak başka kuryeye çevirir.
+  /// Dağıtımdaki (kabul edilmiş) gönderi buradan değişmez; tek tek devir
+  /// gerekir, çünkü denetim kaydına not düşülür ([changeCourier]).
+  Future<String?> changeShipments(
+    List<String> shipmentIds,
+    CourierOption courier,
+  ) async {
+    final ids = [...shipmentIds]..sort();
+    if (ids.isEmpty) return null;
+    if (ids.length > maxBulk) return _tooMany;
+    return _action('change|${courier.id}|${ids.join(',')}', (key) async {
+      if (demo) {
+        _demoMove(ids, BranchStage.inQueue, courier);
+      } else {
+        await api!.changeHandover(
+          courierId: courier.id,
+          shipmentIds: ids,
+          idempotencyKey: key,
+        );
+      }
+      picked.removeAll(ids);
+    });
+  }
+
+  static const _tooMany = 'Tek seferde en fazla $maxBulk gönderi seçilebilir.';
+
+  List<String> _pickedIn(BranchStage stage) => [
+    for (final r in pickedRows)
+      if (r.stage == stage) r.shipmentId,
+  ]..sort();
 
   /// Kurye henüz kabul etmediyse zimmeti çevirir, kabul ettiyse (dağıtımda)
   /// yeni kuryeye devir açar; ikincisinde [note] denetim kaydına yazılır.
@@ -1208,11 +1344,21 @@ class BranchWorkspace {
               shipmentId: row.shipmentId,
               shipmentNumber: row.shipmentNumber,
               stage: stage,
+              status: row.status,
               recipientName: row.recipientName,
               district: row.district,
+              addressLine: row.addressLine,
+              product: row.product,
               highPriority: row.highPriority,
               late: row.late,
+              packageCount: row.packageCount,
               windowStart: row.windowStart,
+              windowEnd: row.windowEnd,
+              city: row.city,
+              neighborhood: row.neighborhood,
+              productCode: row.productCode,
+              dispatches: row.dispatches,
+              maxDispatches: row.maxDispatches,
               courier: stage == BranchStage.inDistribution && courier != null
                   ? CourierRef(id: courier.id, name: courier.name)
                   : null,

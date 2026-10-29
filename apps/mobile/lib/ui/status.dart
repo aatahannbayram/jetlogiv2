@@ -57,28 +57,49 @@ DgStatus shipmentStatus(L10n l, BranchShipmentRow row) => switch (row.stage) {
   ),
 };
 
-/// Kurye canlı durumu → görünen durum (Dağıtımda / Müsait / Molada /
-/// Çevrimdışı). Dağıtımda = aktif ve üzerinde gönderi var.
-DgStatus courierStatus(L10n l, {required String live, required int holding}) {
-  if (live == 'ACTIVE' && holding > 0) {
-    return (label: l.courierOut, tone: DgTone.info, icon: LucideIcons.bike);
-  }
-  if (live == 'ACTIVE') {
-    return (
-      label: l.courierFree,
-      tone: DgTone.ok,
-      icon: LucideIcons.circleCheck,
-    );
-  }
-  if (live == 'BREAK') {
-    return (label: l.liveBreak, tone: DgTone.warn, icon: LucideIcons.coffee);
-  }
-  return (
+/// Kuryenin listede ve haritada görünen durumu. Mola vardiya kaydından
+/// gelir; `liveStatus` BREAK yalnız konumun 10–60 dk eski olduğunu söyler,
+/// mola demek değildir.
+enum CourierKind { out, free, onBreak, offline }
+
+CourierKind courierKind(BranchCourierLive c, {bool onBreak = false}) {
+  if (c.liveStatus == 'OFFLINE') return CourierKind.offline;
+  if (onBreak) return CourierKind.onBreak;
+  return c.holdingCount > 0 ? CourierKind.out : CourierKind.free;
+}
+
+/// Kurye durumu → görünen durum (Dağıtımda / Müsait / Molada /
+/// Çevrimdışı).
+DgStatus courierStatus(L10n l, CourierKind kind) => switch (kind) {
+  CourierKind.out => (
+    label: l.courierOut,
+    tone: DgTone.info,
+    icon: LucideIcons.bike,
+  ),
+  CourierKind.free => (
+    label: l.courierFree,
+    tone: DgTone.ok,
+    icon: LucideIcons.circleCheck,
+  ),
+  CourierKind.onBreak => (
+    label: l.courierOnBreak,
+    tone: DgTone.warn,
+    icon: LucideIcons.coffee,
+  ),
+  CourierKind.offline => (
     label: l.liveOffline,
     tone: DgTone.neutral,
     icon: LucideIcons.wifiOff,
-  );
-}
+  ),
+};
+
+/// Harita iğnesinin halka rengi için `FleetCourier.status` değeri.
+String courierPinStatus(CourierKind kind) => switch (kind) {
+  CourierKind.out => 'out',
+  CourierKind.free => 'on',
+  CourierKind.onBreak => 'break',
+  CourierKind.offline => 'offline',
+};
 
 /// Renkli durum hapı. Ton değişince renk yumuşakça geçer.
 class DgStatusPill extends StatelessWidget {
@@ -174,4 +195,37 @@ class DgIconBadge extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Gönderi olayı / şube audit kodu → okunur başlık ve ton. Bilinmeyen kod
+/// olduğu gibi (alt çizgisiz) gösterilir; uydurma etiket verilmez.
+({String title, DgTone tone}) shipmentEventView(L10n l, ShipmentEvent e) {
+  final c = e.code.toUpperCase();
+  if (c.contains('HANDOVER_CANCEL')) {
+    return (title: l.evHandoverCancelled, tone: DgTone.neutral);
+  }
+  if (c.contains('HANDOVER_CHANGE') || c.contains('REASSIGN')) {
+    return (title: l.evCourierChanged, tone: DgTone.accent);
+  }
+  if (c.contains('HANDOVER_ACCEPT') || c.contains('CUSTODY_ACCEPT')) {
+    return (title: l.evAccepted, tone: DgTone.info);
+  }
+  if (c.contains('HANDOVER')) return (title: l.evHandover, tone: DgTone.info);
+  if (c.contains('RETURN')) return (title: l.evReturned, tone: DgTone.warn);
+  if (c.contains('ARRIVED')) return (title: l.evArrived, tone: DgTone.info);
+  if (c.contains('RECIPIENT_CALL')) {
+    return (title: l.evCalled, tone: DgTone.neutral);
+  }
+  if (c.contains('NOT_DELIVERED') || c.contains('DELIVERY_FAILED')) {
+    return (title: l.evFailed, tone: DgTone.bad);
+  }
+  if (c.contains('DELIVERED')) return (title: l.evDelivered, tone: DgTone.ok);
+  if (c.contains('RECEIVED') || c.contains('INTAKE')) {
+    return (title: l.evReceived, tone: DgTone.ok);
+  }
+  final raw = e.code.replaceAll('_', ' ').toLowerCase();
+  return (
+    title: raw.isEmpty ? '—' : raw[0].toUpperCase() + raw.substring(1),
+    tone: DgTone.neutral,
+  );
 }

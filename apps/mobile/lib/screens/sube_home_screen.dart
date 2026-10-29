@@ -1,25 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../api/branch_models.dart';
 import '../brand.dart';
 import '../intro_tour.dart';
 import '../l10n.dart';
+import '../models.dart';
 import '../motion.dart';
 import '../session.dart';
 import '../shell_nav.dart';
 import '../theme.dart';
+import '../ui/ui.dart';
 import '../widgets.dart';
+import 'sube_count_screen.dart';
+import 'sube_courier_map_screen.dart';
 import 'sube_dispatch_screen.dart';
-import 'sube_eod_screen.dart';
-import 'sube_inbox_screen.dart';
+import 'sube_header.dart';
 import 'sube_performance_screen.dart';
+import 'sube_return_flow.dart';
 import 'sube_stock_screen.dart';
 import 'sube_widgets.dart';
 
-/// Ana Şube Dashboard: günün operasyonu tek ekranda. Her kart ilgili
-/// filtreli listeye açılır; sunucunun vermediği sayı gösterilmez.
+/// Ana Şube Dashboard (mockup 1): şube ve tarih kartı, günün KPI'ları
+/// (renkli ikon daireli), canlı operasyon takibi ve hızlı işlemler. Her
+/// kutu ilgili filtreli listeye ya da akışa açılır; sunucunun vermediği
+/// sayı "—" yazar.
 class SubeHomeScreen extends ConsumerStatefulWidget {
   const SubeHomeScreen({super.key});
 
@@ -28,12 +35,12 @@ class SubeHomeScreen extends ConsumerStatefulWidget {
 }
 
 class _SubeHomeScreenState extends ConsumerState<SubeHomeScreen> {
-  final _scroll = ScrollController();
-
   @override
-  void dispose() {
-    _scroll.dispose();
-    super.dispose();
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(sessionProvider).branch.loadDashExtras();
+    });
   }
 
   void _shipments(String filter) =>
@@ -46,6 +53,8 @@ class _SubeHomeScreenState extends ConsumerState<SubeHomeScreen> {
     final l = context.l10n;
     final pick = await showModalBottomSheet<int>(
       context: context,
+      backgroundColor: Dg.surface,
+      showDragHandle: true,
       builder: (ctx) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
@@ -82,161 +91,147 @@ class _SubeHomeScreenState extends ConsumerState<SubeHomeScreen> {
     final out = branch.rows
         .where((r) => r.stage == BranchStage.inDistribution)
         .length;
-    final couriers = d?.courierList ?? const <BranchCourierLive>[];
-    final couriersOut = couriers
-        .where((c) => c.liveStatus == 'ACTIVE' && c.holdingCount > 0)
-        .length;
-    final unread = (branch.inbox ?? const []).where((i) => !i.read).length;
+    final first = (s.agencyUser?.fullName ?? '').split(' ').first;
+    final hour = DateTime.now().hour;
 
     return Scaffold(
+      appBar: const SubeHeaderBar(),
       body: RefreshIndicator(
-        onRefresh: branch.refresh,
+        onRefresh: () async {
+          await branch.refresh();
+          await branch.loadDashExtras();
+        },
         child: ListView(
-          controller: _scroll,
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 120),
           children: [
-            _HeroHeader(
-              scroll: _scroll,
-              userName: s.agencyUser?.fullName ?? '',
-              branchName: d?.branchName.isNotEmpty == true
-                  ? d!.branchName
-                  : s.agencyUser?.agency.name ?? l.subeHome,
-              syncedAt: branch.syncedAt,
-              total: d?.todayToDeliver,
-              delivered: d?.deliveredToday,
-              unread: unread,
-              loading: branch.loading,
-              onInbox: () => _push(const SubeInboxScreen()),
-            ),
-            const SizedBox(height: 12),
             IntroTourTrigger(
               show: !s.tipsSeen,
               steps: branchIntroSteps(l),
               onDone: s.markTipsSeen,
             ),
+            Appear(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(4, 0, 4, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      first.isEmpty
+                          ? l.greeting(hour)
+                          : '${l.greeting(hour)}, $first',
+                      style: Dg.ui(size: 22, weight: FontWeight.w700),
+                    ),
+                    if (branch.syncedAt != null)
+                      Text(
+                        l.lastSyncAt(subeClock(branch.syncedAt!)),
+                        style: Dg.typeCaption(),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: _BranchCard(
+                      name: d?.branchName.isNotEmpty == true
+                          ? d!.branchName
+                          : s.agencyUser?.agency.name ?? l.subeHome,
+                      code: d?.branchCode ?? '',
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  const Expanded(flex: 2, child: _DateCard()),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
             SubeStatusBanner(branch: branch),
             if (d == null)
               branch.loading ? const _DashSkeleton() : const SizedBox.shrink()
             else ...[
-              SubeOverline(l.dashToday),
-              SubeCardGrid(
-                children: [
-                  if (kpis != null)
-                    SubeKpiCard(
-                      icon: LucideIcons.package,
-                      label: l.dashTotal,
-                      value: kpis.total,
-                      tone: KpiTone.brand,
-                      onTap: () => _shipments('all'),
-                    ),
-                  SubeKpiCard(
+              _KpiGrid(
+                tiles: [
+                  DgKpiTile(
+                    icon: LucideIcons.package,
+                    tone: DgTone.info,
+                    label: l.dashTotal,
+                    value: kpis?.total,
+                    onTap: () => _shipments('all'),
+                  ),
+                  DgKpiTile(
                     icon: LucideIcons.truck,
+                    tone: DgTone.accent,
                     label: l.dashOut,
                     value: out,
-                    tone: KpiTone.brand,
                     onTap: () => _shipments('out'),
                   ),
-                  SubeKpiCard(
+                  DgKpiTile(
                     icon: LucideIcons.packageCheck,
+                    tone: DgTone.ok,
                     label: l.dashDelivered,
                     value: d.deliveredToday,
-                    tone: KpiTone.ok,
                     onTap: () => _push(const SubePerformanceScreen()),
                   ),
-                  if (kpis != null)
-                    SubeKpiCard(
-                      icon: LucideIcons.userPlus,
-                      label: l.dashAwaitCourier,
-                      value: kpis.unassigned,
-                      tone: KpiTone.warn,
-                      onTap: () => _shipments('waiting'),
-                    ),
-                  SubeKpiCard(
-                    icon: LucideIcons.triangleAlert,
-                    label: l.dashFaulty,
-                    value: d.pending,
-                    tone: KpiTone.bad,
-                    onTap: () => _push(const SubeEodScreen()),
+                  DgKpiTile(
+                    icon: LucideIcons.userPlus,
+                    tone: DgTone.warn,
+                    label: l.dashAwaitCourier,
+                    value: kpis?.unassigned,
+                    onTap: () => _shipments('waiting'),
                   ),
-                  SubeKpiCard(
+                  DgKpiTile(
+                    icon: LucideIcons.packageX,
+                    tone: DgTone.bad,
+                    label: l.dashFailed,
+                    value: branch.todayPerformance?.failedAttempts,
+                    onTap: () => _push(const SubePerformanceScreen()),
+                  ),
+                  DgKpiTile(
                     icon: LucideIcons.undo2,
+                    tone: DgTone.neutral,
                     label: l.dashAwaitReturn,
-                    value: d.approvalsReturns,
-                    tone: KpiTone.warn,
-                    onTap: () => _push(const SubeStockScreen()),
+                    value: branch.pending?.returns.length ?? d.approvalsReturns,
+                    onTap: () => _push(const SubeReturnFlow()),
                   ),
                 ],
               ),
-              SubeOverline(
-                l.dashLiveOps,
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    PulseDot(color: Dg.ok, size: 8),
-                    const SizedBox(width: 6),
-                    Text(l.liveActive, style: Dg.typeCaption()),
-                  ],
-                ),
+              const SizedBox(height: 16),
+              _LiveOps(
+                couriers: d.courierList,
+                onBreak: branch.couriersOnBreak,
+                onOpen: () => _push(const SubeCourierMapScreen()),
               ),
-              SubeCardGrid(
-                children: [
-                  SubeKpiCard(
-                    icon: LucideIcons.radio,
-                    label: l.dashActiveCouriers,
-                    value: d.couriersActive,
-                    suffix: ' / ${d.couriersTotal}',
-                    tone: KpiTone.ok,
-                    onTap: () => ref.read(subeNavProvider).go(SubeNav.couriers),
-                  ),
-                  SubeKpiCard(
-                    icon: LucideIcons.bike,
-                    label: l.dashCouriersOut,
-                    value: couriersOut,
-                    tone: KpiTone.brand,
-                    onTap: () => ref.read(subeNavProvider).go(SubeNav.couriers),
-                  ),
-                  SubeKpiCard(
-                    icon: LucideIcons.undo2,
-                    label: l.dashAwaitReturn,
-                    value: d.approvalsReturns,
-                    tone: KpiTone.warn,
-                    onTap: () => _push(const SubeStockScreen()),
-                  ),
-                  SubeKpiCard(
-                    icon: LucideIcons.arrowUpFromLine,
-                    label: l.dashToCenter,
-                    value: d.returnToCenter,
-                    tone: KpiTone.neutral,
-                    onTap: () => _push(const SubeDispatchScreen()),
-                  ),
-                ],
-              ),
+              const SizedBox(height: 16),
               SubeOverline(l.dashQuick),
-              Row(
-                children: [
-                  Expanded(
-                    child: SubeQuickAction(
-                      icon: LucideIcons.userPlus,
-                      label: l.quickAssign,
-                      accent: true,
-                      onTap: () => _shipments('waiting'),
-                    ),
+              DgActionGrid(
+                items: [
+                  (
+                    icon: LucideIcons.userPlus,
+                    label: l.quickAssign,
+                    tone: DgTone.info,
+                    onTap: () => _shipments('waiting'),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: SubeQuickAction(
-                      icon: LucideIcons.undo2,
-                      label: l.quickReturn,
-                      onTap: () => _push(const SubeStockScreen()),
-                    ),
+                  (
+                    icon: LucideIcons.undo2,
+                    label: l.quickReturn,
+                    tone: DgTone.accent,
+                    onTap: () => _push(const SubeReturnFlow()),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: SubeQuickAction(
-                      icon: LucideIcons.arrowLeftRight,
-                      label: l.quickTransfer,
-                      onTap: _transferSheet,
-                    ),
+                  (
+                    icon: LucideIcons.arrowLeftRight,
+                    label: l.quickTransfer,
+                    tone: DgTone.ok,
+                    onTap: _transferSheet,
+                  ),
+                  (
+                    icon: LucideIcons.clipboardList,
+                    label: l.quickCount,
+                    tone: DgTone.warn,
+                    onTap: () => _push(const SubeCountScreen()),
                   ),
                 ],
               ),
@@ -248,192 +243,71 @@ class _SubeHomeScreenState extends ConsumerState<SubeHomeScreen> {
   }
 }
 
-/// Lacivert marka başlığı: dalga (kaydırmayla paralaks), logo, selam,
-/// günün toplamı ve teslim halkası. Temadan bağımsız koyu yüzey.
-class _HeroHeader extends StatelessWidget {
-  const _HeroHeader({
-    required this.scroll,
-    required this.userName,
-    required this.branchName,
-    required this.syncedAt,
-    required this.total,
-    required this.delivered,
-    required this.unread,
-    required this.loading,
-    required this.onInbox,
-  });
+/// Şube kartı: lacivert marka yüzeyi, dalga, D ikonu, ad ve kod.
+class _BranchCard extends StatelessWidget {
+  const _BranchCard({required this.name, required this.code});
 
-  final ScrollController scroll;
-  final String userName;
-  final String branchName;
-  final DateTime? syncedAt;
-  final int? total;
-  final int? delivered;
-  final int unread;
-  final bool loading;
-  final VoidCallback onInbox;
+  final String name;
+  final String code;
 
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
-    final hour = DateTime.now().hour;
-    final first = userName.split(' ').first;
-    // `todayToDeliver` kalan iş gibi davranıyor (demo: 7 kalan, 19 teslim);
-    // oran teslim / (teslim + kalan). Swagger'dan teyit edilmeli.
-    final t = total ?? 0;
-    final done = delivered ?? 0;
-    final all = t + done;
     return ClipRRect(
-      borderRadius: BorderRadius.circular(28),
+      borderRadius: BorderRadius.circular(16),
       child: DecoratedBox(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF16205A), Color(0xFF0D1338), Dg.navy],
+            colors: [Color(0xFF16205A), Dg.navy],
           ),
         ),
         child: Stack(
           children: [
-            Positioned.fill(
-              child: ParallaxLayer(
-                controller: scroll,
-                factor: -0.25,
-                child: const BrandWave(alignment: Alignment.bottomRight),
-              ),
+            const Positioned.fill(
+              child: BrandWave(alignment: Alignment.bottomRight),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 12, 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              padding: const EdgeInsets.all(14),
+              child: Row(
                 children: [
-                  Row(
-                    children: [
-                      const DijigooWordmark(height: 34, onDark: true),
-                      const Spacer(),
-                      _InboxButton(unread: unread, onTap: onInbox),
-                    ],
-                  ),
-                  const SizedBox(height: 18),
-                  Appear(
+                  const DijigooMark(size: 36),
+                  const SizedBox(width: 12),
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          first.isEmpty
-                              ? l.greeting(hour)
-                              : '${l.greeting(hour)}, $first',
+                          l.dashBranch,
                           style: Dg.ui(
-                            size: 22,
-                            weight: FontWeight.w600,
+                            size: 14,
+                            color: Dg.mutedOnNight,
+                          ).copyWith(fontSize: 12),
+                        ),
+                        Text(
+                          name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: Dg.ui(
+                            size: 16,
+                            weight: FontWeight.w700,
                             color: Colors.white,
                             height: 1.2,
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          branchName,
-                          style: Dg.ui(
-                            size: 15,
-                            weight: FontWeight.w500,
-                            color: Dg.mutedOnNight,
-                          ),
-                        ),
-                        if (syncedAt != null)
+                        if (code.isNotEmpty)
                           Text(
-                            l.lastSyncAt(subeClock(syncedAt!)),
-                            style: Dg.ui(size: 13, color: Dg.mutedOnNight),
+                            l.dashBranchCode(code),
+                            style: Dg.ui(
+                              size: 14,
+                              color: Dg.mutedOnNight,
+                            ).copyWith(fontSize: 12),
                           ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 18),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (total == null)
-                              Text(
-                                '—',
-                                style: Dg.stat(size: 44, color: Colors.white),
-                              )
-                            else
-                              CountUp(
-                                t,
-                                style: Dg.stat(
-                                  size: 44,
-                                  weight: FontWeight.w700,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            const SizedBox(height: 2),
-                            Text(
-                              l.kpiToday,
-                              style: Dg.ui(
-                                size: 14,
-                                weight: FontWeight.w500,
-                                color: Dg.mutedOnNight,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: Semantics(
-                          label: l.dashDeliveredOf(done, all),
-                          excludeSemantics: true,
-                          child: FlowProgressRing(
-                            progress: all == 0 ? 0 : done / all,
-                            size: 84,
-                            track: Colors.white.withValues(alpha: 0.12),
-                            child: Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: FittedBox(
-                                fit: BoxFit.scaleDown,
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      all == 0
-                                          ? '0%'
-                                          : '${(done * 100 / all).round()}%',
-                                      style: Dg.stat(
-                                        size: 18,
-                                        weight: FontWeight.w700,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                    Text(
-                                      l.kpiDelivered,
-                                      style: Dg.ui(
-                                        size: 14,
-                                        color: Dg.mutedOnNight,
-                                      ).copyWith(fontSize: 11),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (loading) ...[
-                    const SizedBox(height: 14),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(2),
-                      child: LinearProgressIndicator(
-                        minHeight: 3,
-                        color: Dg.brandTurquoise,
-                        backgroundColor: Colors.white.withValues(alpha: 0.08),
-                      ),
-                    ),
-                  ],
                 ],
               ),
             ),
@@ -444,54 +318,221 @@ class _HeroHeader extends StatelessWidget {
   }
 }
 
-class _InboxButton extends StatelessWidget {
-  const _InboxButton({required this.unread, required this.onTap});
-
-  final int unread;
-  final VoidCallback onTap;
+class _DateCard extends StatelessWidget {
+  const _DateCard();
 
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
-    return Semantics(
-      button: true,
-      label: unread > 0 ? '${l.subeInboxTitle}, $unread' : l.subeInboxTitle,
-      excludeSemantics: true,
-      child: IconButton(
-        onPressed: onTap,
-        icon: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            const DgIcon(LucideIcons.bell, size: 22, color: Colors.white),
-            if (unread > 0)
-              Positioned(
-                top: -4,
-                right: -6,
-                child: Container(
-                  constraints: const BoxConstraints(minWidth: 18),
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  height: 18,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: Dg.brandTurquoise,
-                    borderRadius: BorderRadius.circular(9),
-                    border: Border.all(color: Dg.navy, width: 2),
+    final now = DateTime.now();
+    return DgPanel(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Row(
+            children: [
+              Icon(LucideIcons.calendarDays, size: 16, color: Dg.highlight),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  l.dashToday,
+                  style: Dg.ui(
+                    size: 14,
+                    weight: FontWeight.w600,
+                    color: Dg.text2,
+                  ).copyWith(fontSize: 12),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              '${now.day} ${l.monthName(now.month)}',
+              style: Dg.ui(size: 17, weight: FontWeight.w700),
+            ),
+          ),
+          Text(l.weekday(now.weekday % 7), style: Dg.typeCaption()),
+        ],
+      ),
+    );
+  }
+}
+
+/// KPI kutuları, iki sütun; satırdaki kutular aynı boyda. Yükseklik yazı
+/// ölçeğinden hesaplanır (IntrinsicHeight'ın çift ölçümü yok; sayı sayarken
+/// her karede yeniden ölçülmez).
+class _KpiGrid extends StatelessWidget {
+  const _KpiGrid({required this.tiles});
+
+  final List<Widget> tiles;
+
+  @override
+  Widget build(BuildContext context) {
+    // Sayı (24) + iki satır etiket (13) ≈ 62 px içerik, 24 px dolgu.
+    final height = 24 + MediaQuery.textScalerOf(context).scale(62);
+    return Column(
+      children: [
+        for (var i = 0; i < tiles.length; i += 2)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: SizedBox(
+              height: height,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: StaggerIn(index: i, child: tiles[i]),
                   ),
-                  child: Text(
-                    unread > 9 ? '9+' : '$unread',
-                    textScaler: TextScaler.noScaling,
-                    style: const TextStyle(
-                      fontFamily: Dg.sans,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      color: Dg.navy,
-                      height: 1,
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: i + 1 < tiles.length
+                        ? StaggerIn(index: i + 1, child: tiles[i + 1])
+                        : const SizedBox.shrink(),
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// Canlı operasyon takip: küçük harita ve durum sayaçları; "Detaylı gör"
+/// tam ekran kurye haritasını açar.
+class _LiveOps extends StatelessWidget {
+  const _LiveOps({
+    required this.couriers,
+    required this.onBreak,
+    required this.onOpen,
+  });
+
+  final List<BranchCourierLive> couriers;
+  final Set<String> onBreak;
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final kinds = {
+      for (final c in couriers)
+        c.id: courierKind(c, onBreak: onBreak.contains(c.id)),
+    };
+    int count(CourierKind k) => kinds.values.where((v) => v == k).length;
+    final located = [
+      for (final c in couriers)
+        if (c.located) c,
+    ];
+    return DgPanel(
+      title: l.dashLiveTrack,
+      trailing: TextButton(
+        key: const Key('live-ops-details'),
+        onPressed: onOpen,
+        style: TextButton.styleFrom(
+          visualDensity: VisualDensity.compact,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+        ),
+        child: Text(l.seeDetails),
+      ),
+      child: Column(
+        children: [
+          if (located.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: GestureDetector(
+                onTap: onOpen,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: IgnorePointer(
+                    child: MapStrip(
+                      height: 140,
+                      rounded: false,
+                      showBadge: false,
+                      couriers: [
+                        for (final c in located)
+                          FleetCourier(
+                            id: c.id,
+                            name: c.name,
+                            lat: c.latitude!,
+                            lng: c.longitude!,
+                            status: courierPinStatus(kinds[c.id]!),
+                          ),
+                      ],
+                      fitTo: [
+                        for (final c in located)
+                          LatLng(c.latitude!, c.longitude!),
+                      ],
                     ),
                   ),
                 ),
               ),
-          ],
-        ),
+            ),
+          Row(
+            children: [
+              for (final k in const [
+                CourierKind.out,
+                CourierKind.free,
+                CourierKind.onBreak,
+                CourierKind.offline,
+              ])
+                Expanded(
+                  child: _LiveCount(
+                    status: courierStatus(l, k),
+                    value: count(k),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LiveCount extends StatelessWidget {
+  const _LiveCount({required this.status, required this.value});
+
+  final DgStatus status;
+  final int value;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = dgToneColor(status.tone);
+    return Semantics(
+      label: '${status.label}: $value',
+      excludeSemantics: true,
+      child: Column(
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              status.tone == DgTone.info
+                  ? PulseDot(color: color, size: 8)
+                  : Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: color,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+              const SizedBox(width: 6),
+              CountUp(value, style: Dg.stat(size: 20, weight: FontWeight.w700)),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Text(
+            status.label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Dg.ui(size: 14, color: Dg.text3).copyWith(fontSize: 12),
+          ),
+        ],
       ),
     );
   }
@@ -502,20 +543,20 @@ class _DashSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget box() => const DgSkeleton(height: 118, radius: 20);
+    Widget box() => const DgSkeleton(height: 72, radius: 16);
     return Padding(
-      padding: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.only(top: 4),
       child: Column(
         children: [
           for (var i = 0; i < 3; i++) ...[
             Row(
               children: [
                 Expanded(child: box()),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 Expanded(child: box()),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
           ],
         ],
       ),

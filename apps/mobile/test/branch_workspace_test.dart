@@ -5,6 +5,7 @@ import 'package:dijigoo_kurye/branch_workspace.dart';
 import 'package:dijigoo_kurye/data/outbox.dart';
 import 'package:dijigoo_kurye/models.dart';
 import 'package:dijigoo_kurye/scan_router.dart';
+import 'package:dijigoo_kurye/ui/status.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -776,5 +777,153 @@ void main() {
     );
     await branch.loadCounts();
     expect(expired, 1);
+  });
+
+  group('P3 operasyon', () {
+    Object? withQueue(_Call c) {
+      if (c.path.endsWith('/branch/dispatch')) {
+        return {
+          'capabilities': {'operate': true},
+          'rows': [
+            _row('s1', 'JD100', 'AWAITING_COURIER'),
+            _row('s2', 'JD200', 'IN_DISTRIBUTION'),
+            _row('s3', 'JD300', 'IN_QUEUE'),
+            _row('s4', 'JD400', 'INCOMING'),
+          ],
+        };
+      }
+      return _defaults(c);
+    }
+
+    test('toplu zimmet yalnız zimmet bekleyeni, değişiklik yalnız kabul '
+        'bekleyeni gönderir', () async {
+      final t = _setup(withQueue);
+      await t.branch.refresh();
+      t.branch.pickAll(t.branch.rows);
+      // Şubeye gelmemiş gönderi seçilmez.
+      expect(t.branch.picked, {'s1', 's2', 's3'});
+      const courier = CourierOption(id: 'c9', name: 'Kurye');
+
+      expect(await t.branch.assignPicked(courier), isNull);
+      expect(t.server.to('/dispatch/handover').single.body['shipmentIds'], [
+        's1',
+      ]);
+      expect(await t.branch.changeShipments(['s3'], courier), isNull);
+      final change = t.server.to('/dispatch/handover/change').single;
+      expect(change.body['shipmentIds'], ['s3']);
+      expect(change.body['courierId'], 'c9');
+      expect(change.key, isNotNull);
+    });
+
+    test('200\'den fazla gönderi sunucuya gitmeden reddedilir', () async {
+      final t = _setup();
+      final ids = [for (var i = 0; i < 201; i++) 'x$i'];
+      final error = await t.branch.assignShipments(
+        ids,
+        const CourierOption(id: 'c1', name: 'Ali'),
+      );
+      expect(error, contains('200'));
+      expect(t.server.calls, isEmpty);
+    });
+
+    test('mola vardiya kaydından okunur, haritadaki BREAK mola sayılmaz', () {
+      final day = BranchShiftDay.fromJson({
+        'couriers': [
+          {
+            'courier': {'id': 'c1', 'fullName': 'Ali'},
+            'shifts': [
+              {'status': 'OPEN', 'onBreak': true},
+            ],
+          },
+          {
+            'courier': {'id': 'c2', 'fullName': 'Mert'},
+            'shifts': [
+              {'status': 'CLOSED', 'onBreak': true},
+            ],
+          },
+        ],
+      });
+      expect(day.couriers.map((c) => c.onBreak), [true, false]);
+      const stale = BranchCourierLive(
+        id: 'c2',
+        name: 'Mert',
+        liveStatus: 'BREAK',
+        holdingCount: 3,
+      );
+      expect(courierKind(stale), CourierKind.out);
+      expect(courierKind(stale, onBreak: true), CourierKind.onBreak);
+      expect(
+        courierKind(const BranchCourierLive(id: 'c3', name: 'Ece')),
+        CourierKind.offline,
+      );
+    });
+
+    test('gönderi detayı ve kurye haritası ayrıştırılır', () {
+      final detail = ShipmentDetail.fromJson({
+        'detail': {
+          'shipment': {
+            ..._row('s1', 'JD100', 'IN_QUEUE'),
+            'weightKg': '1.5',
+            'dispatches': 1,
+            'maxDispatches': 3,
+          },
+          'actions': {'change': true, 'cancel': true},
+          'suggestions': [
+            {'id': 'c1', 'name': 'Ali', 'regionFit': 'MATCH', 'etaMinutes': 12},
+          ],
+        },
+        'recent': [
+          {
+            'code': 'BRANCH_COURIER_HANDOVER_REQUESTED',
+            'at': '2026-10-29T09:00:00Z',
+          },
+        ],
+      })!;
+      expect(detail.row.stage, BranchStage.inQueue);
+      expect(detail.weightKg, 1.5);
+      expect(detail.row.maxDispatches, 3);
+      expect(detail.canChange && detail.canCancel && !detail.canAssign, isTrue);
+      expect(detail.suggestions.single.etaMinutes, 12);
+      expect(detail.recent.single.at, isNotNull);
+      expect(ShipmentDetail.fromJson({'detail': <String, Object>{}}), isNull);
+
+      final map = CourierMapData.fromJson({
+        'couriers': [
+          {
+            'id': 'c1',
+            'name': 'Ali',
+            'liveStatus': 'ACTIVE',
+            'phone': '+905000000101',
+            'location': {'latitude': 37.78, 'longitude': 29.09},
+            'shipments': [
+              {'shipmentId': 's2', 'shipmentNumber': 'JD200', 'overdue': true},
+            ],
+          },
+        ],
+      });
+      final c = map.couriers.single;
+      expect(c.courier.located, isTrue);
+      expect(c.courier.phone, '+905000000101');
+      expect(c.shipments.single.overdue, isTrue);
+    });
+
+    test(
+      'demo: harita, detay ve etiket satırı sunucuya gitmeden gelir',
+      () async {
+        final t = _setup();
+        t.branch.demo = true;
+        await t.branch.refresh();
+        await t.branch.loadCourierMap();
+        expect(t.branch.courierMap?.couriers, isNotEmpty);
+        expect(t.branch.couriersOnBreak, {'demo-c3'});
+        final detail = await t.branch.shipmentDetail('demo-s1');
+        expect(detail?.canAssign, isTrue);
+        final rows = await t.branch.printRows(['demo-s1']);
+        expect(rows.single['shipmentNumber'], 'JL100238546');
+        await t.branch.loadDashExtras();
+        expect(t.branch.todayPerformance?.failedAttempts, 3);
+        expect(t.server.calls, isEmpty);
+      },
+    );
   });
 }

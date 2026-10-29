@@ -3,6 +3,7 @@ import 'package:dijigoo_kurye/app.dart';
 import 'package:dijigoo_kurye/scan_router.dart';
 import 'package:dijigoo_kurye/screens/sube_count_screen.dart';
 import 'package:dijigoo_kurye/session.dart';
+import 'package:dijigoo_kurye/ui/ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -32,8 +33,9 @@ void main() {
   testWidgets('ana sayfa şube özetini ve beş sekmeyi gösterir', (tester) async {
     await openBranch(tester);
     expect(find.text('Güney Acente'), findsOneWidget);
-    expect(find.text('Bugün dağıtılacak'), findsOneWidget);
+    expect(find.text('Toplam gönderi'), findsOneWidget);
     expect(find.text('Kurye ataması bekleyen'), findsOneWidget);
+    expect(find.text('Canlı operasyon takip'), findsOneWidget);
     for (final tab in [
       'Ana Sayfa',
       'Gönderiler',
@@ -52,14 +54,20 @@ void main() {
     final session = await openBranch(tester);
     await tester.tap(find.text('Gönderiler'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('JL100238546'));
+    // Satır detayı açar; kutucuk seçer, toplu işlem çubuğu gelir.
+    await tester.tap(find.byKey(const Key('pick-demo-s1')));
     await tester.pumpAndSettle();
-    await tester.tap(find.textContaining('Kuryeye zimmetle'));
+    expect(session.branch.picked, {'demo-s1'});
+    await tester.tap(find.text('Toplu İşlemler (1)'));
     await tester.pumpAndSettle();
-    expect(find.text('Kurye seç'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('bulk-assign')));
+    await tester.pumpAndSettle();
+    expect(find.text('Kurye Atama'), findsOneWidget);
     expect(find.text('Bölge dışı'), findsOneWidget);
-    // Liste satırlarında da kurye adı var; seçim sayfasındaki en üstteki.
-    await tester.tap(find.text('Ali Can').last);
+    expect(find.text('Bölgesinde'), findsOneWidget);
+    await tester.tap(find.text('Ali Can'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('assign-confirm')));
     await tester.pumpAndSettle();
     final row = session.branch.rows.firstWhere(
       (r) => r.shipmentId == 'demo-s1',
@@ -68,7 +76,84 @@ void main() {
     expect(row.stage, BranchStage.inQueue);
     expect(row.courierName, 'Ali Can');
     expect(session.branch.picked, isEmpty);
-    expect(find.textContaining('Kuryeye zimmetle'), findsNothing);
+    expect(find.text('Kurye Atama'), findsNothing);
+    expect(find.text('Toplu İşlemler (1)'), findsNothing);
+  });
+
+  testWidgets('gönderi detayı açılır, kurye dönüşü okutulup tamamlanır', (
+    tester,
+  ) async {
+    final session = await openBranch(tester);
+    await tester.tap(find.text('Gönderiler'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('JL100238547'));
+    await tester.pumpAndSettle();
+    expect(find.text('Gönderi Detayı'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Demo Müşteri A.Ş.'),
+      200,
+      scrollable: find.byType(Scrollable).hitTestable().first,
+    );
+    await tester.scrollUntilVisible(
+      find.text('Kurye teslim aldı'),
+      200,
+      scrollable: find.byType(Scrollable).hitTestable().first,
+    );
+    Navigator.of(tester.element(find.text('Gönderi Detayı'))).pop();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Ana Sayfa'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Kurye dönüş'),
+      200,
+      scrollable: find.byType(Scrollable).hitTestable().first,
+    );
+    await tester.tap(find.text('Kurye dönüş'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ali Can'));
+    await tester.pumpAndSettle();
+    expect(find.text('1 gönderi dönüş bekliyor'), findsNothing);
+    // Testte kamera yok; elle kod girişi.
+    await tester.enterText(find.byType(TextField), 'JL100238553');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+    expect(find.text('Şubeye teslim alındı'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('return-review')));
+    await tester.pumpAndSettle();
+    expect(find.text('Teslim alındı (1)'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('return-complete')));
+    await tester.pumpAndSettle();
+    expect(find.text('1 gönderi şubeye alındı'), findsOneWidget);
+    expect(session.branch.pendingScans, 0);
+  });
+
+  testWidgets('kurye haritası durum sekmeleriyle açılır', (tester) async {
+    await openBranch(tester);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('live-ops-details')),
+      200,
+      scrollable: find.byType(Scrollable).hitTestable().first,
+    );
+    await tester.tap(find.byKey(const Key('live-ops-details')));
+    await tester.pumpAndSettle();
+    expect(find.text('Kurye Haritası'), findsOneWidget);
+    expect(find.text('Dağıtımda (2)'), findsOneWidget);
+    // Ece vardiyada molada (konum yaşı değil); Barış konumsuz.
+    final pills = find
+        .descendant(
+          of: find.byType(DgPillTabs),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    await tester.scrollUntilVisible(
+      find.text('Çevrimdışı (1)'),
+      120,
+      scrollable: pills,
+    );
+    expect(find.text('Molada (1)'), findsOneWidget);
+    // Konumsuz kurye haritanın altında listelenir.
+    expect(find.text('Barış Arslan'), findsOneWidget);
   });
 
   testWidgets('sayım başlatılır, mükerrer barkod ikinci kez sayılmaz', (
@@ -135,7 +220,11 @@ void main() {
     await tester.tap(find.text('İşlemler'));
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.text('Bildirimler'));
+    await tester.scrollUntilVisible(
+      find.text('Bildirimler'),
+      200,
+      scrollable: find.byType(Scrollable).hitTestable().first,
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('Bildirimler'));
     await tester.pumpAndSettle();
@@ -145,7 +234,11 @@ void main() {
     ).pop();
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.text('Vardiya & İzin'));
+    await tester.scrollUntilVisible(
+      find.text('Vardiya & İzin'),
+      200,
+      scrollable: find.byType(Scrollable).hitTestable().first,
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('Vardiya & İzin'));
     await tester.pumpAndSettle();
@@ -164,7 +257,11 @@ void main() {
     await openBranch(tester);
     await tester.tap(find.text('İşlemler'));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('SMS'));
+    await tester.scrollUntilVisible(
+      find.text('SMS'),
+      200,
+      scrollable: find.byType(Scrollable).hitTestable().first,
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('SMS'));
     await tester.pumpAndSettle();
@@ -181,13 +278,8 @@ void main() {
     await tester.tap(find.text('Kurye ataması bekleyen'));
     await tester.pumpAndSettle();
     expect(find.text('JL100238546'), findsOneWidget);
-    final chip = tester.widget<FilterChip>(
-      find.ancestor(
-        of: find.text('Zimmet Bekleyen'),
-        matching: find.byType(FilterChip),
-      ),
-    );
-    expect(chip.selected, isTrue);
+    // Zimmet Bekleyen sekmesi: dağıtımdaki gönderi listede yok.
+    expect(find.text('JL100238547'), findsNothing);
     await tester.tap(find.text('Profil'));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(

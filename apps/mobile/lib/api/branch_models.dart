@@ -91,7 +91,15 @@ class BranchCourierLive {
     this.overdueCount = 0,
     this.latitude,
     this.longitude,
+    this.phone,
+    this.poolStatus = '',
   });
+
+  /// Kurye telefonu (maskesiz; courier-map ve dashboard).
+  final String? phone;
+
+  /// Havuz durumu (AVAILABLE, WORKING …).
+  final String poolStatus;
 
   /// Kuryenin telefonundan gelen son konum; hiç gelmediyse null.
   final double? latitude;
@@ -119,7 +127,196 @@ class BranchCourierLive {
         overdueCount: _int(j, 'overdueCount'),
         latitude: _coord(j['location'], 'latitude'),
         longitude: _coord(j['location'], 'longitude'),
+        phone: _strOrNull(j, 'phone'),
+        poolStatus: _str(j, 'poolStatus'),
       );
+}
+
+/// Kurye haritasında kuryenin elindeki gönderi.
+class MapShipment {
+  const MapShipment({
+    required this.shipmentId,
+    required this.shipmentNumber,
+    this.statusCode = '',
+    this.recipientName = '',
+    this.product = '',
+    this.district = '',
+    this.since,
+    this.resultMissing = false,
+    this.overdue = false,
+  });
+
+  final String shipmentId;
+  final String shipmentNumber;
+  final String statusCode;
+  final String recipientName;
+  final String product;
+  final String district;
+  final DateTime? since;
+  final bool resultMissing;
+  final bool overdue;
+
+  factory MapShipment.fromJson(Map<String, dynamic> j) => MapShipment(
+    shipmentId: _str(j, 'shipmentId'),
+    shipmentNumber: _str(j, 'shipmentNumber'),
+    statusCode: _str(j, 'statusCode'),
+    recipientName: _str(j, 'recipientName'),
+    product: _str(j, 'product'),
+    district: _str(j, 'district'),
+    since: _date(j, 'since'),
+    resultMissing: _bool(j, 'resultMissing'),
+    overdue: _bool(j, 'overdue'),
+  );
+}
+
+/// GET branch/courier-map: son 24 saatte konum veren kuryeler ve ellerindeki
+/// gönderiler. `liveStatus` konum yaşıdır (BREAK = 10-60 dk), gerçek mola
+/// değildir; mola vardiya verisinden okunur.
+class CourierMapData {
+  const CourierMapData({this.couriers = const [], this.generatedAt});
+
+  final List<({BranchCourierLive courier, List<MapShipment> shipments})>
+  couriers;
+  final DateTime? generatedAt;
+
+  factory CourierMapData.fromJson(Map<String, dynamic> j) => CourierMapData(
+    couriers: [
+      for (final row in _list(j['couriers']))
+        (
+          courier: BranchCourierLive.fromJson(row),
+          shipments: [
+            for (final s in _list(row['shipments'])) MapShipment.fromJson(s),
+          ],
+        ),
+    ],
+    generatedAt: _date(j, 'generatedAt'),
+  );
+}
+
+/// Kurye önerisi (courier-jobs detail.suggestions): bölge uyumu, aktif iş,
+/// tahmini varış.
+class CourierSuggestion {
+  const CourierSuggestion({
+    required this.id,
+    required this.name,
+    this.code = '',
+    this.status = '',
+    this.vehicleType = '',
+    this.area = '',
+    this.regionFit = 'NONE',
+    this.activeJobs = 0,
+    this.todayJobs = 0,
+    this.etaMinutes,
+    this.overdueHoldings = 0,
+  });
+
+  final String id;
+  final String name;
+  final String code;
+  final String status;
+  final String vehicleType;
+  final String area;
+  final String regionFit;
+  final int activeJobs;
+  final int todayJobs;
+  final int? etaMinutes;
+  final int overdueHoldings;
+
+  factory CourierSuggestion.fromJson(Map<String, dynamic> j) =>
+      CourierSuggestion(
+        id: _str(j, 'id'),
+        name: _str(j, 'name'),
+        code: _str(j, 'code'),
+        status: _str(j, 'status'),
+        vehicleType: _str(j, 'vehicleType'),
+        area: _str(j, 'area'),
+        regionFit: _strOrNull(j, 'regionFit') ?? 'NONE',
+        activeJobs: _int(j, 'activeJobs'),
+        todayJobs: _int(j, 'todayJobs'),
+        etaMinutes: j['etaMinutes'] is num
+            ? (j['etaMinutes'] as num).toInt()
+            : null,
+        overdueHoldings: _int(j, 'overdueHoldings'),
+      );
+}
+
+/// Gönderi olayı ya da şube paneli audit kaydı (en fazla 12).
+class ShipmentEvent {
+  const ShipmentEvent({
+    required this.code,
+    this.statusCode,
+    this.reasonCode,
+    this.source,
+    this.actor,
+    this.at,
+  });
+
+  final String code;
+  final String? statusCode;
+  final String? reasonCode;
+  final String? source;
+  final String? actor;
+  final DateTime? at;
+
+  factory ShipmentEvent.fromJson(Map<String, dynamic> j) => ShipmentEvent(
+    code: _str(j, 'code'),
+    statusCode: _strOrNull(j, 'statusCode'),
+    reasonCode: _strOrNull(j, 'reasonCode'),
+    source: _strOrNull(j, 'source'),
+    actor: _strOrNull(j, 'actor'),
+    at: _date(j, 'at'),
+  );
+}
+
+/// GET branch/courier-jobs?shipmentId=: tek gönderinin detayı, açık
+/// aksiyonlar, kurye önerileri ve son hareketler. Alıcı telefonu, müşteri,
+/// not ve SLA bu uçta yok.
+class ShipmentDetail {
+  const ShipmentDetail({
+    required this.row,
+    this.weightKg,
+    this.packageType,
+    this.dispatchReady = false,
+    this.canAssign = false,
+    this.canChange = false,
+    this.canCancel = false,
+    this.suggestions = const [],
+    this.recent = const [],
+  });
+
+  final BranchShipmentRow row;
+  final num? weightKg;
+  final String? packageType;
+  final bool dispatchReady;
+  final bool canAssign;
+  final bool canChange;
+  final bool canCancel;
+  final List<CourierSuggestion> suggestions;
+  final List<ShipmentEvent> recent;
+
+  static ShipmentDetail? fromJson(Map<String, dynamic> data) {
+    final detail = _map(data['detail']);
+    final shipment = _map(detail['shipment']);
+    if (shipment.isEmpty) return null;
+    final actions = _map(detail['actions']);
+    return ShipmentDetail(
+      row: BranchShipmentRow.fromJson(shipment),
+      weightKg: _numOrNull(shipment['weightKg']),
+      packageType: _strOrNull(shipment, 'packageType'),
+      dispatchReady: _bool(shipment, 'dispatchReady'),
+      canAssign: _bool(actions, 'assign'),
+      canChange: _bool(actions, 'change'),
+      canCancel: _bool(actions, 'cancel'),
+      suggestions: [
+        for (final row in _list(detail['suggestions']))
+          CourierSuggestion.fromJson(row),
+      ],
+      recent: [
+        for (final row in _list(data['recent'] ?? detail['recent']))
+          ShipmentEvent.fromJson(row),
+      ],
+    );
+  }
 }
 
 double? _coord(Object? location, String key) {
@@ -133,6 +330,7 @@ double? _coord(Object? location, String key) {
 class BranchDashboard {
   const BranchDashboard({
     this.branchName = '',
+    this.branchCode = '',
     this.couriersActive = 0,
     this.couriersTotal = 0,
     this.todayToDeliver = 0,
@@ -148,6 +346,9 @@ class BranchDashboard {
   });
 
   final String branchName;
+
+  /// Şube kodu (`branch.code`); sunucu vermezse boş.
+  final String branchCode;
   final int couriersActive;
   final int couriersTotal;
   final int todayToDeliver;
@@ -167,6 +368,7 @@ class BranchDashboard {
     final approvals = _map(j['approvals']);
     return BranchDashboard(
       branchName: _str(_map(j['branch']), 'name'),
+      branchCode: _str(_map(j['branch']), 'code'),
       couriersActive: _int(couriers, 'active'),
       couriersTotal: _int(couriers, 'total'),
       todayToDeliver: _int(kpis, 'todayToDeliver'),
@@ -214,7 +416,28 @@ class BranchShipmentRow {
     this.packageCount = 0,
     this.windowStart,
     this.windowEnd,
+    this.city = '',
+    this.neighborhood = '',
+    this.productCode = '',
+    this.reasonCode,
+    this.dispatches = 0,
+    this.maxDispatches,
+    this.productMatched,
+    this.plannedDeliveryAt,
   });
+
+  final String city;
+  final String neighborhood;
+  final String productCode;
+
+  /// Son durum nedeni (ör. teslim edilemedi nedeni).
+  final String? reasonCode;
+
+  /// Dağıtıma çıkış sayısı ve üst sınırı.
+  final int dispatches;
+  final int? maxDispatches;
+  final bool? productMatched;
+  final DateTime? plannedDeliveryAt;
 
   final String shipmentId;
   final String shipmentNumber;
@@ -255,6 +478,18 @@ class BranchShipmentRow {
       packageCount: _int(j, 'packageCount'),
       windowStart: _date(window, 'start'),
       windowEnd: _date(window, 'end'),
+      city: _str(j, 'city'),
+      neighborhood: _str(j, 'neighborhood'),
+      productCode: _str(j, 'productCode'),
+      reasonCode: _strOrNull(j, 'reasonCode'),
+      dispatches: _int(j, 'dispatches'),
+      maxDispatches: j['maxDispatches'] is num
+          ? (j['maxDispatches'] as num).toInt()
+          : null,
+      productMatched: j['productMatched'] is bool
+          ? j['productMatched'] as bool
+          : null,
+      plannedDeliveryAt: _date(j, 'plannedDeliveryAt'),
     );
   }
 }
@@ -1149,6 +1384,7 @@ class ShiftCourierRow {
     this.planStatus = 'NO_PLAN',
     this.ranges = '',
     this.onShiftNow = false,
+    this.onBreak = false,
     this.flags = const [],
   });
 
@@ -1159,6 +1395,10 @@ class ShiftCourierRow {
   /// "09:00–18:00" biçiminde plan aralıkları.
   final String ranges;
   final bool onShiftNow;
+
+  /// Açık vardiyada mola sürüyor (kurye `Shift.onBreak`). Haritadaki
+  /// `liveStatus` BREAK yalnız konum yaşıdır; gerçek mola buradan okunur.
+  final bool onBreak;
   final List<String> flags;
 
   factory ShiftCourierRow.fromJson(Map<String, dynamic> j) {
@@ -1173,6 +1413,8 @@ class ShiftCourierRow {
           '${_str(r, 'start')}–${_str(r, 'end')}',
       ].join(', '),
       onShiftNow: _bool(j, 'onShiftNow'),
+      onBreak: _list(j['shifts'])
+          .any((s) => s['status'] == 'OPEN' && s['onBreak'] == true),
       flags: [
         for (final f in j['flags'] as List? ?? const [])
           if (f is String) f,

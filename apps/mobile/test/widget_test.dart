@@ -614,22 +614,20 @@ void main() {
     await tester.tap(find.byKey(const Key('sube-login')));
     await tester.pumpAndSettle();
     expect(find.text('Güney Acente'), findsOneWidget);
-    expect(find.text('Bugün dağıtılacak'), findsOneWidget);
+    expect(find.text('Toplam gönderi'), findsOneWidget);
 
-    // Ana sayfadaki kart ilgili sekmeyi açar.
+    // Canlı operasyon takibi tam ekran haritayı açar.
     await tester.scrollUntilVisible(
-      find.text('Aktif kurye'),
+      find.byKey(const Key('live-ops-details')),
       200,
       scrollable: find.byType(Scrollable).hitTestable().first,
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Aktif kurye'));
+    await tester.tap(find.byKey(const Key('live-ops-details')));
     await tester.pumpAndSettle();
-    expect(
-      find.text('Kurye havuzu').evaluate().isNotEmpty ||
-          find.text('Kuryeler').evaluate().isNotEmpty,
-      isTrue,
-    );
+    expect(find.text('Kurye Haritası'), findsOneWidget);
+    Navigator.of(tester.element(find.text('Kurye Haritası'))).pop();
+    await tester.pumpAndSettle();
 
     // Kaydırınca alt menü küçülüp etiketi gizler; sekmeye dokun.
     await tester.tap(find.byTooltip('Gönderiler'));
@@ -637,7 +635,9 @@ void main() {
     expect(find.text('JL100238546'), findsOneWidget);
     await tester.tap(find.text('JL100238546'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('Kuryeye zimmetle'), findsOneWidget);
+    expect(find.text('Gönderi Detayı'), findsOneWidget);
+    Navigator.of(tester.element(find.text('Gönderi Detayı'))).pop();
+    await tester.pumpAndSettle();
 
     // Kaydırınca alt menü küçülüp etiketi gizler; sekmeye dokun.
     await tester.tap(find.byTooltip('İşlemler'));

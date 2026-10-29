@@ -226,6 +226,22 @@ class AgencyPortalApi {
     }, idempotencyKey: idempotencyKey);
   }
 
+  /// Tek gönderinin detayı (courier-jobs?shipmentId=). Bu birimde değilse
+  /// null.
+  Future<ShipmentDetail?> fetchShipmentDetail(String shipmentId) async {
+    final data = await _data(
+      _get(
+        '/branch/courier-jobs',
+        queryParameters: {'shipmentId': shipmentId, 'locale': 'tr'},
+      ),
+    );
+    return ShipmentDetail.fromJson(data);
+  }
+
+  /// Kurye haritası: konumlar ve ellerindeki gönderiler (son 24 saat).
+  Future<CourierMapData> fetchCourierMap() async =>
+      CourierMapData.fromJson(await _data(_get('/branch/courier-map')));
+
   Future<List<ReasonOption>> fetchCancelReasons() async {
     final data = await _data(_get('/branch/courier-jobs'));
     return [

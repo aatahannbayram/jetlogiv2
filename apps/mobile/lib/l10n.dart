@@ -825,6 +825,141 @@ class L10n {
   String get transferOutgoing => _t('Merkeze transfer', 'Transfer to HQ');
   String dashDeliveredOf(int done, int total) =>
       _t('$done / $total teslim', '$done / $total delivered');
+
+  // ---- P3: operasyon ekranları (mockup 1–6) ----
+  String get dashBranch => _t('Şube', 'Branch');
+  String monthName(int month) => const [
+    ['Ocak', 'January'],
+    ['Şubat', 'February'],
+    ['Mart', 'March'],
+    ['Nisan', 'April'],
+    ['Mayıs', 'May'],
+    ['Haziran', 'June'],
+    ['Temmuz', 'July'],
+    ['Ağustos', 'August'],
+    ['Eylül', 'September'],
+    ['Ekim', 'October'],
+    ['Kasım', 'November'],
+    ['Aralık', 'December'],
+  ][(month - 1) % 12][isEn ? 1 : 0];
+  String dashBranchCode(String code) => _t('Kod: $code', 'Code: $code');
+  String get dashFailed => _t('Teslim edilemeyen', 'Not delivered');
+  String get dashLiveTrack => _t('Canlı operasyon takip', 'Live operations');
+  String get seeDetails => _t('Detaylı gör', 'See details');
+  String get quickCount => _t('Sayım', 'Count');
+  String get courierOnBreak => _t('Molada', 'On break');
+  String get filterQueue => _t('Kabul Bekleyen', 'Awaiting accept');
+  String get selectAll => _t('Tümünü seç', 'Select all');
+  String get clearSelection => _t('Seçimi temizle', 'Clear selection');
+  String get bulkAssign => _t('Kurye ata', 'Assign courier');
+  String get bulkChange => _t('Kurye değiştir', 'Change courier');
+  String get bulkPrint => _t('Evrak yazdır', 'Print documents');
+  String get bulkProductMatch => _t('Ürün eşleştir', 'Match products');
+  String bulkAssignHint(int n) => n == 0
+      ? _t('Seçimde zimmet bekleyen gönderi yok', 'No unassigned parcel selected')
+      : _t('$n gönderi kuryeye zimmetlenir', '$n parcels will be assigned');
+  String bulkChangeHint(int n) => n == 0
+      ? _t('Seçimde kabul bekleyen gönderi yok', 'No parcel awaiting accept')
+      : _t('$n zimmet başka kuryeye çevrilir', '$n assignments will move');
+  String get bulkChangeFieldNote => _t(
+    'Dağıtımdaki gönderi tek tek, gönderi detayından değiştirilir.',
+    'Parcels already out are changed one by one from the detail screen.',
+  );
+  String bulkPrintHint(int n) =>
+      _t('$n gönderinin etiketi hazırlanır', 'Labels for $n parcels');
+  String get dateFilterPending => _t('Tarihe göre süzme', 'Date filtering');
+  String get filterAny => _t('Hepsi', 'Any');
+  String get shipmentDetailTitle => _t('Gönderi Detayı', 'Shipment detail');
+  String get shipmentNotHere =>
+      _t('Gönderi bu şubede bulunamadı.', 'Shipment not found in this branch.');
+  String get secRecipient => _t('Alıcı bilgileri', 'Recipient');
+  String get secProduct => _t('Ürün bilgileri', 'Product');
+  String get secAppointment => _t('Randevu', 'Appointment');
+  String get secCustomer => _t('Müşteri ve SLA', 'Customer & SLA');
+  String get secHistory => _t('İşlem geçmişi', 'History');
+  String get secSuggestions => _t('Kurye önerileri', 'Suggested couriers');
+  String get fieldName => _t('Ad soyad', 'Name');
+  String get fieldAddress => _t('Adres', 'Address');
+  String get fieldPhone => _t('Telefon', 'Phone');
+  String get fieldProduct => _t('Ürün', 'Product');
+  String get fieldProductCode => _t('Ürün kodu', 'Product code');
+  String get fieldPackages => _t('Paket', 'Packages');
+  String get fieldWeight => _t('Ağırlık', 'Weight');
+  String get fieldPackageType => _t('Paket tipi', 'Package type');
+  String get fieldAttempts => _t('Dağıtım denemesi', 'Delivery attempts');
+  String get fieldCourier => _t('Kurye', 'Courier');
+  String get fieldWindow => _t('Teslim aralığı', 'Delivery window');
+  String get fieldPlanned => _t('Planlanan teslim', 'Planned delivery');
+  String get noAppointment => _t('Randevu yok', 'No appointment');
+  String get phoneHidden => _t(
+    'Alıcı telefonu şube uygulamasına açık değil.',
+    'Recipient phone is not shared with the branch app.',
+  );
+  String get fieldCustomer => _t('Müşteri', 'Customer');
+  String get slaContract => _t('Sözleşme', 'Contract');
+  String get slaOrder => _t('Sipariş no', 'Order no');
+  String get slaReference => _t('Referans no', 'Reference no');
+  String get slaBreached => _t('SLA aşıldı', 'SLA breached');
+  String get customerSlaWhat => _t('Müşteri, SLA ve not', 'Customer, SLA and note');
+  String get historyEmpty => _t('Henüz hareket yok', 'No activity yet');
+  String regionFit(String fit) => switch (fit) {
+    'MATCH' => _t('Bölgesinde', 'In region'),
+    'PARTIAL' => _t('Yakın bölge', 'Nearby'),
+    _ => _t('Bölge dışı', 'Out of region'),
+  };
+  String activeJobs(int n) => _t('$n aktif iş', '$n active');
+  String etaMinutes(int n) => _t('~$n dk', '~$n min');
+  String get evHandover => _t('Kuryeye zimmetlendi', 'Assigned to courier');
+  String get evAccepted => _t('Kurye teslim aldı', 'Courier accepted');
+  String get evHandoverCancelled => _t('Zimmet iptal edildi', 'Assignment cancelled');
+  String get evCourierChanged => _t('Kurye değişti', 'Courier changed');
+  String get evReturned => _t('Şubeye döndü', 'Returned to branch');
+  String get evArrived => _t('Kurye adrese vardı', 'Courier arrived');
+  String get evCalled => _t('Alıcı arandı', 'Recipient called');
+  String get evDelivered => _t('Teslim edildi', 'Delivered');
+  String get evFailed => _t('Teslim edilemedi', 'Not delivered');
+  String get evReceived => _t('Şubeye ulaştı', 'Arrived at branch');
+  String get assignTitle => _t('Kurye Atama', 'Assign courier');
+  String get changeTitle => _t('Kurye Değiştir', 'Change courier');
+  String get tabList => _t('Liste', 'List');
+  String get tabMap => _t('Harita', 'Map');
+  String selectedShipments(int n) => _t('$n gönderi seçildi', '$n selected');
+  String assignConfirm(int n) => _t('Kuryeye ata ($n)', 'Assign ($n)');
+  String changeConfirm(int n) => _t('Kuryeyi değiştir ($n)', 'Change ($n)');
+  String get noLocation => _t('Konum yok', 'No location');
+  String get pickCourierFirst => _t('Önce bir kurye seçin', 'Pick a courier first');
+  String get back => _t('Geri', 'Back');
+  String get returnStepCourier => _t('Kurye', 'Courier');
+  String get returnStepScan => _t('Okut', 'Scan');
+  String get returnStepCheck => _t('Kontrol', 'Review');
+  String get returnPickCourier =>
+      _t('Dönüş yapan kuryeyi seçin', 'Pick the returning courier');
+  String returnExpected(int n) =>
+      _t('$n gönderi dönüş bekliyor', '$n parcels expected back');
+  String get returnAnyCourier =>
+      _t('Kurye seçmeden okut', 'Scan without picking');
+  String get returnScanHint =>
+      _t('Kuryeden dönen gönderiyi okutun', 'Scan the returned parcel');
+  String get returnGroupOk => _t('Teslim alındı', 'Received');
+  String get returnGroupQueued => _t('Kuyrukta', 'Queued');
+  String get returnGroupBad => _t('Hatalı', 'Rejected');
+  String get returnGroupMissing => _t('Okutulmadı', 'Not scanned');
+  String get returnComplete => _t('Dönüşü tamamla', 'Complete return');
+  String returnDone(int n) =>
+      _t('$n gönderi şubeye alındı', '$n parcels received');
+  String returnQueued(int n) => _t(
+    '$n okutma kuyrukta; bağlantı gelince gönderilecek.',
+    '$n scans queued; they will be sent once online.',
+  );
+  String get returnNothing =>
+      _t('Henüz okutma yok', 'Nothing scanned yet');
+  String get courierMapTitle => _t('Kurye Haritası', 'Courier map');
+  String get courierDetail => _t('Detay', 'Details');
+  String mapShipmentsTitle(int n) =>
+      _t('Üzerindeki gönderiler ($n)', 'Parcels on hand ($n)');
+  String locationAge(int minutes) => minutes < 1
+      ? _t('Konum şimdi', 'Location now')
+      : _t('Konum $minutes dk önce', 'Location $minutes min ago');
   String get opsGroupField => _t('Saha', 'Field');
   String get opsGroupStock => _t('Stok & zimmet', 'Stock & custody');
   String get opsGroupComms => _t('İletişim & eğitim', 'Comms & training');

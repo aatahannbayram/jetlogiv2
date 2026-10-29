@@ -256,10 +256,16 @@ class DgSkeleton extends StatelessWidget {
 /// SquareAction, menu tiles. Deliberately not used on [DgCard]'s own onTap
 /// path, which already has InkWell feedback; stacking both would look busy.
 class Pressable extends StatefulWidget {
-  const Pressable({super.key, required this.child, required this.onTap});
+  const Pressable({
+    super.key,
+    required this.child,
+    required this.onTap,
+    this.onLongPress,
+  });
 
   final Widget child;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
 
   @override
   State<Pressable> createState() => _PressableState();
@@ -278,6 +284,13 @@ class _PressableState extends State<Pressable> {
         HapticFeedback.mediumImpact();
         widget.onTap();
       },
+      onLongPress: widget.onLongPress == null
+          ? null
+          : () {
+              HapticFeedback.selectionClick();
+              setState(() => _down = false);
+              widget.onLongPress!();
+            },
       child: AnimatedScale(
         scale: _down ? 0.97 : 1.0,
         duration: _down ? DgMotion.press : DgMotion.standard,

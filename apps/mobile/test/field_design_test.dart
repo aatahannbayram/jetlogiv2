@@ -23,6 +23,11 @@ import 'package:dijigoo_kurye/screens/sube_home_screen.dart';
 import 'package:dijigoo_kurye/screens/sube_login_screen.dart';
 import 'package:dijigoo_kurye/screens/sube_shell_screen.dart';
 import 'package:dijigoo_kurye/screens/sube_shipments_screen.dart';
+import 'package:dijigoo_kurye/screens/sube_shipment_detail_screen.dart';
+import 'package:dijigoo_kurye/screens/sube_assign_flow.dart';
+import 'package:dijigoo_kurye/screens/sube_return_flow.dart';
+import 'package:dijigoo_kurye/screens/sube_courier_map_screen.dart';
+import 'package:dijigoo_kurye/screens/sube_demo.dart';
 import 'package:dijigoo_kurye/screens/sube_couriers_screen.dart';
 import 'package:dijigoo_kurye/screens/sube_stock_screen.dart';
 import 'package:dijigoo_kurye/screens/sube_count_screen.dart';
@@ -132,6 +137,15 @@ void main() {
     'branch-login': const SubeLoginScreen(),
     'branch-shell': const SubeShellScreen(),
     'branch-shipments': const SubeShipmentsScreen(),
+    'branch-shipment-detail': SubeShipmentDetailScreen(
+      row: kSubeDemoBoard.rows[1],
+    ),
+    'branch-assign': SubeAssignFlow(
+      mode: AssignMode.assign,
+      rows: [kSubeDemoBoard.rows.first],
+    ),
+    'branch-return': const SubeReturnFlow(),
+    'branch-courier-map': const SubeCourierMapScreen(),
     'branch-couriers': const SubeCouriersScreen(),
     'branch-stock': const SubeStockScreen(),
     'branch-count': const SubeCountScreen(),

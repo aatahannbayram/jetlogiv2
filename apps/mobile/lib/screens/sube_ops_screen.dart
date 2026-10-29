@@ -6,14 +6,18 @@ import '../l10n.dart';
 import '../session.dart';
 import '../shell_nav.dart';
 import '../theme.dart';
+import '../ui/ui.dart';
 import 'sube_count_screen.dart';
+import 'sube_courier_map_screen.dart';
 import 'sube_dispatch_screen.dart';
 import 'sube_eod_screen.dart';
+import 'sube_header.dart';
 import 'sube_inbox_screen.dart';
 import 'sube_labels_screen.dart';
 import 'sube_manage_screens.dart';
 import 'sube_more_screens.dart';
 import 'sube_performance_screen.dart';
+import 'sube_return_flow.dart';
 import 'sube_shifts_screen.dart';
 import 'sube_sms_screen.dart';
 import 'sube_stock_screen.dart';
@@ -35,10 +39,11 @@ class SubeOpsScreen extends ConsumerWidget {
     final ok = Dg.ok;
     final warn = Dg.warn;
     return Scaffold(
-      appBar: AppBar(title: Text(l.subeOpsTitle)),
+      appBar: const SubeHeaderBar(),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 120),
         children: [
+          DgPageTitle(l.subeOpsTitle),
           SubeStatusBanner(branch: s.branch),
           SubeOverline(l.opsGroupField),
           SubeGroup(
@@ -54,7 +59,12 @@ class SubeOpsScreen extends ConsumerWidget {
                 icon: LucideIcons.undo2,
                 tint: warn,
                 label: l.courierReturnTitle,
-                onTap: () => open(const SubeStockScreen()),
+                onTap: () => open(const SubeReturnFlow()),
+              ),
+              SubeNavTile(
+                icon: LucideIcons.map,
+                label: l.courierMapTitle,
+                onTap: () => open(const SubeCourierMapScreen()),
               ),
               SubeNavTile(
                 icon: LucideIcons.chartColumn,

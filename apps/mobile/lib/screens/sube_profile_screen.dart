@@ -8,7 +8,9 @@ import '../l10n.dart';
 import '../motion.dart';
 import '../session.dart';
 import '../theme.dart';
+import '../ui/ui.dart';
 import '../widgets.dart';
+import 'sube_header.dart';
 import 'sube_inbox_screen.dart';
 import 'sube_more_screens.dart';
 import 'sube_widgets.dart';
@@ -32,10 +34,11 @@ class SubeProfileScreen extends ConsumerWidget {
             .push(MaterialPageRoute<void>(builder: (_) => page));
 
     return Scaffold(
-      appBar: AppBar(title: Text(l.subeTabProfile)),
+      appBar: const SubeHeaderBar(),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 120),
         children: [
+          DgPageTitle(l.subeTabProfile),
           Appear(
             child: Container(
               padding: const EdgeInsets.all(18),

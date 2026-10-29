@@ -11,7 +11,9 @@ import '../scan.dart';
 import '../session.dart';
 import '../shell_nav.dart';
 import '../theme.dart';
+import '../ui/ui.dart';
 import '../widgets.dart';
+import 'sube_header.dart';
 import 'sube_widgets.dart';
 
 /// Kurye havuzu: haritada canlı konum, altında canlı durum, üzerindeki ve
@@ -57,18 +59,20 @@ class _SubeCouriersScreenState extends ConsumerState<SubeCouriersScreen> {
     final l = context.l10n;
     final branch = ref.watch(sessionProvider).branch;
     final couriers = branch.dashboard?.courierList ?? const [];
+    final onBreak = branch.couriersOnBreak;
     final located = [
       for (final c in couriers)
         if (c.located) c,
     ];
     final focus = located.where((c) => c.id == _focusId).toList();
     return Scaffold(
-      appBar: AppBar(title: Text(l.subeCouriersTitle)),
+      appBar: const SubeHeaderBar(),
       body: RefreshIndicator(
         onRefresh: branch.refresh,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 96),
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 120),
           children: [
+            DgPageTitle(l.subeCouriersTitle),
             SubeStatusBanner(branch: branch),
             if (located.isNotEmpty) ...[
               ClipRRect(
@@ -86,7 +90,9 @@ class _SubeCouriersScreenState extends ConsumerState<SubeCouriersScreen> {
                         name: c.name,
                         lat: c.latitude!,
                         lng: c.longitude!,
-                        status: c.liveStatus == 'ACTIVE' ? 'on' : 'break',
+                        status: courierPinStatus(
+                          courierKind(c, onBreak: onBreak.contains(c.id)),
+                        ),
                       ),
                   ],
                   fitTo: [
@@ -171,17 +177,12 @@ class _SubeCouriersScreenState extends ConsumerState<SubeCouriersScreen> {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      StatusChip(
-                        label: switch (c.liveStatus) {
-                          'ACTIVE' => l.liveActive,
-                          'BREAK' => l.liveBreak,
-                          _ => l.liveOffline,
-                        },
-                        tone: switch (c.liveStatus) {
-                          'ACTIVE' => 'lo',
-                          'BREAK' => 'mid',
-                          _ => '',
-                        },
+                      DgStatusPill.of(
+                        courierStatus(
+                          l,
+                          courierKind(c, onBreak: onBreak.contains(c.id)),
+                        ),
+                        dense: true,
                       ),
                     ],
                   ),
