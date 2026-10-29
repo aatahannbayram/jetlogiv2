@@ -70,7 +70,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
           Positioned(
             left: 0,
             right: 0,
-            top: 0,
+            // Dalga, ortadaki logonun arkasından geçer.
+            top: MediaQuery.sizeOf(context).height * 0.16,
             child: AspectRatio(
               aspectRatio: 1440 / 900,
               child: BrandWave(opacity: Dg.dark ? 1 : 0.55)
@@ -100,12 +101,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                           children: [
                             Row(
                               children: [
-                                Appear(
-                                  child: DijigooWordmark(
-                                    height: 36,
-                                    onDark: Dg.dark,
-                                  ),
-                                ),
                                 const Spacer(),
                                 if (s.panelLoggedIn)
                                   Text(
@@ -131,6 +126,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                                 ],
                               ],
                             ),
+                            const Spacer(),
+                            // İmza an: ortalanmış ana logo, slogan ve marka
+                            // akışı çizgisi. Logo yalnız bütün olarak belirir
+                            // (kılavuz: yeniden çizilmez, döndürülmez).
+                            Appear(child: _BrandHero(onDark: Dg.dark)),
                             const Spacer(),
                             Container(
                                   padding: const EdgeInsets.fromLTRB(
@@ -213,7 +213,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                                           width: double.infinity,
                                           padding: const EdgeInsets.all(14),
                                           decoration: BoxDecoration(
-                                            color: onHero.withValues(alpha: 0.05),
+                                            color: onHero.withValues(
+                                              alpha: 0.05,
+                                            ),
                                             borderRadius: BorderRadius.circular(
                                               16,
                                             ),
@@ -375,6 +377,73 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _BrandHero extends StatelessWidget {
+  const _BrandHero({required this.onDark});
+
+  final bool onDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    return Stack(
+      alignment: Alignment.center,
+      clipBehavior: Clip.none,
+      children: [
+        // Logonun arkasında sabit, yumuşak marka ışığı (tek boyama).
+        Positioned(
+          child: IgnorePointer(
+            child: SizedBox(
+              width: 320,
+              height: 220,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: RadialGradient(
+                    colors: [
+                      Dg.brandBlue.withValues(alpha: onDark ? 0.28 : 0.14),
+                      Dg.brandPurple.withValues(alpha: onDark ? 0.10 : 0.05),
+                      Dg.brandBlue.withValues(alpha: 0),
+                    ],
+                    stops: const [0, 0.45, 1],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DijigooWordmark(height: 60, onDark: onDark, withClearSpace: true),
+              const SizedBox(height: 10),
+              Text(
+                l.brandTagline,
+                textAlign: TextAlign.center,
+                style: Dg.ui(
+                  size: 18,
+                  weight: FontWeight.w500,
+                  color: onDark ? Colors.white : Dg.ink,
+                  height: 1.3,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Container(
+                width: 64,
+                height: 3,
+                decoration: const BoxDecoration(
+                  gradient: Dg.brandFlow,
+                  borderRadius: BorderRadius.all(Radius.circular(2)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
