@@ -1913,7 +1913,9 @@ class SessionController extends ChangeNotifier {
     loginRemainingAttempts = null;
     loginLockedUntil = null;
     final id = identifier.trim();
-    if (kAllowDebugBypass &&
+    // Demo hesabı yalnız geliştirme ya da ALLOW_DEMO ile derlenen demo
+    // yayınında açılır; canlı yayında kapalıdır.
+    if ((kAllowDebugBypass || kAllowDemo) &&
         id == panelDemoIdentifier &&
         password == panelDemoPassword) {
       panelLoggedIn = true;
@@ -1974,7 +1976,7 @@ class SessionController extends ChangeNotifier {
     agencyLoginBusy = true;
     notifyListeners();
     final trimmed = email.trim();
-    if (kAllowDebugBypass &&
+    if ((kAllowDebugBypass || kAllowDemo) &&
         trimmed == agencyDemoEmail &&
         password == agencyDemoPassword) {
       agencyUser = AgencyPortalUserDto(
@@ -2265,6 +2267,9 @@ class SessionController extends ChangeNotifier {
     }
   }
 
+  /// Son konum ölçümünün yatay hassasiyeti (metre); kanıt yüklemede gider.
+  double? selfAccuracy;
+
   Future<void> refreshSelfPosition() async {
     final here = await readDeviceLocation();
     if (here == null) return;
@@ -2281,6 +2286,7 @@ class SessionController extends ChangeNotifier {
     );
     selfLat = here.lat;
     selfLng = here.lng;
+    selfAccuracy = here.accuracy;
     selfLocated = true;
     notifyListeners();
     if (moved > 40) unawaited(ensureDayRoute());
@@ -2473,6 +2479,7 @@ class SessionController extends ChangeNotifier {
       captureCheck: check,
       latitude: selfLocated ? selfLat : null,
       longitude: selfLocated ? selfLng : null,
+      accuracy: selfLocated ? selfAccuracy : null,
       capturedAt: DateTime.now(),
     );
   }
@@ -3371,6 +3378,9 @@ class SessionController extends ChangeNotifier {
         if (receivedBy != null) 'receivedBy': receivedBy,
         if (outcome != 'FAILED' && deliveryOtpToken != null)
           'otpEvidenceId': deliveryOtpToken,
+        // Yüklenen kanıtlar; uygulama yeniden açılsa da finalize'a gider.
+        if (panel?.knownEvidenceIds(id).isNotEmpty == true)
+          'evidenceIds': panel!.knownEvidenceIds(id),
         // Yalnız gerçek ölçüm gider; depo varsayılanı konum sayılmaz.
         if (selfLocated) ...{
           'latitude': selfLat,
@@ -3504,6 +3514,9 @@ class SessionController extends ChangeNotifier {
           reasonCode: event.payload['reasonCode'] as String?,
           receivedBy: event.payload['receivedBy'] as String?,
           otpEvidenceId: event.payload['otpEvidenceId'] as String?,
+          evidenceIds: (event.payload['evidenceIds'] as List?)
+              ?.whereType<String>()
+              .toList(),
         );
         final t = _maybeTask(id!);
         final state = res.currentStateCode;
@@ -3638,6 +3651,7 @@ class SessionController extends ChangeNotifier {
           latitude: _asDouble(p['latitude']),
           longitude: _asDouble(p['longitude']),
           capturedAt: captured is String ? DateTime.tryParse(captured) : null,
+          evidenceIds: (p['evidenceIds'] as List?)?.whereType<String>().toList(),
         );
       case SyncOperation.panelShiftStart:
       case SyncOperation.panelShiftEnd:

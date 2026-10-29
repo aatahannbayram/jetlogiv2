@@ -105,19 +105,22 @@ void main() {
       expect(list.summary.today, 1);
     });
 
-    test('PanelTaskActionResultDto accept/start/finalize bayraklarını ayırt eder', () {
-      expect(
-        PanelTaskActionResultDto.fromJson({'alreadyAccepted': true}).already,
-        isTrue,
-      );
-      expect(
-        PanelTaskActionResultDto.fromJson({
-          'alreadyStarted': false,
-          'workflowState': 'OUT_FOR_DELIVERY',
-        }).workflowState,
-        'OUT_FOR_DELIVERY',
-      );
-    });
+    test(
+      'PanelTaskActionResultDto accept/start/finalize bayraklarını ayırt eder',
+      () {
+        expect(
+          PanelTaskActionResultDto.fromJson({'alreadyAccepted': true}).already,
+          isTrue,
+        );
+        expect(
+          PanelTaskActionResultDto.fromJson({
+            'alreadyStarted': false,
+            'workflowState': 'OUT_FOR_DELIVERY',
+          }).workflowState,
+          'OUT_FOR_DELIVERY',
+        );
+      },
+    );
   });
 
   group('PanelApi istekleri', () {
@@ -134,7 +137,11 @@ void main() {
         };
       });
       final api = PanelApi(dio);
-      final result = await api.fetchTasks(page: 2, pageSize: 10, status: 'COURIER_ASSIGNED');
+      final result = await api.fetchTasks(
+        page: 2,
+        pageSize: 10,
+        status: 'COURIER_ASSIGNED',
+      );
       expect(seen.path, '/courier-tasks');
       expect(seen.queryParameters['page'], '2');
       expect(seen.queryParameters['pageSize'], '10');
@@ -162,12 +169,14 @@ void main() {
         seenBody = Map<String, dynamic>.from(options.data as Map);
         return {
           'success': true,
-          'data': {'alreadyStarted': false, 'workflowState': 'OUT_FOR_DELIVERY'},
+          'data': {
+            'alreadyStarted': false,
+            'workflowState': 'OUT_FOR_DELIVERY',
+          },
         };
       });
-      final result = await PanelApi(
-        dio,
-      ).startTask('s-1', latitude: 38.1, longitude: 29.0, accuracy: 12);
+      final result = await PanelApi(dio)
+          .startTask('s-1', latitude: 38.1, longitude: 29.0, accuracy: 12);
       expect(seenBody!['latitude'], 38.1);
       expect(seenBody!['longitude'], 29.0);
       expect(seenBody!['accuracy'], 12);
@@ -178,7 +187,10 @@ void main() {
     test('finalizeTask FAILED için reasonCode gönderir', () async {
       Map<String, dynamic>? seenBody;
       final dio = _mockDio((options) {
-        seenBody = Map<String, dynamic>.from(options.data as Map);
+        // Finalize öncesi kanıt listesi GET'i de buradan geçer.
+        if (options.method == 'POST') {
+          seenBody = Map<String, dynamic>.from(options.data as Map);
+        }
         return {
           'success': true,
           'data': {'alreadyFinalized': false, 'currentStateCode': 'REDELIVERY'},
@@ -236,7 +248,10 @@ void main() {
     test('finalizeTask teslimde otpEvidenceId gider', () async {
       Map<String, dynamic>? seenBody;
       final dio = _mockDio((options) {
-        seenBody = Map<String, dynamic>.from(options.data as Map);
+        // Finalize öncesi kanıt listesi GET'i de buradan geçer.
+        if (options.method == 'POST') {
+          seenBody = Map<String, dynamic>.from(options.data as Map);
+        }
         return {
           'success': true,
           'data': {'alreadyFinalized': false, 'currentStateCode': 'DELIVERED'},
@@ -254,6 +269,106 @@ void main() {
       expect(seenBody!['receivedByName'], 'Kendisi');
       expect(seenBody!.containsKey('reasonCode'), isFalse);
     });
+
+    test('yüklenen kanıt id\'leri finalize\'da evidenceIds olarak gider, '
+        'konum hassasiyeti yüklemede gider', () async {
+      final fields = <String, String>{};
+      Map<String, dynamic>? finalizeBody;
+      final dio = Dio();
+      dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) {
+            if (options.path.endsWith('/evidence')) {
+              final form = options.data as FormData;
+              for (final f in form.fields) {
+                fields[f.key] = f.value;
+              }
+              handler.resolve(
+                Response<Map<String, dynamic>>(
+                  requestOptions: options,
+                  statusCode: 201,
+                  data: {
+                    'success': true,
+                    'data': {
+                      'evidence': {'id': 'ev-${fields.length}'},
+                    },
+                  },
+                ),
+              );
+              return;
+            }
+            finalizeBody = Map<String, dynamic>.from(options.data as Map);
+            handler.resolve(
+              Response<Map<String, dynamic>>(
+                requestOptions: options,
+                statusCode: 200,
+                data: {
+                  'success': true,
+                  'data': {'currentStateCode': 'DELIVERED'},
+                },
+              ),
+            );
+          },
+        ),
+      );
+      final api = PanelApi(dio);
+      final id = await api.uploadTaskEvidence(
+        shipmentId: 's-1',
+        bytes: const [1, 2, 3],
+        filename: 'a.jpg',
+        evidenceType: 'PHOTO',
+        requirementCode: 'DOOR',
+        latitude: 41.1,
+        longitude: 29.0,
+        accuracy: 12.5,
+        capturedAt: DateTime.utc(2026, 10, 29),
+      );
+      expect(fields['evidenceType'], 'PHOTO');
+      expect(fields['requirementCode'], 'DOOR');
+      expect(fields['accuracy'], '12.5');
+      expect(fields['capturedAt'], isNotNull);
+      expect(api.knownEvidenceIds('s-1'), [id]);
+
+      await api.finalizeTask(
+        's-1',
+        outcome: 'DELIVERED',
+        idempotencyKey: 'key-finalize-3',
+      );
+      expect(finalizeBody!['evidenceIds'], [id]);
+      // Başarılı finalize sonrası liste temizlenir.
+      expect(api.knownEvidenceIds('s-1'), isEmpty);
+    });
+
+    test(
+      'bellekte kanıt yoksa finalize sunucudaki kanıt listesini gönderir',
+      () async {
+        Map<String, dynamic>? finalizeBody;
+        final dio = _mockDio((options) {
+          if (options.method == 'GET') {
+            return {
+              'success': true,
+              'data': {
+                'evidences': [
+                  {'id': 'ev-a'},
+                  {'id': 'ev-b'},
+                ],
+              },
+            };
+          }
+          finalizeBody = Map<String, dynamic>.from(options.data as Map);
+          return {
+            'success': true,
+            'data': {'currentStateCode': 'DELIVERED'},
+          };
+        });
+        await PanelApi(dio).finalizeTask(
+          's-2',
+          outcome: 'DELIVERED',
+          idempotencyKey: 'key-finalize-4',
+        );
+        expect(finalizeBody!['evidenceIds'], ['ev-a', 'ev-b']);
+      },
+    );
 
     test('canonical hata kodu PanelApiException olarak fırlatılır', () async {
       final dio = Dio(BaseOptions(baseUrl: 'http://panel.test'));
@@ -308,33 +423,34 @@ void main() {
       expect(session, isNull);
     });
 
-    test('login identifier/password ile POST courier-auth/login atar', () async {
-      String? seenPath;
-      Map<String, dynamic>? seenBody;
-      final dio = _mockDio((options) {
-        seenPath = options.path;
-        seenBody = Map<String, dynamic>.from(options.data as Map);
-        return {
-          'success': true,
-          'data': {
-            'courier': {
-              'id': 'c-1',
-              'courierCode': 'DGC-1',
-              'fullName': 'Ayşe Kurye',
+    test(
+      'login identifier/password ile POST courier-auth/login atar',
+      () async {
+        String? seenPath;
+        Map<String, dynamic>? seenBody;
+        final dio = _mockDio((options) {
+          seenPath = options.path;
+          seenBody = Map<String, dynamic>.from(options.data as Map);
+          return {
+            'success': true,
+            'data': {
+              'courier': {
+                'id': 'c-1',
+                'courierCode': 'DGC-1',
+                'fullName': 'Ayşe Kurye',
+              },
             },
-          },
-        };
-      });
-      final profile = await PanelApi(dio).login(
-        identifier: 'kurye@dijigoo.test',
-        password: 'secret',
-      );
-      expect(seenPath, '/courier-auth/login');
-      expect(seenBody!['identifier'], 'kurye@dijigoo.test');
-      expect(seenBody!['password'], 'secret');
-      expect(profile.fullName, 'Ayşe Kurye');
-      expect(profile.courierCode, 'DGC-1');
-    });
+          };
+        });
+        final profile = await PanelApi(dio)
+            .login(identifier: 'kurye@dijigoo.test', password: 'secret');
+        expect(seenPath, '/courier-auth/login');
+        expect(seenBody!['identifier'], 'kurye@dijigoo.test');
+        expect(seenBody!['password'], 'secret');
+        expect(profile.fullName, 'Ayşe Kurye');
+        expect(profile.courierCode, 'DGC-1');
+      },
+    );
 
     test('hasStoredSession cookie jar\'sız her zaman false', () async {
       final api = PanelApi(Dio());
@@ -381,11 +497,8 @@ void main() {
           'data': {'alreadyReturned': false, 'statusCode': 'RETURNED'},
         };
       });
-      final result = await PanelApi(dio).returnCustodyUnit(
-        'u-1',
-        warehouseId: 'wh-1',
-        note: 'şube',
-      );
+      final result = await PanelApi(dio)
+          .returnCustodyUnit('u-1', warehouseId: 'wh-1', note: 'şube');
       expect(seenPath, '/courier-custody/return');
       expect(seenBody!['shipmentIds'], ['u-1']);
       expect(seenBody!['targetUnitId'], 'wh-1');

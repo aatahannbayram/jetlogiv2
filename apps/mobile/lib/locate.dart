@@ -27,7 +27,9 @@ bool get _skipHardware {
 }
 
 /// Tek seferlik konum. Sürekli takip yok — vardiya/rota/yenilemede çağrılır.
-Future<({double lat, double lng})?> readDeviceLocation() async {
+/// [accuracy] metre cinsinden yatay hassasiyet (kanıt yüklemede sunucuya gider).
+Future<({double lat, double lng, double? accuracy})?>
+readDeviceLocation() async {
   if (_skipHardware) return null;
   try {
     if (!await Geolocator.isLocationServiceEnabled()) return null;
@@ -46,7 +48,11 @@ Future<({double lat, double lng})?> readDeviceLocation() async {
         timeLimit: Duration(seconds: 8),
       ),
     );
-    return (lat: p.latitude, lng: p.longitude);
+    return (
+      lat: p.latitude,
+      lng: p.longitude,
+      accuracy: p.accuracy > 0 ? p.accuracy : null,
+    );
   } catch (_) {
     return null;
   }

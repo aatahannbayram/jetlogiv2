@@ -271,6 +271,7 @@ class PanelApi {
         '/courier-tasks/$shipmentId/evidence/$evidenceId',
         options: Options(headers: {'Idempotency-Key': Vault.newUuid()}),
       );
+      _uploadedEvidence[shipmentId]?.remove(evidenceId);
     } on DioException catch (e) {
       throw _panelException(e);
     }
@@ -547,6 +548,7 @@ class PanelApi {
     Map<String, Object?>? captureCheck,
     double? latitude,
     double? longitude,
+    double? accuracy,
     DateTime? capturedAt,
   }) async {
     final key = Vault.newUuid();
@@ -560,6 +562,7 @@ class PanelApi {
       if (latitude != null && longitude != null) ...{
         'latitude': latitude,
         'longitude': longitude,
+        'accuracy': ?accuracy,
       },
       if (capturedAt != null)
         'capturedAt': capturedAt.toUtc().toIso8601String(),
@@ -581,9 +584,37 @@ class PanelApi {
     }
     final data = res.data?['data'] as Map? ?? const {};
     final evidence = data['evidence'];
-    return (evidence is Map ? evidence['id'] as String? : null) ??
+    final id =
+        (evidence is Map ? evidence['id'] as String? : null) ??
         data['evidenceId'] as String? ??
         data['id'] as String?;
+    if (id != null) (_uploadedEvidence[shipmentId] ??= {}).add(id);
+    return id;
+  }
+
+  /// Bu ziyarette yüklenen kanıtlar, gönderi bazında. `finalize` bunları
+  /// `evidenceIds` olarak gönderir; gönderilmezse kayıt kontrol ekranına
+  /// düşmez (JetDiji entegrasyon notu, madde 4).
+  final _uploadedEvidence = <String, Set<String>>{};
+
+  /// Bellekte bilinen kanıt id'leri (çevrimdışı kuyruğa yazmak için).
+  List<String> knownEvidenceIds(String shipmentId) => [
+    ...?_uploadedEvidence[shipmentId],
+  ];
+
+  /// Finalize için kanıt id'leri: önce bu oturumda yüklenenler; uygulama
+  /// yeniden açıldıysa sunucudaki geçerli kanıt listesi.
+  Future<List<String>> evidenceIdsForFinalize(String shipmentId) async {
+    final known = knownEvidenceIds(shipmentId);
+    if (known.isNotEmpty) return known;
+    try {
+      return [
+        for (final e in await fetchTaskEvidence(shipmentId))
+          if (e['id'] is String) e['id'] as String,
+      ];
+    } catch (_) {
+      return const [];
+    }
   }
 
   /// Ziyaret anketini kaydeder. [submitted] false ise taslak kalır.
@@ -821,7 +852,9 @@ class PanelApi {
     double? latitude,
     double? longitude,
     DateTime? capturedAt,
+    List<String>? evidenceIds,
   }) async {
+    final ids = evidenceIds ?? await evidenceIdsForFinalize(shipmentId);
     final res = await _post(
       '/courier-tasks/$shipmentId/finalize',
       finalizeBody(
@@ -833,9 +866,11 @@ class PanelApi {
         latitude: latitude,
         longitude: longitude,
         capturedAt: capturedAt,
+        evidenceIds: ids,
       ),
       idempotencyKey: idempotencyKey,
     );
+    _uploadedEvidence.remove(shipmentId);
     return PanelFinalizeResultDto.fromJson(
       Map<String, dynamic>.from(res.data?['data'] as Map? ?? const {}),
     );
@@ -851,6 +886,7 @@ class PanelApi {
     double? latitude,
     double? longitude,
     DateTime? capturedAt,
+    List<String>? evidenceIds,
   }) {
     final delivered = outcome != 'FAILED' && outcome != 'DELIVERY_FAILED';
     return {
@@ -859,6 +895,8 @@ class PanelApi {
       if (delivered && receivedBy != null) 'receivedByName': receivedBy,
       if (delivered && otpEvidenceId != null) 'otpEvidenceId': otpEvidenceId,
       if (note != null && note.isNotEmpty) 'note': note,
+      if (evidenceIds != null && evidenceIds.isNotEmpty)
+        'evidenceIds': evidenceIds,
       if (latitude != null && longitude != null) ...{
         'latitude': latitude,
         'longitude': longitude,
