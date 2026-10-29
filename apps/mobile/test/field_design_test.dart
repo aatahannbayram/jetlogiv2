@@ -118,6 +118,7 @@ void main() {
 
   final pages = <String, Widget>{
     'login': const ActivationScreen(),
+    'brand-splash': const BrandSplash(),
     'home': const HomeScreen(),
     'route': const RouteScreen(),
     'result-success': const SizedBox.shrink(),

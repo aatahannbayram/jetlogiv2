@@ -596,8 +596,10 @@ void main() {
     await tester.pump();
     await tester.tap(find.text('Atla'));
     await tester.pumpAndSettle();
-    await tester.pump(const Duration(milliseconds: 600));
-    // Girişsiz açılışta şube girişi ayrı düğme; kurye formundan geçilmez.
+    // Girişsiz açılış: marka ekranı kendiliğinden girişe geçer; giriş
+    // ekranında Şube sekmesi seçilir.
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('sube-login-link')));
     await tester.pumpAndSettle();
     expect(find.text('Şube Girişi'), findsOneWidget);

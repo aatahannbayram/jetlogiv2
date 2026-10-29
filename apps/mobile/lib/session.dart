@@ -117,6 +117,9 @@ class SessionController extends ChangeNotifier {
   String? lastPanelError;
   String? lastActivationError;
   DateTime? otpResendAt;
+
+  /// SMS girişinde kodun gittiği maskeli numara (JetDiji `maskedPhone`).
+  String? otpMaskedPhone;
   bool activationBusy = false;
 
   static const panelDemoIdentifier = 'kurye@dijigoo.test';
@@ -1829,6 +1832,7 @@ class SessionController extends ChangeNotifier {
         }
         if (sms.challengeId != null) {
           challengeId = sms.challengeId;
+          otpMaskedPhone = sms.maskedPhone;
           otpResendAt = DateTime.now().add(
             Duration(seconds: sms.resendAfterSeconds),
           );

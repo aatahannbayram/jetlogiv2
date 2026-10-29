@@ -1115,6 +1115,24 @@ class L10n {
     _ => code,
   };
   String get subeLogout => _t('Çıkış yap', 'Sign out');
+  // ---- Giriş akışı (mockup 01–03) ----
+  String get loginRoleCourier => _t('Kurye', 'Courier');
+  String get loginRoleBranch => _t('Şube', 'Branch');
+  String get loginOr => _t('veya', 'or');
+  String get identifierLabel => _t('Telefon / E-posta', 'Phone / Email');
+  String get phoneHint => _t('0 5XX XXX XX XX', '0 5XX XXX XX XX');
+  String get noAccount => _t('Hesabınız yok mu?', 'No account?');
+  String get getSupport => _t('Destek alın', 'Get support');
+  String get smsVerifyTitle => _t('SMS Doğrulama', 'SMS verification');
+  String smsSentTo(String phone) => _t(
+    '$phone numarasına gönderilen kodu giriniz.',
+    'Enter the code sent to $phone.',
+  );
+  String get smsSentGeneric =>
+      _t('Telefonunuza gönderilen kodu giriniz.', 'Enter the code we sent you.');
+  String get resendNow => _t('Kodu tekrar gönder', 'Send the code again');
+  String get passwordTile => _t('Şifre', 'Password');
+
   String get openProfile => _t('Profili aç', 'Open profile');
   String get fieldAppVersion =>
       _t('v1.0.0 · Dijigoo Saha', 'v1.0.0 · Dijigoo Field');

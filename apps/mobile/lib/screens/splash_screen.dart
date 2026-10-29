@@ -25,6 +25,22 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   Timer? _timer;
   bool _ready = false;
 
+  /// Girişsiz açılışta marka ekranı (mockup 01) en az bu kadar görünür,
+  /// sonra kendiliğinden girişe geçer; oturum yüklemesini beklemez.
+  static const _brandHold = Duration(milliseconds: 1400);
+  final _openedAt = DateTime.now();
+  bool _advancing = false;
+
+  void _advanceWhenReady() {
+    if (_advancing) return;
+    _advancing = true;
+    final left = _brandHold - DateTime.now().difference(_openedAt);
+    Future<void>.delayed(left.isNegative ? Duration.zero : left, () {
+      if (!mounted) return;
+      ref.read(sessionProvider).finishSplash();
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -54,6 +70,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     final onHero = Dg.onHero;
     final muted = Dg.onHeroMuted;
     final guest = s.courier.fullName.trim().isEmpty;
+    if (guest && !s.forceUpdate) {
+      if (canGo) _advanceWhenReady();
+      return const BrandSplash();
+    }
     final place = [
       s.courier.district,
       s.courier.city,
@@ -478,6 +498,80 @@ class _BrandHero extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Mockup 01: lacivert zemin, köşelerde marka dalgası, ortada D ikonu,
+/// ana logo ve slogan (onaylı panodaki "Mobil Uygulama" düzeni). Hareket
+/// tek seferlik: ikon, logo ve slogan sırayla belirir.
+class BrandSplash extends StatelessWidget {
+  const BrandSplash({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final reduce = MediaQuery.disableAnimationsOf(context);
+    Widget wave({required bool top}) {
+      final img = Transform.rotate(
+        angle: top ? 3.14159 : 0,
+        child: const BrandWave(),
+      );
+      return reduce
+          ? img
+          : img.animate().fadeIn(duration: 700.ms, curve: DgMotion.enter);
+    }
+
+    return Scaffold(
+      backgroundColor: Dg.night,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          Align(
+            alignment: Alignment.topCenter,
+            child: FractionallySizedBox(
+              heightFactor: 0.34,
+              widthFactor: 1,
+              child: wave(top: true),
+            ),
+          ),
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: FractionallySizedBox(
+              heightFactor: 0.34,
+              widthFactor: 1,
+              child: wave(top: false),
+            ),
+          ),
+          Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Appear(child: DijigooMark(size: 112)),
+                const SizedBox(height: 22),
+                const Appear(
+                  delay: Duration(milliseconds: 120),
+                  child: DijigooWordmark(height: 52, onDark: true),
+                ),
+                const SizedBox(height: 18),
+                Appear(
+                  delay: const Duration(milliseconds: 220),
+                  child: Text(
+                    l.brandTagline.replaceFirst(' lojistik', '\nlojistik'),
+                    textAlign: TextAlign.center,
+                    style: Dg.ui(
+                      size: 22,
+                      weight: FontWeight.w500,
+                      color: Colors.white,
+                      height: 1.3,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

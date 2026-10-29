@@ -518,7 +518,12 @@ void main() {
         panel: PanelApi(
           _visitDio(
             (o) => o.path.endsWith('/sms/request')
-                ? {'challengeId': 'ch-1', 'resendAfterSeconds': 60}
+                ? {
+                    'challengeId': 'ch-1',
+                    'resendAfterSeconds': 60,
+                    // JetDiji hesap varsa maskeli numara döner.
+                    'maskedPhone': '0500 *** ** 11',
+                  }
                 : o.path.endsWith('/sms/verify')
                 ? {
                     'accessToken': 'tok',
@@ -550,7 +555,7 @@ void main() {
         panel: PanelApi(
           _visitDio(
             (o) => o.path.endsWith('/sms/request')
-                ? {'challengeId': 'ch-1'}
+                ? {'challengeId': 'ch-1', 'maskedPhone': '0500 *** ** 11'}
                 : o.path.endsWith('/sms/verify')
                 ? DioException(
                     requestOptions: o,
