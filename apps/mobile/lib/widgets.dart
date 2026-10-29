@@ -3162,7 +3162,7 @@ class _CalmGridPainter extends CustomPainter {
             RadialGradient(
               colors: [
                 Color.fromRGBO(255, 255, 255, 0.10 * breath),
-                Color.fromRGBO(170, 120, 255, 0.08 * breath),
+                Color.fromRGBO(37, 99, 255, 0.10 * breath),
                 const Color(0x00000000),
               ],
               stops: const [0, 0.22, 1],
@@ -3181,7 +3181,7 @@ class _CalmGridPainter extends CustomPainter {
         ..shader =
             RadialGradient(
               colors: [
-                Color.fromRGBO(255, 122, 24, 0.07 * breath),
+                Color.fromRGBO(6, 214, 255, 0.07 * breath),
                 const Color(0x00000000),
               ],
             ).createShader(
@@ -3216,7 +3216,7 @@ class _CalmGridPainter extends CustomPainter {
       final y = h * 0.45 + rng.nextDouble() * h * 0.55;
       final hot = i.isEven;
       dot.color = hot
-          ? Color.fromRGBO(255, 150, 60, 0.16 + 0.22 * breath)
+          ? Color.fromRGBO(6, 214, 255, 0.16 + 0.22 * breath)
           : Color.fromRGBO(190, 160, 255, 0.10 + 0.16 * breath);
       canvas.drawCircle(Offset(x, y), hot ? 1.8 : 1.3, dot);
     }

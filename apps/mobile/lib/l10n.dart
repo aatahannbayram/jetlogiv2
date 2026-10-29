@@ -201,6 +201,8 @@ class L10n {
   String get signInCta => _t('Giriş Yap', 'Sign in');
   String get forgotPassword => _t('Şifremi Unuttum?', 'Forgot password?');
   String get rememberMe => _t('Beni Hatırla', 'Remember me');
+  String get idKindPhone => _t('Telefon', 'Phone');
+  String get idKindEmail => _t('E-posta', 'Email');
   String get secureLoginSsl => _t('Güvenli Giriş (SSL)', 'Secure sign-in (SSL)');
   String get goToPermissions => _t('İzinlere geç', 'Continue to permissions');
   String get otherAccount => _t('Başka hesapla gir', 'Use another account');

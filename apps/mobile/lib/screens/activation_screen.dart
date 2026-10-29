@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../l10n.dart';
+import '../login_identifier.dart';
 import '../session.dart';
 import '../brand.dart';
 import '../motion.dart';
@@ -11,7 +12,8 @@ import '../theme.dart';
 import '../widgets.dart';
 import 'join_screens.dart';
 
-/// Canlı giriş — logo + cam alanlar + yöntem kutuları, turuncu CTA.
+/// Canlı giriş: logo, cam alanlar, yöntem kutuları ve marka mavisi CTA.
+/// Kimlik alanı yazılanın türüne (telefon / e-posta) göre biçimlenir.
 class ActivationScreen extends ConsumerStatefulWidget {
   const ActivationScreen({super.key});
 
@@ -91,7 +93,7 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide(color: Dg.warn, width: 1.4),
+        borderSide: BorderSide(color: Dg.highlight, width: 1.4),
       ),
       contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
     );
@@ -101,7 +103,7 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
     setState(() => _error = null);
     final ok = await ref
         .read(sessionProvider)
-        .requestActivationCode(_phone.text);
+        .requestActivationCode(normalizeIdentifier(_phone.text));
     if (!mounted) return;
     if (!ok) {
       setState(() => _error = _activationError(l, ref.read(sessionProvider)));
@@ -117,7 +119,10 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
     });
     final ok = await ref
         .read(sessionProvider)
-        .loginWithPanel(identifier: _identifier.text, password: _password.text);
+        .loginWithPanel(
+          identifier: normalizeIdentifier(_identifier.text),
+          password: _password.text,
+        );
     if (!mounted) return;
     setState(() => _panelBusy = false);
     if (!ok) {
@@ -174,12 +179,8 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Container(
-                                width: 14,
-                                height: 1,
-                                color: _muted.withValues(alpha: 0.45),
-                              ),
-                              SizedBox(width: 8),
+                              _FlowDash(),
+                              SizedBox(width: 10),
                               Flexible(
                                 child: Text(
                                   l.loginTagline,
@@ -194,12 +195,8 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
                                   ),
                                 ),
                               ),
-                              SizedBox(width: 8),
-                              Container(
-                                width: 14,
-                                height: 1,
-                                color: _muted.withValues(alpha: 0.45),
-                              ),
+                              SizedBox(width: 10),
+                              _FlowDash(),
                             ],
                           ),
                         ),
@@ -215,13 +212,26 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
                               controller: _identifier,
                               keyboardType: TextInputType.emailAddress,
                               autocorrect: false,
+                              enableSuggestions: false,
+                              autofillHints: const [
+                                AutofillHints.username,
+                                AutofillHints.email,
+                                AutofillHints.telephoneNumber,
+                              ],
+                              inputFormatters: const [
+                                SmartIdentifierFormatter(),
+                              ],
+                              onChanged: (_) => setState(() {}),
                               style: TextStyle(color: _onHero),
                               decoration: _glassDecoration(
                                 hint: l.loginIdentifierHint,
-                                prefix: Icon(
-                                  LucideIcons.user,
-                                  size: 18,
-                                  color: _muted,
+                                prefix: _KindIcon(
+                                  kind: identifierKind(_identifier.text),
+                                ),
+                                suffix: _KindChip(
+                                  kind: identifierKind(_identifier.text),
+                                  phoneLabel: l.idKindPhone,
+                                  emailLabel: l.idKindEmail,
                                 ),
                               ),
                             ),
@@ -256,13 +266,19 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
                             TextField(
                               controller: _phone,
                               keyboardType: TextInputType.phone,
+                              autofillHints: const [
+                                AutofillHints.telephoneNumber,
+                              ],
+                              inputFormatters: const [
+                                SmartIdentifierFormatter(phoneOnly: true),
+                              ],
+                              onChanged: (_) => setState(() {}),
                               style: TextStyle(color: _onHero),
                               decoration: _glassDecoration(
-                                hint: '+90 5xx xxx xx xx',
-                                prefix: Icon(
-                                  LucideIcons.user,
-                                  size: 18,
-                                  color: _muted,
+                                hint: '0 5xx xxx xx xx',
+                                prefix: _KindIcon(
+                                  kind: IdentifierKind.phone,
+                                  active: _phone.text.isNotEmpty,
                                 ),
                               ),
                             ),
@@ -278,6 +294,14 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
                                     label: l.loginSmsTile,
                                     selected: !_panelMode,
                                     onTap: () => setState(() {
+                                      // Yazılan telefon SMS alanına taşınır.
+                                      if (_phone.text.isEmpty &&
+                                          identifierKind(_identifier.text) ==
+                                              IdentifierKind.phone) {
+                                        _phone.text = formatTrPhone(
+                                          _identifier.text,
+                                        );
+                                      }
                                       _panelMode = false;
                                       _skipStoredPanel = true;
                                       _error = null;
@@ -292,6 +316,10 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
                                     label: l.loginPasswordTile,
                                     selected: _panelMode,
                                     onTap: () => setState(() {
+                                      if (_identifier.text.isEmpty &&
+                                          _phone.text.isNotEmpty) {
+                                        _identifier.text = _phone.text;
+                                      }
                                       _panelMode = true;
                                       _sent = false;
                                       _skipStoredPanel = true;
@@ -321,7 +349,9 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
                                             ? LucideIcons.checkSquare
                                             : LucideIcons.square,
                                         size: 18,
-                                        color: _remember ? Dg.warn : _muted,
+                                        color: _remember
+                                            ? Dg.highlight
+                                            : _muted,
                                       ),
                                       SizedBox(width: 8),
                                       Text(
@@ -352,7 +382,7 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
                                   child: Text(
                                     l.forgotPassword,
                                     style: TextStyle(
-                                      color: Dg.warn,
+                                      color: Dg.highlight,
                                       fontSize: 14,
                                       fontWeight: FontWeight.w600,
                                     ),
@@ -552,7 +582,7 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
                   setState(() => _error = null);
                   final ok = await ref
                       .read(sessionProvider)
-                      .requestActivationCode(_phone.text);
+                      .requestActivationCode(normalizeIdentifier(_phone.text));
                   if (!mounted) return;
                   if (!ok) {
                     setState(
@@ -594,13 +624,23 @@ class _MethodTile extends StatelessWidget {
         constraints: BoxConstraints(minHeight: 104),
         padding: EdgeInsets.symmetric(vertical: 16, horizontal: 8),
         decoration: BoxDecoration(
-          color: selected ? Dg.warnSoft : Dg.heroGlass,
+          color: selected
+              ? Dg.brandBlue.withValues(alpha: Dg.dark ? 0.22 : 0.12)
+              : Dg.heroGlass,
           borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: selected
+                ? Dg.brandBlue.withValues(alpha: 0.7)
+                : Dg.brandBlue.withValues(alpha: 0),
+            width: 1.4,
+          ),
           boxShadow: selected
               ? [
                   BoxShadow(
-                    color: Color(0x55FF7A18),
-                    blurRadius: 16,
+                    color: Dg.brandBlue.withValues(
+                      alpha: Dg.dark ? 0.35 : 0.18,
+                    ),
+                    blurRadius: 18,
                     offset: Offset(0, 6),
                   ),
                 ]
@@ -612,7 +652,7 @@ class _MethodTile extends StatelessWidget {
             Icon(
               icon,
               size: 22,
-              color: selected ? Dg.warn : _ActivationScreenState._muted,
+              color: selected ? Dg.highlight : _ActivationScreenState._muted,
             ),
             SizedBox(height: 8),
             Text(
@@ -630,6 +670,104 @@ class _MethodTile extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Slogan yanındaki kısa marka akışı çizgisi.
+class _FlowDash extends StatelessWidget {
+  const _FlowDash();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 18,
+    height: 2,
+    decoration: const BoxDecoration(
+      gradient: Dg.brandFlow,
+      borderRadius: BorderRadius.all(Radius.circular(1)),
+    ),
+  );
+}
+
+/// Yazılanın türüne göre değişen ön ikon (kişi → telefon / posta).
+class _KindIcon extends StatelessWidget {
+  const _KindIcon({required this.kind, this.active = true});
+
+  final IdentifierKind kind;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    final icon = switch (kind) {
+      IdentifierKind.phone => LucideIcons.smartphone,
+      IdentifierKind.email => LucideIcons.mail,
+      IdentifierKind.empty => LucideIcons.user,
+    };
+    final lit = active && kind != IdentifierKind.empty;
+    return AnimatedSwitcher(
+      duration: DgMotion.quick,
+      transitionBuilder: (child, a) => FadeTransition(
+        opacity: a,
+        child: ScaleTransition(scale: a, child: child),
+      ),
+      child: Icon(
+        icon,
+        key: ValueKey(icon),
+        size: 18,
+        color: lit ? Dg.highlight : Dg.onHeroMuted,
+      ),
+    );
+  }
+}
+
+/// Alanın sağında "Telefon" / "E-posta" etiketi; boşken görünmez.
+class _KindChip extends StatelessWidget {
+  const _KindChip({
+    required this.kind,
+    required this.phoneLabel,
+    required this.emailLabel,
+  });
+
+  final IdentifierKind kind;
+  final String phoneLabel;
+  final String emailLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = switch (kind) {
+      IdentifierKind.phone => phoneLabel,
+      IdentifierKind.email => emailLabel,
+      IdentifierKind.empty => null,
+    };
+    return AnimatedSwitcher(
+      duration: DgMotion.quick,
+      child: label == null
+          ? const SizedBox(key: ValueKey('none'), width: 8)
+          : Padding(
+              key: ValueKey(label),
+              padding: const EdgeInsets.only(right: 10),
+              child: Center(
+                widthFactor: 1,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Dg.brandBlue.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    label,
+                    style: Dg.ui(
+                      size: 14,
+                      weight: FontWeight.w600,
+                      color: Dg.highlight,
+                    ).copyWith(fontSize: 12),
+                  ),
+                ),
+              ),
+            ),
     );
   }
 }
