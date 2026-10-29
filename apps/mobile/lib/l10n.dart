@@ -954,6 +954,79 @@ class L10n {
   String get returnNothing =>
       _t('Henüz okutma yok', 'Nothing scanned yet');
   String get courierMapTitle => _t('Kurye Haritası', 'Courier map');
+
+  // ---- P4: kuryeler (mockup 7, 14–18) ----
+  String get couriersActiveTab => _t('Aktif', 'Active');
+  String get couriersPassiveTab => _t('Pasif', 'Inactive');
+  String couriersCount(int n) => _t('$n kurye', '$n couriers');
+  String get newCourier => _t('Yeni kurye', 'New courier');
+  String get newCourierWhat => _t('Yeni kurye daveti', 'Courier invitations');
+  String get showOnMap => _t('Haritada gör', 'Show on map');
+  String vehicleType(String code) => switch (code) {
+    'MOTORCYCLE' => _t('Motosiklet', 'Motorcycle'),
+    'CAR' => _t('Otomobil', 'Car'),
+    'BICYCLE' => _t('Bisiklet', 'Bicycle'),
+    'VAN' || 'PANELVAN' => _t('Panelvan', 'Van'),
+    'ON_FOOT' || 'WALKING' => _t('Yaya', 'On foot'),
+    _ => code,
+  };
+  String poolStatus(String code) => switch (code) {
+    'AVAILABLE' => _t('Müsait', 'Available'),
+    'WORKING' => _t('Çalışıyor', 'Working'),
+    'PASSIVE' || 'INACTIVE' => _t('Pasif', 'Inactive'),
+    'SUSPENDED' => _t('Askıda', 'Suspended'),
+    'ON_LEAVE' => _t('İzinde', 'On leave'),
+    _ => code,
+  };
+  String get primaryBranch => _t('Birincil şube', 'Primary branch');
+  String get courierDetailTitle => _t('Kurye Detayı', 'Courier detail');
+  String get tabGeneral => _t('Genel', 'General');
+  String get tabCard => _t('Kart', 'Card');
+  String get tabDocs => _t('Evraklar', 'Documents');
+  String get tabDevice => _t('Cihaz', 'Device');
+  String get fieldCode => _t('Kurye kodu', 'Courier code');
+  String get fieldVehicle => _t('Araç', 'Vehicle');
+  String get fieldWorkModel => _t('Çalışma şekli', 'Work model');
+  String get fieldRegion => _t('Bölge', 'Region');
+  String get fieldAssignedSince => _t('Şubede', 'At branch since');
+  String get fieldStatus => _t('Durum', 'Status');
+  String get fieldShift => _t('Vardiya', 'Shift');
+  String get fieldOnHand => _t('Üzerinde', 'On hand');
+  String get secLive => _t('Canlı durum', 'Live status');
+  String get secPerformance => _t('Performans', 'Performance');
+  String get secContact => _t('İletişim', 'Contact');
+  String get cardHint => _t(
+    'Kart QR\'ı kuryenin şube bağlantısını ve evrak durumunu doğrular.',
+    'The card QR verifies the courier\'s branch link and documents.',
+  );
+  String get cardRenew => _t('Yenile', 'Renew');
+  String get cardCancelAction => _t('İptal et', 'Revoke');
+  String get cardRenewWhat => _t('Kart yenileme ve iptal', 'Card renew and revoke');
+  String docsSummary(int approved, int required) =>
+      _t('$approved / $required belge onaylı', '$approved / $required approved');
+  String consentsSummary(int accepted, int total) =>
+      _t('$accepted / $total onay verildi', '$accepted / $total consents');
+  String branchDocStatus(String code) => switch (code) {
+    'APPROVED' => _t('Onaylı', 'Approved'),
+    'IN_REVIEW' || 'PENDING' => _t('İncelemede', 'In review'),
+    'MISSING' || 'NOT_UPLOADED' => _t('Eksik', 'Missing'),
+    'REJECTED' => _t('Reddedildi', 'Rejected'),
+    'EXPIRED' => _t('Süresi doldu', 'Expired'),
+    _ => code,
+  };
+  String docExpires(String date) => _t('Son geçerlilik $date', 'Expires $date');
+  String get deviceWhat => _t(
+    'Cihaz modeli, izinler ve uygulama sürümü',
+    'Device model, permissions and app version',
+  );
+  String get perfEodTitle => _t('Gün sonu', 'End of day');
+  String perfEodOpen(int n) =>
+      _t('$n gönderinin sonucu bekleniyor', '$n parcels awaiting result');
+  String get perfEodReport => _t('Gün sonu raporu', 'End-of-day report');
+  String get customRangeWhat => _t('Tarih aralığı', 'Date range');
+  String get eodCloseDay => _t('Günü kapat', 'Close the day');
+  String get eodCloseWhat => _t('Gün sonu kapatma', 'Day close-out');
+  String get perfCourierAll => _t('Tüm kuryeler', 'All couriers');
   String get courierDetail => _t('Detay', 'Details');
   String mapShipmentsTitle(int n) =>
       _t('Üzerindeki gönderiler ($n)', 'Parcels on hand ($n)');

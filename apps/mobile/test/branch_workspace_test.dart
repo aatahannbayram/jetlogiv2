@@ -926,4 +926,90 @@ void main() {
       },
     );
   });
+
+  group('P4 kuryeler', () {
+    test('kurye listesi ve evrak kalemleri ayrıştırılır', () {
+      final c = BranchCourier.fromJson({
+        'id': 'a1',
+        'shipmentCount': 3,
+        'isPrimary': true,
+        'courier': {
+          'id': 'c1',
+          'courierCode': 'KRY-1',
+          'fullName': 'Ali',
+          'phone': '0500 000 00 01',
+          'status': 'WORKING',
+          'vehicleType': 'MOTORCYCLE',
+          'districtName': 'Kadıköy',
+        },
+      })!;
+      expect(c.active, isTrue);
+      expect(c.primary, isTrue);
+      expect(c.shipmentCount, 3);
+      expect(BranchCourier.fromJson({'courier': <String, Object>{}}), isNull);
+      expect(
+        const BranchCourier(id: 'x', name: 'X', status: 'PASSIVE').active,
+        isFalse,
+      );
+
+      final docs = CourierCompliance.fromJson({
+        'id': 'c1',
+        'fullName': 'Ali',
+        'documents': {
+          'required': 2,
+          'approved': 1,
+          'missing': 1,
+          'status': 'MISSING',
+          'items': [
+            {
+              'code': 'DRIVING_LICENSE',
+              'titleTr': 'Ehliyet',
+              'status': 'EXPIRED',
+              'isRequired': true,
+              'expiresAt': '2026-01-01T00:00:00Z',
+            },
+          ],
+        },
+        'consents': {'total': 2, 'accepted': 1},
+      });
+      expect(docs.documents.single.status, 'EXPIRED');
+      expect(docs.documents.single.expiresAt, isNotNull);
+      expect(docs.consentsAccepted, 1);
+    });
+
+    test('demo: kurye listesi, evrak ve kart sunucuya gitmeden', () async {
+      final t = _setup();
+      t.branch.demo = true;
+      await t.branch.loadRoster();
+      expect(t.branch.roster?.where((c) => !c.active), hasLength(1));
+      expect(t.branch.compliance, isNotEmpty);
+      final card = await t.branch.courierCard('demo-c1');
+      expect(card.token, isNotEmpty);
+      expect(card.displayName, 'Ali Can');
+      expect(t.server.calls, isEmpty);
+    });
+
+    test('kart günlük anahtarla kurye için üretilir', () async {
+      final t = _setup((c) {
+        if (c.path.endsWith('/compliance/cards')) {
+          return {
+            'card': {
+              'token': 'JDC1.x.y',
+              'displayName': 'Ali',
+              'active': true,
+              'expiresAt': '2027-01-01T00:00:00Z',
+            },
+            'replayed': false,
+          };
+        }
+        return _defaults(c);
+      });
+      final card = await t.branch.courierCard('c1');
+      expect(card.token, 'JDC1.x.y');
+      final call = t.server.to('/compliance/cards').single;
+      expect(call.body['ownerType'], 'COURIER');
+      expect(call.body['ownerId'], 'c1');
+      expect(call.key, startsWith('card-COURIER-c1-'));
+    });
+  });
 }

@@ -79,6 +79,9 @@ class BranchWorkspace {
   List<CourierCompliance>? compliance;
   CourierMapData? courierMap;
 
+  /// Şubeye bağlı kuryeler (GET agency/couriers).
+  List<BranchCourier>? roster;
+
   /// Ana sayfanın "Teslim edilemeyen" kutusu için bugünün performansı
   /// (Performans ekranının seçili aralığından bağımsız).
   PerformanceData? todayPerformance;
@@ -158,6 +161,7 @@ class BranchWorkspace {
     trainings = null;
     compliance = null;
     courierMap = null;
+    roster = null;
     todayPerformance = null;
     freshLabels = const [];
     _restored = false;
@@ -337,6 +341,45 @@ class BranchWorkspace {
       return;
     }
     await _run(() async => performance = await api!.fetchPerformance(range));
+  }
+
+  /// Kuryeler sekmesi: bağlı kuryeler ve evrak özeti. Evrak gelmezse liste
+  /// yine gösterilir.
+  Future<void> loadRoster() async {
+    if (demo) {
+      roster ??= kSubeDemoRoster;
+      compliance ??= kSubeDemoCompliance;
+      onChanged();
+      return;
+    }
+    await _run(() async {
+      roster = [
+        for (final row in await api!.fetchAgencyCouriers())
+          ?BranchCourier.fromJson(row),
+      ];
+      try {
+        compliance = await api!.fetchCompliance();
+      } catch (_) {
+        // Evrak özeti detayda yeniden denenir.
+      }
+    });
+  }
+
+  /// Kurye kartı (QR). Aynı gün aynı kurye için sunucu aynı kartı döner;
+  /// anahtar da günlüktür. Hata fırlatır, ekran gösterir.
+  Future<PartnerCard> courierCard(String courierId) async {
+    if (demo) {
+      final c = roster?.where((r) => r.id == courierId).firstOrNull;
+      return kSubeDemoCard(courierId, c?.name ?? '', c?.code ?? '');
+    }
+    final day = DateTime.now().toUtc().toIso8601String().substring(0, 10);
+    return PartnerCard.fromJson(
+      await api!.createCard(
+        ownerType: 'COURIER',
+        ownerId: courierId,
+        idempotencyKey: 'card-COURIER-$courierId-$day',
+      ),
+    );
   }
 
   /// Ana sayfa ekleri: bugünün performansı (teslim edilemeyen) ve vardiya

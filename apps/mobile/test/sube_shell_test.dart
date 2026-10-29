@@ -7,6 +7,7 @@ import 'package:dijigoo_kurye/ui/ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 void main() {
   Future<SessionController> openBranch(WidgetTester tester) async {
@@ -288,5 +289,76 @@ void main() {
       scrollable: find.byType(Scrollable).hitTestable().first,
     );
     expect(find.text('Çıkış yap'), findsOneWidget);
+  });
+
+  testWidgets('kurye listesi detaya açılır: genel, kart, evraklar, cihaz', (
+    tester,
+  ) async {
+    await openBranch(tester);
+    await tester.tap(find.text('Kuryeler'));
+    await tester.pumpAndSettle();
+    expect(find.text('Aktif (4)'), findsOneWidget);
+    expect(find.text('Pasif (1)'), findsOneWidget);
+    // Mert'in iki evrakı eksik: listede uyarı.
+    expect(find.text('2 evrak eksik'), findsOneWidget);
+    await tester.tap(find.text('Ali Can'));
+    await tester.pumpAndSettle();
+    expect(find.text('Kurye Detayı'), findsOneWidget);
+    expect(find.text('Birincil şube'), findsOneWidget);
+    await tester.tap(find.text('Evraklar'));
+    await tester.pumpAndSettle();
+    expect(find.text('4 / 4 belge onaylı'), findsOneWidget);
+    expect(find.text('Ehliyet'), findsOneWidget);
+    await tester.tap(find.text('Kart'));
+    await tester.pumpAndSettle();
+    expect(find.byType(QrImageView), findsOneWidget);
+    expect(find.text('KRY-001'), findsWidgets);
+    await tester.tap(find.text('Cihaz'));
+    await tester.pumpAndSettle();
+    expect(find.text('Merkez bağlantısı bekleniyor'), findsOneWidget);
+    Navigator.of(tester.element(find.text('Kurye Detayı'))).pop();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Pasif (1)'));
+    await tester.pumpAndSettle();
+    expect(find.text('Selin Kara'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('new-courier')));
+    await tester.pumpAndSettle();
+    expect(find.text('Merkez bağlantısı bekleniyor'), findsOneWidget);
+  });
+
+  testWidgets('performans kurye süzgeci ve gün sonu kilidi', (tester) async {
+    await openBranch(tester);
+    await tester.tap(find.text('İşlemler'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Performans'));
+    await tester.pumpAndSettle();
+    expect(find.text('%87,9'), findsOneWidget);
+    // Sıralamada kuryeye dokununca halka o kuryenin oranını gösterir.
+    await tester.scrollUntilVisible(
+      find.text('Mert Demir'),
+      200,
+      scrollable: find.byType(Scrollable).hitTestable().first,
+    );
+    await tester.tap(find.text('Mert Demir'));
+    await tester.pumpAndSettle();
+    expect(find.text('%85,4'), findsNWidgets(2));
+    await tester.scrollUntilVisible(
+      find.text('Gün sonu raporu'),
+      200,
+      scrollable: find.byType(Scrollable).hitTestable().first,
+    );
+    await tester.tap(find.text('Gün sonu raporu'));
+    await tester.pumpAndSettle();
+    expect(find.text('Şube gün sonu'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('eod-close')),
+      200,
+      scrollable: find.byType(Scrollable).hitTestable().first,
+    );
+    final close = tester.widget<DgGradientButton>(
+      find.byKey(const Key('eod-close')),
+    );
+    expect(close.onPressed, isNull);
   });
 }

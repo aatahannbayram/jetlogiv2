@@ -1614,36 +1614,201 @@ class ManagedTraining {
   }
 }
 
+/// Kurye belgesi (başvuru evrakı). `status`: APPROVED | IN_REVIEW |
+/// MISSING | REJECTED | EXPIRED (süresi geçmiş onay) …
+class ComplianceDoc {
+  const ComplianceDoc({
+    required this.code,
+    this.titleTr = '',
+    this.titleEn = '',
+    this.status = '',
+    this.required = false,
+    this.expiresAt,
+  });
+
+  final String code;
+  final String titleTr;
+  final String titleEn;
+  final String status;
+  final bool required;
+  final DateTime? expiresAt;
+
+  factory ComplianceDoc.fromJson(Map<String, dynamic> j) => ComplianceDoc(
+    code: _str(j, 'code'),
+    titleTr: _str(j, 'titleTr'),
+    titleEn: _str(j, 'titleEn'),
+    status: _str(j, 'status'),
+    required: _bool(j, 'isRequired'),
+    expiresAt: _date(j, 'expiresAt'),
+  );
+}
+
 /// Kuryenin evrak ve onay durumu. `documentStatus`: COMPLETE | IN_REVIEW |
 /// MISSING | NO_PACKAGE.
 class CourierCompliance {
   const CourierCompliance({
     required this.id,
     this.name = '',
+    this.code = '',
+    this.status = '',
+    this.vehicleType = '',
+    this.activatedAt,
+    this.assignedFrom,
     this.documentStatus = 'NO_PACKAGE',
+    this.required = 0,
+    this.approved = 0,
     this.missing = 0,
     this.inReview = 0,
+    this.documents = const [],
+    this.consentsTotal = 0,
+    this.consentsAccepted = 0,
     this.operationReady = false,
   });
 
   final String id;
   final String name;
+  final String code;
+  final String status;
+  final String vehicleType;
+  final DateTime? activatedAt;
+  final DateTime? assignedFrom;
   final String documentStatus;
+  final int required;
+  final int approved;
   final int missing;
   final int inReview;
+  final List<ComplianceDoc> documents;
+  final int consentsTotal;
+  final int consentsAccepted;
   final bool operationReady;
 
   factory CourierCompliance.fromJson(Map<String, dynamic> j) {
     final docs = _map(j['documents']);
+    final consents = _map(j['consents']);
     return CourierCompliance(
       id: _str(j, 'id'),
       name: _strOrNull(j, 'fullName') ?? _str(j, 'courierCode'),
+      code: _str(j, 'courierCode'),
+      status: _str(j, 'status'),
+      vehicleType: _str(j, 'vehicleType'),
+      activatedAt: _date(j, 'activatedAt'),
+      assignedFrom: _date(j, 'assignedFrom'),
       documentStatus: _strOrNull(docs, 'status') ?? 'NO_PACKAGE',
+      required: _int(docs, 'required'),
+      approved: _int(docs, 'approved'),
       missing: _int(docs, 'missing'),
       inReview: _int(docs, 'inReview'),
+      documents: [
+        for (final row in _list(docs['items'])) ComplianceDoc.fromJson(row),
+      ],
+      consentsTotal: _int(consents, 'total'),
+      consentsAccepted: _int(consents, 'accepted'),
       operationReady: _bool(j, 'operationReady'),
     );
   }
+}
+
+/// Şubeye bağlı kurye (GET agency/couriers). `status`: kurye havuz durumu
+/// (AVAILABLE, WORKING …); atama yalnız ACTIVE olanlar gelir.
+class BranchCourier {
+  const BranchCourier({
+    required this.id,
+    required this.name,
+    this.assignmentId = '',
+    this.code = '',
+    this.phone,
+    this.email,
+    this.status = '',
+    this.workModel = '',
+    this.vehicleType = '',
+    this.city = '',
+    this.district = '',
+    this.primary = false,
+    this.shipmentCount = 0,
+    this.validFrom,
+  });
+
+  final String id;
+  final String name;
+  final String assignmentId;
+  final String code;
+  final String? phone;
+  final String? email;
+  final String status;
+  final String workModel;
+  final String vehicleType;
+  final String city;
+  final String district;
+  final bool primary;
+
+  /// Kuryedeki 40xx durumlu gönderi sayısı.
+  final int shipmentCount;
+  final DateTime? validFrom;
+
+  /// Aktif: havuzda müsait ya da çalışıyor. Diğer durumlar (pasif, askıda,
+  /// izinli …) "Pasif" sekmesinde.
+  bool get active => const {'AVAILABLE', 'WORKING', 'ACTIVE'}.contains(status);
+
+  static BranchCourier? fromJson(Map<String, dynamic> j) {
+    final c = _map(j['courier']);
+    final id = _str(c, 'id');
+    if (id.isEmpty) return null;
+    return BranchCourier(
+      id: id,
+      name: _strOrNull(c, 'fullName') ?? _str(c, 'courierCode'),
+      assignmentId: _str(j, 'id'),
+      code: _str(c, 'courierCode'),
+      phone: _strOrNull(c, 'phone'),
+      email: _strOrNull(c, 'email'),
+      status: _str(c, 'status'),
+      workModel: _str(c, 'workModel'),
+      vehicleType: _str(c, 'vehicleType'),
+      city: _str(c, 'cityName'),
+      district: _str(c, 'districtName'),
+      primary: _bool(j, 'isPrimary'),
+      shipmentCount: _int(j, 'shipmentCount'),
+      validFrom: _date(j, 'validFrom'),
+    );
+  }
+}
+
+/// Şube / kurye kartı (POST compliance/cards). `token` QR içeriğidir; aynı
+/// gün aynı sahip için aynı belirteç, 365 gün geçerli. Kalıcı kart ya da
+/// iptal kaydı yoktur.
+class PartnerCard {
+  const PartnerCard({
+    required this.token,
+    this.displayName = '',
+    this.code = '',
+    this.branchName = '',
+    this.statusCode = '',
+    this.complianceStatus = '',
+    this.active = false,
+    this.issuedAt,
+    this.expiresAt,
+  });
+
+  final String token;
+  final String displayName;
+  final String code;
+  final String branchName;
+  final String statusCode;
+  final String complianceStatus;
+  final bool active;
+  final DateTime? issuedAt;
+  final DateTime? expiresAt;
+
+  factory PartnerCard.fromJson(Map<String, dynamic> j) => PartnerCard(
+    token: _str(j, 'token'),
+    displayName: _str(j, 'displayName'),
+    code: _str(j, 'code'),
+    branchName: _str(j, 'branchName'),
+    statusCode: _str(j, 'statusCode'),
+    complianceStatus: _str(j, 'complianceStatus'),
+    active: _bool(j, 'active'),
+    issuedAt: _date(j, 'issuedAt'),
+    expiresAt: _date(j, 'expiresAt'),
+  );
 }
 
 class SmsBatch {

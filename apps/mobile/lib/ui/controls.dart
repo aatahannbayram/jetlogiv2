@@ -338,13 +338,20 @@ class DgFilterChip extends StatelessWidget {
                 Icon(icon, size: 14, color: on ? Dg.highlight : Dg.text3),
                 const SizedBox(width: 6),
               ],
-              Text(
-                value ?? label,
-                style: Dg.ui(
-                  size: 14,
-                  weight: FontWeight.w600,
-                  color: on ? Dg.highlight : Dg.text2,
-                ).copyWith(fontSize: 13),
+              // Yatay listede de (sınırsız genişlik) çalışsın diye Flexible
+              // yerine üst sınır: uzun değer üç noktayla kısalır.
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 200),
+                child: Text(
+                  value ?? label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Dg.ui(
+                    size: 14,
+                    weight: FontWeight.w600,
+                    color: on ? Dg.highlight : Dg.text2,
+                  ).copyWith(fontSize: 13),
+                ),
               ),
               const SizedBox(width: 4),
               Icon(
