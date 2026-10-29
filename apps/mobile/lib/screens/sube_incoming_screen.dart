@@ -4,15 +4,19 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../api/branch_models.dart';
 import '../l10n.dart';
+import '../motion.dart';
 import '../scan_router.dart';
 import '../session.dart';
 import '../theme.dart';
+import '../ui/ui.dart';
 import '../widgets.dart';
 import 'sube_scan_sheet.dart';
 import 'sube_widgets.dart';
 
-/// Gelen transfer kabulü: kalemler okutulur → "İçeri Al" → "Transferi
-/// Onayla". Onayda okutulmayan kalemler eksik olarak kapanır.
+/// Transfer Kabul (mockup 9): kalemler okutulur → "Tümünü zimmetle"
+/// (okunanlar içeri alınır) → "Transferi onayla". Onayda okutulmayan
+/// kalemler eksik olarak kapanır. Adım çubuğu ve sayım özeti sunucunun
+/// kalem durumlarından hesaplanır.
 class SubeIncomingScreen extends ConsumerStatefulWidget {
   const SubeIncomingScreen({super.key, required this.transfer});
 
@@ -41,6 +45,13 @@ class _SubeIncomingScreenState extends ConsumerState<SubeIncomingScreen> {
     subeSnack(context, error ?? done);
   }
 
+  static DgTone _tone(String state) => switch (state) {
+    'IN' => DgTone.ok,
+    'SCANNED' => DgTone.info,
+    'MISSING' || 'EXCEPTION' => DgTone.bad,
+    _ => DgTone.neutral,
+  };
+
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
@@ -52,111 +63,138 @@ class _SubeIncomingScreenState extends ConsumerState<SubeIncomingScreen> {
         transfer.statusCode == 'DISPATCHED' ||
         transfer.statusCode == 'ACCEPTANCE_PENDING';
     final canAct = branch.capabilities.operate && open;
+    final lines = detail?.lines ?? const <TransferLine>[];
+    final inside = lines.where((x) => x.state == 'IN').length;
+    final scanned = lines.where((x) => x.state == 'SCANNED').length;
+    final missing = lines.where((x) => x.state == 'MISSING').length;
+    final faulty = lines.where((x) => x.state == 'EXCEPTION').length;
+    final waiting = detail?.pendingScannedCount ?? 0;
+    final step = !open
+        ? 3
+        : waiting > 0
+        ? 1
+        : inside > 0
+        ? 2
+        : 0;
     return Scaffold(
-      appBar: AppBar(title: Text(transfer.transferNumber)),
+      appBar: AppBar(title: Text(l.transferIncoming)),
       body: RefreshIndicator(
         onRefresh: () => branch.openIncoming(widget.transfer.id),
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
           children: [
+            DgStepper(
+              steps: [l.stepScan, l.stepAccept, l.stepConfirm],
+              current: step,
+            ),
+            const SizedBox(height: 14),
             SubeStatusBanner(
               branch: branch,
               onRetry: () => branch.openIncoming(widget.transfer.id),
             ),
-            DgCard(
+            DgPanel(
               child: Row(
                 children: [
+                  const DgIconBadge(icon: LucideIcons.truck, tone: DgTone.info),
+                  const SizedBox(width: 12),
                   Expanded(
-                    child: Text(
-                      transfer.partyName,
-                      style: Dg.ui(size: 15, weight: FontWeight.w600),
-                    ),
-                  ),
-                  Mono('${transfer.acceptedItemCount} / ${transfer.itemCount}'),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            if (canAct) ...[
-              DgButton(
-                label: l.scanIncoming,
-                icon: LucideIcons.qrCode,
-                onPressed: () => showSubeScanSheet(
-                  context,
-                  scanContext: ScanContext.stockIn,
-                  hint: 'Gelen koli veya gönderi barkodunu okutun',
-                ),
-              ),
-              const SizedBox(height: 8),
-              DgButton(
-                label: l.acceptScannedN(detail?.pendingScannedCount ?? 0),
-                icon: LucideIcons.packagePlus,
-                tone: DgButtonTone.secondary,
-                busy: _busy,
-                onPressed: (detail?.pendingScannedCount ?? 0) == 0
-                    ? null
-                    : () =>
-                          _guard(() => branch.acceptIncoming(transfer), l.done),
-              ),
-              const SizedBox(height: 8),
-              DgButton(
-                label: l.confirmTransfer,
-                icon: LucideIcons.clipboardCheck,
-                tone: DgButtonTone.secondary,
-                busy: _busy,
-                onPressed: detail == null ? null : () => _confirm(detail),
-              ),
-            ],
-            if (detail == null && branch.loading)
-              const Padding(
-                padding: EdgeInsets.only(top: 32),
-                child: Center(child: CircularProgressIndicator()),
-              ),
-            if (detail != null) ...[
-              const SizedBox(height: 8),
-              SubeSection(
-                l.incomingTransfersTitle,
-                trailing: '${detail.lines.length}',
-              ),
-              for (final line in detail.lines)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: DgCard(
-                    child: Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Mono(
-                                line.shipmentNumber.isEmpty
-                                    ? line.cargoCode
-                                    : line.shipmentNumber,
-                                size: 13,
-                                weight: FontWeight.w700,
-                              ),
-                              if (line.product.isNotEmpty)
-                                Text(
-                                  line.product,
-                                  style: Dg.ui(size: 12, color: Dg.ink3),
-                                ),
-                            ],
-                          ),
+                        Text(
+                          transfer.transferNumber,
+                          style: Dg.ui(size: 16, weight: FontWeight.w700),
                         ),
-                        StatusChip(
-                          label: l.transferLineState(line.state),
-                          tone: switch (line.state) {
-                            'IN' => 'lo',
-                            'SCANNED' => 'lime',
-                            'MISSING' || 'EXCEPTION' => 'hi',
-                            _ => 'mid',
-                          },
+                        Text(
+                          transfer.partyName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Dg.typeCaption(),
                         ),
                       ],
                     ),
                   ),
+                  DgStatusPill(
+                    label: l.transferStatus(transfer.statusCode),
+                    tone: open ? DgTone.warn : DgTone.ok,
+                    dense: true,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            if (detail == null && branch.loading)
+              const DgSkeleton(height: 120, radius: 16)
+            else
+              DgCountSummary(
+                expected: detail == null ? transfer.itemCount : lines.length,
+                read: detail == null
+                    ? transfer.acceptedItemCount
+                    : inside + scanned,
+                missing: missing,
+                damaged: faulty,
+              ),
+            const SizedBox(height: 12),
+            if (canAct) ...[
+              DgGradientButton(
+                label: l.scanIncoming,
+                icon: LucideIcons.scanLine,
+                onPressed: () => showSubeScanSheet(
+                  context,
+                  scanContext: ScanContext.stockIn,
+                  hint: l.scanIncoming,
                 ),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: DgButton(
+                      key: const Key('incoming-accept'),
+                      label: l.acceptAll(waiting),
+                      icon: LucideIcons.packagePlus,
+                      tone: DgButtonTone.secondary,
+                      busy: _busy,
+                      onPressed: waiting == 0
+                          ? null
+                          : () => _guard(
+                              () => branch.acceptIncoming(transfer),
+                              l.done,
+                            ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: DgButton(
+                      label: l.confirmTransfer,
+                      icon: LucideIcons.clipboardCheck,
+                      tone: DgButtonTone.secondary,
+                      busy: _busy,
+                      onPressed: detail == null ? null : () => _confirm(detail),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
             ],
+            if (detail != null)
+              DgPanel(
+                title: l.incomingTransfersTitle,
+                trailing: Text(
+                  '${lines.length}',
+                  style: Dg.ui(size: 14, color: Dg.text3),
+                ),
+                child: Column(
+                  children: [
+                    for (var i = 0; i < lines.length; i++)
+                      _LineRow(
+                        line: lines[i],
+                        tone: _tone(lines[i].state),
+                        index: i,
+                      ),
+                  ],
+                ),
+              ),
           ],
         ),
       ),
@@ -192,5 +230,46 @@ class _SubeIncomingScreenState extends ConsumerState<SubeIncomingScreen> {
       () => ref.read(sessionProvider).branch.confirmIncoming(detail.transfer),
       l.done,
     );
+  }
+}
+
+class _LineRow extends StatelessWidget {
+  const _LineRow({required this.line, required this.tone, required this.index});
+
+  final TransferLine line;
+  final DgTone tone;
+  final int index;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final row = Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  line.shipmentNumber.isEmpty
+                      ? line.cargoCode
+                      : line.shipmentNumber,
+                  style: Dg.ui(size: 15, weight: FontWeight.w600),
+                ),
+                if (line.product.isNotEmpty)
+                  Text(line.product, style: Dg.typeCaption()),
+              ],
+            ),
+          ),
+          DgStatusPill(
+            label: l.transferLineState(line.state),
+            tone: tone,
+            dense: true,
+          ),
+        ],
+      ),
+    );
+    return index < 8 ? StaggerIn(index: index, child: row) : row;
   }
 }

@@ -27,6 +27,7 @@ import 'package:dijigoo_kurye/screens/sube_shipment_detail_screen.dart';
 import 'package:dijigoo_kurye/screens/sube_assign_flow.dart';
 import 'package:dijigoo_kurye/screens/sube_return_flow.dart';
 import 'package:dijigoo_kurye/screens/sube_courier_map_screen.dart';
+import 'package:dijigoo_kurye/screens/sube_count_reconcile_screen.dart';
 import 'package:dijigoo_kurye/screens/sube_courier_detail_screen.dart';
 import 'package:dijigoo_kurye/screens/sube_demo.dart';
 import 'package:dijigoo_kurye/screens/sube_couriers_screen.dart';
@@ -147,6 +148,7 @@ void main() {
     ),
     'branch-return': const SubeReturnFlow(),
     'branch-courier-map': const SubeCourierMapScreen(),
+    'branch-reconcile': const SubeCountReconcileScreen(),
     'branch-courier-detail': SubeCourierDetailScreen(
       courier: kSubeDemoRoster.first,
     ),

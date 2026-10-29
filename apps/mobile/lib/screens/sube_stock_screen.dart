@@ -3,18 +3,26 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../api/branch_models.dart';
+import '../branch_features.dart';
 import '../l10n.dart';
+import '../motion.dart';
 import '../scan_router.dart';
 import '../session.dart';
 import '../theme.dart';
+import '../ui/ui.dart';
 import '../widgets.dart';
+import 'sube_count_reconcile_screen.dart';
+import 'sube_count_screen.dart';
+import 'sube_dispatch_screen.dart';
 import 'sube_incoming_screen.dart';
+import 'sube_return_flow.dart';
 import 'sube_scan_sheet.dart';
+import 'sube_shipment_detail_screen.dart';
 import 'sube_widgets.dart';
 
-/// Stok & Zimmet: fiziksel sorumluluğun el değiştirdiği üç kuyruk —
-/// kuryenin kabulünü bekleyen zimmetler, kuryeden şubeye dönüşler ve
-/// şubeye gelen transferler. Her kabul barkodla yapılır.
+/// Stok & Zimmet (mockup 8): fiziksel sorumluluğun el değiştirdiği üç
+/// kuyruk (gelen transferler, kurye kabulü bekleyen zimmetler, kuryeden
+/// dönüşler), sayaçlar ve stok işlemlerine geçiş. Her kabul barkodla.
 class SubeStockScreen extends ConsumerStatefulWidget {
   const SubeStockScreen({super.key});
 
@@ -23,13 +31,20 @@ class SubeStockScreen extends ConsumerStatefulWidget {
 }
 
 class _SubeStockScreenState extends ConsumerState<SubeStockScreen> {
+  int _tab = 0;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(sessionProvider).branch.loadIncoming();
+      final branch = ref.read(sessionProvider).branch;
+      branch.loadIncoming();
+      if (branch.counts == null) branch.loadCounts();
     });
   }
+
+  void _push(Widget page) =>
+      Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
 
   @override
   Widget build(BuildContext context) {
@@ -38,6 +53,25 @@ class _SubeStockScreenState extends ConsumerState<SubeStockScreen> {
     final canOperate = branch.capabilities.operate;
     final pending = branch.pending;
     final incoming = branch.incoming?.transfers ?? const <BranchTransfer>[];
+    final handovers = pending?.handovers ?? const <PendingItem>[];
+    final returns = pending?.returns ?? const <PendingItem>[];
+    final openCount = branch.count?.count ?? branch.counts?.openCount;
+    final height = 24 + MediaQuery.textScalerOf(context).scale(62);
+    Widget pair(Widget a, Widget b) => Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: SizedBox(
+        height: height,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(child: a),
+            const SizedBox(width: 10),
+            Expanded(child: b),
+          ],
+        ),
+      ),
+    );
+
     return Scaffold(
       appBar: AppBar(title: Text(l.subeStockTitle)),
       body: RefreshIndicator(
@@ -46,89 +80,245 @@ class _SubeStockScreenState extends ConsumerState<SubeStockScreen> {
           await branch.loadIncoming();
         },
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 96),
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
           children: [
             SubeStatusBanner(branch: branch),
-            SubeSection(
-              l.courierReturnsTitle,
-              trailing: '${pending?.returns.length ?? 0}',
+            pair(
+              DgKpiTile(
+                icon: LucideIcons.arrowDownToLine,
+                tone: DgTone.info,
+                label: l.stockIncomingTab,
+                value: branch.incoming == null ? null : incoming.length,
+                onTap: () => setState(() => _tab = 0),
+              ),
+              DgKpiTile(
+                icon: LucideIcons.hourglass,
+                tone: DgTone.accent,
+                label: l.awaitingAcceptTitle,
+                value: pending == null ? null : handovers.length,
+                onTap: () => setState(() => _tab = 1),
+              ),
             ),
-            for (final item in pending?.returns ?? const <PendingItem>[])
-              _PendingTile(item: item),
-            if (canOperate)
-              DgButton(
-                label: l.scanCourierReturn,
+            pair(
+              DgKpiTile(
                 icon: LucideIcons.undo2,
-                onPressed: () => showSubeScanSheet(
-                  context,
-                  scanContext: ScanContext.courierReturn,
-                  hint: 'Kuryeden dönen gönderiyi okutun',
-                ),
+                tone: DgTone.warn,
+                label: l.courierReturnsTitle,
+                value: pending == null ? null : returns.length,
+                onTap: () => setState(() => _tab = 2),
               ),
-            const SizedBox(height: 16),
-            SubeSection(
-              l.awaitingAcceptTitle,
-              trailing: '${pending?.handovers.length ?? 0}',
+              DgKpiTile(
+                icon: LucideIcons.clipboardList,
+                tone: DgTone.ok,
+                label: openCount == null
+                    ? l.stockOpenCount
+                    : l.countStatus(openCount.statusCode),
+                value: branch.counts == null && openCount == null
+                    ? null
+                    : (openCount == null ? 0 : 1),
+                onTap: () => _push(const SubeCountScreen()),
+              ),
             ),
-            if (pending != null && pending.handovers.isEmpty)
-              Text(l.nothingWaiting, style: Dg.ui(size: 13, color: Dg.ink3)),
-            for (final item in pending?.handovers ?? const <PendingItem>[])
-              _PendingTile(item: item),
-            const SizedBox(height: 16),
-            SubeSection(
-              l.incomingTransfersTitle,
-              trailing: '${incoming.length}',
+            const SizedBox(height: 4),
+            DgActionGrid(
+              items: [
+                (
+                  icon: LucideIcons.packagePlus,
+                  label: l.transferIncoming,
+                  tone: DgTone.info,
+                  onTap: canOperate
+                      ? () => showSubeScanSheet(
+                          context,
+                          scanContext: ScanContext.stockIn,
+                          hint: l.scanIncoming,
+                        )
+                      : null,
+                ),
+                (
+                  icon: LucideIcons.arrowUpFromLine,
+                  label: l.transferOutgoing,
+                  tone: DgTone.accent,
+                  onTap: () => _push(const SubeDispatchScreen()),
+                ),
+                (
+                  icon: LucideIcons.clipboardList,
+                  label: l.quickCount,
+                  tone: DgTone.ok,
+                  onTap: () => _push(const SubeCountScreen()),
+                ),
+                (
+                  icon: LucideIcons.scale,
+                  label: l.reconcileTitle,
+                  tone: DgTone.warn,
+                  onTap: () => _push(const SubeCountReconcileScreen()),
+                ),
+              ],
             ),
-            if (branch.incoming != null && incoming.isEmpty)
-              Text(l.nothingWaiting, style: Dg.ui(size: 13, color: Dg.ink3)),
-            for (final t in incoming)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: DgCard(
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => SubeIncomingScreen(transfer: t),
+            if (!BranchFeatures.branchStockCounters) ...[
+              const SizedBox(height: 10),
+              DgPanel(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    const DgIconBadge(
+                      icon: LucideIcons.cloudCog,
+                      tone: DgTone.neutral,
+                      size: 36,
+                      soft: true,
                     ),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Mono(
-                              t.transferNumber,
-                              size: 13,
-                              weight: FontWeight.w700,
-                            ),
-                            Text(
-                              t.partyName,
-                              style: Dg.ui(size: 14, color: Dg.ink2),
-                            ),
-                          ],
-                        ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        l.pendingBackendBodyFor(l.stockCountersWhat),
+                        style: Dg.typeCaption(),
                       ),
-                      Mono('${t.acceptedItemCount} / ${t.itemCount}'),
-                    ],
-                  ),
-                ),
-              ),
-            if (canOperate) ...[
-              const SizedBox(height: 4),
-              DgButton(
-                label: l.scanIncoming,
-                icon: LucideIcons.packagePlus,
-                tone: DgButtonTone.secondary,
-                onPressed: () => showSubeScanSheet(
-                  context,
-                  scanContext: ScanContext.stockIn,
-                  hint: 'Gelen koli veya gönderi barkodunu okutun',
+                    ),
+                  ],
                 ),
               ),
             ],
+            const SizedBox(height: 16),
+            DgPillTabs(
+              labels: [
+                l.stockIncomingShort,
+                l.stockHandoverTab,
+                l.stockReturnTab,
+              ],
+              counts: [incoming.length, handovers.length, returns.length],
+              index: _tab,
+              onChanged: (i) => setState(() => _tab = i),
+            ),
+            const SizedBox(height: 12),
+            AnimatedSwitcher(
+              duration: DgMotion.standard,
+              switchInCurve: DgMotion.enter,
+              switchOutCurve: DgMotion.exit,
+              child: KeyedSubtree(
+                key: ValueKey(_tab),
+                child: switch (_tab) {
+                  0 => _IncomingList(
+                    transfers: incoming,
+                    loading: branch.incoming == null && branch.loading,
+                  ),
+                  1 => _PendingList(items: handovers),
+                  _ => Column(
+                    children: [
+                      _PendingList(items: returns),
+                      if (canOperate)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: DgGradientButton(
+                            label: l.stockStartReturn,
+                            icon: LucideIcons.undo2,
+                            onPressed: () => _push(const SubeReturnFlow()),
+                          ),
+                        ),
+                    ],
+                  ),
+                },
+              ),
+            ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _IncomingList extends StatelessWidget {
+  const _IncomingList({required this.transfers, required this.loading});
+
+  final List<BranchTransfer> transfers;
+  final bool loading;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    if (transfers.isEmpty) {
+      return loading
+          ? const DgSkeleton(height: 72, radius: 16)
+          : DgEmptyState(icon: LucideIcons.inbox, title: l.nothingWaiting);
+    }
+    return Column(
+      children: [
+        for (var i = 0; i < transfers.length; i++)
+          StaggerIn(
+            index: i,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: DgPanel(
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => SubeIncomingScreen(transfer: transfers[i]),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const DgIconBadge(
+                      icon: LucideIcons.truck,
+                      tone: DgTone.info,
+                      soft: true,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            transfers[i].transferNumber,
+                            style: Dg.ui(size: 15, weight: FontWeight.w700),
+                          ),
+                          Text(
+                            transfers[i].partyName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Dg.typeCaption(),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Text(
+                      '${transfers[i].acceptedItemCount} / '
+                      '${transfers[i].itemCount}',
+                      style: Dg.ui(size: 15, weight: FontWeight.w700),
+                    ),
+                    const SizedBox(width: 6),
+                    Icon(LucideIcons.chevronRight, size: 18, color: Dg.text3),
+                  ],
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _PendingList extends StatelessWidget {
+  const _PendingList({required this.items});
+
+  final List<PendingItem> items;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    if (items.isEmpty) {
+      return DgEmptyState(
+        icon: LucideIcons.circleCheck,
+        title: l.nothingWaiting,
+      );
+    }
+    return Column(
+      children: [
+        for (var i = 0; i < items.length; i++)
+          StaggerIn(
+            index: i,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _PendingTile(item: items[i]),
+            ),
+          ),
+      ],
     );
   }
 }
@@ -145,30 +335,47 @@ class _PendingTile extends StatelessWidget {
       if (item.recipientName.isNotEmpty) item.recipientName,
       if (item.courierName.isNotEmpty) item.courierName,
     ].join(' · ');
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: DgCard(
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Mono(item.shipmentNumber, size: 13, weight: FontWeight.w700),
-                  if (who.isNotEmpty)
-                    Text(who, style: Dg.ui(size: 14, color: Dg.ink2)),
-                ],
-              ),
+    return DgPanel(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => SubeShipmentDetailScreen(
+            row: BranchShipmentRow(
+              shipmentId: item.shipmentId,
+              shipmentNumber: item.shipmentNumber,
+              recipientName: item.recipientName,
+              pendingCourierName: item.courierName.isEmpty
+                  ? null
+                  : item.courierName,
+              late: item.overdue,
             ),
-            if (item.overdue)
-              StatusChip(label: l.filterLate, tone: 'hi')
-            else if (item.since != null)
-              Text(
-                subeClock(item.since!),
-                style: Dg.ui(size: 12, color: Dg.ink3),
-              ),
-          ],
+          ),
         ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.shipmentNumber,
+                  style: Dg.ui(size: 15, weight: FontWeight.w700),
+                ),
+                if (who.isNotEmpty)
+                  Text(
+                    who,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Dg.typeCaption(),
+                  ),
+              ],
+            ),
+          ),
+          if (item.overdue)
+            DgStatusPill(label: l.filterLate, tone: DgTone.bad, dense: true)
+          else if (item.since != null)
+            Text(subeClock(item.since!), style: Dg.typeCaption()),
+        ],
       ),
     );
   }

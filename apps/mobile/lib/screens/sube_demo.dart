@@ -226,7 +226,64 @@ const kSubeDemoCounts = CountsData(
   warehouses: [_demoWarehouse],
   capabilities: BranchCapabilities.all,
   reasonCodes: ['MISCOUNT', 'DAMAGE', 'LOSS', 'FOUND', 'OTHER'],
+  counts: [
+    StockCount(
+      id: 'demo-count-r',
+      number: 'SAY-DEMO-0042',
+      statusCode: 'REVIEW',
+      warehouseName: 'Şube Deposu',
+      varianceLineCount: 2,
+    ),
+    StockCount(
+      id: 'demo-count-p',
+      number: 'SAY-DEMO-0039',
+      statusCode: 'POSTED',
+      warehouseName: 'Şube Deposu',
+    ),
+    StockCount(
+      id: 'demo-count-c',
+      number: 'SAY-DEMO-0035',
+      statusCode: 'CANCELLED',
+      warehouseName: 'Şube Deposu',
+      varianceLineCount: 1,
+    ),
+  ],
 );
+
+/// Demo geçmiş sayım satırları (mutabakat ekranı).
+const kSubeDemoCountDetails = {
+  'demo-count-r': CountDetail(
+    capabilities: BranchCapabilities.all,
+    count: StockCount(
+      id: 'demo-count-r',
+      number: 'SAY-DEMO-0042',
+      statusCode: 'REVIEW',
+      warehouseName: 'Şube Deposu',
+      varianceLineCount: 2,
+    ),
+    lines: [
+      CountLine(
+        id: 'r1',
+        name: 'POS cihazı',
+        expected: 10,
+        counted: 9,
+        reasonCode: 'DAMAGE',
+      ),
+      CountLine(id: 'r2', name: 'SIM kart', expected: 30, counted: 31),
+      CountLine(id: 'r3', name: 'Kart okuyucu', expected: 5, counted: 5),
+    ],
+  ),
+  'demo-count-p': CountDetail(
+    capabilities: BranchCapabilities.all,
+    count: StockCount(
+      id: 'demo-count-p',
+      number: 'SAY-DEMO-0039',
+      statusCode: 'POSTED',
+      warehouseName: 'Şube Deposu',
+    ),
+    lines: [CountLine(id: 'p1', name: 'POS cihazı', expected: 12, counted: 12)],
+  ),
+};
 
 const kSubeDemoCount = CountDetail(
   capabilities: BranchCapabilities.all,

@@ -361,4 +361,45 @@ void main() {
     );
     expect(close.onPressed, isNull);
   });
+
+  testWidgets('stok merkezi kuyrukları ve sayım mutabakatı', (tester) async {
+    final session = await openBranch(tester);
+    await tester.tap(find.text('İşlemler'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Stok & Zimmet'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Dönüş (1)'),
+      200,
+      scrollable: find.byType(Scrollable).hitTestable().first,
+    );
+    await tester.tap(find.text('Dönüş (1)'));
+    await tester.pumpAndSettle();
+    expect(find.text('JL100238553'), findsOneWidget);
+    expect(find.text('Kurye dönüşü başlat'), findsOneWidget);
+    Navigator.of(tester.element(find.text('JL100238553'))).pop();
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('Sayım Mutabakatı'),
+      200,
+      scrollable: find.byType(Scrollable).hitTestable().first,
+    );
+    await tester.tap(find.text('Sayım Mutabakatı'));
+    await tester.pumpAndSettle();
+    expect(find.text('Bekleyen (1)'), findsOneWidget);
+    await tester.tap(find.text('SAY-DEMO-0042'));
+    await tester.pumpAndSettle();
+    expect(find.text('POS cihazı'), findsOneWidget);
+    expect(find.text('-1'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('reconcile-send')));
+    await tester.pumpAndSettle();
+    expect(
+      session.branch.counts?.counts
+          .firstWhere((c) => c.id == 'demo-count-r')
+          .statusCode,
+      'POSTED',
+    );
+    expect(find.text('Tamamlanan (3)'), findsOneWidget);
+  });
 }

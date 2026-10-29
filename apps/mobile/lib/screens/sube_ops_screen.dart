@@ -7,6 +7,7 @@ import '../session.dart';
 import '../shell_nav.dart';
 import '../theme.dart';
 import '../ui/ui.dart';
+import 'sube_count_reconcile_screen.dart';
 import 'sube_count_screen.dart';
 import 'sube_courier_map_screen.dart';
 import 'sube_dispatch_screen.dart';
@@ -93,6 +94,12 @@ class SubeOpsScreen extends ConsumerWidget {
                 tint: violet,
                 label: l.subeCountTitle,
                 onTap: () => open(const SubeCountScreen()),
+              ),
+              SubeNavTile(
+                icon: LucideIcons.scale,
+                tint: warn,
+                label: l.reconcileTitle,
+                onTap: () => open(const SubeCountReconcileScreen()),
               ),
               SubeNavTile(
                 icon: LucideIcons.arrowUpFromLine,

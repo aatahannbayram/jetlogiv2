@@ -290,6 +290,14 @@ class BranchWorkspace {
     });
   }
 
+  /// Geçmiş ya da incelemedeki bir sayımın satırları (salt okunur).
+  /// Hata fırlatır, ekran gösterir.
+  Future<CountDetail?> countDetail(String countId) async {
+    if (count?.count.id == countId) return count;
+    if (demo) return kSubeDemoCountDetails[countId];
+    return api!.fetchCount(countId);
+  }
+
   Future<void> refreshCount() async {
     final id = count?.count.id;
     if (id == null || demo) return;
@@ -650,6 +658,24 @@ class BranchWorkspace {
   /// Sayımı onaylar; stok hareketleri oluşur ve sayım kapanır.
   Future<String?> postCount() => _countManage('post', {'action': 'post'});
 
+  /// Mutabakattan: incelemedeki sayımı (açık sayım olmasa da) onaylar.
+  Future<String?> postCountById(String countId) async {
+    final previous = count;
+    if (previous?.count.id != countId) {
+      try {
+        final detail = await countDetail(countId);
+        if (detail == null) return 'Sayım bulunamadı.';
+        count = detail;
+      } catch (e) {
+        return describeError(e);
+      }
+    }
+    final error = await postCount();
+    // Başarısızsa ekrandaki (sayılan) sayım geri gelir.
+    if (error != null && previous?.count.id != countId) count = previous;
+    return error;
+  }
+
   Future<String?> cancelCount(String reason) {
     if (reason.trim().isEmpty) return Future.value('İptal nedeni yazın.');
     return _countManage('cancel|$reason', {
@@ -663,7 +689,13 @@ class BranchWorkspace {
     if (id == null) return Future.value('Açık sayım yok');
     return _action('count-manage|$id|$signature', (key) async {
       if (demo) {
-        if (action['action'] != 'manual') count = null;
+        if (action['action'] != 'manual') {
+          _demoSetCountStatus(
+            id,
+            action['action'] == 'post' ? 'POSTED' : 'CANCELLED',
+          );
+          count = null;
+        }
         return;
       }
       await api!.countManage(countId: id, action: action, idempotencyKey: key);
@@ -1411,6 +1443,30 @@ class BranchWorkspace {
             )
           else
             row,
+      ],
+    );
+  }
+
+  void _demoSetCountStatus(String id, String status) {
+    final c = counts ?? kSubeDemoCounts;
+    counts = CountsData(
+      warehouses: c.warehouses,
+      capabilities: c.capabilities,
+      reasonCodes: c.reasonCodes,
+      openCount: c.openCount?.id == id ? null : c.openCount,
+      counts: [
+        for (final x in c.counts)
+          x.id == id
+              ? StockCount(
+                  id: x.id,
+                  number: x.number,
+                  typeCode: x.typeCode,
+                  statusCode: status,
+                  warehouseName: x.warehouseName,
+                  varianceLineCount: x.varianceLineCount,
+                  startedAt: x.startedAt,
+                )
+              : x,
       ],
     );
   }

@@ -9,7 +9,9 @@ import '../scan.dart';
 import '../scan_router.dart';
 import '../session.dart';
 import '../theme.dart';
+import '../ui/ui.dart';
 import '../widgets.dart';
+import 'sube_count_reconcile_screen.dart';
 import 'sube_widgets.dart';
 
 /// Stok sayımı — gönderi sayımı değil, şubedeki stoklu ürünlerin fiziksel
@@ -52,6 +54,15 @@ class _SubeCountScreenState extends ConsumerState<SubeCountScreen> {
         title: Text(l.subeCountTitle),
         actions: [
           IconButton(
+            tooltip: l.reconcileTitle,
+            icon: DgIcon(LucideIcons.scale),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const SubeCountReconcileScreen(),
+              ),
+            ),
+          ),
+          IconButton(
             tooltip: l.retryNow,
             icon: DgIcon(LucideIcons.refreshCw),
             onPressed: branch.loading
@@ -63,8 +74,24 @@ class _SubeCountScreenState extends ConsumerState<SubeCountScreen> {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
         children: [
+          DgStepper(
+            steps: [
+              l.countStepWarehouse,
+              l.stepScan,
+              l.countStepReview,
+              l.countStepPost,
+            ],
+            current: detail == null
+                ? 0
+                : detail.count.scannable
+                ? 1
+                : detail.count.statusCode == 'REVIEW'
+                ? 2
+                : 3,
+          ),
+          const SizedBox(height: 14),
           SubeStatusBanner(branch: branch, onRetry: branch.loadCounts),
           if (detail == null)
             ..._start(l, branch)
@@ -129,6 +156,8 @@ class _SubeCountScreenState extends ConsumerState<SubeCountScreen> {
     return [
       _CountHeader(count: detail.count, chip: paused ? l.pauseCount : null),
       const SizedBox(height: 12),
+      _summary(detail),
+      const SizedBox(height: 12),
       if (!paused)
         BarcodeScanPane(
           onDetect: (code) async {
@@ -166,7 +195,7 @@ class _SubeCountScreenState extends ConsumerState<SubeCountScreen> {
         onChanged: (v) => setState(() => _uncountedAsZero = v ?? false),
         title: Text(l.uncountedAsZero, style: Dg.ui(size: 14)),
       ),
-      DgButton(
+      DgGradientButton(
         label: l.finishCount,
         icon: LucideIcons.clipboardCheck,
         busy: _busy,
@@ -178,6 +207,8 @@ class _SubeCountScreenState extends ConsumerState<SubeCountScreen> {
 
   List<Widget> _review(L10n l, BranchWorkspace branch, CountDetail detail) => [
     _CountHeader(count: detail.count, chip: l.countInReview),
+    const SizedBox(height: 12),
+    _summary(detail),
     const SizedBox(height: 8),
     Text(l.countInReviewHint, style: Dg.ui(size: 13, color: Dg.ink2)),
     ..._lines(l, branch, detail, editable: true),
@@ -186,7 +217,7 @@ class _SubeCountScreenState extends ConsumerState<SubeCountScreen> {
       const SizedBox(height: 16),
       Text(l.countApproveHint, style: Dg.ui(size: 12, color: Dg.ink3)),
       const SizedBox(height: 8),
-      DgButton(
+      DgGradientButton(
         label: l.countApprove,
         icon: LucideIcons.clipboardCheck,
         busy: _busy,
@@ -201,6 +232,28 @@ class _SubeCountScreenState extends ConsumerState<SubeCountScreen> {
       ),
     ],
   ];
+
+  /// Beklenen / okunan / eksik / fazla: satır adetlerinden; adet gelmeyen
+  /// satır 0 sayılmaz, toplama girmez.
+  Widget _summary(CountDetail detail) {
+    var expected = 0;
+    var read = 0;
+    var missing = 0;
+    var extra = 0;
+    for (final line in detail.lines) {
+      expected += (line.expected ?? 0).round();
+      read += (line.counted ?? 0).round();
+      final d = (line.difference ?? 0).round();
+      if (d < 0) missing += -d;
+      if (d > 0) extra += d;
+    }
+    return DgCountSummary(
+      expected: expected,
+      read: read,
+      missing: missing,
+      extra: extra,
+    );
+  }
 
   Future<void> _cancel(BranchWorkspace branch) async {
     final reason = await _ask(context.l10n.countCancel, context.l10n.reason);
@@ -356,22 +409,29 @@ class _CountHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DgCard(
+    return DgPanel(
       child: Row(
         children: [
+          const DgIconBadge(
+            icon: LucideIcons.warehouse,
+            tone: DgTone.ok,
+            size: 40,
+          ),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Mono(count.number, size: 12, color: Dg.ink3),
                 Text(
                   count.warehouseName,
                   style: Dg.ui(size: 16, weight: FontWeight.w700),
                 ),
+                Text(count.number, style: Dg.typeCaption()),
               ],
             ),
           ),
-          if (chip != null) StatusChip(label: chip!, tone: 'mid'),
+          if (chip != null)
+            DgStatusPill(label: chip!, tone: DgTone.warn, dense: true),
         ],
       ),
     );

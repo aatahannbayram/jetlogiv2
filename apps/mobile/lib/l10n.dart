@@ -1027,6 +1027,54 @@ class L10n {
   String get eodCloseDay => _t('Günü kapat', 'Close the day');
   String get eodCloseWhat => _t('Gün sonu kapatma', 'Day close-out');
   String get perfCourierAll => _t('Tüm kuryeler', 'All couriers');
+
+  // ---- P5: stok & zimmet (mockup 8–12) ----
+  String get stockIncomingTab => _t('Gelen transfer', 'Incoming');
+  String get stockIncomingShort => _t('Gelen', 'Incoming');
+  String get stockHandoverTab => _t('Zimmet', 'Custody');
+  String get stockReturnTab => _t('Dönüş', 'Returns');
+  String get stockOpenCount => _t('Açık sayım', 'Open count');
+  String get stockCountersWhat =>
+      _t('Şube stok sayaçları', 'Branch stock counters');
+  String get stockStartReturn => _t('Kurye dönüşü başlat', 'Start courier return');
+  String get reconcileTitle => _t('Sayım Mutabakatı', 'Count reconciliation');
+  String get reconcileActive => _t('Aktif', 'Active');
+  String get reconcilePending => _t('Bekleyen', 'Pending');
+  String get reconcileDone => _t('Tamamlanan', 'Completed');
+  String countStatus(String code) => switch (code) {
+    'DRAFT' => _t('Taslak', 'Draft'),
+    'IN_PROGRESS' => _t('Sayılıyor', 'Counting'),
+    'REVIEW' => _t('İncelemede', 'In review'),
+    'POSTED' => _t('Onaylandı', 'Posted'),
+    'CANCELLED' => _t('İptal', 'Cancelled'),
+    _ => code,
+  };
+  String varianceLines(int n) => n == 0
+      ? _t('Fark yok', 'No variance')
+      : _t('$n farklı kalem', '$n variances');
+  String get reconcileSend =>
+      _t('Onayla ve merkeze gönder', 'Approve and send to HQ');
+  String get reconcileEmpty => _t('Bu sekmede sayım yok', 'No counts here');
+  String get reconcileManagerOnly => _t(
+    'Onay ve iptal şube yöneticisi yetkisi ister.',
+    'Approving or cancelling needs branch manager rights.',
+  );
+  String get stepScan => _t('Okut', 'Scan');
+  String get stepAccept => _t('İçeri al', 'Take in');
+  String get stepConfirm => _t('Onayla', 'Confirm');
+  String acceptAll(int n) => _t('Tümünü zimmetle ($n)', 'Take all in ($n)');
+  String get countStepWarehouse => _t('Depo', 'Warehouse');
+  String get countStepReview => _t('İncele', 'Review');
+  String get countStepPost => _t('Onay', 'Approve');
+  String get dispatchLabelHint => _t(
+    'Barkodsuz ekipman ya da evrak için önce Etiket ekranından iç barkod üretin.',
+    'For unlabelled equipment or documents, create an internal barcode in Labels first.',
+  );
+  String get openLabels => _t('Etiket üret', 'Create labels');
+  String get dispatchSentTitle =>
+      _t('Transfer merkeze gönderildi', 'Transfer sent to HQ');
+  String get newTransfer => _t('Yeni transfer', 'New transfer');
+  String draftCount(int n) => _t('$n kalem okutuldu', '$n items scanned');
   String get courierDetail => _t('Detay', 'Details');
   String mapShipmentsTitle(int n) =>
       _t('Üzerindeki gönderiler ($n)', 'Parcels on hand ($n)');
