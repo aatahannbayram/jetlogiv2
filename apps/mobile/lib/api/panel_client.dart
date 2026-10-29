@@ -10,6 +10,9 @@ import '../secure.dart';
 import '../tls_pinning.dart';
 import 'models.dart';
 import 'panel_models.dart';
+import 'branch_models.dart'
+    show CustodyDispute, LearnerTraining, QuizResult, TrainingFaq;
+import 'token_refresh.dart';
 
 /// JetDiji kurye mobil API (preprod). Canlı host `api-mobile.jetdiji.com`.
 /// Override: `--dart-define=PANEL_API_BASE=...`
@@ -19,6 +22,9 @@ const kPanelApiBase = String.fromEnvironment(
 );
 
 const kPanelBearerKey = 'dg.jetdiji.courier.token';
+
+/// Tek kullanımlık refresh tokenı (30 güne kadar); her yenilemede değişir.
+const kPanelRefreshKey = 'dg.jetdiji.courier.refresh';
 
 /// Web: tarayıcıda açık kurye oturumu olduğunu hatırlatan işaret (sır değil).
 const kPanelWebSessionKey = 'dg.jetdiji.courier.web';
@@ -44,10 +50,37 @@ class PanelApi {
         onRequest: (options, handler) {
           options.headers['X-Client-Type'] = 'mobile';
           final token = _accessToken;
-          if (token != null && token.isNotEmpty) {
+          if (options.extra[kNoAuthExtra] == true) {
+            options.headers.remove('Authorization');
+          } else if (token != null && token.isNotEmpty) {
             options.headers['Authorization'] = 'Bearer $token';
           }
           handler.next(options);
+        },
+      ),
+    );
+    dio.interceptors.add(
+      TokenRefresher(
+        dio: dio,
+        refreshPath: '/courier-auth/refresh',
+        authPaths: const [
+          '/courier-auth/login',
+          '/courier-auth/sms/request',
+          '/courier-auth/sms/verify',
+          '/courier-auth/logout',
+        ],
+        readRefreshToken: () async => _vault?.readSecret(kPanelRefreshKey),
+        onRefreshed: (access, refresh) async {
+          _accessToken = access;
+          await _vault?.writeSecret(kPanelBearerKey, access);
+          if (refresh != null && refresh.isNotEmpty) {
+            await _vault?.writeSecret(kPanelRefreshKey, refresh);
+          }
+        },
+        onRejected: () async {
+          _accessToken = null;
+          await _vault?.deleteSecret(kPanelBearerKey);
+          await _vault?.deleteSecret(kPanelRefreshKey);
         },
       ),
     );
@@ -122,6 +155,7 @@ class PanelApi {
       _accessToken = token;
       await _vault?.writeSecret(kPanelBearerKey, token);
     }
+    await _keepRefresh(data);
     final courier = data?['courier'] as Map?;
     return PanelCourierProfileDto.fromJson(
       Map<String, dynamic>.from(courier ?? const {}),
@@ -139,10 +173,21 @@ class PanelApi {
       'newPassword': newPassword,
       'newPasswordConfirmation': newPassword,
     });
-    final token = (res.data?['data'] as Map?)?['accessToken'] as String?;
+    final data = res.data?['data'] as Map?;
+    final token = data?['accessToken'] as String?;
     if (token != null && token.isNotEmpty) {
       _accessToken = token;
       await _vault?.writeSecret(kPanelBearerKey, token);
+    }
+    await _keepRefresh(data);
+  }
+
+  /// Girişte / şifre değişiminde dönen refresh tokenı saklanır (eskisi
+  /// geçersiz olur).
+  Future<void> _keepRefresh(Map? data) async {
+    final refresh = data?['refreshToken'] as String?;
+    if (refresh != null && refresh.isNotEmpty) {
+      await _vault?.writeSecret(kPanelRefreshKey, refresh);
     }
   }
 
@@ -417,10 +462,15 @@ class PanelApi {
 
   Future<void> logout() async {
     try {
-      await _post('/courier-auth/logout', const {});
+      // Erişim tokenı bitmiş olsa da oturum refresh tokenıyla kapanır.
+      final refresh = await _vault?.readSecret(kPanelRefreshKey);
+      await _post('/courier-auth/logout', {
+        if (refresh != null && refresh.isNotEmpty) 'refreshToken': refresh,
+      });
     } finally {
       _accessToken = null;
       await _vault?.deleteSecret(kPanelBearerKey);
+      await _vault?.deleteSecret(kPanelRefreshKey);
       await _vault?.deleteSecret(kPanelWebSessionKey);
       await _cookieJar?.deleteAll();
     }
@@ -927,9 +977,12 @@ class PanelApi {
     ];
   }
 
-  Future<List<CustodyItemDto>> fetchCustody() async {
-    final res = await _get('/courier-custody/pending');
-    final data = res.data?['data'] as Map? ?? const {};
+  Future<List<CustodyItemDto>> fetchCustody() async =>
+      custodyFrom(_map((await _get('/courier-custody/pending')).data?['data']));
+
+  /// `courier-custody/pending` `data` alanı (değişiklik paketindeki
+  /// `custody` de aynı yapıda): kabul bekleyen kalemler ve eldekiler.
+  List<CustodyItemDto> custodyFrom(Map<String, dynamic> data) {
     final raw = <dynamic>[
       ...((data['items'] as List?) ?? const []),
       ...((data['held'] as List?) ?? const []),
@@ -1042,6 +1095,7 @@ class PanelApi {
       acquiredAt:
           json['since'] as String? ?? json['acquiredAt'] as String? ?? '',
       warehouseId: json['warehouseId'] as String?,
+      transferItemId: json['itemId'] as String?,
     );
   }
 
@@ -1207,6 +1261,25 @@ class PanelApi {
     }, idempotencyKey: idempotencyKey);
   }
 
+  /// Görev dışı konum: açık vardiyada, görev başlamamışken 2–5 dk'da bir
+  /// (şube haritası bunu kullanır). Kuyruğa alınmaz; sunucu 5 dk'dan eski
+  /// konumu `422 LOCATION_TOO_OLD` ile, kapalı vardiyayı `409 NO_OPEN_SHIFT`
+  /// ile reddeder. Sırası karışan istekte daha yeni konum ezilmez.
+  Future<void> sendShiftLocation({
+    required double latitude,
+    required double longitude,
+    double? accuracy,
+    DateTime? capturedAt,
+  }) async {
+    await _post('/courier-shifts/location', {
+      'latitude': latitude,
+      'longitude': longitude,
+      'accuracy': ?accuracy,
+      if (capturedAt != null)
+        'capturedAt': capturedAt.toUtc().toIso8601String(),
+    });
+  }
+
   /// Mola başlat / bitir. Açık vardiya gerekir; aynı anda tek mola.
   Future<void> setBreak({
     required bool start,
@@ -1248,12 +1321,181 @@ class PanelApi {
     return data['contentBody'] as String? ?? '';
   }
 
-  /// "Okudum/izledim ve anladım" onayıyla tamamlar.
-  Future<void> completeTraining(String trainingId) async {
+  /// "Okudum/izledim ve anladım" onayıyla tamamlar. En kısa izleme süresi
+  /// dolmadıysa sunucu `409 TRAINING_MIN_VIEW_NOT_REACHED` döner; son
+  /// [viewedSeconds] (kümülatif) bu istekte de gönderilebilir.
+  Future<void> completeTraining(String trainingId, {int? viewedSeconds}) async {
     await _post('/courier-trainings/$trainingId/complete', {
       'acknowledged': true,
+      'viewedSeconds': ?viewedSeconds,
       'occurredAt': DateTime.now().toUtc().toIso8601String(),
     }, idempotencyKey: Vault.newUuid());
+  }
+
+  /// Eğitim detayı: içerik bağlantısı / metni, dersler, sınav, ilerleme.
+  Future<LearnerTraining> fetchTrainingDetail(String trainingId) async {
+    final res = await _get('/courier-trainings/$trainingId');
+    return LearnerTraining.fromJson(
+      Map<String, dynamic>.from(res.data?['data'] as Map? ?? const {}),
+    );
+  }
+
+  /// İzleme ilerlemesi: [viewedSeconds] kümülatif (geri gitmez). 15–30 sn'de
+  /// bir ya da ekrandan çıkarken.
+  Future<void> recordTrainingProgress(
+    String trainingId, {
+    required int viewedSeconds,
+    int? percent,
+  }) async {
+    await _post('/courier-trainings/$trainingId/progress', {
+      'viewedSeconds': viewedSeconds,
+      'progressPercent': ?percent,
+      'occurredAt': DateTime.now().toUtc().toIso8601String(),
+    }, idempotencyKey: Vault.newUuid());
+  }
+
+  /// Dersli eğitimde ders ilerlemesi; [completed] ve en kısa süre dolmuşsa
+  /// ders tamamlanır. Canlı derste katılım = tamamlama.
+  Future<void> recordLessonProgress(
+    String trainingId,
+    String lessonId, {
+    required int viewedSeconds,
+    int? positionSeconds,
+    bool completed = false,
+  }) async {
+    await _post('/courier-trainings/$trainingId/lessons/$lessonId/progress', {
+      'viewedSeconds': viewedSeconds,
+      'positionSeconds': ?positionSeconds,
+      if (completed) 'completed': true,
+      'occurredAt': DateTime.now().toUtc().toIso8601String(),
+    }, idempotencyKey: Vault.newUuid());
+  }
+
+  /// Sınav: soru kimliği → seçilen seçenek kimlikleri. Puan sunucuda.
+  Future<QuizResult> submitLessonQuiz(
+    String trainingId,
+    String lessonId,
+    Map<String, List<String>> answers,
+  ) async {
+    final res = await _post(
+      '/courier-trainings/$trainingId/lessons/$lessonId/quiz',
+      {
+        'answers': answers,
+        'occurredAt': DateTime.now().toUtc().toIso8601String(),
+      },
+      idempotencyKey: Vault.newUuid(),
+    );
+    return QuizResult.fromJson(
+      Map<String, dynamic>.from(res.data?['data'] as Map? ?? const {}),
+    );
+  }
+
+  /// Eğitim Merkezi SSS (kurye kitlesi, yayındakiler, sırasıyla).
+  Future<List<TrainingFaq>> fetchTrainingFaq() async {
+    final res = await _get('/courier-trainings/faq');
+    final rows = res.data?['data'];
+    return [
+      for (final r in rows is List ? rows : const [])
+        if (r is Map)
+          (question: '${r['question'] ?? ''}', answer: '${r['answer'] ?? ''}'),
+    ];
+  }
+
+  /// Zimmet uyuşmazlığı bildirimlerim (yeniden eskiye, en fazla 50).
+  Future<List<CustodyDispute>> fetchCustodyDisputes() async =>
+      CustodyDispute.listFrom(
+        (await _get('/courier-custody/disputes')).data?['data'],
+      );
+
+  /// Zimmet uyuşmazlığı bildirir; operasyona yüksek öncelikli talep açılır,
+  /// zimmeti veren şube kendi listesinde görür. Kurallar: MISSING / DAMAGED
+  /// → [transferItemId]; EXCESS → [scanCode]; WRONG_ITEM → ikisi; OTHER →
+  /// [note]. Aynı [idempotencyKey] ile tekrar aynı kaydı döner.
+  Future<CustodyDispute> createCustodyDispute({
+    required String typeCode,
+    required String idempotencyKey,
+    String? transferItemId,
+    String? scanCode,
+    String? note,
+    double? latitude,
+    double? longitude,
+    double? accuracy,
+  }) async {
+    final res = await _post('/courier-custody/disputes', {
+      'typeCode': typeCode,
+      'transferItemId': ?transferItemId,
+      'scanCode': ?scanCode,
+      'note': ?note,
+      'latitude': ?latitude,
+      'longitude': ?longitude,
+      'accuracy': ?accuracy,
+    }, idempotencyKey: idempotencyKey);
+    final data = res.data?['data'];
+    final dispute = data is Map ? data['dispute'] : null;
+    return CustodyDispute.fromJson(
+      Map<String, dynamic>.from(dispute is Map ? dispute : const {}),
+    );
+  }
+
+  /// Ödeme bilgisi (`GET courier-profile` → `bankAccount`): bekleyen ya da
+  /// reddedilen kayıt varsa o, yoksa doğrulanmış hesap. IBAN maskelidir.
+  Future<CourierBankAccount?> fetchBankAccount() async =>
+      CourierBankAccount.from(
+        _map((await _get('/courier-profile')).data?['data']),
+      );
+
+  /// Yeni IBAN'ı doğrulamaya gönderir (`PENDING_VERIFICATION`). Alan
+  /// hataları `VALIDATION_ERROR` + [PanelApiException.fieldErrors].
+  Future<CourierBankAccount?> saveBankAccount({
+    required String accountHolderName,
+    required String iban,
+  }) async {
+    try {
+      final res = await dio.put<Map<String, dynamic>>(
+        '/courier-profile',
+        data: {
+          'accountHolderName': accountHolderName.trim(),
+          'iban': iban.replaceAll(RegExp(r'\s'), '').toUpperCase(),
+        },
+      );
+      return CourierBankAccount.from(_map(res.data?['data']));
+    } on DioException catch (e) {
+      throw _panelException(e);
+    }
+  }
+
+  /// Çıkışta cihaz kaydını kapatır: push token silinir, merkez cihazı
+  /// pasif görür. Oturum kapanmadan önce çağrılır (Bearer gerekir).
+  Future<void> unregisterDevice(String deviceId) async {
+    try {
+      await dio.delete<Map<String, dynamic>>(
+        '/courier-devices',
+        queryParameters: {'deviceId': deviceId},
+      );
+    } on DioException catch (e) {
+      throw _panelException(e);
+    }
+  }
+
+  /// Açılış / ön plana gelme senkronu: görevler, zimmet, vardiya, eğitim ve
+  /// yeni bildirimler tek pakette. İlk çağrıda [since] yok (tam paket);
+  /// sonra önceki yanıttaki `serverTime`.
+  Future<SyncChangesDto> fetchSyncChanges({
+    String? since,
+    String? deviceId,
+  }) async {
+    try {
+      final res = await dio.get<Map<String, dynamic>>(
+        '/courier-sync/changes',
+        queryParameters: {'since': ?since},
+        options: deviceId == null
+            ? null
+            : Options(headers: {'X-Device-Id': deviceId}),
+      );
+      return SyncChangesDto.fromJson(_map(res.data?['data']));
+    } on DioException catch (e) {
+      throw _panelException(e);
+    }
   }
 
   Future<Response<Map<String, dynamic>>> _post(
@@ -1291,6 +1533,14 @@ class PanelApi {
         for (final row in error['missing'] as List? ?? const [])
           if (row is Map && row['type'] is String) row['type'] as String,
       ],
+      fieldErrors: {
+        if (error['fieldErrors'] case final Map fields)
+          for (final e in fields.entries)
+            if (e.value != null)
+              '${e.key}': e.value is List
+                  ? (e.value as List).join(' ')
+                  : '${e.value}',
+      },
     );
   }
 }

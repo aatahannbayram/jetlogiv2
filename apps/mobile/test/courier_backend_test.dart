@@ -1,10 +1,19 @@
 import 'package:dijigoo_kurye/api/panel_client.dart';
+import 'package:dijigoo_kurye/api/panel_models.dart';
+import 'package:dijigoo_kurye/data/vault.dart';
 import 'package:dijigoo_kurye/models.dart';
 import 'package:dijigoo_kurye/session.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-typedef _Call = ({String method, String path, Map body, String? key});
+typedef _Call = ({
+  String method,
+  String path,
+  Map body,
+  String? key,
+  Map query,
+});
 
 ({PanelApi api, List<_Call> calls, Map<String, Object?> state}) _server() {
   final calls = <_Call>[];
@@ -18,12 +27,34 @@ typedef _Call = ({String method, String path, Map body, String? key});
           path: options.path,
           body: options.data is Map ? options.data as Map : const {},
           key: options.headers['Idempotency-Key'] as String?,
+          query: options.queryParameters,
         ));
         if (state['offline'] == true) {
           return handler.reject(
             DioException(
               requestOptions: options,
               type: DioExceptionType.connectionError,
+            ),
+          );
+        }
+        if (state['ibanInvalid'] == true &&
+            options.method == 'PUT' &&
+            options.path == '/courier-profile') {
+          return handler.reject(
+            DioException(
+              requestOptions: options,
+              type: DioExceptionType.badResponse,
+              response: Response<Map<String, dynamic>>(
+                requestOptions: options,
+                statusCode: 400,
+                data: {
+                  'success': false,
+                  'error': {
+                    'code': 'VALIDATION_ERROR',
+                    'fieldErrors': {'iban': 'IBAN geçersiz.'},
+                  },
+                },
+              ),
             ),
           );
         }
@@ -91,6 +122,41 @@ typedef _Call = ({String method, String path, Map body, String? key});
           };
         } else if (options.path == '/courier-trainings/tr1') {
           data = {'contentBody': 'Kask takın.'};
+        } else if (options.path == '/courier-custody/disputes') {
+          final d = {
+            'id': 'd1',
+            'ticketNumber': 'TKT-1',
+            'statusCode': 'NEW',
+            'typeCode': 'EXCESS',
+            'scanCode': 'JD-1',
+          };
+          data = options.method == 'POST'
+              ? {'dispute': d}
+              : {
+                  'disputes': [d],
+                };
+        } else if (options.path == '/courier-profile') {
+          data = {
+            'courier': {'fullName': 'Ali Can'},
+            'bankAccount': {
+              'accountHolderName': 'Ali Can',
+              'maskedIban': 'TR** **** **** **** **** **12 34',
+              'status': options.method == 'PUT'
+                  ? 'PENDING_VERIFICATION'
+                  : 'VERIFIED',
+            },
+            'verifiedBankAccount': {
+              'maskedIban': 'TR** **** **** **** **** **99 00',
+            },
+          };
+        } else if (options.path == '/courier-sync/changes') {
+          data =
+              state['sync'] as Map<String, Object?>? ??
+              {
+                'serverTime': '2026-10-29T10:00:00.000Z',
+                'full': true,
+                'tasks': {'activeIds': <String>[], 'items': <Object>[]},
+              };
         }
         handler.resolve(
           Response<Map<String, dynamic>>(
@@ -215,18 +281,118 @@ void main() {
     expect(done.body['acknowledged'], isTrue);
   });
 
-  test('zimmet uyuşmazlığı okutulanlarla destek kaydı olarak gider', () async {
+  test('zimmet uyuşmazlığı kendi ucuna anahtar ve kodla gider', () async {
     final t = _server();
     final s = _session(t.api);
-    s.zimmetScans.add((code: 'JD-1', time: '10:00'));
-    s.reportCustodyDiscrepancy('1 koli eksik');
-    await _settle();
-    final sent = t.calls.singleWhere(
-      (c) => c.method == 'POST' && c.path == '/courier-support/cases',
+    final out = await s.reportCustodyDispute(
+      typeCode: 'EXCESS',
+      idempotencyKey: 'dispute-key-1',
+      scanCode: 'JD-1',
+      note: '  1 koli fazla  ',
     );
-    expect('${sent.body}', contains('1 koli eksik'));
-    expect('${sent.body}', contains('JD-1'));
+    expect(out.error, isNull);
+    expect(out.ticket, 'TKT-1');
+    final sent = t.calls.singleWhere(
+      (c) => c.method == 'POST' && c.path == '/courier-custody/disputes',
+    );
+    expect(sent.key, 'dispute-key-1');
+    expect(sent.body['typeCode'], 'EXCESS');
+    expect(sent.body['scanCode'], 'JD-1');
+    expect(sent.body['note'], '1 koli fazla');
+    expect(sent.body.containsKey('transferItemId'), isFalse);
+    expect(s.custodyDisputes.single.ticketNumber, 'TKT-1');
+    expect(t.calls.where((c) => c.path == '/courier-support/cases'), isEmpty);
   });
+
+  test('IBAN temizlenip gönderilir; alan hatası alana düşer', () async {
+    final t = _server();
+    final saved = await t.api.saveBankAccount(
+      accountHolderName: ' Ali Can ',
+      iban: 'tr12 0006 2000 0000 0000 0000 01',
+    );
+    final put = t.calls.singleWhere((c) => c.method == 'PUT');
+    expect(put.path, '/courier-profile');
+    expect(put.body['iban'], 'TR120006200000000000000001');
+    expect(put.body['accountHolderName'], 'Ali Can');
+    expect(saved?.status, 'PENDING_VERIFICATION');
+    expect(saved?.verifiedMaskedIban, 'TR** **** **** **** **** **99 00');
+
+    t.state['ibanInvalid'] = true;
+    await expectLater(
+      t.api.saveBankAccount(accountHolderName: 'Ali Can', iban: 'TR00'),
+      throwsA(
+        isA<PanelApiException>().having(
+          (e) => e.fieldErrors['iban'],
+          'iban',
+          'IBAN geçersiz.',
+        ),
+      ),
+    );
+  });
+
+  test('çıkışta cihaz kaydı oturum kapanmadan kapatılır', () async {
+    FlutterSecureStorage.setMockInitialValues({});
+    final t = _server();
+    final s = SessionController(panel: t.api, vault: Vault())
+      ..panelLoggedIn = true;
+    await s.logout();
+    final paths = [for (final c in t.calls) '${c.method} ${c.path}'];
+    final close = paths.indexOf('DELETE /courier-devices');
+    expect(close, isNonNegative);
+    expect(close, lessThan(paths.indexOf('POST /courier-auth/logout')));
+    final deviceId = t.calls[close].query['deviceId'] as String?;
+    expect(deviceId, isNotNull);
+    expect(deviceId, await Vault().installationId());
+  });
+
+  test(
+    'senkron paketi değişiklik yoksa görev listesini yeniden çekmez',
+    () async {
+      final t = _server();
+      final s = _session(t.api);
+      await s.pullTasks();
+      int taskLoads() =>
+          t.calls.where((c) => c.path == '/courier-tasks').length;
+      expect(taskLoads(), 1);
+      expect(
+        t.calls.where((c) => c.path == '/courier-sync/changes').single.query,
+        isNot(contains('since')),
+      );
+
+      t.state['sync'] = {
+        'serverTime': '2026-10-29T10:05:00.000Z',
+        'full': false,
+        'tasks': {'activeIds': <String>[], 'items': <Object>[]},
+        'custody': {
+          'items': [
+            {
+              'itemId': 'ti-1',
+              'shipmentId': 's-1',
+              'shipmentNumber': 'JD-7',
+              'transferNumber': 'TRF-1',
+            },
+          ],
+        },
+      };
+      await s.pullTasks();
+      final second = t.calls.where((c) => c.path == '/courier-sync/changes');
+      expect(second.last.query['since'], '2026-10-29T10:00:00.000Z');
+      expect(taskLoads(), 1);
+      expect(s.custodyItems.single.transferItemId, 'ti-1');
+      expect(s.disputableCustody.single.barcode, 'JD-7');
+
+      t.state['sync'] = {
+        'serverTime': '2026-10-29T10:10:00.000Z',
+        'full': false,
+        'tasks': {
+          'activeIds': ['s-9'],
+          'items': <Object>[],
+        },
+      };
+      await s.pullTasks();
+      expect(taskLoads(), 2);
+    },
+  );
 
   test('bildirim kutusu backend\'den gelir, okundu geri yazılır', () async {
     final t = _server();

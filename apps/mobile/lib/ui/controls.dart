@@ -309,11 +309,11 @@ class _DgSearchFieldState extends State<DgSearchField> {
         contentPadding: const EdgeInsets.symmetric(vertical: 14),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: Dg.hairline),
+          borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: Dg.hairline),
+          borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
@@ -353,11 +353,8 @@ class DgFilterChip extends StatelessWidget {
           height: 36,
           padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
-            color: on ? Dg.action.withValues(alpha: 0.18) : Dg.surface1,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: on ? Dg.action.withValues(alpha: 0.6) : Dg.hairline,
-            ),
+            color: on ? Dg.action.withValues(alpha: 0.22) : Dg.surface2,
+            borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,

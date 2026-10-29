@@ -5,10 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../api/panel_client.dart';
 import '../api/panel_models.dart';
 import '../l10n.dart';
 import '../session.dart';
 import '../theme.dart';
+import '../ui/ui.dart';
 import '../widgets.dart';
 
 void _snack(BuildContext context, String message) {
@@ -877,6 +879,278 @@ class _ProfileChangeScreenState extends ConsumerState<ProfileChangeScreen> {
             ],
           ],
         ],
+      ),
+    );
+  }
+}
+
+/// Ödeme bilgisi: maskeli IBAN ve doğrulama durumu. Yeni IBAN doğrulamaya
+/// gönderilir (`PUT courier-profile`); önceki bekleyen kayıt pasifleşir.
+class PaymentInfoScreen extends ConsumerStatefulWidget {
+  const PaymentInfoScreen({super.key});
+
+  @override
+  ConsumerState<PaymentInfoScreen> createState() => _PaymentInfoScreenState();
+}
+
+class _PaymentInfoScreenState extends ConsumerState<PaymentInfoScreen> {
+  CourierBankAccount? _account;
+  bool _loading = true;
+  bool _failed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  Future<void> _load() async {
+    try {
+      final account = await ref.read(sessionProvider).panel!.fetchBankAccount();
+      if (!mounted) return;
+      setState(() {
+        _account = account;
+        _loading = false;
+        _failed = false;
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _failed = true;
+        });
+      }
+    }
+  }
+
+  Future<void> _edit() async {
+    final l = context.l10n;
+    final s = ref.read(sessionProvider);
+    final saved = await showModalBottomSheet<CourierBankAccount>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Dg.surface,
+      showDragHandle: true,
+      builder: (_) => _IbanSheet(
+        panel: s.panel!,
+        holder: _account?.holderName ?? s.courier.fullName,
+      ),
+    );
+    if (saved == null || !mounted) return;
+    setState(() => _account = saved);
+    _snack(context, l.paymentSaved);
+  }
+
+  static DgTone _tone(String status) => switch (status) {
+    'VERIFIED' => DgTone.ok,
+    'REJECTED' => DgTone.bad,
+    'CHANGE_REQUESTED' => DgTone.warn,
+    _ => DgTone.info,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final a = _account;
+    return Scaffold(
+      appBar: AppBar(title: Text(l.paymentInfoTitle)),
+      body: RefreshIndicator(
+        onRefresh: _load,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+          children: [
+            if (_failed && a == null)
+              DgRetryBanner(
+                message: l.reportFailedLoad,
+                onRetry: _load,
+                retryLabel: l.retryNow,
+              )
+            else if (_loading)
+              const Padding(
+                padding: EdgeInsets.only(top: 48),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (a == null)
+              _empty(l.paymentInfoEmpty)
+            else
+              DgCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            a.holderName,
+                            style: Dg.ui(size: 16, weight: FontWeight.w700),
+                          ),
+                        ),
+                        DgStatusPill(
+                          label: l.paymentStatus(a.status),
+                          tone: _tone(a.status),
+                          dense: true,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Mono(a.maskedIban, size: 15, weight: FontWeight.w600),
+                    if (a.rejectionReason != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          a.rejectionReason!,
+                          style: Dg.ui(size: 14, color: Dg.bad),
+                        ),
+                      ),
+                    if (a.verifiedMaskedIban != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          l.paymentPaidTo(a.verifiedMaskedIban!),
+                          style: Dg.ui(size: 13, color: Dg.ink3),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            if (!_loading && !(_failed && a == null)) ...[
+              const SizedBox(height: 14),
+              Text(l.paymentHint, style: Dg.ui(size: 13, color: Dg.ink3)),
+              const SizedBox(height: 12),
+              DgButton(
+                key: const Key('payment-edit'),
+                label: a == null ? l.paymentAdd : l.paymentChange,
+                icon: LucideIcons.landmark,
+                onPressed: _edit,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _IbanSheet extends StatefulWidget {
+  const _IbanSheet({required this.panel, required this.holder});
+
+  final PanelApi panel;
+  final String holder;
+
+  @override
+  State<_IbanSheet> createState() => _IbanSheetState();
+}
+
+class _IbanSheetState extends State<_IbanSheet> {
+  late final _holder = TextEditingController(text: widget.holder);
+  final _iban = TextEditingController();
+  bool _busy = false;
+  String? _holderError;
+  String? _ibanError;
+  String? _error;
+
+  @override
+  void dispose() {
+    _holder.dispose();
+    _iban.dispose();
+    super.dispose();
+  }
+
+  /// Türkiye IBAN'ı: TR + 24 hane (boşluklar sayılmaz).
+  static bool _looksValid(String raw) =>
+      RegExp(r'^TR\d{24}$').hasMatch(raw.replaceAll(' ', '').toUpperCase());
+
+  Future<void> _save() async {
+    final l = context.l10n;
+    if (!_looksValid(_iban.text)) {
+      setState(() => _ibanError = l.paymentIbanInvalid);
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _holderError = null;
+      _ibanError = null;
+      _error = null;
+    });
+    try {
+      final saved = await widget.panel.saveBankAccount(
+        accountHolderName: _holder.text,
+        iban: _iban.text,
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop(saved);
+    } on PanelApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _holderError = e.fieldErrors['accountHolderName'];
+        _ibanError = e.fieldErrors['iban'];
+        if (_holderError == null && _ibanError == null) {
+          _error = e.statusCode == null
+              ? l.visitOffline
+              : e.serverMessage ?? l.paymentError(e.code);
+        }
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        0,
+        20,
+        16 + MediaQuery.viewInsetsOf(context).bottom,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              l.paymentInfoTitle,
+              style: Dg.ui(size: 17, weight: FontWeight.w700),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              key: const Key('payment-holder'),
+              controller: _holder,
+              maxLength: 180,
+              textCapitalization: TextCapitalization.words,
+              decoration: InputDecoration(
+                labelText: l.paymentHolder,
+                errorText: _holderError,
+              ),
+            ),
+            TextField(
+              key: const Key('payment-iban'),
+              controller: _iban,
+              textCapitalization: TextCapitalization.characters,
+              autocorrect: false,
+              decoration: InputDecoration(
+                labelText: l.paymentIban,
+                hintText: 'TR00 0000 0000 0000 0000 0000 00',
+                errorText: _ibanError,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(l.paymentHint, style: Dg.ui(size: 13, color: Dg.ink3)),
+            if (_error != null) ...[
+              const SizedBox(height: 8),
+              Text(_error!, style: Dg.ui(size: 14, color: Dg.bad)),
+            ],
+            const SizedBox(height: 12),
+            DgButton(
+              key: const Key('payment-save'),
+              label: l.paymentSave,
+              icon: LucideIcons.send,
+              busy: _busy,
+              onPressed: _busy ? null : _save,
+            ),
+          ],
+        ),
       ),
     );
   }

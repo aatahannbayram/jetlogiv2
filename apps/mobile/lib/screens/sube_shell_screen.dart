@@ -9,7 +9,6 @@ import '../session.dart';
 import '../shell_nav.dart';
 import '../theme.dart';
 import '../widgets.dart';
-import 'onboard_screen.dart';
 import 'sube_couriers_screen.dart';
 import 'sube_home_screen.dart';
 import 'sube_ops_screen.dart';
@@ -46,9 +45,8 @@ class _SubeShellScreenState extends ConsumerState<SubeShellScreen> {
     final s = ref.watch(sessionProvider);
     final nav = ref.watch(subeNavProvider);
     final index = nav.index;
-    if (!s.subeOnboardSeen) {
-      return const OnboardScreen(forBranch: true);
-    }
+    // Eski tasarımdaki tanıtım kartları gösterilmez (mockup'larda yok);
+    // giriş doğrudan ana sayfaya açılır.
     final l = context.l10n;
     const pages = [
       SubeHomeScreen(),

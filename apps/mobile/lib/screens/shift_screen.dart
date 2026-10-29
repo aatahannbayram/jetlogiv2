@@ -27,13 +27,13 @@ class ShiftScreen extends ConsumerWidget {
                   height: 44,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: Dg.violetBg,
+                    color: Dg.brand,
                     shape: BoxShape.circle,
                   ),
                   child: DgIcon(
                     LucideIcons.camera,
                     size: 20,
-                    color: Dg.brand,
+                    color: Colors.white,
                     weight: 600,
                   ),
                 ),

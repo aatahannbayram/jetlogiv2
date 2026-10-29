@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -7,6 +9,7 @@ import '../l10n.dart';
 import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import 'custody_dispute_sheet.dart';
 
 /// Kuryenin aldığı ve verdiği zimmet kalemleri, yeniden eskiye.
 class CustodyHistoryScreen extends ConsumerStatefulWidget {
@@ -31,6 +34,7 @@ class _CustodyHistoryScreenState extends ConsumerState<CustodyHistoryScreen> {
   Future<void> _load() async {
     try {
       final session = ref.read(sessionProvider);
+      unawaited(session.loadCustodyDisputes());
       final rows = await session.custodyHistory();
       // Üzerindekiler ayrı uçtan; gelmezse geçmiş yine görünür.
       var held = const <Map<String, dynamic>>[];
@@ -60,6 +64,7 @@ class _CustodyHistoryScreenState extends ConsumerState<CustodyHistoryScreen> {
   Widget build(BuildContext context) {
     final l = context.l10n;
     final items = _items;
+    final disputes = ref.watch(sessionProvider).custodyDisputes;
     return Scaffold(
       appBar: AppBar(title: Text(l.custodyHistoryTitle)),
       body: RefreshIndicator(
@@ -89,6 +94,25 @@ class _CustodyHistoryScreenState extends ConsumerState<CustodyHistoryScreen> {
                 ),
               )
             else ...[
+              if (disputes.isNotEmpty) ...[
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    '${l.disputeMine} · ${disputes.length}',
+                    style: Dg.ui(
+                      size: 14,
+                      weight: FontWeight.w600,
+                      color: Dg.ink2,
+                    ),
+                  ),
+                ),
+                for (final d in disputes)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: CustodyDisputeTile(dispute: d),
+                  ),
+                const SizedBox(height: 10),
+              ],
               if (_held.isNotEmpty) ...[
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),

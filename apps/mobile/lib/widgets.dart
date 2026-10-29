@@ -17,6 +17,7 @@ import 'motion.dart';
 import 'notif.dart';
 import 'scan.dart';
 import 'theme.dart';
+import 'ui/controls.dart' show DgPillTabs;
 
 /// Demo courier's base area (Güney / Denizli) — used as the map center when
 /// a screen has no specific task coordinates to show (e.g. onboarding
@@ -247,6 +248,7 @@ class StatusChip extends StatelessWidget {
           'mid' => Dg.warn,
           'lo' => Dg.ok,
           'lime' => Dg.plum,
+          'accent' => Dg.brand,
           _ => Dg.text2,
         };
     // Yumuşak dolgulu hap: rengi durumdan gelir, çerçeve yok.
@@ -475,9 +477,21 @@ class _DgButtonState extends State<DgButton> {
         opacity: enabled ? 1 : 0.42,
         child: DecoratedBox(
           decoration: BoxDecoration(
-            gradient: action && enabled ? Dg.emberGradient : null,
+            // Ana eylem: şube ekranlarıyla aynı marka gradyanı ve altta
+            // yumuşak ışıltı (çerçeve yok).
+            gradient: action && enabled ? Dg.brandCta : null,
             color: action && enabled ? null : fill,
             borderRadius: BorderRadius.circular(Dg.radiusPill),
+            boxShadow: action && enabled
+                ? [
+                    BoxShadow(
+                      color: Dg.action.withValues(alpha: Dg.dark ? 0.35 : 0.25),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
+                      spreadRadius: -6,
+                    ),
+                  ]
+                : null,
           ),
           child: ConstrainedBox(
             constraints: BoxConstraints(
@@ -610,10 +624,9 @@ class DgCard extends StatelessWidget {
     final body = Container(
       width: double.infinity,
       padding: padding ?? const EdgeInsets.all(Dg.s16),
-      decoration: BoxDecoration(
-        color: dark ? Dg.night : (lime ? Dg.surface2 : Dg.surface1),
-        borderRadius: BorderRadius.circular(radius),
-        boxShadow: Dg.cardShadow,
+      decoration: Dg.card(
+        radius: radius,
+        color: dark ? Dg.night : (lime ? Dg.surface2 : null),
       ),
       child: child,
     );
@@ -670,14 +683,16 @@ class NotifCard extends StatelessWidget {
             width: compact ? 34 : 40,
             height: compact ? 34 : 40,
             alignment: Alignment.center,
+            // Türün rengiyle dolu daire (şube ikon rozetleri gibi);
+            // okunmuş bildirimde soluk.
             decoration: BoxDecoration(
-              color: unread ? Dg.plumSoft : Dg.elev,
+              color: unread ? n.ink : n.ink.withValues(alpha: 0.18),
               shape: BoxShape.circle,
             ),
             child: DgIcon(
               n.icon,
               size: compact ? 17 : 19,
-              color: unread ? Dg.plum : Dg.text3,
+              color: unread ? Colors.white : n.ink,
               weight: 500,
             ),
           ),
@@ -1925,7 +1940,7 @@ class _SlideToActState extends State<SlideToAct>
         return Container(
           height: max(64, MediaQuery.textScalerOf(context).scale(16) * 2 + 24),
           decoration: BoxDecoration(
-            gradient: Dg.emberGradient,
+            gradient: Dg.brandCta,
             borderRadius: BorderRadius.circular(Dg.radiusPill),
           ),
           child: Stack(
@@ -2588,73 +2603,10 @@ class SegmentedTabs extends StatelessWidget {
   /// Koyu zeminde yüzen hap. Alt çizgi yerine seçili sekme kart gibi durur.
   final bool soft;
 
+  /// Görünüm şube ekranlarıyla aynı: mavi dolu hap sekme ([DgPillTabs]).
   @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final style = Dg.ui(size: 14, weight: FontWeight.w600);
-        final widths = labels.map((label) {
-          final painter = TextPainter(
-            text: TextSpan(text: label, style: style),
-            textDirection: Directionality.of(context),
-            textScaler: MediaQuery.textScalerOf(context),
-          )..layout();
-          final width = max(96.0, painter.width + 32);
-          painter.dispose();
-          return width;
-        }).toList();
-        final scroll =
-            widths.fold<double>(0, (a, b) => a + b) + 8 * (labels.length - 1) >
-            constraints.maxWidth;
-        Widget tab(int i) => Semantics(
-          selected: index == i,
-          button: true,
-          child: Material(
-            // Seçili sekme ters renkli hap; turuncu kullanılmaz.
-            color: index == i ? Dg.ink : Dg.surface,
-            borderRadius: BorderRadius.circular(999),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(999),
-              onTap: () => onChanged(i),
-              child: Container(
-                constraints: const BoxConstraints(minHeight: Dg.touchMin),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 12,
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  labels[i],
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  style: style.copyWith(
-                    color: index == i ? Dg.ground : Dg.ink2,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-        final row = Row(
-          children: [
-            for (var i = 0; i < labels.length; i++) ...[
-              if (i > 0) const SizedBox(width: 8),
-              if (scroll)
-                SizedBox(width: widths[i], child: tab(i))
-              else
-                Expanded(child: tab(i)),
-            ],
-          ],
-        );
-        return scroll
-            ? SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: row,
-              )
-            : row;
-      },
-    );
-  }
+  Widget build(BuildContext context) =>
+      DgPillTabs(labels: labels, index: index, onChanged: onChanged);
 }
 
 class StatTile extends StatelessWidget {
@@ -2718,16 +2670,15 @@ class StatTile extends StatelessWidget {
                     width: 34,
                     height: 34,
                     alignment: Alignment.center,
+                    // Şube KPI kutuları gibi dolu renkli daire.
                     decoration: BoxDecoration(
-                      color: (iconColor ?? Dg.plum).withValues(
-                        alpha: Dg.dark ? 0.18 : 0.12,
-                      ),
+                      color: iconColor ?? Dg.plum,
                       shape: BoxShape.circle,
                     ),
                     child: DgIcon(
                       icon!,
                       size: 18,
-                      color: iconColor ?? Dg.plum,
+                      color: Colors.white,
                       weight: 600,
                     ),
                   ),
@@ -2773,17 +2724,27 @@ class IconTintBadge extends StatelessWidget {
   final Color ink;
   final double size;
 
+  bool get _neutral => HSLColor.fromColor(ink).saturation < 0.3;
+
   @override
   Widget build(BuildContext context) {
     return Container(
       width: size,
       height: size,
       alignment: Alignment.center,
+      // Renkli tonda şube ekranlarındaki gibi dolu daire ve beyaz ikon;
+      // nötr tonda (ör. metin rengi) yumuşak zemin, aksi halde ikon zeminle
+      // aynı renge düşüp kaybolur.
       decoration: BoxDecoration(
-        color: tint,
-        borderRadius: BorderRadius.circular(Dg.rSm),
+        color: _neutral ? tint : ink,
+        shape: BoxShape.circle,
       ),
-      child: DgIcon(icon, color: ink, size: size * 0.46, weight: 600),
+      child: DgIcon(
+        icon,
+        color: _neutral ? ink : Colors.white,
+        size: size * 0.46,
+        weight: 600,
+      ),
     );
   }
 }

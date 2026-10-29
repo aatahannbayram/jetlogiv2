@@ -61,7 +61,7 @@ Stream<LiveFix> liveFixStream() async* {
   } catch (_) {
     return;
   }
-  // Görev sürerken ekran kilitlense ya da uygulama arka plana geçse de
+  // Vardiya / görev sürerken ekran kilitlense ya da uygulama arka plana geçse de
   // konum akmaya devam eder: Android'de kalıcı bildirimli ön plan servisi,
   // iOS'ta arka plan konum güncellemesi (mavi durum çubuğu göstergesiyle).
   final LocationSettings settings = switch (defaultTargetPlatform) {
@@ -70,8 +70,9 @@ Stream<LiveFix> liveFixStream() async* {
       distanceFilter: 25,
       intervalDuration: const Duration(seconds: 15),
       foregroundNotificationConfig: const ForegroundNotificationConfig(
-        notificationTitle: 'Dijigoo teslimat sürüyor',
-        notificationText: 'Aktif görev boyunca konumunuz paylaşılıyor.',
+        notificationTitle: 'Dijigoo vardiyası açık',
+        notificationText:
+            'Vardiya ve görev boyunca konumunuz şubeyle paylaşılıyor.',
         enableWakeLock: true,
       ),
     ),

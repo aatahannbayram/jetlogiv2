@@ -11,6 +11,7 @@ import '../road.dart';
 import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import 'courier_header.dart';
 import 'shell_screen.dart' show RouteScreen;
 import 'task_detail_screen.dart';
 
@@ -63,6 +64,7 @@ class _ListScreenState extends ConsumerState<ListScreen> {
         : (s.routePlan!.totalDistanceMeters / 1000).toStringAsFixed(1);
 
     return Scaffold(
+      appBar: const CourierHeaderBar(),
       body: SafeArea(
         child: Column(
           children: [

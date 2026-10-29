@@ -3,11 +3,11 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-import '../brand.dart';
 import '../l10n.dart';
 import '../motion.dart';
 import '../session.dart';
 import '../theme.dart';
+import '../ui/ui.dart';
 import '../widgets.dart';
 import 'depo_screen.dart';
 import 'earnings_screen.dart';
@@ -18,7 +18,9 @@ import 'account_more_screens.dart';
 import 'account_screens.dart';
 import 'custody_history_screen.dart';
 import 'mistakes_screen.dart';
+import 'courier_header.dart';
 import 'profile_screen.dart';
+import 'sube_widgets.dart' show SubeOverline;
 import 'support_screen.dart';
 import 'sync_screen.dart';
 import 'tara_screen.dart';
@@ -139,6 +141,13 @@ class MenuScreen extends ConsumerWidget {
           open: () => const ProfileChangeScreen(),
         ),
         (
+          label: l.paymentInfoTitle,
+          icon: LucideIcons.landmark,
+          badge: null,
+          tone: _ChipTone.mute,
+          open: () => const PaymentInfoScreen(),
+        ),
+        (
           label: l.shiftHistoryTitle,
           icon: LucideIcons.clock,
           badge: null,
@@ -188,12 +197,11 @@ class MenuScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: Dg.bg,
+      appBar: const CourierHeaderBar(),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(Dg.s20, Dg.s12, Dg.s20, Dg.s28),
           children: [
-            Appear(child: DijigooWordmark(height: 28, onDark: Dg.dark)),
-            const SizedBox(height: Dg.s20),
             _ProfileCard(session: s),
             const SizedBox(height: Dg.s32),
             _Section(title: l.menuDaily, items: daily, start: 0),
@@ -304,32 +312,8 @@ class _Section extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(left: Dg.s4, bottom: Dg.s12),
-          child: Row(
-            children: [
-              Container(
-                width: 6,
-                height: 6,
-                decoration: const BoxDecoration(
-                  color: Dg.orange,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: Dg.s8),
-              Expanded(
-                child: Text(
-                  title,
-                  style: Dg.ui(
-                    size: 17,
-                    weight: FontWeight.w600,
-                    color: Dg.ink,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+        // Şube İşlemler ekranındaki gibi büyük harfli bölüm başlığı.
+        SubeOverline(title),
         _Sheet(
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: Dg.s4),
@@ -345,6 +329,9 @@ class _Section extends StatelessWidget {
     );
   }
 }
+
+/// Günlük işler satırları sırayla bu tonları alır (şube İşlemler gibi).
+const _accentTones = [DgTone.info, DgTone.ok, DgTone.accent, DgTone.warn];
 
 class _MenuTile extends StatelessWidget {
   const _MenuTile({required this.row, required this.index});
@@ -369,22 +356,13 @@ class _MenuTile extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Container(
-                width: 40,
-                height: 40,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: accent
-                      ? Dg.elev
-                      : Dg.muteSoft,
-                  shape: BoxShape.circle,
-                ),
-                child: DgIcon(
-                  row.icon,
-                  weight: 300,
-                  size: 22,
-                  color: accent ? Dg.ink : Dg.text2,
-                ),
+              DgIconBadge(
+                icon: row.icon,
+                tone: accent
+                    ? _accentTones[index % _accentTones.length]
+                    : DgTone.neutral,
+                size: 40,
+                soft: true,
               ),
               const SizedBox(width: Dg.s12),
               Expanded(child: Text(row.label, style: Dg.typeBody())),
@@ -434,10 +412,7 @@ class _Sheet extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      decoration: BoxDecoration(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(Dg.rLg),
-      ),
+      decoration: Dg.card(),
       child: child,
     );
   }

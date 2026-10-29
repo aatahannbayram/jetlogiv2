@@ -1,4 +1,5 @@
 import '../api/branch_models.dart';
+import '../training_port.dart';
 
 /// Demo şube girişinin (`sube@dijigoo.test`) örnek verisi. Yalnız
 /// `BranchWorkspace.demo` açıkken kullanılır; canlı oturumda sunucu boş
@@ -431,6 +432,7 @@ const kSubeDemoTrainings = [
     id: 'demo-tr1',
     title: 'Teslimatta kimlik kontrolü',
     mandatory: true,
+    editable: true,
     learners: 4,
     completed: 3,
   ),
@@ -779,6 +781,17 @@ const _demoBranchTrainings = [
     progressPercent: 100,
   ),
   LearnerTraining(
+    id: 'demo-lt5',
+    title: 'Zimmet ve teslim akışı',
+    summary: 'Üç kısa ders ve bir sınav.',
+    primaryType: 'VIDEO',
+    category: 'OPERATION',
+    lessonCount: 3,
+    lessonTypes: ['VIDEO', 'TEXT', 'QUIZ'],
+    durationSeconds: 540,
+    sequentialLessons: true,
+  ),
+  LearnerTraining(
     id: 'demo-lt4',
     title: 'Haftalık operasyon toplantısı',
     summary: 'Bölge müdürüyle canlı oturum.',
@@ -811,9 +824,14 @@ TrainingCenterData kSubeDemoTrainingCenter(String targetType) {
       managed: kSubeDemoTrainings,
     );
   }
-  final list = targetType == 'CUSTOMER_PROCESS'
-      ? _demoCustomerTrainings
-      : _demoBranchTrainings;
+  final list = [
+    for (final t
+        in targetType == 'CUSTOMER_PROCESS'
+            ? _demoCustomerTrainings
+            : _demoBranchTrainings)
+      // Dersli örnek yalnız oynatıcı açıkken (bkz. trainingPlayerEnabled).
+      if (trainingPlayerEnabled || t.id != 'demo-lt5') t,
+  ];
   return TrainingCenterData(
     targetType: targetType,
     learner: list,
@@ -825,13 +843,37 @@ TrainingCenterData kSubeDemoTrainingCenter(String targetType) {
   );
 }
 
-/// Demo eğitim detayı: içerik metni (demo'da bağlantı yok).
-LearnerTraining? kSubeDemoTrainingDetail(String id) {
+/// Demo eğitim detayı: içerik metni (demo'da bağlantı yok). Dersli
+/// eğitimde [doneLessons] tamamlanan dersleri işaretler; sıralı derste
+/// önceki zorunlu ders bitmeden sonraki kilitlidir.
+LearnerTraining? kSubeDemoTrainingDetail(
+  String id, {
+  Set<String> doneLessons = const {},
+  bool preview = false,
+}) {
+  final managed = kSubeDemoTrainings.where((t) => t.id == id).firstOrNull;
+  if (managed != null) {
+    return LearnerTraining(
+      id: managed.id,
+      title: managed.title,
+      mandatory: managed.mandatory,
+      preview: true,
+      contentBody:
+          'Bu demo kurye eğitimidir. Kurye uygulamasında bu metin ve '
+          'içerik bağlantısı görünür.',
+    );
+  }
   final t = [
     ..._demoBranchTrainings,
     ..._demoCustomerTrainings,
   ].where((x) => x.id == id).firstOrNull;
   if (t == null) return null;
+  final lessons = id == 'demo-lt5'
+      ? _demoLessons(doneLessons)
+      : const <TrainingLesson>[];
+  final allDone =
+      lessons.isNotEmpty &&
+      lessons.where((l) => l.required).every((l) => l.completed);
   return LearnerTraining(
     id: t.id,
     title: t.title,
@@ -845,11 +887,140 @@ LearnerTraining? kSubeDemoTrainingDetail(String id) {
     durationSeconds: t.durationSeconds,
     dueAt: t.dueAt,
     overdue: t.overdue,
-    status: t.status,
+    status: allDone ? 'COMPLETED' : t.status,
     progressPercent: t.progressPercent,
-    contentBody:
-        'Bu demo eğitimidir. Canlıda içerik (video, PDF ya da canlı oturum '
-        'bağlantısı) burada açılır.',
+    sequentialLessons: t.sequentialLessons,
+    lessons: lessons,
+    preview: preview,
+    acknowledgementText: 'Eğitimi okudum/izledim ve anladım.',
+    contentBody: lessons.isNotEmpty
+        ? null
+        : 'Bu demo eğitimidir. Canlıda içerik (video, PDF ya da canlı oturum '
+              'bağlantısı) burada açılır.',
+  );
+}
+
+List<TrainingLesson> _demoLessons(Set<String> done) {
+  const base = [
+    TrainingLesson(
+      id: 'demo-ls1',
+      order: 1,
+      title: 'Zimmetin iki tarafı',
+      contentType: 'VIDEO',
+      durationSeconds: 240,
+      required: true,
+      contentBody:
+          'Şube gönderiyi kuryeye atar; zimmet, kurye gönderi numarasını '
+          'okutup kabul edince kesinleşir. Demo videosu yerine bu özet '
+          'gösterilir.',
+    ),
+    TrainingLesson(
+      id: 'demo-ls2',
+      order: 2,
+      title: 'Teslimde fotoğraf kuralları',
+      contentType: 'TEXT',
+      durationSeconds: 120,
+      required: true,
+      contentBody:
+          'Başarılı ziyarette 3 fotoğraf, konum ve ziyaret anketi gerekir. '
+          'Fotoğraflar yalnız kamerayla çekilir; galeri kapalıdır.',
+    ),
+    TrainingLesson(
+      id: 'demo-ls3',
+      order: 3,
+      title: 'Kısa sınav',
+      contentType: 'QUIZ',
+      durationSeconds: 180,
+      required: true,
+      passingScore: 70,
+      quiz: TrainingQuiz(
+        questions: [
+          (
+            id: 'q1',
+            text: 'Zimmet ne zaman kesinleşir?',
+            multiple: false,
+            options: [
+              (id: 'a', text: 'Şube kuryeyi atayınca'),
+              (id: 'b', text: 'Kurye gönderiyi okutup kabul edince'),
+              (id: 'c', text: 'Gün sonunda'),
+            ],
+          ),
+          (
+            id: 'q2',
+            text: 'Başarılı ziyarette hangileri gerekir?',
+            multiple: true,
+            options: [
+              (id: 'a', text: '3 fotoğraf'),
+              (id: 'b', text: 'Galeriden seçilmiş fotoğraf'),
+              (id: 'c', text: 'Konum ve ziyaret anketi'),
+            ],
+          ),
+        ],
+      ),
+    ),
+  ];
+  var previousDone = true;
+  return [
+    for (final l in base)
+      () {
+        final completed = done.contains(l.id);
+        final lesson = TrainingLesson(
+          id: l.id,
+          order: l.order,
+          title: l.title,
+          contentType: l.contentType,
+          durationSeconds: l.durationSeconds,
+          required: l.required,
+          passingScore: l.passingScore,
+          contentBody: l.contentBody,
+          quiz: l.quiz,
+          completed: completed,
+          locked: !previousDone,
+        );
+        previousDone = previousDone && completed;
+        return lesson;
+      }(),
+  ];
+}
+
+/// Demo sınav puanı (canlıda puan sunucuda hesaplanır). Doğru cevaplar ve
+/// açıklama yalnız geçilince döner.
+QuizResult kSubeDemoGradeQuiz(
+  String lessonId,
+  Map<String, List<String>> answers,
+) {
+  const key = {
+    'q1': ['b'],
+    'q2': ['a', 'c'],
+  };
+  var correct = 0;
+  final results = <({String questionId, bool correct, String? explanation})>[];
+  for (final e in key.entries) {
+    final given = [...?answers[e.key]]..sort();
+    final ok = given.join(',') == e.value.join(',');
+    if (ok) correct++;
+    results.add((questionId: e.key, correct: ok, explanation: null));
+  }
+  final score = (correct * 100 / key.length).round();
+  final passed = score >= 70;
+  return QuizResult(
+    score: score,
+    passingScore: 70,
+    passed: passed,
+    bestScore: score,
+    attempts: 1,
+    results: [
+      for (final r in results)
+        (
+          questionId: r.questionId,
+          correct: r.correct,
+          explanation: passed
+              ? (r.questionId == 'q1'
+                    ? 'Zimmet çift taraflıdır: kurye kabul edene kadar kesinleşmez.'
+                    : 'Galeri kapalıdır; fotoğraf yalnız kamerayla çekilir.')
+              : null,
+        ),
+    ],
   );
 }
 
@@ -929,5 +1100,41 @@ final List<DemoInvoice> kSubeDemoInvoices = [
       (label: 'Kart teslimatı', quantity: 388, amount: 13580),
       (label: 'POS teslimatı', quantity: 71, amount: 3540),
     ],
+  ),
+];
+
+/// Demo: kuryelerin bildirdiği zimmet uyuşmazlıkları.
+final List<CustodyDispute> kSubeDemoCustodyDisputes = [
+  CustodyDispute(
+    id: 'demo-cd1',
+    typeCode: 'MISSING',
+    statusCode: 'NEW',
+    ticketNumber: 'TKT-261029-4F2A91C0',
+    shipmentNumber: 'JD2026102900311',
+    transferNumber: 'TRF-2610-0142',
+    note: 'Listede var, rafta bulamadım.',
+    courierName: 'Mert Kaya',
+    createdAt: DateTime.now().subtract(const Duration(minutes: 40)),
+  ),
+  CustodyDispute(
+    id: 'demo-cd2',
+    typeCode: 'DAMAGED',
+    statusCode: 'IN_PROGRESS',
+    ticketNumber: 'TKT-261029-91BD07E2',
+    shipmentNumber: 'JD2026102900287',
+    transferNumber: 'TRF-2610-0139',
+    note: 'Koli ezik, içerik kontrol edilmeli.',
+    courierName: 'Ayşe Demir',
+    createdAt: DateTime.now().subtract(const Duration(hours: 3)),
+  ),
+  CustodyDispute(
+    id: 'demo-cd3',
+    typeCode: 'EXCESS',
+    statusCode: 'RESOLVED',
+    ticketNumber: 'TKT-261028-0C55E1AA',
+    scanCode: 'JD2026102800954',
+    courierName: 'Mert Kaya',
+    createdAt: DateTime.now().subtract(const Duration(days: 1, hours: 2)),
+    resolvedAt: DateTime.now().subtract(const Duration(hours: 20)),
   ),
 ];

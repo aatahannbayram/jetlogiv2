@@ -57,7 +57,21 @@ class SyncScreen extends ConsumerWidget {
               padding: const EdgeInsets.all(20),
               child: Row(
                 children: [
-                  DgIcon(icon, color: tone, size: 32, weight: 600),
+                  Container(
+                    width: 48,
+                    height: 48,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: tone,
+                      shape: BoxShape.circle,
+                    ),
+                    child: DgIcon(
+                      icon,
+                      color: Colors.white,
+                      size: 24,
+                      weight: 600,
+                    ),
+                  ),
                   const SizedBox(width: 16),
                   Expanded(
                     child: Column(

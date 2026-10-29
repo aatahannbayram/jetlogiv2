@@ -108,7 +108,9 @@ Future<void> _bootstrap() async {
           agency: agency,
           vault: vault,
           waitForConfig: true,
-          initialPhase: seen ? AppPhase.splash : AppPhase.onboard,
+          // Mockup 01 → 02: açılış ve giriş. Eski kurye tanıtım kartları
+          // ilk açılışta gösterilmez; kurye ipuçları ana sayfada ayrıca var.
+          initialPhase: AppPhase.splash,
         )
         ..cipherOn = cipherOn
         ..storageOk = storageOk;

@@ -108,8 +108,9 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
       prefixIcon: prefix,
       prefixIconConstraints: const BoxConstraints(minWidth: 48, minHeight: 48),
       suffixIcon: suffix,
-      border: border(Dg.hairline),
-      enabledBorder: border(Dg.hairline),
+      // Çerçevesiz dolgulu alan; odakta ince vurgu.
+      border: border(Colors.transparent),
+      enabledBorder: border(Colors.transparent),
       focusedBorder: border(Dg.highlight, 1.4),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
     );

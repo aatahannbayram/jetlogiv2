@@ -258,6 +258,7 @@ class PanelApiException implements Exception {
     this.remainingAttempts,
     this.lockedUntil,
     this.missing = const [],
+    this.fieldErrors = const {},
   });
 
   final String code;
@@ -276,6 +277,10 @@ class PanelApiException implements Exception {
   /// 422 `DELIVERY_REQUIREMENTS_MISSING`: PHOTO | SIGNATURE | OTP | FORM |
   /// LOCATION.
   final List<String> missing;
+
+  /// 400 `VALIDATION_ERROR`: alan → sunucunun hata metni
+  /// (ör. `iban`, `accountHolderName`).
+  final Map<String, String> fieldErrors;
 
   /// Ağ, zaman aşımı, 408/429 ve 5xx — kuyrukta bırakıp tekrar dene.
   /// 401 ayrı ele alınır (oturum düşer); diğer 4xx kalıcı reddir.
@@ -566,4 +571,86 @@ class SyncBatchResultDto {
   bool get done => outcome == 'SUCCEEDED' || outcome == 'REPLAYED';
   bool get failed => outcome == 'FAILED';
   String get errorCode => error['code'] as String? ?? 'SYNC_FAILED';
+}
+
+/// Kuryenin ödeme hesabı (`courier-profile` → `bankAccount`): bekleyen ya da
+/// reddedilen kayıt varsa o, yoksa doğrulanmış hesap. IBAN yalnız maskeli.
+class CourierBankAccount {
+  const CourierBankAccount({
+    required this.holderName,
+    required this.maskedIban,
+    required this.status,
+    this.rejectionReason,
+    this.verifiedMaskedIban,
+  });
+
+  final String holderName;
+  final String maskedIban;
+
+  /// DRAFT | PENDING_VERIFICATION | VERIFIED | CHANGE_REQUESTED | REJECTED.
+  final String status;
+  final String? rejectionReason;
+
+  /// Ödemenin gittiği doğrulanmış hesap; yenisi incelemedeyken farklıdır.
+  final String? verifiedMaskedIban;
+
+  bool get verified => status == 'VERIFIED';
+
+  static CourierBankAccount? from(Map<String, dynamic> profile) {
+    final b = profile['bankAccount'];
+    if (b is! Map) return null;
+    final v = profile['verifiedBankAccount'];
+    final verifiedIban = v is Map ? v['maskedIban'] as String? : null;
+    return CourierBankAccount(
+      holderName: '${b['accountHolderName'] ?? ''}',
+      maskedIban: '${b['maskedIban'] ?? ''}',
+      status: '${b['status'] ?? ''}',
+      rejectionReason: b['rejectionReason'] as String?,
+      verifiedMaskedIban: verifiedIban == b['maskedIban'] ? null : verifiedIban,
+    );
+  }
+}
+
+/// `GET courier-sync/changes`: açılış / ön plan senkron paketi. Görev
+/// satırları yalnız değişenlerdir (tam pakette hepsi); zimmet her zaman tam.
+class SyncChangesDto {
+  const SyncChangesDto({
+    this.serverTime,
+    this.full = false,
+    this.activeTaskIds = const [],
+    this.changedTaskCount = 0,
+    this.custody,
+    this.newNotificationCount = 0,
+  });
+
+  /// Sonraki çağrıda `since`.
+  final String? serverTime;
+  final bool full;
+
+  /// Kuryedeki tüm görevler; cihazda olup burada olmayan düşmüştür.
+  final List<String> activeTaskIds;
+  final int changedTaskCount;
+
+  /// `courier-custody/pending` `data` alanıyla aynı.
+  final Map<String, dynamic>? custody;
+  final int newNotificationCount;
+
+  factory SyncChangesDto.fromJson(Map<String, dynamic> j) {
+    final tasks = j['tasks'] is Map ? j['tasks'] as Map : const {};
+    final inbox = j['notifications'] is Map
+        ? j['notifications'] as Map
+        : const {};
+    final custody = j['custody'];
+    return SyncChangesDto(
+      serverTime: j['serverTime'] as String?,
+      full: j['full'] == true,
+      activeTaskIds: [
+        for (final id in tasks['activeIds'] as List? ?? const [])
+          if (id is String) id,
+      ],
+      changedTaskCount: (tasks['items'] as List?)?.length ?? 0,
+      custody: custody is Map ? Map<String, dynamic>.from(custody) : null,
+      newNotificationCount: (inbox['items'] as List?)?.length ?? 0,
+    );
+  }
 }

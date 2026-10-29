@@ -75,19 +75,46 @@ class Dg {
   static const buttonMin = 56.0;
   static Color get onStatus => dark ? night : Colors.white;
 
-  /// Content is separated by spacing and tonal surfaces, without shadows.
-  /// Koyu temada yüzeyler tonla ayrışır; açık temada kartlar tam beyaz
-  /// yerine kırık beyazdır ve çok hafif bir gölgeyle zeminden kalkar.
+  /// Kartlar çerçevesizdir: derinlik yumuşak gölge ve (koyu temada)
+  /// üstten hafif açılan yüzey tonuyla verilir. Tek gölge, küçük bulanıklık:
+  /// uzun listede kaydırmayı yormaz.
   static List<BoxShadow> get cardShadow => dark
-      ? const []
+      ? const [
+          BoxShadow(
+            color: Color(0x66000000),
+            blurRadius: 18,
+            offset: Offset(0, 8),
+            spreadRadius: -8,
+          ),
+        ]
       : const [
           BoxShadow(
-            color: Color(0x12202422),
-            blurRadius: 24,
+            color: Color(0x170A0F2B),
+            blurRadius: 22,
             offset: Offset(0, 8),
             spreadRadius: -6,
           ),
         ];
+
+  /// Koyu temada kart yüzeyi: ışık yukarıdan geliyormuş gibi üstü bir ton
+  /// açık. Açık temada düz beyaz.
+  static Gradient? get cardSheen => dark
+      ? const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFF18214A), Color(0xFF111836)],
+        )
+      : null;
+
+  /// Ortak kart dekorasyonu (DgPanel, DgCard, KPI ve gezinme kutuları).
+  static BoxDecoration card({double radius = 20, Color? color}) =>
+      BoxDecoration(
+        color: color ?? surface1,
+        gradient: color == null ? cardSheen : null,
+        borderRadius: BorderRadius.circular(radius),
+        boxShadow: cardShadow,
+      );
+
   static List<BoxShadow> get dockShadow => [
     BoxShadow(
       color: night.withValues(alpha: dark ? 0.40 : 0.12),

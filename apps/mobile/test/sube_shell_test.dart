@@ -3,6 +3,7 @@ import 'package:dijigoo_kurye/app.dart';
 import 'package:dijigoo_kurye/scan_router.dart';
 import 'package:dijigoo_kurye/screens/sube_count_screen.dart';
 import 'package:dijigoo_kurye/session.dart';
+import 'package:dijigoo_kurye/training_port.dart';
 import 'package:dijigoo_kurye/ui/ui.dart';
 import 'package:dijigoo_kurye/widgets.dart';
 import 'package:flutter/material.dart';
@@ -48,10 +49,9 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  /// Listede kaydırıp ortalar (alttaki yüzen menünün arkasında kalmasın)
-  /// ve dokunur.
-  Future<void> openItem(WidgetTester tester, String label) async {
-    final target = find.text(label);
+  /// Listede kaydırıp ortalar (alttaki yüzen menünün ya da bildirim
+  /// çubuğunun arkasında kalmasın) ve dokunur.
+  Future<void> tapFound(WidgetTester tester, Finder target) async {
     await tester.scrollUntilVisible(
       target,
       200,
@@ -62,6 +62,9 @@ void main() {
     await tester.tap(target);
     await tester.pumpAndSettle();
   }
+
+  Future<void> openItem(WidgetTester tester, String label) =>
+      tapFound(tester, find.text(label));
 
   testWidgets('ana sayfa şube özetini ve beş sekmeyi gösterir', (tester) async {
     await openBranch(tester);
@@ -137,13 +140,7 @@ void main() {
 
     await tester.tap(find.text('Ana Sayfa'));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(
-      find.text('Kurye dönüş'),
-      200,
-      scrollable: find.byType(Scrollable).hitTestable().first,
-    );
-    await tester.tap(find.text('Kurye dönüş'));
-    await tester.pumpAndSettle();
+    await openItem(tester, 'Kurye dönüş');
     await tester.tap(find.text('Ali Can'));
     await tester.pumpAndSettle();
     expect(find.text('1 gönderi dönüş bekliyor'), findsNothing);
@@ -441,37 +438,179 @@ void main() {
     expect(find.text('Tamamlanan (3)'), findsOneWidget);
   });
 
-  testWidgets('eğitim merkezi: içerik açılır, eğitim tamamlanır', (
-    tester,
-  ) async {
-    final session = await openBranch(tester);
+  group('eğitim sade görünüm (bayrak kapalı)', () {
+    setUp(() => trainingPlayerEnabled = false);
+    tearDown(() => trainingPlayerEnabled = kTrainingPlayerDefault);
+
+    testWidgets('eğitim merkezi (sade): içerik açılır, eğitim tamamlanır', (
+      tester,
+    ) async {
+      final session = await openBranch(tester);
+      await tester.tap(find.text('İşlemler'));
+      await tester.pumpAndSettle();
+      await openItem(tester, 'Eğitim Merkezi');
+      expect(find.text('1 / 4 tamamlandı'), findsOneWidget);
+      expect(find.text('2 zorunlu eğitim bekliyor'), findsOneWidget);
+      await tester.tap(find.text('Şube açılış kontrol listesi'));
+      await tester.pumpAndSettle();
+      final done = find.byKey(const Key('training-complete'));
+      // İçerik açılmadan tamamlanamaz.
+      expect(tester.widget<DgButton>(done).onPressed, isNull);
+      await tester.tap(find.text('İçeriği aç'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('demo eğitimidir'), findsOneWidget);
+      await tester.tap(done);
+      await tester.pumpAndSettle();
+      expect(
+        session.branch.trainingTabs['BRANCH']!.learner.first.completed,
+        isTrue,
+      );
+      expect(find.text('2 / 4 tamamlandı'), findsOneWidget);
+      // SSS ucu.
+      await tester.scrollUntilVisible(
+        find.text('Sıkça sorulan sorular'),
+        200,
+        scrollable: find.byType(Scrollable).hitTestable().first,
+      );
+      expect(find.text('Sıkça sorulan sorular'), findsOneWidget);
+    });
+  });
+
+  group('eğitim oynatıcı (bayrak açık)', () {
+    setUp(() => trainingPlayerEnabled = true);
+    tearDown(() => trainingPlayerEnabled = kTrainingPlayerDefault);
+
+    testWidgets('eğitim merkezi: içerik okunur, eğitim tamamlanır', (
+      tester,
+    ) async {
+      final session = await openBranch(tester);
+      await tester.tap(find.text('İşlemler'));
+      await tester.pumpAndSettle();
+      await openItem(tester, 'Eğitim Merkezi');
+      expect(find.text('1 / 5 tamamlandı'), findsOneWidget);
+      expect(find.text('2 zorunlu eğitim bekliyor'), findsOneWidget);
+      await tester.tap(find.text('Şube açılış kontrol listesi'));
+      await tester.pumpAndSettle();
+      // Oynatıcı: metin içerik hemen okunur, tamamlanabilir.
+      expect(find.textContaining('demo eğitimidir'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('training-complete')));
+      await tester.pumpAndSettle();
+      expect(
+        session.branch.trainingTabs['BRANCH']!.learner.first.completed,
+        isTrue,
+      );
+      Navigator.of(tester.element(find.textContaining('demo eğitimidir')))
+          .pop();
+      await tester.pumpAndSettle();
+      expect(find.text('2 / 5 tamamlandı'), findsOneWidget);
+      // SSS ucu.
+      await tester.scrollUntilVisible(
+        find.text('Sıkça sorulan sorular'),
+        200,
+        scrollable: find.byType(Scrollable).hitTestable().first,
+      );
+      expect(find.text('Sıkça sorulan sorular'), findsOneWidget);
+    });
+
+    testWidgets(
+      'dersli eğitim: dersler sırayla, sınav geçilince eğitim biter',
+      (tester) async {
+        final session = await openBranch(tester);
+        await tester.tap(find.text('İşlemler'));
+        await tester.pumpAndSettle();
+        await openItem(tester, 'Eğitim Merkezi');
+        await openItem(tester, 'Zimmet ve teslim akışı');
+        expect(find.text('0 / 3 ders tamamlandı'), findsOneWidget);
+        // Sıralı: 2. ders 1. bitmeden kilitli.
+        expect(find.text('Metin · 2 dk · Kilitli'), findsOneWidget);
+
+        await tester.tap(find.text('1. Zimmetin iki tarafı'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('lesson-complete')));
+        await tester.pumpAndSettle();
+        expect(find.text('1 / 3 ders tamamlandı'), findsOneWidget);
+
+        await tester.tap(find.text('2. Teslimde fotoğraf kuralları'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('lesson-complete')));
+        await tester.pumpAndSettle();
+
+        // "Ders tamamlandı" bildirimi kapanır (alttaki düğmeyi örtmesin).
+        await tester.pump(const Duration(seconds: 5));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('3. Kısa sınav'));
+        await tester.pumpAndSettle();
+        // Yanlış cevap: geçilmez, tekrar denenir.
+        await tapFound(tester, find.text('Gün sonunda'));
+        await tapFound(tester, find.text('3 fotoğraf'));
+        await tapFound(tester, find.byKey(const Key('quiz-submit')));
+        expect(find.text('Geçemediniz'), findsOneWidget);
+        await tapFound(tester, find.text('Tekrar dene'));
+        await tapFound(
+          tester,
+          find.text('Kurye gönderiyi okutup kabul edince'),
+        );
+        await tapFound(tester, find.text('3 fotoğraf'));
+        await tapFound(tester, find.text('Konum ve ziyaret anketi'));
+        await tapFound(tester, find.byKey(const Key('quiz-submit')));
+        expect(find.text('Geçtiniz'), findsOneWidget);
+        expect(
+          session.branch.trainingTabs['BRANCH']!.learner
+              .firstWhere((t) => t.id == 'demo-lt5')
+              .completed,
+          isTrue,
+        );
+      },
+    );
+
+    testWidgets('kurye eğitimi önizlenir ve düzenlenir', (tester) async {
+      final session = await openBranch(tester);
+      await tester.tap(find.text('İşlemler'));
+      await tester.pumpAndSettle();
+      await openItem(tester, 'Eğitim Merkezi');
+      await tapPill(tester, 'Kurye');
+      await tester.tap(find.text('Önizle'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Önizleme: ilerleme kaydedilmez, sınav gönderilmez.'),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('training-complete')), findsNothing);
+      Navigator.of(
+        tester.element(
+          find.text('Önizleme: ilerleme kaydedilmez, sınav gönderilmez.'),
+        ),
+      ).pop();
+      await tester.pumpAndSettle();
+      await openItem(tester, 'Kurye eğitimlerini yönet');
+      await tester.tap(find.byKey(const Key('training-edit-demo-tr1')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byType(TextField).first,
+        'Kimlik kontrolü v2',
+      );
+      await tester.tap(find.text('Kaydet'));
+      await tester.pumpAndSettle();
+      expect(session.branch.trainings!.first.title, 'Kimlik kontrolü v2');
+    });
+  });
+
+  testWidgets('stok merkezinde kurye uyuşmazlıkları görünür', (tester) async {
+    await openBranch(tester);
     await tester.tap(find.text('İşlemler'));
     await tester.pumpAndSettle();
-    await openItem(tester, 'Eğitim Merkezi');
-    expect(find.text('1 / 4 tamamlandı'), findsOneWidget);
-    expect(find.text('2 zorunlu eğitim bekliyor'), findsOneWidget);
-    await tester.tap(find.text('Şube açılış kontrol listesi'));
+    await tester.tap(find.text('Stok & Zimmet'));
     await tester.pumpAndSettle();
-    final done = find.byKey(const Key('training-complete'));
-    // İçerik açılmadan tamamlanamaz.
-    expect(tester.widget<DgButton>(done).onPressed, isNull);
-    await tester.tap(find.text('İçeriği aç'));
-    await tester.pumpAndSettle();
-    expect(find.textContaining('demo eğitimidir'), findsOneWidget);
-    await tester.tap(done);
-    await tester.pumpAndSettle();
-    expect(
-      session.branch.trainingTabs['BRANCH']!.learner.first.completed,
-      isTrue,
-    );
-    expect(find.text('2 / 4 tamamlandı'), findsOneWidget);
-    // SSS ucu.
+    // Dördüncü hap, dar ekranda yatay kaydırılarak görünür.
     await tester.scrollUntilVisible(
-      find.text('Sıkça sorulan sorular'),
+      find.byType(DgPillTabs),
       200,
       scrollable: find.byType(Scrollable).hitTestable().first,
     );
-    expect(find.text('Sıkça sorulan sorular'), findsOneWidget);
+    await tapPill(tester, 'Uyuşmazlık (2)');
+    expect(find.text('Eksik · JD2026102900311'), findsOneWidget);
+    expect(find.textContaining('Mert Kaya'), findsWidgets);
+    expect(find.text('Yeni'), findsOneWidget);
   });
 
   testWidgets('fatura, iş ortaklığı evrakları, hızlı gönder ve profil', (

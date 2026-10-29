@@ -9,6 +9,7 @@ import '../tls_pinning.dart';
 import 'agency_models.dart';
 import 'branch_models.dart';
 import 'panel_client.dart' show VaultCookieStorage;
+import 'token_refresh.dart';
 
 /// dijigoo-ops default local dev address — same base host as [kPanelApiBase]
 /// but the `portal/v1` surface rather than `public/v1` (see
@@ -21,6 +22,9 @@ const kAgencyApiBase = String.fromEnvironment(
 );
 
 const kAgencyBearerKey = 'dg.jetdiji.agency.token';
+
+/// Tek kullanımlık refresh tokenı (30 güne kadar); her yenilemede değişir.
+const kAgencyRefreshKey = 'dg.jetdiji.agency.refresh';
 
 /// Web: tarayıcıda açık şube oturumu olduğunu hatırlatan işaret (sır değil).
 const kAgencyWebSessionKey = 'dg.jetdiji.agency.web';
@@ -41,10 +45,32 @@ class AgencyPortalApi {
         onRequest: (options, handler) {
           options.headers['X-Client-Type'] = 'mobile';
           final token = _accessToken;
-          if (token != null && token.isNotEmpty) {
+          if (options.extra[kNoAuthExtra] == true) {
+            options.headers.remove('Authorization');
+          } else if (token != null && token.isNotEmpty) {
             options.headers['Authorization'] = 'Bearer $token';
           }
           handler.next(options);
+        },
+      ),
+    );
+    dio.interceptors.add(
+      TokenRefresher(
+        dio: dio,
+        refreshPath: '/agency-auth/refresh',
+        authPaths: const ['/agency-auth/login', '/agency-auth/logout'],
+        readRefreshToken: () async => _vault?.readSecret(kAgencyRefreshKey),
+        onRefreshed: (access, refresh) async {
+          _accessToken = access;
+          await _vault?.writeSecret(kAgencyBearerKey, access);
+          if (refresh != null && refresh.isNotEmpty) {
+            await _vault?.writeSecret(kAgencyRefreshKey, refresh);
+          }
+        },
+        onRejected: () async {
+          _accessToken = null;
+          await _vault?.deleteSecret(kAgencyBearerKey);
+          await _vault?.deleteSecret(kAgencyRefreshKey);
         },
       ),
     );
@@ -116,6 +142,10 @@ class AgencyPortalApi {
       _accessToken = token;
       await _vault?.writeSecret(kAgencyBearerKey, token);
     }
+    final refresh = (res.data?['data'] as Map?)?['refreshToken'] as String?;
+    if (refresh != null && refresh.isNotEmpty) {
+      await _vault?.writeSecret(kAgencyRefreshKey, refresh);
+    }
     final data = Map<String, dynamic>.from(
       res.data?['data'] as Map? ?? const {},
     );
@@ -130,10 +160,15 @@ class AgencyPortalApi {
 
   Future<void> logout() async {
     try {
-      await _post('/agency-auth/logout', const {});
+      // Erişim tokenı bitmiş olsa da oturum refresh tokenıyla kapanır.
+      final refresh = await _vault?.readSecret(kAgencyRefreshKey);
+      await _post('/agency-auth/logout', {
+        if (refresh != null && refresh.isNotEmpty) 'refreshToken': refresh,
+      });
     } finally {
       _accessToken = null;
       await _vault?.deleteSecret(kAgencyBearerKey);
+      await _vault?.deleteSecret(kAgencyRefreshKey);
       await _vault?.deleteSecret(kAgencyWebSessionKey);
       await _cookieJar?.deleteAll();
     }
@@ -743,6 +778,71 @@ class AgencyPortalApi {
     );
   }
 
+  /// Dersli eğitimde ders ilerlemesi (şube kullanıcısı).
+  Future<void> recordLessonProgress(
+    String trainingId,
+    String lessonId, {
+    required int viewedSeconds,
+    int? positionSeconds,
+    bool completed = false,
+    required String idempotencyKey,
+  }) async {
+    await _post('/branch/training/$trainingId/lessons/$lessonId/progress', {
+      'viewedSeconds': viewedSeconds,
+      'positionSeconds': ?positionSeconds,
+      if (completed) 'completed': true,
+    }, idempotencyKey: idempotencyKey);
+  }
+
+  /// Sınav gönder (şube kullanıcısı). Puan sunucuda hesaplanır.
+  Future<QuizResult> submitLessonQuiz(
+    String trainingId,
+    String lessonId,
+    Map<String, List<String>> answers, {
+    required String idempotencyKey,
+  }) async {
+    final data = await _data(
+      _post('/branch/training/$trainingId/lessons/$lessonId/quiz', {
+        'answers': answers,
+      }, idempotencyKey: idempotencyKey),
+    );
+    return QuizResult.fromJson(data);
+  }
+
+  /// Kurye eğitimini kuryenin göreceği biçimde önizler (ilerleme yok,
+  /// sınavda doğru cevap yok).
+  Future<LearnerTraining> fetchTrainingPreview(String trainingId) async =>
+      LearnerTraining.fromJson(
+        await _data(_get('/branch/training/$trainingId/preview')),
+      );
+
+  /// Şubenin yayımladığı metin eğitimini günceller (yetki: `manage`).
+  /// [bumpVersion]: içerik değişti, herkes yeniden tamamlamalı.
+  Future<void> updateTraining(
+    String trainingId, {
+    required String title,
+    required String body,
+    required bool mandatory,
+    required bool bumpVersion,
+    required String idempotencyKey,
+  }) async {
+    try {
+      await dio.patch<Map<String, dynamic>>(
+        '/branch/training/$trainingId',
+        data: {
+          'title': title,
+          'contentType': 'TEXT',
+          'contentBody': body,
+          'isMandatory': mandatory,
+          'bumpVersion': bumpVersion,
+        },
+        options: Options(headers: {'Idempotency-Key': idempotencyKey}),
+      );
+    } on DioException catch (e) {
+      throw _agencyException(e);
+    }
+  }
+
   Future<List<TrainingFaq>> fetchTrainingFaq(String targetType) async {
     final res = await _get(
       '/branch/training/faq',
@@ -772,6 +872,11 @@ class AgencyPortalApi {
       idempotencyKey: idempotencyKey,
     );
   }
+
+  /// Kuryelerin bu birimden aldıkları zimmet için bildirdiği uyuşmazlıklar
+  /// (yeniden eskiye, en fazla 100). Çözüm operasyondadır; şube yalnız görür.
+  Future<List<CustodyDispute>> fetchCustodyDisputes() async =>
+      CustodyDispute.listFrom(await _data(_get('/branch/custody-disputes')));
 
   List<Map<String, dynamic>> _rows(Object? raw) => [
     for (final row in raw is List ? raw : const [])

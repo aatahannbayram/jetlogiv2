@@ -9,9 +9,11 @@ import '../l10n.dart';
 import '../motion.dart';
 import '../session.dart';
 import '../theme.dart';
+import '../training_port.dart';
 import '../ui/ui.dart';
 import '../widgets.dart';
 import 'sube_manage_screens.dart';
+import 'training_player_screen.dart';
 import 'sube_widgets.dart';
 
 String _date(DateTime at) {
@@ -217,6 +219,11 @@ class _SubeTrainingCenterScreenState
                       tone: DgTone.warn,
                       dense: true,
                     ),
+                  if (trainingPlayerEnabled)
+                    TextButton(
+                      onPressed: () => _preview(data.managed[i]),
+                      child: Text(l.trainingPreview),
+                    ),
                 ],
               ),
             ),
@@ -235,6 +242,9 @@ class _SubeTrainingCenterScreenState
   }
 
   Future<void> _open(LearnerTraining training, String type) =>
+      trainingPlayerEnabled ? _play(training, type) : _sheet(training, type);
+
+  Future<void> _sheet(LearnerTraining training, String type) =>
       showModalBottomSheet<void>(
         context: context,
         backgroundColor: Dg.surface,
@@ -247,6 +257,29 @@ class _SubeTrainingCenterScreenState
           child: _TrainingSheet(training: training, targetType: type),
         ),
       );
+
+  Future<void> _play(LearnerTraining training, String type) =>
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => TrainingPlayerScreen(
+            port: BranchTrainingPort(_branch, targetType: type),
+            trainingId: training.id,
+            title: training.title,
+            onChanged: () => _branch.loadTrainingCenter(type),
+          ),
+        ),
+      );
+
+  /// Kurye eğitimini kuryenin göreceği biçimde açar (ilerleme yok).
+  Future<void> _preview(ManagedTraining training) => Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => TrainingPlayerScreen(
+        port: BranchTrainingPort(_branch, targetType: 'COURIER', preview: true),
+        trainingId: training.id,
+        title: training.title,
+      ),
+    ),
+  );
 }
 
 class _Summary extends StatelessWidget {

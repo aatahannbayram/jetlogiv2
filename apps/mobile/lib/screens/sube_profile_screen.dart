@@ -45,11 +45,7 @@ class SubeProfileScreen extends ConsumerWidget {
           Appear(
             child: Container(
               padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: Dg.surface1,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: Dg.hairline),
-              ),
+              decoration: Dg.card(radius: 24),
               child: Row(
                 children: [
                   InitialsAvatar(name: user?.fullName ?? '?', size: 56),

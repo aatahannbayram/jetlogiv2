@@ -110,9 +110,13 @@ class _BarcodeScanPaneState extends State<BarcodeScanPane> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                message ?? l.openCameraHint,
-                style: Dg.ui(size: 14, color: Dg.mutedOnNight),
+              // Sağ üstteki klavye/fener düğmeleri metnin üstüne binmesin.
+              Padding(
+                padding: const EdgeInsets.only(right: 44),
+                child: Text(
+                  message ?? l.openCameraHint,
+                  style: Dg.ui(size: 14, color: Dg.mutedOnNight),
+                ),
               ),
               const SizedBox(height: 12),
               TextField(

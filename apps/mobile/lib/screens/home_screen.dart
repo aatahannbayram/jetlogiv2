@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-import '../brand.dart';
 import '../l10n.dart';
 import '../motion.dart';
 import '../session.dart';
@@ -12,8 +11,8 @@ import '../shell_nav.dart';
 import '../theme.dart';
 import '../intro_tour.dart';
 import '../widgets.dart';
+import 'courier_header.dart';
 import 'mistakes_screen.dart';
-import 'profile_screen.dart';
 import 'eod_screen.dart';
 import 'next_stop_card.dart';
 import 'notif_screen.dart';
@@ -41,6 +40,14 @@ class HomeScreen extends ConsumerWidget {
     final syncDone = syncTotal == 0;
 
     return Scaffold(
+      appBar: CourierHeaderBar(
+        actions: [
+          DgOnlineChip(
+            online: s.online && s.shiftOpen,
+            onTap: s.shiftOpen ? s.toggleOnline : () {},
+          ),
+        ],
+      ),
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: () => s.refreshField(),
@@ -53,75 +60,6 @@ class HomeScreen extends ConsumerWidget {
                   padding: const EdgeInsets.symmetric(horizontal: Dg.pagePad),
                   child: Column(
                     children: [
-                      // Üst satır kutusuz ve tek parça: solda profil, ortada
-                      // logo ve durum, sağda bildirim.
-                      Row(
-                        children: [
-                          Semantics(
-                            button: true,
-                            label: s.courier.fullName,
-                            child: GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onTap: () => Navigator.of(context).push(
-                                MaterialPageRoute<void>(
-                                  builder: (_) => const ProfileScreen(),
-                                ),
-                              ),
-                              child: SizedBox(
-                                width: 48,
-                                height: 48,
-                                child: Center(
-                                  child: InitialsAvatar(
-                                    name: s.courier.fullName,
-                                    photoUrl: s.courier.photoUrl,
-                                    size: 40,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                DijigooWordmark(height: 30, onDark: Dg.dark),
-                                const SizedBox(height: 2),
-                                DgOnlineChip(
-                                  online: s.online && s.shiftOpen,
-                                  onTap: s.shiftOpen ? s.toggleOnline : () {},
-                                ),
-                              ],
-                            ),
-                          ),
-                          IconButton(
-                            onPressed: () =>
-                                ref.read(shellNavProvider).go(ShellNav.notif),
-                            icon: Stack(
-                              clipBehavior: Clip.none,
-                              children: [
-                                DgIcon(
-                                  LucideIcons.bell,
-                                  size: 22,
-                                  color: Dg.ink,
-                                ),
-                                if (s.unreadNotifCount > 0)
-                                  Positioned(
-                                    top: -2,
-                                    right: -3,
-                                    child: Container(
-                                      width: 8,
-                                      height: 8,
-                                      decoration: BoxDecoration(
-                                        color: Dg.warn,
-                                        shape: BoxShape.circle,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
                       const SizedBox(height: 14),
                       if (s.showPanelFieldError)
                         Padding(

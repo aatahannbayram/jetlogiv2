@@ -11,6 +11,7 @@ import '../session.dart';
 import '../theme.dart';
 import '../ui/ui.dart';
 import '../widgets.dart';
+import 'custody_dispute_sheet.dart';
 import 'sube_count_reconcile_screen.dart';
 import 'sube_count_screen.dart';
 import 'sube_dispatch_screen.dart';
@@ -39,6 +40,7 @@ class _SubeStockScreenState extends ConsumerState<SubeStockScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final branch = ref.read(sessionProvider).branch;
       branch.loadIncoming();
+      branch.loadCustodyDisputes();
       if (branch.counts == null) branch.loadCounts();
     });
   }
@@ -56,6 +58,8 @@ class _SubeStockScreenState extends ConsumerState<SubeStockScreen> {
     final handovers = pending?.handovers ?? const <PendingItem>[];
     final returns = pending?.returns ?? const <PendingItem>[];
     final openCount = branch.count?.count ?? branch.counts?.openCount;
+    final disputes = branch.custodyDisputes;
+    final openDisputes = disputes?.where((d) => !d.resolved).length ?? 0;
     final height = 24 + MediaQuery.textScalerOf(context).scale(62);
     Widget pair(Widget a, Widget b) => Padding(
       padding: const EdgeInsets.only(bottom: 10),
@@ -78,6 +82,7 @@ class _SubeStockScreenState extends ConsumerState<SubeStockScreen> {
         onRefresh: () async {
           await branch.refresh();
           await branch.loadIncoming();
+          await branch.loadCustodyDisputes();
         },
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
@@ -183,8 +188,14 @@ class _SubeStockScreenState extends ConsumerState<SubeStockScreen> {
                 l.stockIncomingShort,
                 l.stockHandoverTab,
                 l.stockReturnTab,
+                l.branchDisputesTab,
               ],
-              counts: [incoming.length, handovers.length, returns.length],
+              counts: [
+                incoming.length,
+                handovers.length,
+                returns.length,
+                openDisputes,
+              ],
               index: _tab,
               onChanged: (i) => setState(() => _tab = i),
             ),
@@ -201,6 +212,7 @@ class _SubeStockScreenState extends ConsumerState<SubeStockScreen> {
                     loading: branch.incoming == null && branch.loading,
                   ),
                   1 => _PendingList(items: handovers),
+                  3 => _DisputeList(disputes: disputes),
                   _ => Column(
                     children: [
                       _PendingList(items: returns),
@@ -289,6 +301,44 @@ class _IncomingList extends StatelessWidget {
               ),
             ),
           ),
+      ],
+    );
+  }
+}
+
+/// Kurye uyuşmazlıkları: şube yalnız görür, çözüm operasyondadır.
+class _DisputeList extends StatelessWidget {
+  const _DisputeList({required this.disputes});
+
+  final List<CustodyDispute>? disputes;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final rows = disputes;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Text(l.branchDisputesNote, style: Dg.typeCaption()),
+        ),
+        if (rows == null)
+          const DgSkeleton(height: 72, radius: 16)
+        else if (rows.isEmpty)
+          DgEmptyState(
+            icon: LucideIcons.shieldCheck,
+            title: l.branchDisputesEmpty,
+          )
+        else
+          for (var i = 0; i < rows.length; i++)
+            StaggerIn(
+              index: i,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: CustodyDisputeTile(dispute: rows[i]),
+              ),
+            ),
       ],
     );
   }

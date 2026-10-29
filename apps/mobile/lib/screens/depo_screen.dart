@@ -103,11 +103,13 @@ class _DepotRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: selected ? Dg.primaryGradient : null,
-        color: selected ? null : Dg.surface,
-        borderRadius: BorderRadius.circular(Dg.radius),
-      ),
+      decoration: selected
+          ? BoxDecoration(
+              gradient: Dg.brandCta,
+              borderRadius: BorderRadius.circular(Dg.radius),
+              boxShadow: Dg.cardShadow,
+            )
+          : Dg.card(radius: Dg.radius),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
@@ -117,6 +119,13 @@ class _DepotRow extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
             child: Row(
               children: [
+                DgIconChip(
+                  icon: LucideIcons.warehouse,
+                  color: selected ? Dg.action : Colors.white,
+                  background: selected ? Colors.white : Dg.plum,
+                  size: 40,
+                ),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

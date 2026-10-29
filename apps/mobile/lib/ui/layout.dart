@@ -6,7 +6,7 @@ import '../motion.dart';
 import '../theme.dart';
 import 'status.dart';
 
-/// Kart yüzeyi: koyu temada ince kenarlı, açıkta beyaz. İsteğe bağlı başlık.
+/// Kart yüzeyi: çerçevesiz, gölge ve tonla ayrışır. İsteğe bağlı başlık.
 class DgPanel extends StatelessWidget {
   const DgPanel({
     super.key,
@@ -28,11 +28,7 @@ class DgPanel extends StatelessWidget {
     final body = Container(
       width: double.infinity,
       padding: padding,
-      decoration: BoxDecoration(
-        color: Dg.surface1,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Dg.hairline),
-      ),
+      decoration: Dg.card(),
       child: title == null
           ? child
           : Column(

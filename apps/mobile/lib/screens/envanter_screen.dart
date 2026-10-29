@@ -51,11 +51,18 @@ class _EnvanterScreenState extends ConsumerState<EnvanterScreen> {
         children: [
           Row(
             children: [
-              StatTile(label: l.pendingCaps, value: '$pending'),
+              StatTile(
+                label: l.pendingCaps,
+                value: '$pending',
+                icon: LucideIcons.hourglass,
+                iconColor: Dg.warn,
+              ),
               const SizedBox(width: 12),
               StatTile(
                 label: l.deliveredCaps,
                 value: '${items.length - pending}',
+                icon: LucideIcons.circleCheck,
+                iconColor: Dg.ok,
               ),
             ],
           ),
@@ -99,14 +106,14 @@ class _EnvanterScreenState extends ConsumerState<EnvanterScreen> {
                     child: Container(
                       width: 48,
                       height: 48,
-                      decoration: BoxDecoration(
-                        color: Dg.ink,
+                      decoration: const BoxDecoration(
+                        gradient: Dg.brandCta,
                         shape: BoxShape.circle,
                       ),
                       child: DgIcon(
                         LucideIcons.plus,
                         size: 20,
-                        color: Dg.ground,
+                        color: Colors.white,
                         weight: 600,
                       ),
                     ),
@@ -130,7 +137,7 @@ class _EnvanterScreenState extends ConsumerState<EnvanterScreen> {
                           ? LucideIcons.circleCheck
                           : LucideIcons.package,
                       tint: item.done ? Dg.greenBg : Dg.elev,
-                      ink: item.done ? Dg.green : Dg.ink,
+                      ink: item.done ? Dg.green : Dg.brand,
                     ),
                     const SizedBox(width: 12),
                     Expanded(

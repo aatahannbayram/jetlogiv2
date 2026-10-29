@@ -264,12 +264,18 @@ class SubeKpiCard extends StatelessWidget {
     final alert = value > 0 && (tone == KpiTone.warn || tone == KpiTone.bad);
     final card = Container(
       padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
-      decoration: BoxDecoration(
-        color: Dg.surface1,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: alert ? color.withValues(alpha: 0.45) : Dg.hairline,
-        ),
+      decoration: Dg.card().copyWith(
+        // Uyarı: çerçeve yerine yüzeye hafif renk tonu.
+        gradient: alert
+            ? LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color.alphaBlend(color.withValues(alpha: 0.16), Dg.surface1),
+                  Dg.surface1,
+                ],
+              )
+            : null,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -406,12 +412,13 @@ class SubeQuickAction extends StatelessWidget {
         child: Container(
           constraints: const BoxConstraints(minHeight: 96),
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
-          decoration: BoxDecoration(
-            color: accent ? Dg.action : Dg.surface1,
-            gradient: accent ? Dg.primaryGradient : null,
-            borderRadius: BorderRadius.circular(20),
-            border: accent ? null : Border.all(color: Dg.hairline),
-          ),
+          decoration: accent
+              ? BoxDecoration(
+                  gradient: Dg.primaryGradient,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: Dg.cardShadow,
+                )
+              : Dg.card(),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -517,11 +524,7 @@ class SubeGroup extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
-      decoration: BoxDecoration(
-        color: Dg.surface1,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Dg.hairline),
-      ),
+      decoration: Dg.card(),
       child: Column(children: children),
     );
   }

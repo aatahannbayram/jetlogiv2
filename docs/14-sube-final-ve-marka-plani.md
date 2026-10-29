@@ -537,6 +537,11 @@ Performans kuralları: uzun listeler `ListView.builder`; KPI ızgarası ve saya�
 8. Sayım başlat → birkaç barkod okut → tamamla → Sayım Mutabakatı'nda "Bekleyen".
 9. Eğitim Merkezi → bir eğitimi aç → en kısa süre dolunca "Tamamladım".
 10. Hızlı Gönder: uçak modunda okutma yap → bağlantı gelince "Hemen gönder".
+11. Kurye vardiyayı açar, görev başlatmaz → şube Kurye Haritası "Müsait" sekmesinde kurye 3 dakika içinde görünüyor mu?
+12. Kurye → Zimmet → Uyuşmazlık bildir (Eksik, listeden gönderi seç) → talep no mesajı; şube → Stok & Zimmet → Uyuşmazlık sekmesinde aynı kayıt.
+13. Kurye → Menü → Ödeme bilgisi → IBAN ekle → "Doğrulama bekliyor".
+14. Eğitim Merkezi → dersli bir eğitim → dersler sırayla, sınav geçilince eğitim tamamlanıyor mu? Şube → Kurye eğitimlerini yönet → Önizle / Düzenle.
+15. Kurye çıkış yapar → backend cihaz kaydını kapalı görüyor mu?
 
 ### 13.5 Açık konular
 
@@ -544,3 +549,18 @@ Performans kuralları: uzun listeler `ListView.builder`; KPI ızgarası ve saya�
 - Uç bekleyenler: cihaz bilgisi, yeni kurye / davet, kart yenile / iptal, fatura modeli, iş ortaklığı belge durumları, dağıtım planlama, gün sonu kapatma, şube stok sayaçları, barkodsuz serbest transfer kalemi, ürün eşleştirme, serbest tarih aralığı, şube destek hattı numarası, fotoğraf / QR ile giriş.
 - Sesli okutma (G1) ve ayrı audit geçmişi ekranı (G2) yapılmadı.
 - Mağaza (iOS/Android) derlemesi bu turda alınmadı; yalnız web PWA yayında.
+
+### 13.6 Swagger kapsamı tamamlandı (29.10.2026 akşam)
+
+Preprod Swagger (şube 1.2.0, kurye 1.4.0) ile karşılaştırma: şube 66/66, kurye 83/83 uç uygulamada kullanılıyor. Kapsam betiğinin "kullanılmıyor" dediği 6 kurye ucu (vardiya başlat/bitir, mola başlat/bitir, il/ilçe) dinamik yolla çağrılıyor; elle doğrulandı.
+
+| Uç | Uygulamada |
+|---|---|
+| `courier-auth/refresh`, `agency-auth/refresh` | 401'de tek seferlik yenileme, istek bir kez tekrarlanır; refresh tokenı reddedilirse oturum kapanır. 8 saatte çıkış atma sorunu kapandı. |
+| `courier-shifts/location` | Vardiya açık, görev yokken 2,5 dakikada bir konum; şube haritasında "Müsait" dolar. `NO_OPEN_SHIFT` gelirse durur. |
+| `courier-custody/disputes` (GET, POST) | Zimmet ekranında "Uyuşmazlık bildir": Eksik / Fazla / Hasarlı / Yanlış ürün / Diğer; Idempotency-Key. Zimmet geçmişinde "Uyuşmazlık bildirimlerim". Fotoğraf eki (multipart) henüz yok. |
+| `branch/custody-disputes` | Stok & Zimmet → "Uyuşmazlık" sekmesi (yalnız görüntüleme; çözüm operasyonda). |
+| `PUT courier-profile` | Menü → Ödeme bilgisi: maskeli IBAN, doğrulama durumu, yeni IBAN doğrulamaya gider; alan hataları alana düşer. |
+| `DELETE courier-devices` | Çıkışta, oturum kapanmadan cihaz kaydı kapatılır (4 sn zaman aşımı). |
+| `courier-sync/changes` | Öne gelince değişiklik paketi; görev kümesi değişmediyse tam liste yeniden çekilmez, zimmet paketten güncellenir, `X-Device-Id` gider. |
+| Eğitim: ilerleme, ders, sınav, SSS, önizleme, düzenleme | Canlı ve demoda açık (önizleme sonrası ürün kararı, 29.10.2026). `--dart-define=TRAINING_PLAYER=false` ile kapanır; o zaman eğitimler P6'daki sade görünümle açılır ve oynatıcı kodu pakete girmez. |

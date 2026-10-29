@@ -10,6 +10,7 @@ import '../notif.dart';
 import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import 'courier_header.dart';
 import 'earnings_screen.dart';
 import 'mistakes_screen.dart';
 import 'sync_screen.dart';
@@ -125,6 +126,7 @@ class _NotifScreenState extends ConsumerState<NotifScreen> {
     }
 
     return Scaffold(
+      appBar: canPop ? null : const CourierHeaderBar(),
       body: SafeArea(
         child: Column(
           children: [

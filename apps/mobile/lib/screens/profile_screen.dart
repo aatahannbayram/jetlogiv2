@@ -309,15 +309,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               padding: const EdgeInsets.symmetric(vertical: 14),
               child: Row(
                 children: [
+                  // Çizgi yerine renkli sayılar (teslim yeşil, açık mavi,
+                  // iade turuncu).
                   _stat(
                     '${s.deliveredCount}',
                     context.l10n.deliveredShort,
-                    Dg.ink,
+                    Dg.ok,
                   ),
-                  Container(width: 1, height: 36, color: Dg.rule),
-                  _stat('${s.openCount}', context.l10n.openShort, Dg.ink),
-                  Container(width: 1, height: 36, color: Dg.rule),
-                  _stat('${s.returnCount}', context.l10n.returnShort, Dg.ink),
+                  _stat('${s.openCount}', context.l10n.openShort, Dg.brand),
+                  _stat('${s.returnCount}', context.l10n.returnShort, Dg.warn),
                 ],
               ),
             ),

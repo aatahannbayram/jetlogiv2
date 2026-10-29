@@ -437,6 +437,7 @@ class CustodyItemDto {
     this.amount,
     this.taskId,
     this.warehouseId,
+    this.transferItemId,
   });
 
   final String id;
@@ -450,6 +451,11 @@ class CustodyItemDto {
 
   /// Panel `GET courier-custody` — şubeye iade için `warehouseId` gerekir.
   final String? warehouseId;
+
+  /// Panel `courier-custody/pending` kabul bekleyen devir kalemi
+  /// (`itemId`); uyuşmazlık bildiriminde `transferItemId`. Eldeki
+  /// gönderilerde yoktur.
+  final String? transferItemId;
 
   factory CustodyItemDto.fromJson(Map<String, dynamic> json) => CustodyItemDto(
     id: json['id'] as String? ?? '',

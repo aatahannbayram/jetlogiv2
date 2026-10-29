@@ -5,6 +5,7 @@ import '../l10n.dart';
 import '../motion.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import 'courier_header.dart';
 import 'zimmet_screen.dart';
 
 /// Bottom nav'ın "Tara" sekmesi — canvas'ta referansı yoktu, menu_screen.dart'ın
@@ -22,6 +23,7 @@ class TaraScreen extends StatelessWidget {
     final l = context.l10n;
     final canPop = Navigator.canPop(context);
     return Scaffold(
+      appBar: canPop ? null : const CourierHeaderBar(),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),

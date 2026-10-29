@@ -492,12 +492,12 @@ class ShipmentTile extends StatelessWidget {
     ].where((e) => e.isNotEmpty).join(' · ');
     return AnimatedContainer(
       duration: DgMotion.quick,
-      decoration: BoxDecoration(
-        color: picked ? Dg.action.withValues(alpha: 0.10) : Dg.surface1,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: picked ? Dg.action.withValues(alpha: 0.7) : Dg.hairline,
-        ),
+      // Seçili satır çerçeve yerine mavi tonla ayrışır.
+      decoration: Dg.card(
+        radius: 16,
+        color: picked
+            ? Color.alphaBlend(Dg.action.withValues(alpha: 0.18), Dg.surface1)
+            : null,
       ),
       child: Pressable(
         onTap: onTap,

@@ -366,13 +366,11 @@ class AssignCourierTile extends StatelessWidget {
       child: AnimatedContainer(
         duration: DgMotion.quick,
         curve: DgMotion.enter,
-        decoration: BoxDecoration(
-          color: Dg.surface1,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: selected ? Dg.brandTurquoise : Dg.hairline,
-            width: selected ? 2 : 1,
-          ),
+        // Yalnız seçili kurye halkalı; diğerleri çerçevesiz kart.
+        decoration: Dg.card(radius: 16).copyWith(
+          border: selected
+              ? Border.all(color: Dg.brandTurquoise, width: 2)
+              : null,
         ),
         child: Pressable(
           onTap: onTap,

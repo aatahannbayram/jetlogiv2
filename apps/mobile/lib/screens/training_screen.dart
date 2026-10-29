@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../api/branch_models.dart' show TrainingFaq;
 import '../l10n.dart';
 import '../motion.dart';
 import '../session.dart';
 import '../theme.dart';
+import '../training_port.dart';
 import '../widgets.dart';
 import 'training_detail_screen.dart';
 
@@ -19,9 +21,19 @@ class TrainingScreen extends ConsumerStatefulWidget {
 }
 
 class _TrainingScreenState extends ConsumerState<TrainingScreen> {
+  /// Eğitim Merkezi SSS (yalnız gerçek kurye oturumunda).
+  Future<List<TrainingFaq>>? _faq;
+
   @override
   void initState() {
     super.initState();
+    final s = ref.read(sessionProvider);
+    final panel = s.panel;
+    if (trainingPlayerEnabled && s.panelLoggedIn && !s.demo && panel != null) {
+      _faq = panel.fetchTrainingFaq().catchError(
+        (Object _) => const <TrainingFaq>[],
+      );
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(sessionProvider).loadTrainingModules();
     });
@@ -67,10 +79,9 @@ class _TrainingScreenState extends ConsumerState<TrainingScreen> {
                                   ? LucideIcons.circleCheck
                                   : LucideIcons.graduationCap,
                               accent: !module.completed,
-                              color: module.completed ? Dg.ok : Dg.warn,
-                              background: module.completed
-                                  ? Dg.ok.withValues(alpha: 0.12)
-                                  : Dg.warnSoft,
+                              // Dolu renkli daire, beyaz ikon (şube gibi).
+                              color: Colors.white,
+                              background: module.completed ? Dg.ok : Dg.warn,
                               size: 40,
                             ),
                             const SizedBox(width: 12),
@@ -108,8 +119,58 @@ class _TrainingScreenState extends ConsumerState<TrainingScreen> {
                       ),
                     ),
                   ),
+                if (_faq != null) _CourierFaq(future: _faq!),
               ],
             ),
+    );
+  }
+}
+
+class _CourierFaq extends StatelessWidget {
+  const _CourierFaq({required this.future});
+
+  final Future<List<TrainingFaq>> future;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    return FutureBuilder<List<TrainingFaq>>(
+      future: future,
+      builder: (context, snap) {
+        final items = snap.data ?? const <TrainingFaq>[];
+        if (items.isEmpty) return const SizedBox.shrink();
+        return Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: DgCard(
+            child: Material(
+              type: MaterialType.transparency,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l.trainingFaqTitle,
+                    style: Dg.ui(size: 15, weight: FontWeight.w700),
+                  ),
+                  for (final f in items)
+                    ExpansionTile(
+                      tilePadding: EdgeInsets.zero,
+                      childrenPadding: const EdgeInsets.only(bottom: 10),
+                      expandedAlignment: Alignment.centerLeft,
+                      shape: const Border(),
+                      title: Text(
+                        f.question,
+                        style: Dg.ui(size: 14, weight: FontWeight.w600),
+                      ),
+                      children: [
+                        Text(f.answer, style: Dg.ui(size: 13, color: Dg.ink2)),
+                      ],
+                    ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

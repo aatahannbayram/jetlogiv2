@@ -1635,8 +1635,13 @@ class LearnerTraining {
     this.overdue = false,
     this.status = 'NOT_STARTED',
     this.progressPercent,
+    this.viewedSeconds = 0,
     this.contentUrl,
     this.contentBody,
+    this.acknowledgementText,
+    this.sequentialLessons = false,
+    this.lessons = const [],
+    this.preview = false,
   });
 
   final String id;
@@ -1657,8 +1662,24 @@ class LearnerTraining {
 
   /// Sunucunun verdiği ilerleme yüzdesi; yoksa null (uydurulmaz).
   final num? progressPercent;
+
+  /// Sunucudaki toplam izleme süresi (kümülatif). Yeni ilerleme bunun
+  /// üstüne eklenerek gönderilir; sunucu değeri geri götürmez.
+  final int viewedSeconds;
   final String? contentUrl;
   final String? contentBody;
+
+  /// "Eğitimi okudum/izledim ve anladım." onay metni.
+  final String? acknowledgementText;
+
+  /// Dersler sırayla açılır (önceki zorunlu ders bitmeden sonraki kilitli).
+  final bool sequentialLessons;
+
+  /// Dersli eğitimin dersleri (yalnız detayda).
+  final List<TrainingLesson> lessons;
+
+  /// Şube önizlemesi: ilerleme kaydedilmez, sınav gönderilmez.
+  final bool preview;
 
   bool get completed => status == 'COMPLETED';
 
@@ -1689,10 +1710,207 @@ class LearnerTraining {
       progressPercent:
           _numOrNull(progress['progressPercent']) ??
           _numOrNull(progress['percent']),
+      viewedSeconds: _int(progress, 'viewedSeconds'),
+      acknowledgementText: _strOrNull(j, 'acknowledgementText'),
+      sequentialLessons: _bool(j, 'sequentialLessons'),
+      lessons: [
+        for (final row in _list(j['lessons'])) TrainingLesson.fromJson(row),
+      ]..sort((a, b) => a.order.compareTo(b.order)),
+      preview: _bool(j, 'preview'),
       contentUrl: _strOrNull(j, 'contentUrl'),
       contentBody: _strOrNull(j, 'contentBody'),
     );
   }
+}
+
+/// Dersli eğitimin dersi. `contentType`: VIDEO | EMBED | LIVE | PDF |
+/// DOCUMENT | LINK | TEXT | QUIZ. Sınavda doğru cevaplar gelmez.
+class TrainingLesson {
+  const TrainingLesson({
+    required this.id,
+    this.order = 0,
+    this.title = '',
+    this.description,
+    this.contentType = 'TEXT',
+    this.durationSeconds,
+    this.startsAt,
+    this.minimumViewSeconds = 0,
+    this.required = false,
+    this.passingScore,
+    this.locked = false,
+    this.mediaUrl,
+    this.downloadUrl,
+    this.contentUrl,
+    this.contentBody,
+    this.quiz,
+    this.completed = false,
+    this.viewedSeconds = 0,
+    this.lastPositionSeconds,
+    this.bestScore,
+  });
+
+  final String id;
+  final int order;
+  final String title;
+  final String? description;
+  final String contentType;
+  final int? durationSeconds;
+  final DateTime? startsAt;
+  final int minimumViewSeconds;
+  final bool required;
+  final int? passingScore;
+  final bool locked;
+  final String? mediaUrl;
+  final String? downloadUrl;
+  final String? contentUrl;
+  final String? contentBody;
+  final TrainingQuiz? quiz;
+  final bool completed;
+  final int viewedSeconds;
+  final int? lastPositionSeconds;
+  final int? bestScore;
+
+  bool get isQuiz => contentType == 'QUIZ';
+  bool get isLive => contentType == 'LIVE';
+
+  /// Açılacak bağlantı: video / belge için imzalı medya, gömülü video,
+  /// canlı oturum ya da dış bağlantı için içerik adresi.
+  String? get openUrl => switch (contentType) {
+    'VIDEO' || 'PDF' || 'DOCUMENT' => mediaUrl ?? downloadUrl ?? contentUrl,
+    _ => contentUrl ?? mediaUrl,
+  };
+
+  factory TrainingLesson.fromJson(Map<String, dynamic> j) {
+    final progress = _map(j['progress']);
+    final quiz = j['quiz'];
+    return TrainingLesson(
+      id: _str(j, 'id'),
+      order: _int(j, 'order'),
+      title: _str(j, 'title'),
+      description: _strOrNull(j, 'description'),
+      contentType: _strOrNull(j, 'contentType') ?? 'TEXT',
+      durationSeconds: _numOrNull(j['durationSeconds'])?.toInt(),
+      startsAt: _date(j, 'startsAt'),
+      minimumViewSeconds: _int(j, 'minimumViewSeconds'),
+      required: _bool(j, 'isRequired'),
+      passingScore: _numOrNull(j['passingScore'])?.toInt(),
+      locked: _bool(j, 'locked'),
+      mediaUrl: _strOrNull(j, 'mediaUrl'),
+      downloadUrl: _strOrNull(j, 'downloadUrl'),
+      contentUrl: _strOrNull(j, 'contentUrl'),
+      contentBody: _strOrNull(j, 'contentBody'),
+      quiz: quiz is Map || quiz is List ? TrainingQuiz.parse(quiz) : null,
+      completed:
+          _str(progress, 'status') == 'COMPLETED' ||
+          progress['completedAt'] is String ||
+          progress['completed'] == true,
+      viewedSeconds: _int(progress, 'viewedSeconds'),
+      lastPositionSeconds: _numOrNull(progress['lastPositionSeconds'])?.toInt(),
+      bestScore: _numOrNull(progress['bestScore'])?.toInt(),
+    );
+  }
+}
+
+typedef QuizOption = ({String id, String text});
+
+typedef QuizQuestion = ({
+  String id,
+  String text,
+  bool multiple,
+  List<QuizOption> options,
+});
+
+/// Sınav: sorular ve seçenekler. Swagger nesnenin içini tanımlamadığından
+/// yaygın alan adlarının hepsi kabul edilir; soru çıkarılamazsa boş kalır ve
+/// ekran sınavı açamadığını söyler (uydurma soru yok).
+class TrainingQuiz {
+  const TrainingQuiz({this.questions = const []});
+
+  final List<QuizQuestion> questions;
+
+  static TrainingQuiz parse(Object? raw) {
+    final rows = raw is List
+        ? raw
+        : raw is Map
+        ? (raw['questions'] ?? raw['items'] ?? const [])
+        : const [];
+    String text(Map q, List<String> keys) {
+      for (final k in keys) {
+        final v = q[k];
+        if (v is String && v.trim().isNotEmpty) return v.trim();
+      }
+      return '';
+    }
+
+    final questions = <QuizQuestion>[];
+    for (final q in rows is List ? rows : const []) {
+      if (q is! Map) continue;
+      final id = text(q, ['id', 'questionId', 'code', 'key']);
+      final options = <QuizOption>[];
+      final rawOptions = q['options'] ?? q['choices'] ?? q['answers'];
+      for (final o in rawOptions is List ? rawOptions : const []) {
+        if (o is Map) {
+          final oid = text(o, ['id', 'optionId', 'code', 'key', 'value']);
+          if (oid.isEmpty) continue;
+          options.add((
+            id: oid,
+            text: text(o, ['text', 'label', 'title', 'body', 'value']),
+          ));
+        } else if (o is String && o.isNotEmpty) {
+          options.add((id: o, text: o));
+        }
+      }
+      if (id.isEmpty || options.isEmpty) continue;
+      final type = '${q['type'] ?? q['questionType'] ?? ''}'.toUpperCase();
+      questions.add((
+        id: id,
+        text: text(q, ['text', 'question', 'prompt', 'title', 'label', 'body']),
+        multiple:
+            q['multiple'] == true ||
+            q['multiSelect'] == true ||
+            q['allowMultiple'] == true ||
+            type.contains('MULTI') ||
+            type == 'CHECKBOX',
+        options: options,
+      ));
+    }
+    return TrainingQuiz(questions: questions);
+  }
+}
+
+/// Sınav sonucu. Doğru cevaplar ve açıklama yalnız geçildiğinde gelir.
+class QuizResult {
+  const QuizResult({
+    this.score = 0,
+    this.passingScore,
+    this.passed = false,
+    this.bestScore,
+    this.attempts = 0,
+    this.results = const [],
+  });
+
+  final int score;
+  final int? passingScore;
+  final bool passed;
+  final int? bestScore;
+  final int attempts;
+  final List<({String questionId, bool correct, String? explanation})> results;
+
+  factory QuizResult.fromJson(Map<String, dynamic> j) => QuizResult(
+    score: _int(j, 'score'),
+    passingScore: _numOrNull(j['passingScore'])?.toInt(),
+    passed: _bool(j, 'passed'),
+    bestScore: _numOrNull(j['bestScore'])?.toInt(),
+    attempts: _int(j, 'attempts'),
+    results: [
+      for (final r in _list(j['results']))
+        (
+          questionId: _str(r, 'questionId'),
+          correct: _bool(r, 'correct'),
+          explanation: _strOrNull(r, 'explanation'),
+        ),
+    ],
+  );
 }
 
 /// GET branch/training?targetType=: öğrenen eğitimleri (BRANCH /
@@ -1997,4 +2215,72 @@ class SmsBatch {
         if (e.value is num) e.key: (e.value as num).toInt(),
     },
   );
+}
+
+/// Zimmet uyuşmazlığı: kuryenin bildirdiği eksik / fazla / hasarlı / yanlış
+/// ürün (`courier-custody/disputes`). Zimmeti veren şube aynı kaydı
+/// `branch/custody-disputes` ile görür; çözüm operasyondadır.
+class CustodyDispute {
+  const CustodyDispute({
+    required this.id,
+    required this.typeCode,
+    this.statusCode = '',
+    this.ticketNumber,
+    this.shipmentNumber,
+    this.transferNumber,
+    this.scanCode,
+    this.note,
+    this.courierName,
+    this.createdAt,
+    this.resolvedAt,
+  });
+
+  /// MISSING | EXCESS | DAMAGED | WRONG_ITEM | OTHER.
+  static const types = ['MISSING', 'EXCESS', 'DAMAGED', 'WRONG_ITEM', 'OTHER'];
+
+  final String id;
+  final String typeCode;
+
+  /// Destek talebi durumu: NEW, IN_PROGRESS, RESOLVED, CLOSED…
+  final String statusCode;
+  final String? ticketNumber;
+  final String? shipmentNumber;
+  final String? transferNumber;
+  final String? scanCode;
+  final String? note;
+
+  /// Yalnız şube listesinde gelir.
+  final String? courierName;
+  final DateTime? createdAt;
+  final DateTime? resolvedAt;
+
+  bool get resolved =>
+      resolvedAt != null || statusCode == 'RESOLVED' || statusCode == 'CLOSED';
+
+  /// Kalem seçimi isteyen türler (`transferItemId`).
+  static bool needsItem(String type) =>
+      type == 'MISSING' || type == 'DAMAGED' || type == 'WRONG_ITEM';
+
+  /// Okutulan kod isteyen türler (`scanCode`).
+  static bool needsScan(String type) =>
+      type == 'EXCESS' || type == 'WRONG_ITEM';
+
+  factory CustodyDispute.fromJson(Map<String, dynamic> j) => CustodyDispute(
+    id: _str(j, 'id'),
+    typeCode: _str(j, 'typeCode'),
+    statusCode: _str(j, 'statusCode'),
+    ticketNumber: _strOrNull(j, 'ticketNumber'),
+    shipmentNumber: _strOrNull(j, 'shipmentNumber'),
+    transferNumber: _strOrNull(j, 'transferNumber'),
+    scanCode: _strOrNull(j, 'scanCode'),
+    note: _strOrNull(j, 'note'),
+    courierName: _strOrNull(j, 'courierName'),
+    createdAt: _date(j, 'createdAt'),
+    resolvedAt: _date(j, 'resolvedAt'),
+  );
+
+  static List<CustodyDispute> listFrom(Object? data) => [
+    for (final r in _list(data is Map ? data['disputes'] : null))
+      CustodyDispute.fromJson(r),
+  ];
 }

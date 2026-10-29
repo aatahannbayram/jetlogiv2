@@ -88,6 +88,12 @@ class BranchWorkspace {
   /// Şube sözleşme / evrak kalemleri (uyum ucu).
   BranchDocs? branchDocs;
 
+  /// Kuryelerin bu şubeden aldığı zimmet için bildirdiği uyuşmazlıklar.
+  List<CustodyDispute>? custodyDisputes;
+
+  /// Demo: bu oturumda tamamlanan dersler.
+  final demoLessonsDone = <String>{};
+
   /// Ana sayfanın "Teslim edilemeyen" kutusu için bugünün performansı
   /// (Performans ekranının seçili aralığından bağımsız).
   PerformanceData? todayPerformance;
@@ -170,6 +176,8 @@ class BranchWorkspace {
     roster = null;
     trainingTabs.clear();
     branchDocs = null;
+    custodyDisputes = null;
+    demoLessonsDone.clear();
     todayPerformance = null;
     freshLabels = const [];
     _restored = false;
@@ -422,6 +430,27 @@ class BranchWorkspace {
       }(),
     ]);
     onChanged();
+  }
+
+  /// Zimmet uyuşmazlıkları (yalnız görüntüleme; çözüm operasyonda).
+  /// Ana akışı bölmemek için sessiz yüklenir; hata durumunda liste boş
+  /// değil, yüklenmemiş kalır.
+  Future<void> loadCustodyDisputes() async {
+    if (demo) {
+      custodyDisputes ??= kSubeDemoCustodyDisputes;
+      onChanged();
+      return;
+    }
+    final client = api;
+    if (client == null) return;
+    try {
+      custodyDisputes = await client.fetchCustodyDisputes();
+      onChanged();
+    } catch (e) {
+      if (e is AgencyApiException && e.unauthenticated) {
+        onSessionExpired?.call();
+      }
+    }
   }
 
   /// Kurye haritası (konum + eldeki gönderiler). Mola sekmesi için vardiya
@@ -679,21 +708,96 @@ class BranchWorkspace {
     LearnerTraining training, {
     required String targetType,
     int viewedSeconds = 0,
+  }) => completeTrainingById(
+    training.id,
+    targetType: targetType,
+    viewedSeconds: viewedSeconds,
+  );
+
+  Future<String?> completeTrainingById(
+    String trainingId, {
+    required String targetType,
+    int viewedSeconds = 0,
   }) {
-    return _action('training-complete|${training.id}', (key) async {
+    return _action('training-complete|$trainingId', (key) async {
       if (demo) {
-        _demoCompleteTraining(training.id, targetType);
+        _demoCompleteTraining(trainingId, targetType);
         return;
       }
       if (viewedSeconds > 0) {
-        await api!.trainingAction(training.id, 'progress', {
+        await api!.trainingAction(trainingId, 'progress', {
           'viewedSeconds': viewedSeconds,
         }, idempotencyKey: _newId());
       }
-      await api!.trainingAction(training.id, 'complete', {
+      await api!.trainingAction(trainingId, 'complete', {
         'acknowledged': true,
       }, idempotencyKey: key);
       trainingTabs[targetType] = await api!.fetchTrainingCenter(targetType);
+    }, refreshAfter: false);
+  }
+
+  /// Demo: ders tamamlanır; zorunlu derslerin hepsi bitince eğitim de.
+  void demoCompleteLesson(
+    String trainingId,
+    String lessonId,
+    String targetType,
+  ) {
+    demoLessonsDone.add(lessonId);
+    final detail = kSubeDemoTrainingDetail(
+      trainingId,
+      doneLessons: demoLessonsDone,
+    );
+    if (detail != null &&
+        detail.lessons.where((l) => l.required).every((l) => l.completed)) {
+      _demoCompleteTraining(trainingId, targetType);
+    }
+    onChanged();
+  }
+
+  /// Kurye eğitiminin içeriği (önizleme ucu); düzenleme formunu doldurur.
+  Future<LearnerTraining?> trainingPreview(String trainingId) async {
+    if (demo) return kSubeDemoTrainingDetail(trainingId, preview: true);
+    return api!.fetchTrainingPreview(trainingId);
+  }
+
+  /// Şubenin yayımladığı metin eğitimini günceller (yetki: `manage`).
+  /// [bumpVersion]: içerik değişti, herkes yeniden tamamlamalı.
+  Future<String?> updateTraining(
+    String trainingId, {
+    required String title,
+    required String body,
+    required bool mandatory,
+    required bool bumpVersion,
+  }) {
+    final signature =
+        'training-update|$trainingId|$title|${body.hashCode}|$mandatory|$bumpVersion';
+    return _action(signature, (key) async {
+      if (demo) {
+        trainings = [
+          for (final t in trainings ?? const <ManagedTraining>[])
+            t.id == trainingId
+                ? ManagedTraining(
+                    id: t.id,
+                    title: title,
+                    mandatory: mandatory,
+                    status: t.status,
+                    editable: t.editable,
+                    learners: t.learners,
+                    completed: bumpVersion ? 0 : t.completed,
+                  )
+                : t,
+        ];
+        return;
+      }
+      await api!.updateTraining(
+        trainingId,
+        title: title,
+        body: body,
+        mandatory: mandatory,
+        bumpVersion: bumpVersion,
+        idempotencyKey: key,
+      );
+      trainings = await api!.fetchManagedTrainings();
     }, refreshAfter: false);
   }
 

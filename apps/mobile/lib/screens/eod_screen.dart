@@ -17,24 +17,56 @@ class EodScreen extends ConsumerWidget {
     final pending = s.outbox.events.where((e) => e.pending).length;
     final c = s.courierCounts;
     // Backend sayaçları varsa onlar; yoksa cihazdaki görev listesinden.
-    final kpis = <(String, String)>[
+    final kpis = <(String, String, IconData, Color)>[
       if (c.isEmpty) ...[
-        (l.eodOpen, '${s.openCount}'),
-        (l.eodReturn, '${s.returnCount}'),
+        (l.eodOpen, '${s.openCount}', LucideIcons.package, Dg.brand),
+        (l.eodReturn, '${s.returnCount}', LucideIcons.undo2, Dg.warn),
       ] else ...[
         (
           l.kpiOnMe,
           '${(c['awaitingDelivery'] ?? 0) + (c['outForDelivery'] ?? 0)}',
+          LucideIcons.package,
+          Dg.brand,
         ),
-        (l.kpiInField, '${c['outForDelivery'] ?? 0}'),
-        (l.kpiDelivered, '${c['deliveredToday'] ?? 0}'),
-        (l.kpiUndelivered, '${c['failedToday'] ?? 0}'),
-        (l.filterBooked, '${c['appointment'] ?? 0}'),
-        (l.kpiSlaRisk, '${c['overdue'] ?? 0}'),
-        (l.eodReturn, '${c['toReturnToBranch'] ?? 0}'),
-        (l.kpiAwaitAccept, '${c['pendingCustody'] ?? 0}'),
+        (
+          l.kpiInField,
+          '${c['outForDelivery'] ?? 0}',
+          LucideIcons.truck,
+          Dg.plum,
+        ),
+        (
+          l.kpiDelivered,
+          '${c['deliveredToday'] ?? 0}',
+          LucideIcons.circleCheck,
+          Dg.ok,
+        ),
+        (
+          l.kpiUndelivered,
+          '${c['failedToday'] ?? 0}',
+          LucideIcons.circleX,
+          Dg.bad,
+        ),
+        (
+          l.filterBooked,
+          '${c['appointment'] ?? 0}',
+          LucideIcons.calendarClock,
+          Dg.brand,
+        ),
+        (l.kpiSlaRisk, '${c['overdue'] ?? 0}', LucideIcons.timer, Dg.warn),
+        (
+          l.eodReturn,
+          '${c['toReturnToBranch'] ?? 0}',
+          LucideIcons.undo2,
+          Dg.warn,
+        ),
+        (
+          l.kpiAwaitAccept,
+          '${c['pendingCustody'] ?? 0}',
+          LucideIcons.hourglass,
+          Dg.plum,
+        ),
       ],
-      (l.eodSync, '$pending'),
+      (l.eodSync, '$pending', LucideIcons.cloudUpload, Dg.brand),
     ];
     return Scaffold(
       appBar: AppBar(title: Text(l.eodTitle)),
@@ -54,10 +86,20 @@ class EodScreen extends ConsumerWidget {
           for (var i = 0; i < kpis.length; i += 2) ...[
             Row(
               children: [
-                StatTile(label: kpis[i].$1, value: kpis[i].$2),
+                StatTile(
+                  label: kpis[i].$1,
+                  value: kpis[i].$2,
+                  icon: kpis[i].$3,
+                  iconColor: kpis[i].$4,
+                ),
                 const SizedBox(width: 12),
                 if (i + 1 < kpis.length)
-                  StatTile(label: kpis[i + 1].$1, value: kpis[i + 1].$2)
+                  StatTile(
+                    label: kpis[i + 1].$1,
+                    value: kpis[i + 1].$2,
+                    icon: kpis[i + 1].$3,
+                    iconColor: kpis[i + 1].$4,
+                  )
                 else
                   const Spacer(),
               ],

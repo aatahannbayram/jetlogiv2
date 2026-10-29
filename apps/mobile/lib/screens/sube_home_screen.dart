@@ -5,7 +5,6 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../api/branch_models.dart';
 import '../brand.dart';
-import '../intro_tour.dart';
 import '../l10n.dart';
 import '../models.dart';
 import '../motion.dart';
@@ -104,11 +103,6 @@ class _SubeHomeScreenState extends ConsumerState<SubeHomeScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 120),
           children: [
-            IntroTourTrigger(
-              show: !s.tipsSeen,
-              steps: branchIntroSteps(l),
-              onDone: s.markTipsSeen,
-            ),
             Appear(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(4, 0, 4, 12),

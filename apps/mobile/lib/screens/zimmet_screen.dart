@@ -7,6 +7,7 @@ import '../scan.dart';
 import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import 'custody_dispute_sheet.dart';
 
 class ZimmetScreen extends ConsumerStatefulWidget {
   const ZimmetScreen({super.key, required this.mode});
@@ -95,57 +96,6 @@ class _ZimmetScreenState extends ConsumerState<ZimmetScreen> {
       Navigator.of(context).popUntil((r) => r.isFirst);
     } else {
       Navigator.of(context).pop();
-    }
-  }
-
-  Future<void> _showDiscrepancy(
-    BuildContext context,
-    SessionController s,
-    L10n l,
-  ) async {
-    final note = TextEditingController();
-    final saved = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Dg.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.fromLTRB(
-          20,
-          20,
-          20,
-          16 + MediaQuery.viewInsetsOf(ctx).bottom,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              l.discrepancy,
-              style: Dg.ui(size: 17, weight: FontWeight.w700),
-            ),
-            TextField(
-              controller: note,
-              decoration: InputDecoration(hintText: l.discrepancyNote),
-              minLines: 2,
-              maxLines: 4,
-            ),
-            const SizedBox(height: 12),
-            DgButton(
-              label: l.discrepancySave,
-              onPressed: () => Navigator.of(ctx).pop(true),
-            ),
-          ],
-        ),
-      ),
-    );
-    final text = note.text;
-    note.dispose();
-    if (saved == true && context.mounted) {
-      s.reportCustodyDiscrepancy(text);
-      await _finish(context, s, l);
     }
   }
 
@@ -299,12 +249,11 @@ class _ZimmetScreenState extends ConsumerState<ZimmetScreen> {
                   ),
                   const SizedBox(height: 8),
                   DgButton(
-                    label: l.discrepancy,
+                    key: const Key('zimmet-dispute'),
+                    label: l.disputeTitle,
                     icon: LucideIcons.circleAlert,
                     tone: DgButtonTone.secondary,
-                    onPressed: s.zimmetScans.isEmpty
-                        ? null
-                        : () => _showDiscrepancy(context, s, l),
+                    onPressed: () => showCustodyDisputeSheet(context),
                   ),
                 ],
               ),

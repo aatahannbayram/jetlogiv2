@@ -6,7 +6,9 @@ import '../api/models.dart';
 import '../l10n.dart';
 import '../session.dart';
 import '../theme.dart';
+import '../training_port.dart';
 import '../widgets.dart';
+import 'training_player_screen.dart';
 
 class TrainingDetailScreen extends ConsumerWidget {
   const TrainingDetailScreen({super.key, required this.moduleId});
@@ -27,6 +29,18 @@ class TrainingDetailScreen extends ConsumerWidget {
         completed: false,
       ),
     );
+
+    // Gerçek kurye oturumu: içerik bağlantısı, dersler, sınav ve izleme
+    // süresiyle oynatıcı. Demo oturumu yerel metinle kalır.
+    final panel = s.panel;
+    if (trainingPlayerEnabled && s.panelLoggedIn && !s.demo && panel != null) {
+      return TrainingPlayerScreen(
+        port: CourierTrainingPort(panel),
+        trainingId: moduleId,
+        title: module.title.isEmpty ? null : module.title,
+        onChanged: s.loadTrainingModules,
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(title: Text(module.title)),

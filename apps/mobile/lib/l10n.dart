@@ -1216,6 +1216,50 @@ class L10n {
   String get profilePartnerDocs => _t('İş ortaklığı evrakları', 'Partner documents');
   String get profileInvoices => _t('Fatura & hakediş', 'Invoices & earnings');
   String get profileOffline => _t('Hızlı gönder', 'Quick send');
+
+  // ---- Eğitim oynatıcı (kurye + şube) ----
+  String get trainingPreviewNote => _t(
+    'Önizleme: ilerleme kaydedilmez, sınav gönderilmez.',
+    'Preview: progress is not saved, quizzes are not submitted.',
+  );
+  String trainingLessonsDone(int done, int total) =>
+      _t('$done / $total ders tamamlandı', '$done / $total lessons done');
+  String lessonType(String code) => switch (code) {
+    'VIDEO' || 'EMBED' => _t('Video', 'Video'),
+    'LIVE' => _t('Canlı oturum', 'Live session'),
+    'PDF' => _t('PDF', 'PDF'),
+    'DOCUMENT' => _t('Belge', 'Document'),
+    'LINK' => _t('Bağlantı', 'Link'),
+    'QUIZ' => _t('Sınav', 'Quiz'),
+    _ => _t('Metin', 'Text'),
+  };
+  String get lessonLocked => _t('Kilitli', 'Locked');
+  String get lessonComplete => _t('Dersi tamamla', 'Complete lesson');
+  String get lessonCompleted => _t('Ders tamamlandı', 'Lesson completed');
+  String get liveJoin => _t('Oturuma katıl', 'Join session');
+  String liveStarts(String date) => _t('Başlangıç: $date', 'Starts: $date');
+  String get quizSubmit => _t('Sınavı gönder', 'Submit quiz');
+  String get quizRetry => _t('Tekrar dene', 'Try again');
+  String quizScore(int score, int? pass) => pass == null
+      ? _t('Puan: $score', 'Score: $score')
+      : _t('Puan: $score (geçme: $pass)', 'Score: $score (pass: $pass)');
+  String get quizPassed => _t('Geçtiniz', 'Passed');
+  String get quizFailed => _t('Geçemediniz', 'Not passed');
+  String get quizMultiple => _t('Birden çok seçenek', 'Multiple choice');
+  String get quizUnavailable => _t(
+    'Sınav soruları açılamadı. Merkeze bildirin.',
+    'Quiz questions could not be loaded. Tell HQ.',
+  );
+  String get trainingFinish => _t('Eğitimi tamamla', 'Finish training');
+  String get trainingPreview => _t('Önizle', 'Preview');
+  String get trainingEdit => _t('Düzenle', 'Edit');
+  String get trainingBumpVersion => _t(
+    'İçerik değişti, herkes yeniden tamamlasın',
+    'Content changed, everyone completes again',
+  );
+  String get trainingUpdated => _t('Eğitim güncellendi', 'Training updated');
+  String minViewHint(int minutes) =>
+      _t('En az $minutes dk izlenmeli', 'Watch at least $minutes min');
   String get courierDetail => _t('Detay', 'Details');
   String mapShipmentsTitle(int n) =>
       _t('Üzerindeki gönderiler ($n)', 'Parcels on hand ($n)');
@@ -1956,6 +2000,110 @@ class L10n {
     _ => '',
   };
   String get announcementAck => _t('Okudum, anladım', 'Read and understood');
+
+  // Zimmet uyuşmazlığı: kurye bildirir, zimmeti veren şube görür.
+  String get disputeTitle => _t('Uyuşmazlık bildir', 'Report a discrepancy');
+  String disputeType(String code) => switch (code) {
+    'MISSING' => _t('Eksik', 'Missing'),
+    'EXCESS' => _t('Fazla', 'Excess'),
+    'DAMAGED' => _t('Hasarlı', 'Damaged'),
+    'WRONG_ITEM' => _t('Yanlış ürün', 'Wrong item'),
+    _ => _t('Diğer', 'Other'),
+  };
+  String disputeTypeHint(String code) => switch (code) {
+    'MISSING' => _t('Listede var, elimde yok', 'On the list, not in hand'),
+    'EXCESS' => _t('Elimde var, listede yok', 'In hand, not on the list'),
+    'DAMAGED' => _t('Gönderi hasarlı geldi', 'The parcel arrived damaged'),
+    'WRONG_ITEM' => _t(
+      'Listedekinin yerine başka ürün geldi',
+      'A different item came instead',
+    ),
+    _ => _t('Başka bir sorun', 'Another problem'),
+  };
+  String get disputePickItem => _t('Gönderiyi seçin', 'Choose the parcel');
+  String get disputeNoItems =>
+      _t('Kabul bekleyen gönderi yok', 'No parcels awaiting acceptance');
+  String get disputeScanCode => _t('Okutulan kod', 'Scanned code');
+  String get disputeNote => _t('Açıklama', 'Description');
+  String get disputeNoteOptional =>
+      _t('Açıklama (isteğe bağlı)', 'Description (optional)');
+  String get disputeSend => _t('Bildir', 'Report');
+  String disputeSent(String? ticket) => ticket == null || ticket.isEmpty
+      ? _t('Uyuşmazlık bildirildi', 'Discrepancy reported')
+      : _t('Bildirildi · $ticket', 'Reported · $ticket');
+  String get disputeMine =>
+      _t('Uyuşmazlık bildirimlerim', 'My discrepancy reports');
+  String disputeStatus(String code) => switch (code) {
+    'NEW' || 'OPEN' => _t('Yeni', 'New'),
+    'IN_PROGRESS' || 'ASSIGNED' || 'WAITING' => _t('İnceleniyor', 'In review'),
+    'RESOLVED' => _t('Çözüldü', 'Resolved'),
+    'CLOSED' => _t('Kapandı', 'Closed'),
+    _ => code,
+  };
+  String disputeError(String code) => switch (code) {
+    'DISPUTE_ITEM_REQUIRED' => _t(
+      'Listeden bir gönderi seçin.',
+      'Choose a parcel from the list.',
+    ),
+    'DISPUTE_ITEM_NOT_FOUND' => _t(
+      'Bu gönderi son 30 günde size zimmetlenmemiş.',
+      'This parcel was not assigned to you in the last 30 days.',
+    ),
+    'DISPUTE_SCAN_REQUIRED' => _t(
+      'Okutulan kodu girin.',
+      'Enter the scanned code.',
+    ),
+    'DISPUTE_NOTE_REQUIRED' => _t('Açıklama yazın.', 'Write a description.'),
+    _ => _t(
+      'Bildirim gönderilemedi. Tekrar deneyin.',
+      'Could not send. Try again.',
+    ),
+  };
+  String get branchDisputesTab => _t('Uyuşmazlık', 'Disputes');
+  String get branchDisputesNote => _t(
+    'Kuryelerin bu şubeden aldığı zimmet için bildirdikleri. Çözüm operasyon ekibinde.',
+    'Reported by couriers for custody from this branch. Operations resolves them.',
+  );
+  String get branchDisputesEmpty =>
+      _t('Bildirilen uyuşmazlık yok', 'No discrepancies reported');
+
+  // Ödeme bilgisi (IBAN)
+  String get paymentInfoTitle => _t('Ödeme bilgisi', 'Payment details');
+  String get paymentInfoEmpty => _t('Henüz IBAN eklenmedi', 'No IBAN added yet');
+  String get paymentHolder => _t('Hesap sahibi', 'Account holder');
+  String get paymentIban => _t('IBAN', 'IBAN');
+  String get paymentAdd => _t('IBAN ekle', 'Add IBAN');
+  String get paymentChange => _t('IBAN değiştir', 'Change IBAN');
+  String get paymentSave => _t('Doğrulamaya gönder', 'Send for verification');
+  String get paymentIbanInvalid => _t(
+    'IBAN, TR ile başlayan 26 karakter olmalı.',
+    'IBAN must be 26 characters starting with TR.',
+  );
+  String get paymentSaved =>
+      _t('IBAN doğrulamaya gönderildi', 'IBAN sent for verification');
+  String paymentStatus(String code) => switch (code) {
+    'VERIFIED' => _t('Doğrulandı', 'Verified'),
+    'PENDING_VERIFICATION' => _t('Doğrulama bekliyor', 'Awaiting verification'),
+    'REJECTED' => _t('Reddedildi', 'Rejected'),
+    'CHANGE_REQUESTED' => _t('Düzeltme istendi', 'Change requested'),
+    _ => _t('Taslak', 'Draft'),
+  };
+  String paymentPaidTo(String iban) =>
+      _t('Ödemeler şimdilik şu hesaba: $iban', 'Payments go to: $iban for now');
+  String get paymentHint => _t(
+    'Hesap sahibi adını kayıtlı adınızla aynı yazın; farklıysa merkez elle inceler.',
+    'Write the holder name as registered; otherwise HQ reviews it manually.',
+  );
+  String paymentError(String code) => switch (code) {
+    'BANK_ACCOUNT_ALREADY_EXISTS' => _t(
+      'Bu IBAN zaten kayıtlı.',
+      'This IBAN is already registered.',
+    ),
+    _ => _t(
+      'Kaydedilemedi. Bilgileri kontrol edin.',
+      'Could not save. Check the details.',
+    ),
+  };
 
   // Şifre değiştirme ve müsaitlik
   String get passwordTitle => _t('Şifre değiştir', 'Change password');

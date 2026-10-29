@@ -397,6 +397,7 @@ class SessionController extends ChangeNotifier {
   void setShiftOpen(bool value) {
     if (shiftOpen == value) return;
     shiftOpen = value;
+    _shiftLocationPaused = false;
     if (value) {
       shiftStartedAt = DateTime.now();
       shiftPhotoTaken = true;
@@ -660,6 +661,16 @@ class SessionController extends ChangeNotifier {
   List<CustodyItemDto> custodyItems = const [];
   bool custodyLoading = false;
   bool custodyHandoverPending = false;
+
+  /// Kuryenin bildirdiği zimmet uyuşmazlıkları (yeniden eskiye).
+  List<CustodyDispute> custodyDisputes = const [];
+
+  /// Uyuşmazlıkta seçilebilen kalemler: panelde yalnız devir kalemi
+  /// (`transferItemId`) olanlar; eldeki gönderinin kalem kimliği yoktur.
+  List<CustodyItemDto> get disputableCustody => [
+    for (final c in custodyItems)
+      if (!_usesPanelTasks || c.transferItemId != null) c,
+  ];
 
   void setZimmetMode(String mode) {
     zimmetMode = mode;
@@ -1531,17 +1542,9 @@ class SessionController extends ChangeNotifier {
     await restorePanelSession();
     await restoreAgencySession();
     await restoreOpenShift();
-    final token = await vault?.accessToken;
-    final liveAuth =
-        token != null && token.isNotEmpty && token != 'demo-access';
-    if (!liveAuth &&
-        !liveApi &&
-        !panelLoggedIn &&
-        phase == AppPhase.splash &&
-        demoFieldAllowed()) {
-      skipToDemo();
-      return;
-    }
+    // Demo yayını da açılış ekranında durur: kurye demosu ve şube girişi
+    // oradan seçilir (önceden kurye demosuna kendiliğinden düşülüyordu;
+    // yeni giriş ve şube ekranları hiç görünmüyordu).
     DgLog.i(
       LogLayer.boot,
       'bootstrap live=$liveApi demo=$demo phase=${phase.name}',
@@ -1787,6 +1790,7 @@ class SessionController extends ChangeNotifier {
   /// Clears stored auth + resets in-memory shift/session state, dropping
   /// back to splash (which re-offers "Vardiyaya başla" / activation).
   Future<void> logout() async {
+    final client = _usesPanelTasks ? panel : null;
     // Sonraki giren kişi öncekinin adını/telefonunu görmesin.
     courier = Courier.empty;
     await vault?.clearTokens();
@@ -1803,7 +1807,20 @@ class SessionController extends ChangeNotifier {
     panelLoggedIn = false;
     lastPanelError = null;
     phase = AppPhase.splash;
+    custodyDisputes = const [];
+    _panelSyncAt = null;
+    _panelActiveIds = null;
     DgLog.i(LogLayer.session, 'logout');
+    // Cihaz kaydı oturum kapanmadan kapatılır (push token silinir).
+    // Çevrimdışıysa çıkışı bekletmez.
+    final deviceId = client == null ? null : await vault?.installationId();
+    if (client != null && deviceId != null) {
+      try {
+        await client
+            .unregisterDevice(deviceId)
+            .timeout(const Duration(seconds: 4));
+      } catch (_) {}
+    }
     try {
       await panel?.logout();
     } catch (_) {}
@@ -2185,12 +2202,24 @@ class SessionController extends ChangeNotifier {
   }
 
   // ── Canlı konum ────────────────────────────────────────────────────────
-  // Başlatılmış (dağıtımdaki) görev varken kuryenin konumu panele akar;
-  // şube ve merkez kuryeleri haritada buradan görür. Görev bitince durur.
+  // Başlatılmış (dağıtımdaki) görev varken kuryenin konumu göreve akar;
+  // görev yokken açık vardiyada görev dışı konum gider (2–5 dk'da bir).
+  // Şube ve merkez kuryeleri haritada buradan görür. Vardiya bitince durur.
 
   StreamSubscription<LiveFix>? _liveSub;
   String? _liveTaskId;
   LiveFix? _lastLiveSent;
+
+  /// Görev yokken vardiya konumu modunu gösteren hedef.
+  static const _shiftTarget = '__shift__';
+
+  /// Kurye dururken de haritada görünsün: akış yeni ölçüm üretmese bile
+  /// birkaç dakikada bir anlık konum okunur.
+  Timer? _shiftTick;
+
+  /// Sunucu vardiyayı kapalı görüyor (`NO_OPEN_SHIFT`); vardiya durumu
+  /// değişene kadar görev dışı konum gönderilmez.
+  bool _shiftLocationPaused = false;
 
   /// Panelin en son kabul ettiği canlı konumun zamanı.
   DateTime? lastLiveLocationAt;
@@ -2204,6 +2233,7 @@ class SessionController extends ChangeNotifier {
   @override
   void dispose() {
     unawaited(_liveSub?.cancel());
+    _shiftTick?.cancel();
     super.dispose();
   }
 
@@ -2216,16 +2246,77 @@ class SessionController extends ChangeNotifier {
           break;
         }
       }
+      if (target == null && shiftOpen && !demo && !_shiftLocationPaused) {
+        target = _shiftTarget;
+      }
     }
     if (target == _liveTaskId) return;
     _liveTaskId = target;
     _lastLiveSent = null;
+    _shiftTick?.cancel();
+    _shiftTick = null;
     if (target == null) {
       unawaited(_liveSub?.cancel());
       _liveSub = null;
       return;
     }
     _liveSub ??= liveFixes().listen(_onLiveFix, onError: (_) {});
+    if (target == _shiftTarget && !inWidgetTest) {
+      _shiftTick = Timer.periodic(
+        const Duration(minutes: 3),
+        (_) => unawaited(_tickShiftLocation()),
+      );
+    }
+  }
+
+  /// Akış durgunken (kurye bekliyor) vardiya konumunu anlık ölçümle tazeler.
+  Future<void> _tickShiftLocation() async {
+    if (_liveTaskId != _shiftTarget) return;
+    final last = _lastLiveSent;
+    if (last != null &&
+        DateTime.now().difference(last.at) < const Duration(minutes: 2)) {
+      return;
+    }
+    final here = await readDeviceLocation();
+    if (here == null) return;
+    await _onLiveFix(
+      LiveFix(
+        lat: here.lat,
+        lng: here.lng,
+        at: DateTime.now(),
+        accuracy: here.accuracy,
+      ),
+    );
+  }
+
+  /// Görev dışı konum: 2,5 dk'da bir, hareket şartı yok (bekleyen kurye
+  /// haritada "Aktif" kalsın).
+  static bool shouldSendShiftFix(LiveFix? last, LiveFix next) =>
+      last == null ||
+      next.at.difference(last.at) >= const Duration(seconds: 150);
+
+  Future<void> _sendShiftFix(PanelApi client, LiveFix fix) async {
+    if (!shouldSendShiftFix(_lastLiveSent, fix)) return;
+    _lastLiveSent = fix;
+    try {
+      await client.sendShiftLocation(
+        latitude: fix.lat,
+        longitude: fix.lng,
+        accuracy: fix.accuracy,
+        capturedAt: fix.at,
+      );
+      lastLiveLocationAt = fix.at;
+    } on PanelApiException catch (e) {
+      if (e.code == 'NO_OPEN_SHIFT') {
+        // Sunucuda vardiya kapalı: durum değişene kadar gönderim durur.
+        _shiftLocationPaused = true;
+        _syncLiveTracking();
+      }
+      DgLog.w(LogLayer.route, 'shift location rejected: ${e.code}');
+    } catch (e) {
+      // Kuyruğa alınmaz: sunucu eski konumu kabul etmez, sıradaki ölçüm gider.
+      DgLog.w(LogLayer.route, 'shift location failed: $e');
+    }
   }
 
   Future<void> _onLiveFix(LiveFix fix) async {
@@ -2242,6 +2333,10 @@ class SessionController extends ChangeNotifier {
       return;
     }
     if (!isFreshLiveFix(fix, DateTime.now())) return;
+    if (id == _shiftTarget) {
+      await _sendShiftFix(client, fix);
+      return;
+    }
     if (!shouldSendLiveFix(_lastLiveSent, fix)) return;
     // Yanıt beklenirken gelen ölçümler aynı konumu ikinci kez göndermesin.
     _lastLiveSent = fix;
@@ -2799,6 +2894,51 @@ class SessionController extends ChangeNotifier {
   /// Live `GET /v1/tasks` veya panel `GET courier-tasks`.
   String? taskWatermark;
 
+  /// Son değişiklik paketinin sunucu zamanı (sonraki `since`) ve o andaki
+  /// görev kümesi. Bellekte durur; uygulama açılışında ilk paket tamdır.
+  String? _panelSyncAt;
+  Set<String>? _panelActiveIds;
+
+  /// Panel senkronu (`courier-sync/changes`): görev kümesi ya da içeriği
+  /// değiştiyse tam liste yeniden çekilir (bekleyen yerel kayıt koruması
+  /// [loadPanelTasks]'ta); değişmediyse liste olduğu gibi kalır. Zimmet
+  /// paketten gelir, yeni bildirim varsa kutu yenilenir. Uç yoksa ya da
+  /// hata verirse eskisi gibi tam liste çekilir.
+  Future<void> _pullPanelChanges() async {
+    final client = panel;
+    if (client == null) return;
+    final since = _panelSyncAt;
+    try {
+      final changes = await client.fetchSyncChanges(
+        since: since,
+        deviceId: await vault?.installationId(),
+      );
+      final active = changes.activeTaskIds.toSet();
+      final reload =
+          since == null ||
+          changes.full ||
+          changes.changedTaskCount > 0 ||
+          !setEquals(active, _panelActiveIds);
+      _panelSyncAt = changes.serverTime;
+      _panelActiveIds = active;
+      if (changes.custody case final custody?) {
+        custodyItems = client.custodyFrom(custody);
+      }
+      if (changes.newNotificationCount > 0) {
+        unawaited(loadCourierNotifications());
+      }
+      if (reload) {
+        await loadPanelTasks();
+      } else {
+        notifyListeners();
+      }
+    } catch (_) {
+      _panelSyncAt = null;
+      _panelActiveIds = null;
+      await loadPanelTasks();
+    }
+  }
+
   Future<void> loadPanelTasks() async {
     if (!storageOk) return;
     final client = panel;
@@ -2886,7 +3026,7 @@ class SessionController extends ChangeNotifier {
   Future<void> pullTasks() async {
     if (!storageOk) return;
     if (_usesPanelTasks) {
-      await loadPanelTasks();
+      await _pullPanelChanges();
       return;
     }
     final client = api;
@@ -3189,19 +3329,70 @@ class SessionController extends ChangeNotifier {
       ..addAll(keep);
   }
 
-  /// Zimmet kabulünde eksik / fazla: okutulanlarla birlikte destek kaydı
-  /// olarak merkeze gider (backend'de ayrı uyuşmazlık ucu yok).
-  void reportCustodyDiscrepancy(String note) {
-    final codes = [for (final scan in zimmetScans) scan.code];
-    createSupportTicket(
-      category: 'OTHER',
-      subject: 'Zimmet uyuşmazlığı',
-      body: [
-        note.trim(),
-        'Okutulan (${codes.length}): ${codes.join(', ')}',
-        'Beklenen kalem: ${custodyItems.length}',
-      ].where((line) => line.isNotEmpty).join('\n'),
-    );
+  Future<void> loadCustodyDisputes() async {
+    final client = panel;
+    if (!_usesPanelTasks || client == null) return;
+    try {
+      custodyDisputes = await client.fetchCustodyDisputes();
+      notifyListeners();
+    } catch (_) {
+      // Liste bir sonraki açılışta yeniden denenir.
+    }
+  }
+
+  /// Zimmet uyuşmazlığı. Panelde `POST courier-custody/disputes`: operasyona
+  /// yüksek öncelikli talep açılır, zimmeti veren şube kendi listesinde
+  /// görür. Demo ve eski API'de okutulanlarla destek kaydı olarak gider.
+  /// [idempotencyKey] aynı formdan yeniden denemede aynı kalır. Başarıda
+  /// talep no (varsa), hatada gösterilecek metin döner.
+  Future<({String? ticket, String? error})> reportCustodyDispute({
+    required String typeCode,
+    required String idempotencyKey,
+    String? transferItemId,
+    String? scanCode,
+    String? note,
+  }) async {
+    final client = panel;
+    final text = note?.trim();
+    if (!_usesPanelTasks || client == null) {
+      final codes = [for (final scan in zimmetScans) scan.code];
+      createSupportTicket(
+        category: 'OTHER',
+        subject: 'Zimmet uyuşmazlığı · ${l10n.disputeType(typeCode)}',
+        body: [
+          ?text,
+          if (scanCode != null) 'Kod: $scanCode',
+          'Okutulan (${codes.length}): ${codes.join(', ')}',
+          'Beklenen kalem: ${custodyItems.length}',
+        ].where((line) => line.isNotEmpty).join('\n'),
+      );
+      return (ticket: null, error: null);
+    }
+    try {
+      final dispute = await client.createCustodyDispute(
+        typeCode: typeCode,
+        idempotencyKey: idempotencyKey,
+        transferItemId: transferItemId,
+        scanCode: scanCode,
+        note: text == null || text.isEmpty ? null : text,
+        latitude: selfLocated ? selfLat : null,
+        longitude: selfLocated ? selfLng : null,
+        accuracy: selfLocated ? selfAccuracy : null,
+      );
+      custodyDisputes = [
+        dispute,
+        ...custodyDisputes.where((d) => d.id != dispute.id),
+      ];
+      notifyListeners();
+      return (ticket: dispute.ticketNumber, error: null);
+    } on PanelApiException catch (e) {
+      return (
+        ticket: null,
+        error: e.statusCode == null
+            ? l10n.visitOffline
+            : e.serverMessage ?? l10n.disputeError(e.code),
+      );
+    }
   }
 
   /// Kurye molada mı (backend'e bildirilir; şube vardiya ekranında görür).

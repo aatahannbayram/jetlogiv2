@@ -6,6 +6,7 @@ import '../models.dart';
 import '../motion.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import '../ui/ui.dart';
 
 /// Shown after a delivery is closed, either successfully or as a return
 /// ("İade"). Reused by [WizardScreen]'s success path and [ReturnScreen].
@@ -92,20 +93,12 @@ class DeliveryResultScreen extends StatelessWidget {
                             const SizedBox(height: 12),
                             Row(
                               children: [
-                                Container(
-                                  width: 64,
-                                  height: 64,
-                                  decoration: BoxDecoration(
-                                    color: Dg.night,
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: DgIcon(
-                                    success
-                                        ? LucideIcons.doorOpen
-                                        : LucideIcons.undo2,
-                                    color: success ? Dg.ok : Dg.brand,
-                                    weight: 600,
-                                  ),
+                                DgIconBadge(
+                                  icon: success
+                                      ? LucideIcons.packageCheck
+                                      : LucideIcons.undo2,
+                                  tone: success ? DgTone.ok : DgTone.warn,
+                                  size: 48,
                                 ),
                                 const SizedBox(width: 12),
                                 Flexible(

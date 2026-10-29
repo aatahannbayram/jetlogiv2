@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -685,27 +684,11 @@ class _StopNode extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              height: max(
-                56,
-                MediaQuery.textScalerOf(context).scale(16) * 2 + 20,
-              ),
-              child: FilledButton.icon(
-                style: FilledButton.styleFrom(
-                  backgroundColor: Dg.action,
-                  foregroundColor: Dg.onAction,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                onPressed: () => openDirections(context, task),
-                icon: DgIcon(LucideIcons.navigation, size: 16, weight: 600),
-                label: Text(
-                  l.goToThisStop,
-                  style: const TextStyle(fontWeight: FontWeight.w700),
-                ),
-              ),
+            // Ana eylem: diğer ekranlardaki gradyan düğme.
+            DgButton(
+              label: l.goToThisStop,
+              icon: LucideIcons.navigation,
+              onPressed: () => openDirections(context, task),
             ),
           ],
         ),
