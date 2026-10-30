@@ -341,7 +341,8 @@ void main() {
     expect(find.byType(QrImageView), findsOneWidget);
     expect(find.text('KRY-001'), findsWidgets);
     await tapPill(tester, 'Cihaz');
-    expect(find.text('Merkez bağlantısı bekleniyor'), findsOneWidget);
+    // Demo girişte önerilen uç örnek veriyle dolar (docs/15).
+    expect(find.text('Samsung Galaxy A54'), findsOneWidget);
     Navigator.of(tester.element(find.text('Kurye Detayı'))).pop();
     await tester.pumpAndSettle();
 
@@ -349,7 +350,8 @@ void main() {
     expect(find.text('Selin Kara'), findsOneWidget);
     await tester.tap(find.byKey(const Key('new-courier')));
     await tester.pumpAndSettle();
-    expect(find.text('Merkez bağlantısı bekleniyor'), findsOneWidget);
+    // Demo girişte davet formu önerilen uçla açılır (docs/15).
+    expect(find.byKey(const Key('invite-send')), findsOneWidget);
   });
 
   testWidgets('performans kurye süzgeci ve gün sonu kilidi', (tester) async {
@@ -381,10 +383,11 @@ void main() {
       200,
       scrollable: find.byType(Scrollable).hitTestable().first,
     );
+    // Demo girişte gün sonu kapatma önerilen uçla çalışır (docs/15).
     final close = tester.widget<DgGradientButton>(
       find.byKey(const Key('eod-close')),
     );
-    expect(close.onPressed, isNull);
+    expect(close.onPressed, isNotNull);
   });
 
   testWidgets('stok merkezi kuyrukları ve sayım mutabakatı', (tester) async {
