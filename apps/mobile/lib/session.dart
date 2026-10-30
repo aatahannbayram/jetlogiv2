@@ -1539,13 +1539,17 @@ class SessionController extends ChangeNotifier {
       config = AppConfig.demo;
       liveApi = false;
     }
-    configReady = true;
     taskWatermark ??= await vault?.taskWatermark;
     await restoreUiPrefs();
     await restoreLocalShift();
+    await _dropUnrememberedLogin();
     await restorePanelSession();
     await restoreAgencySession();
     await restoreOpenShift();
+    _resumeRememberedCourier();
+    // Açılış ekranı ancak saklı oturum doğrulandıktan sonra ilerler;
+    // önce açılırsa hatırlanan kurye de giriş ekranına düşüyordu.
+    configReady = true;
     // Demo yayını da açılış ekranında durur: kurye demosu ve şube girişi
     // oradan seçilir (önceden kurye demosuna kendiliğinden düşülüyordu;
     // yeni giriş ve şube ekranları hiç görünmüyordu).
@@ -1606,6 +1610,37 @@ class SessionController extends ChangeNotifier {
     shiftStartedAt ??= DateTime.now();
     notifyListeners();
     return true;
+  }
+
+  static const _kRememberLogin = 'dg.login.remember';
+
+  /// Girişteki "Beni hatırla" seçimi. Varsayılan açık.
+  Future<bool> get rememberLogin async =>
+      await vault?.readSecret(_kRememberLogin) != '0';
+
+  Future<void> setRememberLogin(bool remember) async {
+    await vault?.writeSecret(_kRememberLogin, remember ? '1' : '0');
+  }
+
+  /// "Beni hatırla" kapalıyken açılan kurye oturumu sonraki açılışta
+  /// (sayfa yenileme dahil) kapatılır.
+  Future<void> _dropUnrememberedLogin() async {
+    final client = panel;
+    if (client == null || await rememberLogin) return;
+    if (!await client.hasStoredSession) return;
+    try {
+      await client.logout();
+    } catch (_) {
+      // Ağ yoksa da yerel oturum silinmiş olur (logout `finally`).
+    }
+  }
+
+  /// Saklı kurye oturumu doğrulandıysa giriş ekranını atlar: açık vardiya
+  /// varsa ana sayfa, yoksa girişten sonraki adım (izinler).
+  void _resumeRememberedCourier() {
+    if (!panelLoggedIn || demo) return;
+    if (phase != AppPhase.splash && phase != AppPhase.activation) return;
+    phase = shiftOpen ? AppPhase.main : AppPhase.permissions;
   }
 
   Future<void> restorePanelSession() async {
@@ -1787,6 +1822,9 @@ class SessionController extends ChangeNotifier {
   }
 
   void finishSplash() {
+    // Geç kalan açılış zamanlayıcısı, oturumu geri yüklenmiş kuryeyi
+    // girişe geri atmasın.
+    if (phase != AppPhase.splash) return;
     phase = AppPhase.activation;
     notifyListeners();
   }

@@ -15,7 +15,9 @@ typedef _Call = ({
   Map query,
 });
 
-({PanelApi api, List<_Call> calls, Map<String, Object?> state}) _server() {
+({PanelApi api, List<_Call> calls, Map<String, Object?> state}) _server({
+  Vault? vault,
+}) {
   final calls = <_Call>[];
   final state = <String, Object?>{'offline': false, 'shiftError': null};
   final dio = Dio(BaseOptions(baseUrl: 'http://panel.test'));
@@ -155,6 +157,10 @@ typedef _Call = ({
               : {
                   'disputes': [d],
                 };
+        } else if (options.path == '/courier-auth/session') {
+          data = {
+            'courier': {'fullName': 'Ali Can', 'courierCode': 'DGC-1'},
+          };
         } else if (options.path == '/courier-profile') {
           data = {
             'courier': {'fullName': 'Ali Can'},
@@ -188,7 +194,7 @@ typedef _Call = ({
       },
     ),
   );
-  return (api: PanelApi(dio), calls: calls, state: state);
+  return (api: PanelApi(dio, null, vault), calls: calls, state: state);
 }
 
 Future<void> _settle() =>
@@ -466,5 +472,48 @@ void main() {
     t.state['shiftError'] = 'NO_OPEN_SHIFT';
     expect(await s.toggleBreak(), contains('vardiyayı başlatın'));
     expect(s.onBreak, isFalse);
+  });
+
+  group('beni hatırla', () {
+    test('saklı oturum açılışta girişi atlar', () async {
+      FlutterSecureStorage.setMockInitialValues({
+        kPanelBearerKey: 'tok',
+      });
+      final vault = Vault();
+      final t = _server(vault: vault);
+      final s = SessionController(
+        panel: t.api,
+        vault: vault,
+        waitForConfig: true,
+        initialPhase: AppPhase.splash,
+      );
+      await s.bootstrap();
+      expect(s.panelLoggedIn, isTrue);
+      expect(s.phase, AppPhase.permissions);
+      // Açılış ekranının geç kalan zamanlayıcısı girişe geri atmaz.
+      s.finishSplash();
+      expect(s.phase, AppPhase.permissions);
+    });
+
+    test('hatırlanmayan oturum açılışta kapatılır', () async {
+      FlutterSecureStorage.setMockInitialValues({
+        kPanelBearerKey: 'tok',
+        'dg.login.remember': '0',
+      });
+      final vault = Vault();
+      final t = _server(vault: vault);
+      final s = SessionController(
+        panel: t.api,
+        vault: vault,
+        waitForConfig: true,
+        initialPhase: AppPhase.splash,
+      );
+      await s.bootstrap();
+      final paths = [for (final c in t.calls) '${c.method} ${c.path}'];
+      expect(paths, contains('POST /courier-auth/logout'));
+      expect(s.panelLoggedIn, isFalse);
+      expect(s.phase, AppPhase.splash);
+      expect(await vault.readSecret(kPanelBearerKey), isNull);
+    });
   });
 }

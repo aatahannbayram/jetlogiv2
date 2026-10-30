@@ -59,8 +59,15 @@ class BarcodeScanPane extends StatefulWidget {
   State<BarcodeScanPane> createState() => _BarcodeScanPaneState();
 }
 
-class _BarcodeScanPaneState extends State<BarcodeScanPane> {
+class _BarcodeScanPaneState extends State<BarcodeScanPane>
+    with WidgetsBindingObserver {
   MobileScannerController? _controller;
+  // Kamera yalnız okutma alanı gerçekten görünürken açık: uygulama önde,
+  // sekmesi seçili, üstünde başka sayfa yok. Dışarıdan verilen denetleyicide
+  // MobileScanner yaşam döngüsünü kendisi izlemez; bu yüzden burada.
+  bool _foreground = true;
+  bool _cameraOn = false;
+  Future<void> _cameraOp = Future<void>.value();
   final _manual = TextEditingController();
   bool _manualOpen = false;
   bool _cameraError = false;
@@ -72,15 +79,54 @@ class _BarcodeScanPaneState extends State<BarcodeScanPane> {
     super.initState();
     if (!inWidgetTest) {
       _controller = MobileScannerController(
+        autoStart: false,
         facing: CameraFacing.back,
         detectionSpeed: DetectionSpeed.normal,
         detectionTimeoutMs: 600,
       );
+      WidgetsBinding.instance.addObserver(this);
     }
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncCamera();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _foreground = state == AppLifecycleState.resumed;
+    if (mounted) _syncCamera();
+  }
+
+  void _syncCamera() {
+    final controller = _controller;
+    if (controller == null) return;
+    final visible =
+        _foreground &&
+        TickerMode.valuesOf(context).enabled &&
+        (ModalRoute.isCurrentOf(context) ?? true);
+    if (visible == _cameraOn) return;
+    _cameraOn = visible;
+    // Aç/kapa sırayla: açılırken gelen kapatma isteği atlanmasın.
+    _cameraOp = _cameraOp.then((_) async {
+      if (!mounted) return;
+      try {
+        if (_cameraOn) {
+          await controller.start();
+        } else {
+          await controller.stop();
+        }
+      } catch (_) {
+        // Hata ekranı MobileScanner.errorBuilder'dan gelir.
+      }
+    });
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _manual.dispose();
     _controller?.dispose();
     super.dispose();

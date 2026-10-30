@@ -56,6 +56,16 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
   bool get _branch => _role == LoginRole.branch;
 
   @override
+  void initState() {
+    super.initState();
+    unawaited(
+      ref.read(sessionProvider).rememberLogin.then((v) {
+        if (mounted) setState(() => _remember = v);
+      }),
+    );
+  }
+
+  @override
   void dispose() {
     _phone.dispose();
     _identifier.dispose();
@@ -138,6 +148,7 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
       _panelBusy = true;
       _error = null;
     });
+    await ref.read(sessionProvider).setRememberLogin(_remember);
     final ok = await ref
         .read(sessionProvider)
         .loginWithPanel(
@@ -184,6 +195,7 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
   Future<void> _verify(L10n l) async {
     if (_verifying) return;
     setState(() => _verifying = true);
+    await ref.read(sessionProvider).setRememberLogin(_remember);
     final ok = await ref.read(sessionProvider).verifyLoginOtp(_code);
     if (!mounted) return;
     setState(() => _verifying = false);
