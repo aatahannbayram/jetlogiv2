@@ -9,6 +9,7 @@ import '../motion.dart';
 import '../notif.dart';
 import '../session.dart';
 import '../theme.dart';
+import '../ui/layout.dart' show DgStickyList;
 import '../widgets.dart';
 import 'courier_header.dart';
 import 'earnings_screen.dart';
@@ -128,8 +129,11 @@ class _NotifScreenState extends ConsumerState<NotifScreen> {
     return Scaffold(
       appBar: canPop ? null : const CourierHeaderBar(),
       body: SafeArea(
-        child: Column(
-          children: [
+        // Başlık listeyle kayar, süzgeç sekmeleri üstte yapışık kalır.
+        child: DgStickyList(
+          onRefresh: () => s.refreshField(),
+          padding: const EdgeInsets.fromLTRB(Dg.pagePad, 0, Dg.pagePad, 24),
+          header: [
             Appear(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(
@@ -204,153 +208,125 @@ class _NotifScreenState extends ConsumerState<NotifScreen> {
                 ),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(Dg.pagePad, 12, Dg.pagePad, 4),
-              child: SegmentedTabs(
-                labels: [l.all, l.notifUnread, l.notifAlerts],
-                index: _filter.index,
-                soft: true,
-                onChanged: (i) =>
-                    setState(() => _filter = NotifFilter.values[i]),
-              ),
+          ],
+          pinned: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: Dg.pagePad),
+            child: SegmentedTabs(
+              labels: [l.all, l.notifUnread, l.notifAlerts],
+              index: _filter.index,
+              soft: true,
+              onChanged: (i) => setState(() => _filter = NotifFilter.values[i]),
             ),
-            Expanded(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 220),
-                switchInCurve: Curves.easeOutCubic,
-                switchOutCurve: Curves.easeInCubic,
-                child: RefreshIndicator(
-                  key: ValueKey(_filter),
-                  onRefresh: () => s.refreshField(),
-                  child: filtered.isEmpty
-                      ? ListView(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          children: [
-                            DgEmptyState(
-                              icon: switch (_filter) {
-                                NotifFilter.unread => LucideIcons.bell,
-                                NotifFilter.alerts => LucideIcons.circleAlert,
-                                NotifFilter.all => LucideIcons.bellOff,
-                              },
-                              title: switch (_filter) {
-                                NotifFilter.unread => l.noUnreadTitle,
-                                NotifFilter.alerts => l.noAlertNotifs,
-                                NotifFilter.all => l.noNotifications,
-                              },
-                              body: switch (_filter) {
-                                NotifFilter.unread => l.noUnreadBody,
-                                NotifFilter.alerts => l.noAlertNotifsBody,
-                                NotifFilter.all => l.noNotifBody,
-                              },
-                            ),
-                          ],
-                        )
-                      : ListView.builder(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          padding: const EdgeInsets.fromLTRB(
-                            Dg.pagePad,
-                            8,
-                            Dg.pagePad,
-                            24,
-                          ),
-                          itemCount: rows.length,
-                          itemBuilder: (context, i) {
-                            final row = rows[i];
-                            if (row is NotifDayGroup) {
-                              return Padding(
-                                padding: const EdgeInsets.fromLTRB(4, 12, 4, 6),
-                                child: Text(
-                                  localeUpper(switch (row) {
-                                    NotifDayGroup.today => l.today,
-                                    NotifDayGroup.yesterday => l.yesterday,
-                                    NotifDayGroup.earlier => l.earlier,
-                                  }, l.code),
-                                  style: Dg.typeOverline(),
-                                ),
-                              );
-                            }
-                            final n = row as AppNotification;
-                            final unreadItem = !s.isNotifRead(n.id);
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: Dismissible(
-                                key: ValueKey(n.id),
-                                background: unreadItem
-                                    ? _SwipeCue(
-                                        align: Alignment.centerLeft,
-                                        color: Dg.greenBg,
-                                        icon: LucideIcons.check,
-                                        ink: Dg.green,
-                                        label: l.notifMarkedRead,
-                                      )
-                                    : _SwipeCue(
-                                        align: Alignment.centerLeft,
-                                        color: Dg.blueBg,
-                                        icon: LucideIcons.bell,
-                                        ink: Dg.blue,
-                                        label: l.notifMarkedUnread,
-                                      ),
-                                secondaryBackground: _SwipeCue(
-                                  align: Alignment.centerRight,
-                                  color: Dg.redBg,
-                                  icon: LucideIcons.eyeOff,
-                                  ink: Dg.red,
-                                  label: l.notifHide,
-                                ),
-                                confirmDismiss: (dir) async {
-                                  if (dir == DismissDirection.startToEnd) {
-                                    HapticFeedback.selectionClick();
-                                    if (unreadItem) {
-                                      s.markNotificationRead(n.id);
-                                    } else {
-                                      s.markNotificationUnread(n.id);
-                                    }
-                                    return false;
-                                  }
-                                  HapticFeedback.lightImpact();
-                                  s.dismissNotification(n.id);
-                                  if (!context.mounted) return true;
-                                  ScaffoldMessenger.of(context)
-                                    ..clearSnackBars()
-                                    ..showSnackBar(
-                                      SnackBar(
-                                        content: Text(l.notifHidden),
-                                        action: SnackBarAction(
-                                          label: l.undo,
-                                          onPressed: () =>
-                                              s.restoreNotification(n.id),
-                                        ),
-                                      ),
-                                    );
-                                  return true;
-                                },
-                                child: RepaintBoundary(
-                                  child: NotifCard(
-                                    key: Key('notif-${n.id}'),
-                                    notification: n,
-                                    unread: unreadItem,
-                                    onTap: () {
-                                      HapticFeedback.selectionClick();
-                                      openAppNotification(context, s, n);
-                                    },
-                                    onLongPress: () {
-                                      HapticFeedback.selectionClick();
-                                      if (unreadItem) {
-                                        s.markNotificationRead(n.id);
-                                      } else {
-                                        s.markNotificationUnread(n.id);
-                                      }
-                                    },
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
+          ),
+          itemCount: filtered.isEmpty ? 0 : rows.length,
+          itemBuilder: (context, i) {
+            final row = rows[i];
+            if (row is NotifDayGroup) {
+              return Padding(
+                padding: const EdgeInsets.fromLTRB(4, 12, 4, 6),
+                child: Text(
+                  localeUpper(switch (row) {
+                    NotifDayGroup.today => l.today,
+                    NotifDayGroup.yesterday => l.yesterday,
+                    NotifDayGroup.earlier => l.earlier,
+                  }, l.code),
+                  style: Dg.typeOverline(),
+                ),
+              );
+            }
+            final n = row as AppNotification;
+            final unreadItem = !s.isNotifRead(n.id);
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Dismissible(
+                key: ValueKey(n.id),
+                background: unreadItem
+                    ? _SwipeCue(
+                        align: Alignment.centerLeft,
+                        color: Dg.greenBg,
+                        icon: LucideIcons.check,
+                        ink: Dg.green,
+                        label: l.notifMarkedRead,
+                      )
+                    : _SwipeCue(
+                        align: Alignment.centerLeft,
+                        color: Dg.blueBg,
+                        icon: LucideIcons.bell,
+                        ink: Dg.blue,
+                        label: l.notifMarkedUnread,
+                      ),
+                secondaryBackground: _SwipeCue(
+                  align: Alignment.centerRight,
+                  color: Dg.redBg,
+                  icon: LucideIcons.eyeOff,
+                  ink: Dg.red,
+                  label: l.notifHide,
+                ),
+                confirmDismiss: (dir) async {
+                  if (dir == DismissDirection.startToEnd) {
+                    HapticFeedback.selectionClick();
+                    if (unreadItem) {
+                      s.markNotificationRead(n.id);
+                    } else {
+                      s.markNotificationUnread(n.id);
+                    }
+                    return false;
+                  }
+                  HapticFeedback.lightImpact();
+                  s.dismissNotification(n.id);
+                  if (!context.mounted) return true;
+                  ScaffoldMessenger.of(context)
+                    ..clearSnackBars()
+                    ..showSnackBar(
+                      SnackBar(
+                        content: Text(l.notifHidden),
+                        action: SnackBarAction(
+                          label: l.undo,
+                          onPressed: () => s.restoreNotification(n.id),
                         ),
+                      ),
+                    );
+                  return true;
+                },
+                child: RepaintBoundary(
+                  child: NotifCard(
+                    key: Key('notif-${n.id}'),
+                    notification: n,
+                    unread: unreadItem,
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      openAppNotification(context, s, n);
+                    },
+                    onLongPress: () {
+                      HapticFeedback.selectionClick();
+                      if (unreadItem) {
+                        s.markNotificationRead(n.id);
+                      } else {
+                        s.markNotificationUnread(n.id);
+                      }
+                    },
+                  ),
                 ),
               ),
-            ),
-          ],
+            );
+          },
+          empty: DgEmptyState(
+            icon: switch (_filter) {
+              NotifFilter.unread => LucideIcons.bell,
+              NotifFilter.alerts => LucideIcons.circleAlert,
+              NotifFilter.all => LucideIcons.bellOff,
+            },
+            title: switch (_filter) {
+              NotifFilter.unread => l.noUnreadTitle,
+              NotifFilter.alerts => l.noAlertNotifs,
+              NotifFilter.all => l.noNotifications,
+            },
+            body: switch (_filter) {
+              NotifFilter.unread => l.noUnreadBody,
+              NotifFilter.alerts => l.noAlertNotifsBody,
+              NotifFilter.all => l.noNotifBody,
+            },
+          ),
         ),
       ),
     );

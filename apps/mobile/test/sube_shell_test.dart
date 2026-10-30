@@ -595,6 +595,37 @@ void main() {
     });
   });
 
+  testWidgets('gönderilerde başlık kayar, durum sekmeleri yapışık kalır', (
+    tester,
+  ) async {
+    await openBranch(tester);
+    await tester.tap(find.text('Gönderiler').last);
+    await tester.pumpAndSettle();
+    final title = find.descendant(
+      of: find.byType(DgPageTitle),
+      matching: find.text('Gönderiler'),
+    );
+    expect(title.hitTestable(), findsOneWidget);
+    final pills = find.byType(DgPillTabs);
+    final pillsTop = tester.getTopLeft(pills).dy;
+    await tester.drag(
+      find.byType(CustomScrollView).hitTestable().first,
+      const Offset(0, -500),
+    );
+    await tester.pumpAndSettle();
+    // Başlık yukarı kaydı; sekmeler üst barın hemen altına yapıştı.
+    expect(title.hitTestable(), findsNothing);
+    final stuck = tester.getTopLeft(pills).dy;
+    expect(stuck, lessThan(pillsTop));
+    expect(stuck, greaterThan(0));
+    await tester.drag(
+      find.byType(CustomScrollView).hitTestable().first,
+      const Offset(0, -400),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(pills).dy, stuck);
+  });
+
   testWidgets('stok merkezinde kurye uyuşmazlıkları görünür', (tester) async {
     await openBranch(tester);
     await tester.tap(find.text('İşlemler'));

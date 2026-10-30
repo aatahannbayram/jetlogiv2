@@ -111,49 +111,55 @@ class _SubeInboxScreenState extends ConsumerState<SubeInboxScreen> {
                 ),
               ],
       ),
-      body: RefreshIndicator(
+      // Kategori sekmeleri üstte yapışık kalır, yalnız liste kayar.
+      body: DgStickyList(
         onRefresh: branch.loadInbox,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
-          children: [
-            DgPillTabs(
-              labels: [for (final t in tabs) t.$2],
-              counts: [for (final t in tabs) t.$3],
-              index: index,
-              onChanged: (i) => setState(() => _tab = tabs[i].$1),
-            ),
-            const SizedBox(height: 12),
-            SubeStatusBanner(branch: branch, onRetry: branch.loadInbox),
-            if (branch.capabilities.manage) ...[
-              DgButton(
-                label: l.newAnnouncement,
-                icon: LucideIcons.megaphone,
-                tone: DgButtonTone.secondary,
-                onPressed: _announce,
-              ),
-              const SizedBox(height: 12),
-            ],
-            if (branch.inbox == null && branch.loading)
-              for (var i = 0; i < 3; i++)
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 10),
-                  child: DgSkeleton(height: 64, radius: 16),
-                )
-            else if (items.isEmpty)
-              DgEmptyState(icon: LucideIcons.bell, title: l.inboxEmpty)
-            else
-              for (var i = 0; i < items.length; i++)
-                StaggerIn(
-                  index: i,
-                  child: _InboxTile(
-                    item: items[i],
-                    onTap: key == 'news' || key == 'alerts'
-                        ? null
-                        : () => branch.markRead(items[i]),
-                  ),
-                ),
-          ],
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
+        pinned: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: DgPillTabs(
+            labels: [for (final t in tabs) t.$2],
+            counts: [for (final t in tabs) t.$3],
+            index: index,
+            onChanged: (i) => setState(() => _tab = tabs[i].$1),
+          ),
         ),
+        itemCount: items.length + 1,
+        itemBuilder: (context, i) {
+          if (i == 0) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SubeStatusBanner(branch: branch, onRetry: branch.loadInbox),
+                if (branch.capabilities.manage) ...[
+                  DgButton(
+                    label: l.newAnnouncement,
+                    icon: LucideIcons.megaphone,
+                    tone: DgButtonTone.secondary,
+                    onPressed: _announce,
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                if (branch.inbox == null && branch.loading)
+                  for (var k = 0; k < 3; k++)
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 10),
+                      child: DgSkeleton(height: 64, radius: 16),
+                    )
+                else if (items.isEmpty)
+                  DgEmptyState(icon: LucideIcons.bell, title: l.inboxEmpty),
+              ],
+            );
+          }
+          final item = items[i - 1];
+          final tile = _InboxTile(
+            item: item,
+            onTap: key == 'news' || key == 'alerts'
+                ? null
+                : () => branch.markRead(item),
+          );
+          return i <= 6 ? StaggerIn(index: i - 1, child: tile) : tile;
+        },
       ),
     );
   }

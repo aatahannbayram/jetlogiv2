@@ -112,8 +112,9 @@ class _SubeShipmentsScreenState extends ConsumerState<SubeShipmentsScreen> {
       appBar: const SubeHeaderBar(),
       body: Stack(
         children: [
-          Column(
-            children: [
+          DgStickyList(
+            onRefresh: branch.refresh,
+            header: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
                 child: DgPageTitle(
@@ -215,75 +216,59 @@ class _SubeShipmentsScreenState extends ConsumerState<SubeShipmentsScreen> {
                 ),
               ),
               const SizedBox(height: 10),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: DgPillTabs(
-                  labels: [
-                    l.all,
-                    l.filterWaiting,
-                    l.filterQueue,
-                    l.filterOut,
-                    l.filterLate,
-                  ],
-                  counts: counts,
-                  index: _tab,
-                  onChanged: (i) => setState(() => _tab = i),
-                ),
-              ),
-              const SizedBox(height: 10),
-              Expanded(
-                child: RefreshIndicator(
-                  onRefresh: branch.refresh,
-                  child: rows.isEmpty
-                      ? ListView(
-                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
-                          children: [
-                            SubeStatusBanner(branch: branch),
-                            if (branch.loading && branch.board == null)
-                              for (var i = 0; i < 4; i++)
-                                const Padding(
-                                  padding: EdgeInsets.only(bottom: 10),
-                                  child: DgSkeleton(height: 92, radius: 16),
-                                )
-                            else
-                              DgEmptyState(
-                                icon: LucideIcons.package,
-                                title: l.emptyShipments,
-                              ),
-                          ],
-                        )
-                      : ListView.builder(
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
-                          itemCount: rows.length + 1,
-                          itemBuilder: (context, i) {
-                            if (i == 0) return SubeStatusBanner(branch: branch);
-                            final row = rows[i - 1];
-                            final pickable =
-                                canOperate && BranchWorkspace.pickable(row);
-                            final picked = branch.picked.contains(
-                              row.shipmentId,
-                            );
-                            final tile = Padding(
-                              padding: const EdgeInsets.only(bottom: 10),
-                              child: ShipmentTile(
-                                row: row,
-                                picked: picked,
-                                onPick: pickable
-                                    ? () => branch.togglePick(row.shipmentId)
-                                    : null,
-                                onTap: selecting && pickable
-                                    ? () => branch.togglePick(row.shipmentId)
-                                    : () => _open(row),
-                              ),
-                            );
-                            return i <= 6
-                                ? StaggerIn(index: i - 1, child: tile)
-                                : tile;
-                          },
-                        ),
-                ),
-              ),
             ],
+            pinned: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: DgPillTabs(
+                labels: [
+                  l.all,
+                  l.filterWaiting,
+                  l.filterQueue,
+                  l.filterOut,
+                  l.filterLate,
+                ],
+                counts: counts,
+                index: _tab,
+                onChanged: (i) => setState(() => _tab = i),
+              ),
+            ),
+            itemCount: rows.isEmpty ? 0 : rows.length + 1,
+            itemBuilder: (context, i) {
+              if (i == 0) return SubeStatusBanner(branch: branch);
+              final row = rows[i - 1];
+              final pickable = canOperate && BranchWorkspace.pickable(row);
+              final picked = branch.picked.contains(row.shipmentId);
+              final tile = Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: ShipmentTile(
+                  row: row,
+                  picked: picked,
+                  onPick: pickable
+                      ? () => branch.togglePick(row.shipmentId)
+                      : null,
+                  onTap: selecting && pickable
+                      ? () => branch.togglePick(row.shipmentId)
+                      : () => _open(row),
+                ),
+              );
+              return i <= 6 ? StaggerIn(index: i - 1, child: tile) : tile;
+            },
+            empty: Column(
+              children: [
+                SubeStatusBanner(branch: branch),
+                if (branch.loading && branch.board == null)
+                  for (var i = 0; i < 4; i++)
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 10),
+                      child: DgSkeleton(height: 92, radius: 16),
+                    )
+                else
+                  DgEmptyState(
+                    icon: LucideIcons.package,
+                    title: l.emptyShipments,
+                  ),
+              ],
+            ),
           ),
           Positioned(
             left: 16,

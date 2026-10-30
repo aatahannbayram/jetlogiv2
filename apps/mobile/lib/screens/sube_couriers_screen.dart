@@ -123,91 +123,92 @@ class _SubeCouriersScreenState extends ConsumerState<SubeCouriersScreen> {
 
     return Scaffold(
       appBar: const SubeHeaderBar(),
-      body: RefreshIndicator(
+      // Başlık ve arama listeyle kayar, Aktif / Pasif sekmeleri yapışık kalır.
+      body: DgStickyList(
         onRefresh: () async {
           await branch.refresh();
           await branch.loadRoster();
         },
-        child: ListView.builder(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 120),
-          itemCount: shown.length + 1,
-          itemBuilder: (context, i) {
-            if (i == 0) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+        header: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+            child: DgPageTitle(
+              l.subeCouriersTitle,
+              subtitle: l.couriersCount(all.length),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  DgPageTitle(
-                    l.subeCouriersTitle,
-                    subtitle: l.couriersCount(all.length),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          tooltip: l.showOnMap,
-                          onPressed: () => Navigator.of(context).push(
-                            MaterialPageRoute<void>(
-                              builder: (_) => const SubeCourierMapScreen(),
-                            ),
-                          ),
-                          icon: Icon(LucideIcons.map, color: Dg.highlight),
-                        ),
-                        TextButton.icon(
-                          key: const Key('new-courier'),
-                          onPressed: _newCourier,
-                          icon: const Icon(LucideIcons.userPlus, size: 18),
-                          label: Text(l.newCourier),
-                        ),
-                      ],
+                  IconButton(
+                    tooltip: l.showOnMap,
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const SubeCourierMapScreen(),
+                      ),
                     ),
+                    icon: Icon(LucideIcons.map, color: Dg.highlight),
                   ),
-                  DgSearchField(
-                    hint: l.searchCouriersHint,
-                    onChanged: (v) => setState(() => _query = v),
+                  TextButton.icon(
+                    key: const Key('new-courier'),
+                    onPressed: _newCourier,
+                    icon: const Icon(LucideIcons.userPlus, size: 18),
+                    label: Text(l.newCourier),
                   ),
-                  const SizedBox(height: 10),
-                  DgPillTabs(
-                    labels: [l.couriersActiveTab, l.couriersPassiveTab],
-                    counts: [active.length, passive.length],
-                    index: _tab,
-                    onChanged: (v) => setState(() => _tab = v),
-                  ),
-                  const SizedBox(height: 12),
-                  SubeStatusBanner(branch: branch, onRetry: branch.loadRoster),
-                  if (shown.isEmpty)
-                    branch.loading && branch.roster == null
-                        ? Column(
-                            children: [
-                              for (var k = 0; k < 4; k++)
-                                const Padding(
-                                  padding: EdgeInsets.only(bottom: 10),
-                                  child: DgSkeleton(height: 76, radius: 16),
-                                ),
-                            ],
-                          )
-                        : DgEmptyState(
-                            icon: LucideIcons.users,
-                            title: l.emptyCouriers,
-                          ),
                 ],
-              );
-            }
-            final c = shown[i - 1];
-            final row = Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: CourierRosterTile(
-                courier: c,
-                live: live[c.id],
-                docs: docs[c.id],
-                onBreak: onBreak.contains(c.id),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => SubeCourierDetailScreen(courier: c),
-                  ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: DgSearchField(
+              hint: l.searchCouriersHint,
+              onChanged: (v) => setState(() => _query = v),
+            ),
+          ),
+          const SizedBox(height: 2),
+        ],
+        pinned: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: DgPillTabs(
+            labels: [l.couriersActiveTab, l.couriersPassiveTab],
+            counts: [active.length, passive.length],
+            index: _tab,
+            onChanged: (v) => setState(() => _tab = v),
+          ),
+        ),
+        itemCount: shown.isEmpty ? 0 : shown.length + 1,
+        itemBuilder: (context, i) {
+          if (i == 0) {
+            return SubeStatusBanner(branch: branch, onRetry: branch.loadRoster);
+          }
+          final c = shown[i - 1];
+          final row = Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: CourierRosterTile(
+              courier: c,
+              live: live[c.id],
+              docs: docs[c.id],
+              onBreak: onBreak.contains(c.id),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => SubeCourierDetailScreen(courier: c),
                 ),
               ),
-            );
-            return i <= 6 ? StaggerIn(index: i - 1, child: row) : row;
-          },
+            ),
+          );
+          return i <= 6 ? StaggerIn(index: i - 1, child: row) : row;
+        },
+        empty: Column(
+          children: [
+            SubeStatusBanner(branch: branch, onRetry: branch.loadRoster),
+            if (branch.loading && branch.roster == null)
+              for (var k = 0; k < 4; k++)
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 10),
+                  child: DgSkeleton(height: 76, radius: 16),
+                )
+            else
+              DgEmptyState(icon: LucideIcons.users, title: l.emptyCouriers),
+          ],
         ),
       ),
     );

@@ -583,3 +583,62 @@ class DgPendingBackend extends StatelessWidget {
     );
   }
 }
+
+/// Liste sayfası iskeleti: [header] (başlık, arama, süzgeç) listeyle birlikte
+/// yukarı kayar; [pinned] (durum sekmeleri) üstte yapışık kalır. Tek kaydırma
+/// alanıdır: sabit üst bölüm ekranın yarısını kaplamaz. Satırlar tembel
+/// çizilir (ekrana girmeyen kurulmaz); çekip yenileme tüm sayfada çalışır.
+class DgStickyList extends StatelessWidget {
+  const DgStickyList({
+    super.key,
+    this.header = const [],
+    this.pinned,
+    required this.itemCount,
+    required this.itemBuilder,
+    this.empty,
+    this.onRefresh,
+    this.padding = const EdgeInsets.fromLTRB(16, 4, 16, 120),
+  });
+
+  final List<Widget> header;
+  final Widget? pinned;
+  final int itemCount;
+  final IndexedWidgetBuilder itemBuilder;
+
+  /// [itemCount] sıfırken listenin yerine gösterilir.
+  final Widget? empty;
+  final Future<void> Function()? onRefresh;
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    final scroll = CustomScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: [
+        for (final h in header) SliverToBoxAdapter(child: h),
+        if (pinned != null)
+          PinnedHeaderSliver(
+            child: ColoredBox(
+              color: Dg.bg,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: pinned,
+              ),
+            ),
+          ),
+        SliverPadding(
+          padding: padding,
+          sliver: itemCount == 0
+              ? SliverToBoxAdapter(child: empty ?? const SizedBox.shrink())
+              : SliverList.builder(
+                  itemCount: itemCount,
+                  itemBuilder: itemBuilder,
+                ),
+        ),
+      ],
+    );
+    final refresh = onRefresh;
+    if (refresh == null) return scroll;
+    return RefreshIndicator(onRefresh: refresh, child: scroll);
+  }
+}
