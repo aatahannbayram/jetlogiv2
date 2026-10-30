@@ -288,6 +288,10 @@ class L10n {
     'Yeni kod için biraz bekle.',
     'Wait a moment before requesting a new code.',
   );
+  String waitToResendIn(int seconds) => _t(
+    'Yeni kodu $seconds sn sonra isteyebilirsin.',
+    'You can request a new code in $seconds s.',
+  );
   String get proofPhotoRequired => _t(
     'Bu gerekçe için kapı fotoğrafı zorunlu.',
     'A door photo is required for this reason.',

@@ -37,6 +37,26 @@ typedef _Call = ({
             ),
           );
         }
+        if (state['smsLimited'] == true &&
+            options.path == '/courier-auth/sms/request') {
+          return handler.reject(
+            DioException(
+              requestOptions: options,
+              type: DioExceptionType.badResponse,
+              response: Response<Map<String, dynamic>>(
+                requestOptions: options,
+                statusCode: 429,
+                data: {
+                  'success': false,
+                  'error': {
+                    'code': 'SMS_CODE_RATE_LIMITED',
+                    'retryAfterSeconds': 42,
+                  },
+                },
+              ),
+            ),
+          );
+        }
         if (state['ibanInvalid'] == true &&
             options.method == 'PUT' &&
             options.path == '/courier-profile') {
@@ -303,6 +323,20 @@ void main() {
     expect(s.custodyDisputes.single.ticketNumber, 'TKT-1');
     expect(t.calls.where((c) => c.path == '/courier-support/cases'), isEmpty);
   });
+
+  test(
+    'SMS kodu çok erken istenirse sunucunun bekleme süresi tutulur',
+    () async {
+      final t = _server();
+      final s = SessionController(panel: t.api);
+      t.state['smsLimited'] = true;
+      final before = DateTime.now();
+      expect(await s.requestActivationCode('05454879623'), isFalse);
+      expect(s.lastActivationError, 'SMS_CODE_RATE_LIMITED');
+      final wait = s.smsRetryAt!.difference(before).inSeconds;
+      expect(wait, inInclusiveRange(41, 43));
+    },
+  );
 
   test('IBAN temizlenip gönderilir; alan hatası alana düşer', () async {
     final t = _server();

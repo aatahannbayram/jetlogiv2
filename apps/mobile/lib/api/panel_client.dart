@@ -1533,6 +1533,9 @@ class PanelApi {
         for (final row in error['missing'] as List? ?? const [])
           if (row is Map && row['type'] is String) row['type'] as String,
       ],
+      retryAfterSeconds:
+          (error['retryAfterSeconds'] as num?)?.toInt() ??
+          int.tryParse(e.response?.headers.value('retry-after') ?? ''),
       fieldErrors: {
         if (error['fieldErrors'] case final Map fields)
           for (final e in fields.entries)

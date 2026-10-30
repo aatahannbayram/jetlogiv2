@@ -457,7 +457,15 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
                       fallback: l.subeLoginFailed,
                     ),
                   ),
-                if (!_branch && _error != null) _ErrorText(_error!),
+                if (!_branch && _error != null)
+                  _error == l.waitToResend
+                      ? _Countdown(
+                          until: session.smsRetryAt,
+                          builder: (left) => _ErrorText(
+                            left > 0 ? l.waitToResendIn(left) : l.waitToResend,
+                          ),
+                        )
+                      : _ErrorText(_error!),
                 const SizedBox(height: 10),
                 _submitButton(l, session),
                 if (!_branch) ...[
@@ -567,14 +575,22 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
       );
     }
     final busy = _panelMode ? _panelBusy : session.activationBusy;
-    return DgGradientButton(
+    Widget button({bool waiting = false}) => DgGradientButton(
       key: Key(_panelMode ? 'panel-login' : 'sms-login'),
       label: _panelMode
           ? (_panelBusy ? l.signingIn : l.signInCta)
           : l.sendCodeCta,
       trailing: LucideIcons.arrowRight,
       busy: busy,
-      onPressed: busy ? null : () => _panelMode ? _loginPanel(l) : _sendSms(l),
+      onPressed: busy || waiting
+          ? null
+          : () => _panelMode ? _loginPanel(l) : _sendSms(l),
+    );
+    if (_panelMode) return button();
+    // Sunucu yeni kodu bir süre vermez (429): düğme o süre kilitli kalır.
+    return _Countdown(
+      until: session.smsRetryAt,
+      builder: (left) => button(waiting: left > 0),
     );
   }
 
@@ -787,6 +803,64 @@ class _OrDivider extends StatelessWidget {
 
 /// "Kodu tekrar gönder" + kalan süre; süre dolunca dokunulabilir. Yalnız bu
 /// küçük parça saniyede bir yenilenir; süre bitince zamanlayıcı durur.
+/// [until] anına kalan saniyeyle her saniye yeniden çizer; süre dolunca
+/// durur (boşta çalışan sayaç bırakmaz).
+class _Countdown extends StatefulWidget {
+  const _Countdown({required this.until, required this.builder});
+
+  final DateTime? until;
+  final Widget Function(int secondsLeft) builder;
+
+  @override
+  State<_Countdown> createState() => _CountdownState();
+}
+
+class _CountdownState extends State<_Countdown> {
+  Timer? _timer;
+
+  int get _left {
+    final until = widget.until;
+    if (until == null) return 0;
+    final ms = until.difference(DateTime.now()).inMilliseconds;
+    return ms <= 0 ? 0 : (ms / 1000).ceil();
+  }
+
+  void _start() {
+    _timer?.cancel();
+    _timer = null;
+    if (_left == 0) return;
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      if (_left == 0) {
+        _timer?.cancel();
+        _timer = null;
+      }
+      setState(() {});
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _start();
+  }
+
+  @override
+  void didUpdateWidget(_Countdown old) {
+    super.didUpdateWidget(old);
+    if (widget.until != old.until) _start();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.builder(_left);
+}
+
 class _ResendCountdown extends StatefulWidget {
   const _ResendCountdown({
     required this.until,

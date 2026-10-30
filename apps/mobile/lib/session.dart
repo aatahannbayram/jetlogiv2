@@ -118,6 +118,10 @@ class SessionController extends ChangeNotifier {
   String? lastActivationError;
   DateTime? otpResendAt;
 
+  /// SMS kodu en erken bu anda yeniden istenebilir (sunucunun 429
+  /// `retryAfterSeconds` değeri ya da son kodun bekleme süresi).
+  DateTime? smsRetryAt;
+
   /// SMS girişinde kodun gittiği maskeli numara (JetDiji `maskedPhone`).
   String? otpMaskedPhone;
   bool activationBusy = false;
@@ -1853,12 +1857,16 @@ class SessionController extends ChangeNotifier {
           otpResendAt = DateTime.now().add(
             Duration(seconds: sms.resendAfterSeconds),
           );
+          smsRetryAt = otpResendAt;
           _smsLoginViaPanel = true;
           activationBusy = false;
           notifyListeners();
           return true;
         }
       } on PanelApiException catch (e) {
+        if (e.retryAfterSeconds case final wait?) {
+          smsRetryAt = DateTime.now().add(Duration(seconds: wait));
+        }
         if (e.statusCode != null) {
           lastActivationError = e.code;
           activationBusy = false;

@@ -259,6 +259,7 @@ class PanelApiException implements Exception {
     this.lockedUntil,
     this.missing = const [],
     this.fieldErrors = const {},
+    this.retryAfterSeconds,
   });
 
   final String code;
@@ -281,6 +282,10 @@ class PanelApiException implements Exception {
   /// 400 `VALIDATION_ERROR`: alan → sunucunun hata metni
   /// (ör. `iban`, `accountHolderName`).
   final Map<String, String> fieldErrors;
+
+  /// 429 (ör. `SMS_CODE_RATE_LIMITED`): yeniden denemeden önce beklenecek
+  /// saniye (`error.retryAfterSeconds`, yoksa `Retry-After` başlığı).
+  final int? retryAfterSeconds;
 
   /// Ağ, zaman aşımı, 408/429 ve 5xx — kuyrukta bırakıp tekrar dene.
   /// 401 ayrı ele alınır (oturum düşer); diğer 4xx kalıcı reddir.
