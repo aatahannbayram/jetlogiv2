@@ -4,6 +4,8 @@ import 'dart:convert';
 import 'api/agency_client.dart';
 import 'api/agency_models.dart';
 import 'api/branch_models.dart';
+import 'api/branch_proposed_models.dart';
+import 'branch_features.dart';
 import 'data/outbox.dart';
 import 'data/vault.dart';
 import 'models.dart';
@@ -87,6 +89,15 @@ class BranchWorkspace {
 
   /// Şube sözleşme / evrak kalemleri (uyum ucu).
   BranchDocs? branchDocs;
+
+  // ── Önerilen uçlar (docs/15); bayrak kapalıyken canlıda dolmaz ─────────
+  /// Gönderiler listesinin günü; null = bugün.
+  DateTime? boardDay;
+  EndOfDayStatus? endOfDay;
+  StockSummary? stockSummary;
+  List<DistributionPlan>? distributionPlans;
+  List<BranchInvoice>? invoices;
+  final courierProfiles = <String, CourierProfile>{};
 
   /// Kuryelerin bu şubeden aldığı zimmet için bildirdiği uyuşmazlıklar.
   List<CustodyDispute>? custodyDisputes;
@@ -176,6 +187,12 @@ class BranchWorkspace {
     roster = null;
     trainingTabs.clear();
     branchDocs = null;
+    boardDay = null;
+    endOfDay = null;
+    stockSummary = null;
+    distributionPlans = null;
+    invoices = null;
+    courierProfiles.clear();
     custodyDisputes = null;
     demoLessonsDone.clear();
     todayPerformance = null;
@@ -268,7 +285,9 @@ class BranchWorkspace {
     await Future.wait([
       load(() async => dashboard = await client.fetchDashboard()),
       load(() async {
-        final next = await client.fetchDispatchBoard();
+        final next = await client.fetchDispatchBoard(
+          day: BranchFeatures.shipmentDate ? boardDay : null,
+        );
         board = next;
         capabilities = next.capabilities;
         picked.removeWhere(
@@ -357,14 +376,26 @@ class BranchWorkspace {
     await _run(() async => labels = await api!.fetchLabels());
   }
 
-  /// [range]: today | 7d | 30d.
-  Future<void> loadPerformance(String range) async {
+  /// [range]: today | 7d | 30d; [from] + [to] ile `custom` (docs/15 §4).
+  Future<void> loadPerformance(
+    String range, {
+    DateTime? from,
+    DateTime? to,
+  }) async {
+    final custom = from != null && to != null;
     if (demo) {
-      performance = kSubeDemoPerformance(range);
+      performance = kSubeDemoPerformance(custom ? 'custom' : range);
       onChanged();
       return;
     }
-    await _run(() async => performance = await api!.fetchPerformance(range));
+    if (custom && !BranchFeatures.customDateRange) return;
+    await _run(
+      () async => performance = await api!.fetchPerformance(
+        range,
+        from: custom ? from : null,
+        to: custom ? to : null,
+      ),
+    );
   }
 
   /// Kuryeler sekmesi: bağlı kuryeler ve evrak özeti. Evrak gelmezse liste
@@ -676,6 +707,224 @@ class BranchWorkspace {
       final overview = await api!.fetchComplianceOverview();
       compliance = overview.couriers;
       branchDocs = overview.docs;
+    });
+  }
+
+  // ── Önerilen uçlar (docs/15) ──────────────────────────────────────────
+  // Demo örnek veriyle çalışır; canlıda ilgili `BranchFeatures` bayrağı
+  // kapalıysa hiçbir istek gitmez.
+
+  /// Önerilen uca bağlı ekran parçası açık mı: demoda her zaman, canlıda
+  /// [flag] ile.
+  bool proposed(bool flag) => demo || flag;
+
+  /// Gönderiler listesinin gününü değiştirir (null = bugün) ve yeniler.
+  Future<void> setBoardDay(DateTime? day) async {
+    final today = DateTime.now();
+    final isToday =
+        day == null ||
+        (day.year == today.year &&
+            day.month == today.month &&
+            day.day == today.day);
+    boardDay = isToday ? null : DateTime(day.year, day.month, day.day);
+    picked.clear();
+    if (demo) {
+      board = boardDay == null
+          ? kSubeDemoBoard
+          : DispatchBoard(capabilities: kSubeDemoBoard.capabilities);
+      onChanged();
+      return;
+    }
+    if (!BranchFeatures.shipmentDate) return;
+    await refresh();
+  }
+
+  Future<void> loadEndOfDay() async {
+    if (demo) {
+      endOfDay ??= kSubeDemoEndOfDay();
+      onChanged();
+      return;
+    }
+    if (!BranchFeatures.endOfDayClose) return;
+    await _run(() async => endOfDay = await api!.fetchEndOfDay());
+  }
+
+  /// Yetki: `manage`. Engel varsa sunucu 409 `EOD_BLOCKED` döner.
+  Future<String?> closeEndOfDay({String? note}) {
+    final date = endOfDay?.date ?? isoDay(DateTime.now());
+    return _action('eod-close|$date', (key) async {
+      if (demo) {
+        endOfDay = kSubeDemoEndOfDay(closed: true);
+        return;
+      }
+      endOfDay = await api!.closeEndOfDay(
+        date: date,
+        note: note?.trim(),
+        idempotencyKey: key,
+      );
+    });
+  }
+
+  /// Fatura listesi: uç `schemaReady: false` döndükçe boş (docs/15 §2).
+  Future<void> loadInvoices() async {
+    if (demo) {
+      invoices ??= kSubeDemoInvoices;
+      onChanged();
+      return;
+    }
+    await _run(
+      () async => invoices = parseInvoices(await api!.fetchInvoices()),
+    );
+  }
+
+  Future<void> loadStockSummary() async {
+    if (demo) {
+      stockSummary ??= kSubeDemoStockSummary;
+      onChanged();
+      return;
+    }
+    if (!BranchFeatures.branchStockCounters) return;
+    await _run(() async => stockSummary = await api!.fetchStockSummary());
+  }
+
+  Future<void> loadDistributionPlans() async {
+    if (demo) {
+      distributionPlans ??= kSubeDemoDistributionPlans;
+      onChanged();
+      return;
+    }
+    if (!BranchFeatures.distributionPlanning) return;
+    await _run(
+      () async => distributionPlans = await api!.fetchDistributionPlans(),
+    );
+  }
+
+  Future<String?> createDistributionPlan({
+    required DateTime date,
+    required String district,
+    required int expectedVolume,
+    String? note,
+  }) {
+    if (district.trim().isEmpty || expectedVolume <= 0) {
+      return Future.value('İlçe ve beklenen adedi yazın.');
+    }
+    final day = isoDay(date);
+    return _action('dplan|$day|$district|$expectedVolume|$note', (key) async {
+      if (demo) {
+        distributionPlans = [
+          DistributionPlan(
+            id: _newId(),
+            date: day,
+            district: district.trim(),
+            expectedVolume: expectedVolume,
+            status: 'REQUESTED',
+            note: note?.trim() ?? '',
+            createdAt: DateTime.now(),
+          ),
+          ...?distributionPlans,
+        ];
+        return;
+      }
+      final plan = await api!.createDistributionPlan(
+        date: day,
+        district: district.trim(),
+        expectedVolume: expectedVolume,
+        note: note?.trim(),
+        idempotencyKey: key,
+      );
+      distributionPlans = [plan, ...?distributionPlans];
+    }, refreshAfter: false);
+  }
+
+  /// Plaka, araç ve cihaz. Hata ekranda boş durum olarak kalır.
+  Future<void> loadCourierProfile(String courierId) async {
+    if (demo) {
+      courierProfiles[courierId] ??= kSubeDemoCourierProfile(courierId);
+      onChanged();
+      return;
+    }
+    if (!BranchFeatures.courierCreate && !BranchFeatures.courierDevice) {
+      return;
+    }
+    await _run(
+      () async => courierProfiles[courierId] = await api!.fetchCourierProfile(
+        courierId,
+      ),
+    );
+  }
+
+  /// Yetki: `manage`. Kuryeye SMS ile kayıt bağlantısı gider.
+  Future<String?> inviteCourier({
+    required String fullName,
+    required String phone,
+    required String vehicleType,
+    String? plate,
+  }) {
+    final digits = phone.replaceAll(RegExp(r'\D'), '');
+    if (fullName.trim().isEmpty || digits.length < 10) {
+      return Future.value('Ad soyad ve geçerli bir telefon yazın.');
+    }
+    final e164 = '+90${digits.substring(digits.length - 10)}';
+    return _action('invite|$e164', (key) async {
+      if (demo) return;
+      await api!.inviteCourier(
+        fullName: fullName.trim(),
+        phone: e164,
+        vehicleType: vehicleType,
+        plate: plate?.trim().toUpperCase(),
+        idempotencyKey: key,
+      );
+    }, refreshAfter: false);
+  }
+
+  /// Yeni belirteç üretir, öncekini geçersiz kılar. Hata fırlatır.
+  Future<PartnerCard> renewCourierCard(String courierId) async {
+    if (demo) return courierCard(courierId);
+    return PartnerCard.fromJson(
+      await api!.renewCard(
+        ownerType: 'COURIER',
+        ownerId: courierId,
+        idempotencyKey: _newId(),
+      ),
+    );
+  }
+
+  /// [reason]: LOST | DAMAGED | LEFT | OTHER.
+  Future<String?> revokeCourierCard(String courierId, String reason) =>
+      _action('card-revoke|$courierId|$reason', (key) async {
+        if (demo) return;
+        await api!.revokeCard(
+          ownerType: 'COURIER',
+          ownerId: courierId,
+          reason: reason,
+          idempotencyKey: key,
+        );
+      }, refreshAfter: false);
+
+  /// Son ürün eşleştirmenin sonucu (eşleşen sayısı, eşleşmeyenler).
+  ProductMatchResult? lastProductMatch;
+
+  /// Gönderiye ürün seri no / barkodu bağlar; dönen değer hata metni ya da
+  /// null.
+  Future<String?> matchProducts(Map<String, String> barcodeByShipment) {
+    final items = {
+      for (final e in barcodeByShipment.entries)
+        if (e.value.trim().isNotEmpty) e.key: _norm(e.value),
+    };
+    if (items.isEmpty) return Future.value('En az bir ürün barkodu okutun.');
+    final sig =
+        (items.entries.map((e) => '${e.key}=${e.value}').toList()..sort()).join(
+          ',',
+        );
+    return _action('pmatch|$sig', (key) async {
+      if (demo) {
+        lastProductMatch = ProductMatchResult(matched: items.length);
+        return;
+      }
+      lastProductMatch = await api!.matchProducts(
+        barcodeByShipment: items,
+        idempotencyKey: key,
+      );
     });
   }
 

@@ -14,6 +14,7 @@ class AgencyDto {
     this.tenantId,
     this.code,
     this.statusCode,
+    this.supportPhone,
   });
 
   final String id;
@@ -22,12 +23,16 @@ class AgencyDto {
   final String? code;
   final String? statusCode;
 
+  /// Önerilen alan (docs/15 §12); Swagger 1.2.0'da yok.
+  final String? supportPhone;
+
   factory AgencyDto.fromJson(Map<String, dynamic> json) => AgencyDto(
     id: json['id'] as String? ?? '',
     name: json['name'] as String? ?? '',
     tenantId: json['tenantId'] as String?,
     code: json['code'] as String?,
     statusCode: json['statusCode'] as String?,
+    supportPhone: json['supportPhone'] as String?,
   );
 }
 

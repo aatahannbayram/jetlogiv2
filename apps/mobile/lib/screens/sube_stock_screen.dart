@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../api/branch_models.dart';
+import '../api/branch_proposed_models.dart';
 import '../branch_features.dart';
 import '../l10n.dart';
 import '../motion.dart';
@@ -42,6 +43,7 @@ class _SubeStockScreenState extends ConsumerState<SubeStockScreen> {
       branch.loadIncoming();
       branch.loadCustodyDisputes();
       if (branch.counts == null) branch.loadCounts();
+      branch.loadStockSummary();
     });
   }
 
@@ -83,6 +85,7 @@ class _SubeStockScreenState extends ConsumerState<SubeStockScreen> {
           await branch.refresh();
           await branch.loadIncoming();
           await branch.loadCustodyDisputes();
+          await branch.loadStockSummary();
         },
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
@@ -159,7 +162,10 @@ class _SubeStockScreenState extends ConsumerState<SubeStockScreen> {
                 ),
               ],
             ),
-            if (!BranchFeatures.branchStockCounters) ...[
+            if (branch.proposed(BranchFeatures.branchStockCounters)) ...[
+              const SizedBox(height: 10),
+              _StockCounters(summary: branch.stockSummary),
+            ] else ...[
               const SizedBox(height: 10),
               DgPanel(
                 padding: const EdgeInsets.all(12),
@@ -425,6 +431,50 @@ class _PendingTile extends StatelessWidget {
             DgStatusPill(label: l.filterLate, tone: DgTone.bad, dense: true)
           else if (item.since != null)
             Text(subeClock(item.since!), style: Dg.typeCaption()),
+        ],
+      ),
+    );
+  }
+}
+
+/// Şube stok sayaçları (docs/15 §6): depoda, kuryede, yolda, iade bekleyen.
+class _StockCounters extends StatelessWidget {
+  const _StockCounters({required this.summary});
+
+  final StockSummary? summary;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final s = summary;
+    Widget cell(String label, int? value) => Expanded(
+      child: Column(
+        children: [
+          Text(
+            value == null ? '—' : '$value',
+            style: Dg.stat(size: 20, weight: FontWeight.w700),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            style: Dg.typeCaption(),
+          ),
+        ],
+      ),
+    );
+    return DgPanel(
+      key: const Key('stock-counters'),
+      title: l.stockSummaryTitle,
+      padding: const EdgeInsets.fromLTRB(12, 14, 12, 14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          cell(l.stockInWarehouse, s?.inWarehouse),
+          cell(l.stockAtCourier, s?.atCourier),
+          cell(l.stockInTransit, s?.inTransit),
+          cell(l.stockReturnPending, s?.returnPending),
         ],
       ),
     );

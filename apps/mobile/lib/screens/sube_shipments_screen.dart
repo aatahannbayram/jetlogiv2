@@ -15,6 +15,7 @@ import '../widgets.dart';
 import 'sube_assign_flow.dart';
 import 'sube_header.dart';
 import 'sube_print.dart';
+import 'sube_product_match_screen.dart';
 import 'sube_shipment_detail_screen.dart';
 import 'sube_widgets.dart';
 
@@ -147,9 +148,13 @@ class _SubeShipmentsScreenState extends ConsumerState<SubeShipmentsScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   children: [
                     DgFilterChip(
+                      key: const Key('filter-date'),
                       label: l.filterDate,
+                      value: branch.boardDay == null
+                          ? null
+                          : _dayLabel(l, branch.boardDay!),
                       icon: LucideIcons.calendar,
-                      onTap: _datePending,
+                      onTap: () => _pickDay(branch),
                     ),
                     const SizedBox(width: 8),
                     DgFilterChip(
@@ -285,17 +290,64 @@ class _SubeShipmentsScreenState extends ConsumerState<SubeShipmentsScreen> {
     );
   }
 
-  Future<void> _datePending() => showModalBottomSheet<void>(
-    context: context,
-    backgroundColor: Dg.surface,
-    showDragHandle: true,
-    builder: (ctx) => SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        child: DgPendingBackend(what: context.l10n.dateFilterPending),
-      ),
-    ),
-  );
+  static String _dayLabel(L10n l, DateTime d) {
+    final today = DateTime.now();
+    final diff = DateTime(
+      d.year,
+      d.month,
+      d.day,
+    ).difference(DateTime(today.year, today.month, today.day)).inDays;
+    if (diff == 1) return l.dateTomorrow;
+    if (diff == -1) return l.dateYesterday;
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${two(d.day)}.${two(d.month)}';
+  }
+
+  /// Gün seçimi önerilen `branch/dispatch?date=` ucuna bağlı (docs/15 §3).
+  Future<void> _pickDay(BranchWorkspace branch) async {
+    final l = context.l10n;
+    if (!branch.proposed(BranchFeatures.shipmentDate)) {
+      await showModalBottomSheet<void>(
+        context: context,
+        backgroundColor: Dg.surface,
+        showDragHandle: true,
+        builder: (ctx) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: DgPendingBackend(what: l.dateFilterPending),
+          ),
+        ),
+      );
+      return;
+    }
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final r = await showDgPicker<int>(
+      context,
+      title: l.filterDate,
+      allLabel: l.dateToday,
+      options: [
+        (1, l.dateTomorrow),
+        (-1, l.dateYesterday),
+        (99, l.datePickOther),
+      ],
+      selected: branch.boardDay?.difference(today).inDays,
+    );
+    if (!r.picked || !mounted) return;
+    DateTime? day = r.value == null
+        ? null
+        : today.add(Duration(days: r.value!));
+    if (r.value == 99) {
+      day = await showDatePicker(
+        context: context,
+        initialDate: branch.boardDay ?? today,
+        firstDate: today.subtract(const Duration(days: 60)),
+        lastDate: today.add(const Duration(days: 30)),
+      );
+      if (day == null || !mounted) return;
+    }
+    await branch.setBoardDay(day);
+  }
 
   Future<void> _bulk(BranchWorkspace branch) async {
     final l = context.l10n;
@@ -309,6 +361,7 @@ class _SubeShipmentsScreenState extends ConsumerState<SubeShipmentsScreen> {
         if (r.stage == BranchStage.inQueue) r,
     ];
     final inField = picked.any((r) => r.stage == BranchStage.inDistribution);
+    final matchReady = branch.proposed(BranchFeatures.productMatch);
     final action = await showModalBottomSheet<String>(
       context: context,
       backgroundColor: Dg.surface,
@@ -360,11 +413,12 @@ class _SubeShipmentsScreenState extends ConsumerState<SubeShipmentsScreen> {
                 onTap: () => Navigator.pop(ctx, 'print'),
               ),
               _BulkOption(
+                key: const Key('bulk-match'),
                 icon: LucideIcons.link2,
                 tone: DgTone.neutral,
                 label: l.bulkProductMatch,
-                hint: l.pendingBackendTitle,
-                onTap: BranchFeatures.productMatch
+                hint: matchReady ? l.productMatchHint : l.pendingBackendTitle,
+                onTap: matchReady && branch.capabilities.operate
                     ? () => Navigator.pop(ctx, 'match')
                     : null,
               ),
@@ -394,6 +448,13 @@ class _SubeShipmentsScreenState extends ConsumerState<SubeShipmentsScreen> {
           for (final r in picked) r.shipmentId,
         ]);
         if (printed != null) branch.clearPicked();
+      case 'match':
+        final matched = await Navigator.of(context).push<bool>(
+          MaterialPageRoute(
+            builder: (_) => SubeProductMatchScreen(rows: picked),
+          ),
+        );
+        if (matched == true) branch.clearPicked();
     }
   }
 }

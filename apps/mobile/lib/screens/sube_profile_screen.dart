@@ -4,7 +4,9 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../api/branch_models.dart';
 import '../api/client.dart' show kAppVersion;
+import '../branch_features.dart';
 import '../branch_workspace.dart';
+import '../launchers.dart';
 import '../brand.dart';
 import '../l10n.dart';
 import '../motion.dart';
@@ -28,6 +30,8 @@ class SubeProfileScreen extends ConsumerWidget {
     final s = ref.watch(sessionProvider);
     final user = s.agencyUser;
     final caps = s.branch.capabilities;
+    final phone = user?.agency.supportPhone ?? BranchFeatures.supportPhone;
+    final support = phone.trim().isEmpty ? null : phone.trim();
     final roles = [
       for (final r in user?.roles ?? const [])
         (l.isEn ? r.nameEn : r.nameTr) ?? r.code,
@@ -174,20 +178,23 @@ class SubeProfileScreen extends ConsumerWidget {
                 onTap: () => _faq(context, s.branch),
               ),
               SubeNavTile(
+                key: const Key('call-support'),
                 icon: LucideIcons.headset,
                 tint: Dg.ok,
                 label: l.profileCallSupport,
-                onTap: () => showModalBottomSheet<void>(
-                  context: context,
-                  backgroundColor: Dg.surface,
-                  showDragHandle: true,
-                  builder: (ctx) => SafeArea(
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                      child: DgPendingBackend(what: l.supportLineWhat),
-                    ),
-                  ),
-                ),
+                onTap: support != null
+                    ? () => dialNumber(context, support)
+                    : () => showModalBottomSheet<void>(
+                        context: context,
+                        backgroundColor: Dg.surface,
+                        showDragHandle: true,
+                        builder: (ctx) => SafeArea(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                            child: DgPendingBackend(what: l.supportLineWhat),
+                          ),
+                        ),
+                      ),
               ),
             ],
           ),

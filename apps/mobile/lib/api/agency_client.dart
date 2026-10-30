@@ -8,6 +8,7 @@ import '../secure.dart';
 import '../tls_pinning.dart';
 import 'agency_models.dart';
 import 'branch_models.dart';
+import 'branch_proposed_models.dart';
 import 'panel_client.dart' show VaultCookieStorage;
 import 'token_refresh.dart';
 
@@ -208,8 +209,17 @@ class AgencyPortalApi {
       BranchDashboard.fromJson(await _data(_get('/branch/dashboard')));
 
   /// `GET branch/dispatch` — birimdeki 4010 + 4020 gönderiler (en fazla 500).
-  Future<DispatchBoard> fetchDispatchBoard() async =>
-      DispatchBoard.fromJson(await _data(_get('/branch/dispatch')));
+  /// [day]: önerilen `date` parametresi (docs/15 §3); yalnız
+  /// `BranchFeatures.shipmentDate` açıkken verilir.
+  Future<DispatchBoard> fetchDispatchBoard({DateTime? day}) async =>
+      DispatchBoard.fromJson(
+        await _data(
+          _get(
+            '/branch/dispatch',
+            queryParameters: day == null ? null : {'date': isoDay(day)},
+          ),
+        ),
+      );
 
   /// Çoklu seçimde ilk seçili gönderinin kimliği gönderilir (web de böyle).
   Future<DispatchOptions> fetchDispatchOptions(String shipmentId) async =>
@@ -524,13 +534,22 @@ class AgencyPortalApi {
     }, idempotencyKey: idempotencyKey);
   }
 
-  /// [range]: today | 7d | 30d.
-  Future<PerformanceData> fetchPerformance(String range) async =>
-      PerformanceData.fromJson(
-        await _data(
-          _get('/branch/performance', queryParameters: {'range': range}),
-        ),
-      );
+  /// [range]: today | 7d | 30d. [from] / [to] verilirse önerilen
+  /// `range=custom` (docs/15 §4; `BranchFeatures.customDateRange`).
+  Future<PerformanceData> fetchPerformance(
+    String range, {
+    DateTime? from,
+    DateTime? to,
+  }) async => PerformanceData.fromJson(
+    await _data(
+      _get(
+        '/branch/performance',
+        queryParameters: from != null && to != null
+            ? {'range': 'custom', 'from': isoDay(from), 'to': isoDay(to)}
+            : {'range': range},
+      ),
+    ),
+  );
 
   /// Okutulan kalemleri içeri alır, kalanları EKSİK olarak kapatır.
   Future<TransferAcceptResult> confirmIncoming({
@@ -999,6 +1018,122 @@ class AgencyPortalApi {
 
   Future<List<Map<String, dynamic>>> fetchAgencyWarehouses() async =>
       _rows((await _data(_get('/agency/warehouses')))['items']);
+
+  // ── Önerilen uçlar (branch.yaml 1.2.0'da yok; docs/15) ─────────────────
+  // Her biri bir `BranchFeatures` bayrağının arkasında; bayrak kapalıyken
+  // çağrılmaz. Uç yayımlanınca yol ve alanlar Swagger'la karşılaştırılır.
+
+  /// Gün sonu durumu ve kapatma engelleri (§5).
+  Future<EndOfDayStatus> fetchEndOfDay() async =>
+      EndOfDayStatus.fromJson(await _data(_get('/branch/end-of-day')));
+
+  /// Yetki: `manage`. Engel varsa 409 `EOD_BLOCKED`.
+  Future<EndOfDayStatus> closeEndOfDay({
+    required String date,
+    required String idempotencyKey,
+    String? note,
+  }) async => EndOfDayStatus.fromJson(
+    await _data(
+      _post('/branch/end-of-day/close', {
+        'date': date,
+        if (note != null && note.isNotEmpty) 'note': note,
+      }, idempotencyKey: idempotencyKey),
+    ),
+  );
+
+  /// Depoda / kuryede / yolda / iade bekleyen adetler (§6).
+  Future<StockSummary> fetchStockSummary() async =>
+      StockSummary.fromJson(await _data(_get('/branch/stock-summary')));
+
+  /// Son 30 dağıtım planlama talebi (§7).
+  Future<List<DistributionPlan>> fetchDistributionPlans() async =>
+      DistributionPlan.listFrom(
+        await _data(_get('/branch/distribution-plans')),
+      );
+
+  Future<DistributionPlan> createDistributionPlan({
+    required String date,
+    required String district,
+    required int expectedVolume,
+    required String idempotencyKey,
+    String? note,
+  }) async => DistributionPlan.fromJson(
+    await _data(
+      _post('/branch/distribution-plans', {
+        'date': date,
+        'district': district,
+        'expectedVolume': expectedVolume,
+        if (note != null && note.isNotEmpty) 'note': note,
+      }, idempotencyKey: idempotencyKey),
+    ),
+  );
+
+  /// Plaka, araç ve cihaz (§8–9).
+  Future<CourierProfile> fetchCourierProfile(String courierId) async =>
+      CourierProfile.fromJson(await _data(_get('/agency/couriers/$courierId')));
+
+  /// Yetki: `manage`. Kuryeye SMS ile kayıt bağlantısı gider; kayıtlı
+  /// telefonda 409 `COURIER_EXISTS`.
+  Future<void> inviteCourier({
+    required String fullName,
+    required String phone,
+    required String vehicleType,
+    required String idempotencyKey,
+    String? plate,
+  }) async {
+    await _post('/agency/couriers/invitations', {
+      'fullName': fullName,
+      'phone': phone,
+      'vehicleType': vehicleType,
+      if (plate != null && plate.isNotEmpty) 'plate': plate,
+    }, idempotencyKey: idempotencyKey);
+  }
+
+  /// Aynı gün de yeni belirteç üretir, öncekini geçersiz kılar (§10).
+  Future<Map<String, dynamic>> renewCard({
+    required String ownerType,
+    required String ownerId,
+    required String idempotencyKey,
+  }) async {
+    final data = await _data(
+      _post('/branch/compliance/cards', {
+        'ownerType': ownerType,
+        'ownerId': ownerId,
+        'renew': true,
+      }, idempotencyKey: idempotencyKey),
+    );
+    final card = data['card'];
+    return card is Map ? Map<String, dynamic>.from(card) : data;
+  }
+
+  /// [reason]: LOST | DAMAGED | LEFT | OTHER (§10).
+  Future<void> revokeCard({
+    required String ownerType,
+    required String ownerId,
+    required String reason,
+    required String idempotencyKey,
+  }) async {
+    await _post('/branch/compliance/cards/revoke', {
+      'ownerType': ownerType,
+      'ownerId': ownerId,
+      'reason': reason,
+    }, idempotencyKey: idempotencyKey);
+  }
+
+  /// Gönderiye ürün seri no / barkodu bağlar (§11).
+  Future<ProductMatchResult> matchProducts({
+    required Map<String, String> barcodeByShipment,
+    required String idempotencyKey,
+  }) async => ProductMatchResult.fromJson(
+    await _data(
+      _post('/branch/shipments/product-match', {
+        'items': [
+          for (final e in barcodeByShipment.entries)
+            {'shipmentId': e.key, 'productBarcode': e.value},
+        ],
+      }, idempotencyKey: idempotencyKey),
+    ),
+  );
 
   Future<Map<String, dynamic>> _data(
     Future<Response<Map<String, dynamic>>> call,

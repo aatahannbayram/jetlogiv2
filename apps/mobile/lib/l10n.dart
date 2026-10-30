@@ -2682,6 +2682,133 @@ class L10n {
     'SIGNATURE_MISSING' => _t('İmza eksik', 'Signature missing'),
     _ => _t('Fotoğraf kabul edilmedi', 'Photo rejected'),
   };
+
+  // ── Önerilen uçların ekranları (docs/15) ──────────────────────────────
+  String get dateToday => _t('Bugün', 'Today');
+  String get dateTomorrow => _t('Yarın', 'Tomorrow');
+  String get dateYesterday => _t('Dün', 'Yesterday');
+  String get datePickOther => _t('Başka gün seç', 'Pick another day');
+  String get pastDayReadOnly =>
+      _t('Geçmiş gün yalnız görüntülenir.', 'Past days are view only.');
+
+  String get customRangePick => _t('Aralık seç', 'Pick range');
+
+  String get eodClosedTitle => _t('Gün kapatıldı', 'Day closed');
+  String eodClosedBy(String who, String time) =>
+      _t('$who · $time', '$who · $time');
+  String get eodCloseConfirmTitle => _t('Gün kapatılsın mı?', 'Close the day?');
+  String get eodCloseConfirmBody => _t(
+    'Kapattıktan sonra bugünün kayıtları merkeze gider. Bu işlem geri alınmaz.',
+    'Once closed, today\'s records go to HQ. This cannot be undone.',
+  );
+  String get eodNoteHint => _t('Not (isteğe bağlı)', 'Note (optional)');
+  String get eodClosedSnack => _t('Gün kapatıldı.', 'Day closed.');
+  String get eodBlockersTitle =>
+      _t('Kapatmadan önce tamamlanmalı', 'Finish these before closing');
+  String eodBlocker(String code, int n) => switch (code) {
+    'RESULT_MISSING' => _t(
+      '$n gönderinin sonucu girilmedi',
+      '$n parcels have no result',
+    ),
+    'RETURN_NOT_SCANNED' => _t(
+      '$n kurye iadesi okutulmadı',
+      '$n courier returns not scanned',
+    ),
+    'HANDOVER_PENDING' => _t(
+      '$n zimmet kabul bekliyor',
+      '$n handovers awaiting acceptance',
+    ),
+    'COUNT_OPEN' => _t('Açık sayım var', 'A stock count is open'),
+    _ => _t('$n açık iş', '$n open items'),
+  };
+
+  String get stockSummaryTitle => _t('Stok sayaçları', 'Stock counters');
+  String get stockInWarehouse => _t('Depoda', 'In warehouse');
+  String get stockAtCourier => _t('Kuryede', 'With couriers');
+  String get stockInTransit => _t('Yolda', 'In transit');
+  String get stockReturnPending => _t('İade bekleyen', 'Return pending');
+
+  String get planNew => _t('Yeni talep', 'New request');
+  String get planEmpty =>
+      _t('Henüz dağıtım planlama talebi yok.', 'No distribution requests yet.');
+  String get planDate => _t('Tarih', 'Date');
+  String get planDistrict => _t('İlçe', 'District');
+  String get planVolume => _t('Beklenen gönderi adedi', 'Expected parcels');
+  String get planNote => _t('Not (isteğe bağlı)', 'Note (optional)');
+  String get planSend => _t('Talebi gönder', 'Send request');
+  String get planSent => _t('Talep gönderildi.', 'Request sent.');
+  String planVolumeShort(int n) => _t('$n gönderi', '$n parcels');
+  String planStatus(String code) => switch (code) {
+    'APPROVED' => _t('Onaylandı', 'Approved'),
+    'REJECTED' => _t('Reddedildi', 'Rejected'),
+    'SCHEDULED' => _t('Planlandı', 'Scheduled'),
+    _ => _t('İletildi', 'Requested'),
+  };
+
+  String get fieldPlate => _t('Plaka', 'Plate');
+  String get inviteTitle => _t('Yeni kurye davet et', 'Invite a courier');
+  String get inviteBody => _t(
+    'Kuryeye SMS ile kayıt bağlantısı gider. Kayıt tamamlanınca listede görünür.',
+    'The courier gets a sign-up link by SMS and appears here once registered.',
+  );
+  String get inviteName => _t('Ad soyad', 'Full name');
+  String get invitePhone => _t('Telefon', 'Phone');
+  String get inviteSend => _t('Davet gönder', 'Send invite');
+  String get inviteSent => _t('Davet gönderildi.', 'Invite sent.');
+
+  String get deviceNone => _t(
+    'Kurye uygulamaya henüz giriş yapmadı.',
+    'The courier has not signed in to the app yet.',
+  );
+  String get deviceModel => _t('Cihaz', 'Device');
+  String get deviceOs => _t('İşletim sistemi', 'Operating system');
+  String get deviceApp => _t('Uygulama sürümü', 'App version');
+  String get deviceLastSeen => _t('Son görülme', 'Last seen');
+  String get devicePermsTitle => _t('İzinler', 'Permissions');
+  String devicePerm(String key) => switch (key) {
+    'location' => _t('Konum', 'Location'),
+    'backgroundLocation' => _t('Arka planda konum', 'Background location'),
+    'camera' => _t('Kamera', 'Camera'),
+    'notifications' => _t('Bildirim', 'Notifications'),
+    _ => key,
+  };
+  String get permOn => _t('Açık', 'On');
+  String get permOff => _t('Kapalı', 'Off');
+
+  String get cardRenewed => _t(
+    'Yeni kart üretildi, eskisi geçersiz.',
+    'New card issued; the old one is void.',
+  );
+  String get cardRevokeTitle =>
+      _t('Kart neden iptal ediliyor?', 'Why revoke the card?');
+  String cardRevokeReason(String code) => switch (code) {
+    'LOST' => _t('Kayıp', 'Lost'),
+    'DAMAGED' => _t('Hasarlı', 'Damaged'),
+    'LEFT' => _t('Kurye ayrıldı', 'Courier left'),
+    _ => _t('Diğer', 'Other'),
+  };
+  String get cardRevoked => _t('Kart iptal edildi.', 'Card revoked.');
+
+  String get productMatchTitle => _t('Ürün eşleştir', 'Match products');
+  String get productMatchHint => _t(
+    'Her gönderi için ürünün seri numarasını ya da barkodunu yazın veya okutun.',
+    'Type or scan the product serial or barcode for each parcel.',
+  );
+  String get productBarcodeHint => _t('Ürün barkodu', 'Product barcode');
+  String get productMatchSave => _t('Eşleştir', 'Match');
+  String productMatched(int n) =>
+      _t('$n gönderi eşleşti.', '$n parcels matched.');
+  String productMatchPartial(int ok, int failed) => _t(
+    '$ok gönderi eşleşti, $failed gönderi eşleşmedi.',
+    '$ok matched, $failed failed.',
+  );
+
+  String docValidUntil(String date) =>
+      _t('$date tarihine kadar geçerli', 'Valid until $date');
+  String get docOpenFile => _t('Belgeyi aç', 'Open document');
+  String get invoicePdf => _t('Faturayı aç (PDF)', 'Open invoice (PDF)');
+  String get linkOpenFailed =>
+      _t('Bağlantı açılamadı.', 'Could not open the link.');
 }
 
 class L10nScope extends InheritedWidget {

@@ -4,6 +4,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../api/branch_models.dart';
+import '../api/branch_proposed_models.dart';
 import '../branch_features.dart';
 import '../branch_workspace.dart';
 import '../brand.dart';
@@ -25,7 +26,8 @@ String _date(DateTime at) {
 
 /// Kurye Detayı (mockup 15–18): üst kart (ad, kod, durum, ara) ve dört
 /// sekme: Genel (iletişim, araç, bölge, canlı durum, performans), Kart (QR),
-/// Evraklar (belge kalemleri, onaylar), Cihaz (uç yok: dürüst boş durum).
+/// Evraklar (belge kalemleri, onaylar), Cihaz. Plaka, cihaz ve kart
+/// yenile / iptal önerilen uçlara bağlı (docs/15 §8–10).
 class SubeCourierDetailScreen extends ConsumerStatefulWidget {
   const SubeCourierDetailScreen({super.key, required this.courier});
 
@@ -51,7 +53,60 @@ class _SubeCourierDetailScreenState
       if (branch.compliance == null) branch.loadCompliance();
       if (branch.performance == null) branch.loadPerformance('7d');
       if (branch.shiftDay == null) branch.loadDashExtras();
+      branch.loadCourierProfile(widget.courier.id);
     });
+  }
+
+  Future<void> _renew() async {
+    final l = context.l10n;
+    final next = _branch.renewCourierCard(widget.courier.id);
+    setState(() => _card = next);
+    try {
+      await next;
+      if (mounted) subeSnack(context, l.cardRenewed);
+    } catch (_) {
+      // Hata kart sekmesinde gösterilir.
+    }
+  }
+
+  Future<void> _revoke() async {
+    final l = context.l10n;
+    final reason = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Dg.surface,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+              child: Text(
+                l.cardRevokeTitle,
+                style: Dg.ui(size: 17, weight: FontWeight.w700),
+              ),
+            ),
+            for (final code in const ['LOST', 'DAMAGED', 'LEFT', 'OTHER'])
+              ListTile(
+                key: Key('revoke-$code'),
+                title: Text(l.cardRevokeReason(code)),
+                onTap: () => Navigator.pop(ctx, code),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (reason == null || !mounted) return;
+    final error = await _branch.revokeCourierCard(widget.courier.id, reason);
+    if (!mounted) return;
+    subeSnack(context, error ?? l.cardRevoked);
+    if (error == null) {
+      setState(() {
+        _tab = 0;
+        _card = null;
+      });
+    }
   }
 
   void _select(int i) => setState(() {
@@ -81,6 +136,10 @@ class _SubeCourierDetailScreenState
     final kind = live == null || !c.active
         ? null
         : courierKind(live, onBreak: shift?.onBreak ?? false);
+    final profile = branch.courierProfiles[c.id];
+    final cardActions =
+        branch.proposed(BranchFeatures.cardRenew) &&
+        branch.capabilities.operate;
 
     return Scaffold(
       appBar: AppBar(title: Text(l.courierDetailTitle)),
@@ -109,13 +168,26 @@ class _SubeCourierDetailScreenState
                   shift: shift,
                   perf: mine,
                   range: perf?.range,
+                  profile: profile,
                 ),
-                1 => _CardTab(future: _card, courier: c),
+                1 => _CardTab(
+                  future: _card,
+                  courier: c,
+                  ready: branch.proposed(BranchFeatures.cardRenew),
+                  onRenew: cardActions ? _renew : null,
+                  onRevoke: cardActions ? _revoke : null,
+                ),
                 2 => _DocsTab(
                   docs: docs,
                   loading: branch.loading && branch.compliance == null,
                 ),
-                _ => DgPendingBackend(what: l.deviceWhat),
+                _ =>
+                  branch.proposed(BranchFeatures.courierDevice)
+                      ? _DeviceTab(
+                          profile: profile,
+                          loading: branch.loading && profile == null,
+                        )
+                      : DgPendingBackend(what: l.deviceWhat),
               },
             ),
           ),
@@ -200,9 +272,11 @@ class _General extends StatelessWidget {
     required this.shift,
     required this.perf,
     required this.range,
+    this.profile,
   });
 
   final BranchCourier courier;
+  final CourierProfile? profile;
   final BranchCourierLive? live;
   final CourierKind? kind;
   final ShiftCourierRow? shift;
@@ -219,6 +293,9 @@ class _General extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = context.l10n;
     final c = courier;
+    final vehicle = (profile?.vehicleType.isNotEmpty ?? false)
+        ? profile!.vehicleType
+        : c.vehicleType;
     Widget panel(String title, List<Widget> rows) => Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: DgPanel(
@@ -245,8 +322,18 @@ class _General extends StatelessWidget {
           DgInfoRow(
             icon: LucideIcons.bike,
             label: l.fieldVehicle,
-            value: c.vehicleType.isEmpty ? '' : l.vehicleType(c.vehicleType),
+            value: [
+              if (vehicle.isNotEmpty) l.vehicleType(vehicle),
+              if (profile?.vehicleModel.isNotEmpty ?? false)
+                profile!.vehicleModel,
+            ].join(' · '),
           ),
+          if (profile?.plate.isNotEmpty ?? false)
+            DgInfoRow(
+              icon: LucideIcons.rectangleHorizontal,
+              label: l.fieldPlate,
+              value: profile!.plate,
+            ),
           if (c.workModel.isNotEmpty)
             DgInfoRow(
               icon: LucideIcons.briefcase,
@@ -344,12 +431,21 @@ class _General extends StatelessWidget {
 }
 
 /// Kurye kartı: lacivert kart yüzü, beyaz zeminde QR (her temada okunur),
-/// geçerlilik. Yenile / iptal uç gelene kadar kapalı.
+/// geçerlilik. Yenile / iptal önerilen uca bağlı (docs/15 §10).
 class _CardTab extends StatelessWidget {
-  const _CardTab({required this.future, required this.courier});
+  const _CardTab({
+    required this.future,
+    required this.courier,
+    required this.ready,
+    required this.onRenew,
+    required this.onRevoke,
+  });
 
   final Future<PartnerCard>? future;
   final BranchCourier courier;
+  final bool ready;
+  final VoidCallback? onRenew;
+  final VoidCallback? onRevoke;
 
   @override
   Widget build(BuildContext context) {
@@ -474,24 +570,26 @@ class _CardTab extends StatelessWidget {
               children: [
                 Expanded(
                   child: DgButton(
+                    key: const Key('card-renew'),
                     label: l.cardRenew,
                     icon: LucideIcons.refreshCw,
                     tone: DgButtonTone.secondary,
-                    onPressed: BranchFeatures.cardRenew ? () {} : null,
+                    onPressed: onRenew,
                   ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: DgButton(
+                    key: const Key('card-revoke'),
                     label: l.cardCancelAction,
                     icon: LucideIcons.ban,
                     tone: DgButtonTone.secondary,
-                    onPressed: BranchFeatures.cardRenew ? () {} : null,
+                    onPressed: onRevoke,
                   ),
                 ),
               ],
             ),
-            if (!BranchFeatures.cardRenew)
+            if (!ready)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(
@@ -604,6 +702,74 @@ class _DocsTab extends StatelessWidget {
               ],
             ),
           ),
+      ],
+    );
+  }
+}
+
+/// Cihaz: model, işletim sistemi, uygulama sürümü, son görülme, izinler
+/// (docs/15 §9). Kurye hiç giriş yapmadıysa boş durum.
+class _DeviceTab extends StatelessWidget {
+  const _DeviceTab({required this.profile, required this.loading});
+
+  final CourierProfile? profile;
+  final bool loading;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    if (profile == null && loading) {
+      return const DgSkeleton(height: 220, radius: 16);
+    }
+    final d = profile?.device;
+    if (d == null) {
+      return DgPanel(child: Text(l.deviceNone, style: Dg.typeCaption()));
+    }
+    return Column(
+      children: [
+        DgPanel(
+          child: Column(
+            children: [
+              DgInfoRow(
+                icon: LucideIcons.smartphone,
+                label: l.deviceModel,
+                value: d.model,
+              ),
+              DgInfoRow(icon: LucideIcons.cpu, label: l.deviceOs, value: d.os),
+              DgInfoRow(
+                icon: LucideIcons.appWindow,
+                label: l.deviceApp,
+                value: d.appVersion,
+              ),
+              if (d.lastSeenAt != null)
+                DgInfoRow(
+                  icon: LucideIcons.clock,
+                  label: l.deviceLastSeen,
+                  value: '${_date(d.lastSeenAt!)} ${subeClock(d.lastSeenAt!)}',
+                ),
+            ],
+          ),
+        ),
+        if (d.permissions.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          DgPanel(
+            title: l.devicePermsTitle,
+            child: Column(
+              children: [
+                for (final e in d.permissions.entries)
+                  DgInfoRow(
+                    label: l.devicePerm(e.key),
+                    value: '',
+                    trailing: DgStatusPill(
+                      label: e.value ? l.permOn : l.permOff,
+                      tone: e.value ? DgTone.ok : DgTone.warn,
+                      dense: true,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }

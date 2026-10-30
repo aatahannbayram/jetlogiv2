@@ -1970,6 +1970,32 @@ typedef TrainingFaq = ({String question, String answer});
 
 /// Şube sözleşme ve evrak kalemleri (compliance `contracts` / `documents`).
 /// `schemaReady: false` iken her kalem NOT_AVAILABLE gelir.
+/// Şube sözleşme / evrak kalemi. `status` bugün hep NOT_AVAILABLE;
+/// `signedAt`, `expiresAt`, `fileUrl` önerilen alanlar (docs/15 §1).
+class PartnerDocItem {
+  const PartnerDocItem({
+    required this.type,
+    required this.status,
+    this.signedAt,
+    this.expiresAt,
+    this.fileUrl,
+  });
+
+  final String type;
+  final String status;
+  final DateTime? signedAt;
+  final DateTime? expiresAt;
+  final String? fileUrl;
+
+  factory PartnerDocItem.fromJson(Map<String, dynamic> j) => PartnerDocItem(
+    type: _str(j, 'type'),
+    status: _str(j, 'status'),
+    signedAt: _date(j, 'signedAt'),
+    expiresAt: _date(j, 'expiresAt'),
+    fileUrl: _strOrNull(j, 'fileUrl'),
+  );
+}
+
 class BranchDocs {
   const BranchDocs({
     this.schemaReady = false,
@@ -1978,18 +2004,16 @@ class BranchDocs {
   });
 
   final bool schemaReady;
-  final List<({String type, String status})> contracts;
-  final List<({String type, String status})> documents;
+  final List<PartnerDocItem> contracts;
+  final List<PartnerDocItem> documents;
 
   factory BranchDocs.fromJson(Map<String, dynamic> j) => BranchDocs(
     schemaReady: _bool(j, 'schemaReady'),
     contracts: [
-      for (final r in _list(j['contracts']))
-        (type: _str(r, 'type'), status: _str(r, 'status')),
+      for (final r in _list(j['contracts'])) PartnerDocItem.fromJson(r),
     ],
     documents: [
-      for (final r in _list(j['documents']))
-        (type: _str(r, 'type'), status: _str(r, 'status')),
+      for (final r in _list(j['documents'])) PartnerDocItem.fromJson(r),
     ],
   );
 }

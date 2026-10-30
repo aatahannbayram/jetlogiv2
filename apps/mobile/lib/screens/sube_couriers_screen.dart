@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../api/branch_models.dart';
+import '../branch_features.dart';
 import '../l10n.dart';
 import '../motion.dart';
 import '../scan.dart';
@@ -60,17 +61,27 @@ class _SubeCouriersScreenState extends ConsumerState<SubeCouriersScreen> {
     super.dispose();
   }
 
-  Future<void> _newCourier() => showModalBottomSheet<void>(
-    context: context,
-    backgroundColor: Dg.surface,
-    showDragHandle: true,
-    builder: (ctx) => SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        child: DgPendingBackend(what: context.l10n.newCourierWhat),
+  Future<void> _newCourier() async {
+    final branch = ref.read(sessionProvider).branch;
+    final ready =
+        branch.proposed(BranchFeatures.courierCreate) &&
+        branch.capabilities.manage;
+    final sent = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: Dg.surface,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (ctx) => SafeArea(
+        child: ready
+            ? const _InviteSheet()
+            : Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: DgPendingBackend(what: context.l10n.newCourierWhat),
+              ),
       ),
-    ),
-  );
+    );
+    if (sent == true && mounted) subeSnack(context, context.l10n.inviteSent);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -314,6 +325,140 @@ class CourierRosterTile extends StatelessWidget {
           ),
           const SizedBox(width: 4),
           Icon(LucideIcons.chevronRight, size: 18, color: Dg.text3),
+        ],
+      ),
+    );
+  }
+}
+
+/// Yeni kurye daveti (docs/15 §8): ad, telefon, araç, plaka. Kuryeye SMS
+/// ile kayıt bağlantısı gider.
+class _InviteSheet extends ConsumerStatefulWidget {
+  const _InviteSheet();
+
+  @override
+  ConsumerState<_InviteSheet> createState() => _InviteSheetState();
+}
+
+class _InviteSheetState extends ConsumerState<_InviteSheet> {
+  static const _vehicles = ['MOTORCYCLE', 'CAR', 'BICYCLE', 'VAN', 'ON_FOOT'];
+
+  final _name = TextEditingController();
+  final _phone = TextEditingController();
+  final _plate = TextEditingController();
+  String _vehicle = _vehicles.first;
+  bool _busy = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _phone.dispose();
+    _plate.dispose();
+    super.dispose();
+  }
+
+  Future<void> _send() async {
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    final error = await ref
+        .read(sessionProvider)
+        .branch
+        .inviteCourier(
+          fullName: _name.text,
+          phone: _phone.text,
+          vehicleType: _vehicle,
+          plate: _plate.text,
+        );
+    if (!mounted) return;
+    if (error != null) {
+      setState(() {
+        _busy = false;
+        _error = error;
+      });
+      return;
+    }
+    Navigator.of(context).pop(true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final motorized = const {'MOTORCYCLE', 'CAR', 'VAN'}.contains(_vehicle);
+    return SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        0,
+        20,
+        16 + MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(l.inviteTitle, style: Dg.ui(size: 18, weight: FontWeight.w700)),
+          const SizedBox(height: 4),
+          Text(l.inviteBody, style: Dg.typeCaption()),
+          const SizedBox(height: 12),
+          TextField(
+            key: const Key('invite-name'),
+            controller: _name,
+            textCapitalization: TextCapitalization.words,
+            decoration: InputDecoration(hintText: l.inviteName),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            key: const Key('invite-phone'),
+            controller: _phone,
+            keyboardType: TextInputType.phone,
+            decoration: InputDecoration(
+              hintText: l.invitePhone,
+              prefixText: '+90 ',
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final v in _vehicles)
+                ChoiceChip(
+                  label: Text(l.vehicleType(v)),
+                  selected: _vehicle == v,
+                  onSelected: (_) => setState(() => _vehicle = v),
+                ),
+            ],
+          ),
+          if (motorized) ...[
+            const SizedBox(height: 8),
+            TextField(
+              key: const Key('invite-plate'),
+              controller: _plate,
+              textCapitalization: TextCapitalization.characters,
+              decoration: InputDecoration(hintText: l.fieldPlate),
+            ),
+          ],
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                _error!,
+                style: TextStyle(
+                  color: Dg.hi,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          const SizedBox(height: 12),
+          DgButton(
+            key: const Key('invite-send'),
+            label: l.inviteSend,
+            busy: _busy,
+            onPressed: _send,
+          ),
         ],
       ),
     );

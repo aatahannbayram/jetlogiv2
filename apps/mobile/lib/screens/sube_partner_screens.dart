@@ -2,14 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../api/branch_models.dart';
+import '../api/branch_proposed_models.dart';
 import '../branch_features.dart';
+import '../launchers.dart';
 import '../l10n.dart';
 import '../models.dart';
 import '../motion.dart';
 import '../session.dart';
 import '../theme.dart';
 import '../ui/ui.dart';
-import 'sube_demo.dart';
+import '../widgets.dart';
 import 'sube_more_screens.dart';
 import 'sube_widgets.dart';
 
@@ -29,8 +32,8 @@ String _money(L10n l, num v) {
 
 /// İş Ortaklığı Evrakları + Dağıtım Planlama (mockup 21): şube sözleşme ve
 /// evrak kalemleri uyum ucundan gelir; uç hazır değilken her kalem
-/// "Bekleniyor" görünür (uydurma durum yok). Dağıtım planlama talebi uç
-/// gelene kadar dürüst boş durum.
+/// "Bekleniyor" görünür (uydurma durum yok). Dağıtım planlama talebi
+/// önerilen uca bağlı (docs/15 §7); bayrak kapalıyken dürüst boş durum.
 class SubePartnerDocsScreen extends ConsumerStatefulWidget {
   const SubePartnerDocsScreen({super.key});
 
@@ -44,7 +47,9 @@ class _SubePartnerDocsScreenState extends ConsumerState<SubePartnerDocsScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(sessionProvider).branch.loadCompliance();
+      final branch = ref.read(sessionProvider).branch;
+      branch.loadCompliance();
+      branch.loadDistributionPlans();
     });
   }
 
@@ -54,6 +59,26 @@ class _SubePartnerDocsScreenState extends ConsumerState<SubePartnerDocsScreen> {
     'MISSING' || 'EXPIRED' || 'REJECTED' => DgTone.bad,
     _ => DgTone.neutral,
   };
+
+  String? _validity(L10n l, PartnerDocItem d) =>
+      d.expiresAt == null ? null : l.docValidUntil(_date(d.expiresAt!));
+
+  VoidCallback? _opener(PartnerDocItem d) {
+    final url = d.fileUrl;
+    if (url == null) return null;
+    return () => openLink(context, url);
+  }
+
+  Future<void> _newPlan() async {
+    final sent = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: Dg.surface,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (_) => const SafeArea(child: _PlanSheet()),
+    );
+    if (sent == true && mounted) subeSnack(context, context.l10n.planSent);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -96,7 +121,9 @@ class _SubePartnerDocsScreenState extends ConsumerState<SubePartnerDocsScreen> {
                       DgDocRow(
                         icon: LucideIcons.fileSignature,
                         title: l.contractType(c.type),
+                        subtitle: _validity(l, c),
                         status: status(c.status),
+                        onTap: _opener(c),
                       ),
                   ],
                 ),
@@ -111,7 +138,9 @@ class _SubePartnerDocsScreenState extends ConsumerState<SubePartnerDocsScreen> {
                       DgDocRow(
                         icon: LucideIcons.fileText,
                         title: l.branchDocType(d.type),
+                        subtitle: _validity(l, d),
                         status: status(d.status),
+                        onTap: _opener(d),
                       ),
                   ],
                 ),
@@ -123,7 +152,12 @@ class _SubePartnerDocsScreenState extends ConsumerState<SubePartnerDocsScreen> {
               style: Dg.ui(size: 17, weight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
-            if (!BranchFeatures.distributionPlanning)
+            if (branch.proposed(BranchFeatures.distributionPlanning))
+              _DistributionPlans(
+                plans: branch.distributionPlans,
+                onNew: branch.capabilities.operate ? _newPlan : null,
+              )
+            else
               DgPendingBackend(what: l.distributionPlanWhat),
           ],
         ),
@@ -146,12 +180,19 @@ class _SubeBillingScreenState extends ConsumerState<SubeBillingScreen> {
   int _tab = 0;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => ref.read(sessionProvider).branch.loadInvoices(),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     final l = context.l10n;
-    final demo = ref.watch(sessionProvider).branch.demo;
-    final invoices = demo && BranchFeatures.invoices == false
-        ? kSubeDemoInvoices
-        : const <DemoInvoice>[];
+    final branch = ref.watch(sessionProvider).branch;
+    final demo = branch.demo;
+    final invoices = branch.invoices ?? const <BranchInvoice>[];
     final open = invoices
         .where((i) => i.status != 'PAID')
         .fold<num>(0, (a, i) => a + i.amount + i.vat);
@@ -171,7 +212,9 @@ class _SubeBillingScreenState extends ConsumerState<SubeBillingScreen> {
           const SizedBox(height: 12),
           if (_tab == 0) ...[
             if (invoices.isEmpty)
-              DgPendingBackend(what: l.invoicesWhat)
+              branch.loading && branch.invoices == null
+                  ? const DgSkeleton(height: 160, radius: 16)
+                  : DgPendingBackend(what: l.invoicesWhat)
             else ...[
               DgPanel(
                 padding: const EdgeInsets.all(16),
@@ -322,12 +365,12 @@ class _Money extends StatelessWidget {
   }
 }
 
-/// Fatura Detayı (mockup 20): yalnız demo örneği; canlıda fatura modeli
-/// yok.
+/// Fatura Detayı (mockup 20): canlıda `branch/invoices` fatura modeli
+/// gelince dolar (docs/15 §2); PDF bağlantısı varsa açılır.
 class SubeInvoiceDetailScreen extends StatelessWidget {
   const SubeInvoiceDetailScreen({super.key, required this.invoice});
 
-  final DemoInvoice invoice;
+  final BranchInvoice invoice;
 
   @override
   Widget build(BuildContext context) {
@@ -403,6 +446,15 @@ class SubeInvoiceDetailScreen extends StatelessWidget {
               ],
             ),
           ),
+          if (i.pdfUrl != null) ...[
+            const SizedBox(height: 16),
+            DgButton(
+              label: l.invoicePdf,
+              icon: LucideIcons.fileDown,
+              tone: DgButtonTone.secondary,
+              onPressed: () => openLink(context, i.pdfUrl!),
+            ),
+          ],
         ],
       ),
     );
@@ -537,6 +589,197 @@ class _SubeOfflineScreenState extends ConsumerState<SubeOfflineScreen> {
                 ],
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Dağıtım planlama talepleri ve "Yeni talep" (docs/15 §7).
+class _DistributionPlans extends StatelessWidget {
+  const _DistributionPlans({required this.plans, required this.onNew});
+
+  final List<DistributionPlan>? plans;
+  final VoidCallback? onNew;
+
+  static DgTone _tone(String status) => switch (status) {
+    'APPROVED' || 'SCHEDULED' => DgTone.ok,
+    'REJECTED' => DgTone.bad,
+    _ => DgTone.warn,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final rows = plans;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (rows == null)
+          const DgSkeleton(height: 72, radius: 16)
+        else if (rows.isEmpty)
+          DgPanel(child: Text(l.planEmpty, style: Dg.typeCaption()))
+        else
+          DgPanel(
+            padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
+            child: Column(
+              children: [
+                for (final p in rows)
+                  DgDocRow(
+                    icon: LucideIcons.calendarRange,
+                    title: '${p.district} · ${_day(p.date)}',
+                    subtitle: [
+                      l.planVolumeShort(p.expectedVolume),
+                      if (p.note.isNotEmpty) p.note,
+                    ].join(' · '),
+                    status: (
+                      label: l.planStatus(p.status),
+                      tone: _tone(p.status),
+                      icon: LucideIcons.calendarCheck,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        const SizedBox(height: 10),
+        DgButton(
+          key: const Key('plan-new'),
+          label: l.planNew,
+          icon: LucideIcons.plus,
+          tone: DgButtonTone.secondary,
+          onPressed: onNew,
+        ),
+      ],
+    );
+  }
+
+  static String _day(String iso) {
+    final d = DateTime.tryParse(iso);
+    return d == null ? iso : _date(d);
+  }
+}
+
+class _PlanSheet extends ConsumerStatefulWidget {
+  const _PlanSheet();
+
+  @override
+  ConsumerState<_PlanSheet> createState() => _PlanSheetState();
+}
+
+class _PlanSheetState extends ConsumerState<_PlanSheet> {
+  final _district = TextEditingController();
+  final _volume = TextEditingController();
+  final _note = TextEditingController();
+  DateTime _day = DateTime.now().add(const Duration(days: 1));
+  bool _busy = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _district.dispose();
+    _volume.dispose();
+    _note.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _day,
+      firstDate: DateTime(now.year, now.month, now.day),
+      lastDate: now.add(const Duration(days: 90)),
+    );
+    if (picked != null) setState(() => _day = picked);
+  }
+
+  Future<void> _send() async {
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    final error = await ref
+        .read(sessionProvider)
+        .branch
+        .createDistributionPlan(
+          date: _day,
+          district: _district.text,
+          expectedVolume: int.tryParse(_volume.text.trim()) ?? 0,
+          note: _note.text,
+        );
+    if (!mounted) return;
+    if (error != null) {
+      setState(() {
+        _busy = false;
+        _error = error;
+      });
+      return;
+    }
+    Navigator.of(context).pop(true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        0,
+        20,
+        16 + MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            l.distributionPlanTitle,
+            style: Dg.ui(size: 18, weight: FontWeight.w700),
+          ),
+          const SizedBox(height: 12),
+          Text(l.planDate, style: Dg.ui(size: 13, color: Dg.ink3)),
+          const SizedBox(height: 4),
+          DgButton(
+            label: _date(_day),
+            icon: LucideIcons.calendar,
+            tone: DgButtonTone.secondary,
+            onPressed: _pickDate,
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            key: const Key('plan-district'),
+            controller: _district,
+            decoration: InputDecoration(hintText: l.planDistrict),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            key: const Key('plan-volume'),
+            controller: _volume,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(hintText: l.planVolume),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _note,
+            maxLength: 300,
+            decoration: InputDecoration(hintText: l.planNote),
+          ),
+          if (_error != null)
+            Text(
+              _error!,
+              style: TextStyle(
+                color: Dg.hi,
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          const SizedBox(height: 10),
+          DgButton(
+            key: const Key('plan-send'),
+            label: l.planSend,
+            busy: _busy,
+            onPressed: _send,
+          ),
         ],
       ),
     );

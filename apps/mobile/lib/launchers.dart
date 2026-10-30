@@ -22,6 +22,19 @@ Future<void> dialNumber(BuildContext context, String? phone) async {
   }
 }
 
+/// Belge / PDF bağlantısını tarayıcıda açar; açılamazsa uyarı gösterir.
+Future<void> openLink(BuildContext context, String url) async {
+  final uri = Uri.tryParse(url);
+  final ok =
+      uri != null &&
+      uri.hasScheme &&
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+  if (!ok && context.mounted) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(context.l10n.linkOpenFailed)));
+  }
+}
+
 Future<void> callRecipient(BuildContext context, {String? phone}) =>
     dialNumber(context, phone);
 

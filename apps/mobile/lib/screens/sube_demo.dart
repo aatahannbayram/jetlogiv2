@@ -1,4 +1,5 @@
 import '../api/branch_models.dart';
+import '../api/branch_proposed_models.dart';
 import '../training_port.dart';
 
 /// Demo şube girişinin (`sube@dijigoo.test`) örnek verisi. Yalnız
@@ -1046,33 +1047,37 @@ const List<TrainingFaq> kSubeDemoFaq = [
 ];
 
 /// Demo şube sözleşme / evrak durumu (canlıda uç NOT_AVAILABLE döner).
-const kSubeDemoBranchDocs = BranchDocs(
+final kSubeDemoBranchDocs = BranchDocs(
   schemaReady: true,
   contracts: [
-    (type: 'PARTNERSHIP', status: 'SIGNED'),
-    (type: 'KVKK', status: 'SIGNED'),
-    (type: 'SLA', status: 'PENDING'),
+    PartnerDocItem(
+      type: 'PARTNERSHIP',
+      status: 'SIGNED',
+      signedAt: DateTime(2026, 3, 1),
+      expiresAt: DateTime(2027, 3, 1),
+    ),
+    PartnerDocItem(
+      type: 'KVKK',
+      status: 'SIGNED',
+      signedAt: DateTime(2026, 3, 1),
+    ),
+    const PartnerDocItem(type: 'SLA', status: 'PENDING'),
   ],
   documents: [
-    (type: 'IDENTITY', status: 'APPROVED'),
-    (type: 'TAX_PLATE', status: 'APPROVED'),
-    (type: 'AUTHORIZATION', status: 'IN_REVIEW'),
-    (type: 'SIGNATURE_CIRCULAR', status: 'MISSING'),
-    (type: 'BRANCH_PHOTO', status: 'APPROVED'),
+    const PartnerDocItem(type: 'IDENTITY', status: 'APPROVED'),
+    PartnerDocItem(
+      type: 'TAX_PLATE',
+      status: 'APPROVED',
+      expiresAt: DateTime(2026, 12, 31),
+    ),
+    const PartnerDocItem(type: 'AUTHORIZATION', status: 'IN_REVIEW'),
+    const PartnerDocItem(type: 'SIGNATURE_CIRCULAR', status: 'MISSING'),
+    const PartnerDocItem(type: 'BRANCH_PHOTO', status: 'APPROVED'),
   ],
 );
 
-/// Demo fatura (canlı uçta fatura modeli yok: `schemaReady: false`).
-typedef DemoInvoice = ({
-  String id,
-  String number,
-  String period,
-  num amount,
-  num vat,
-  String status,
-  DateTime due,
-  List<({String label, int quantity, num amount})> lines,
-});
+/// Demo fatura; canlıda aynı şekil `parseInvoices` ile gelir (docs/15 §2).
+typedef DemoInvoice = BranchInvoice;
 
 final List<DemoInvoice> kSubeDemoInvoices = [
   (
@@ -1083,6 +1088,7 @@ final List<DemoInvoice> kSubeDemoInvoices = [
     vat: 3690,
     status: 'PENDING',
     due: DateTime(2026, 11, 15),
+    pdfUrl: null,
     lines: const [
       (label: 'Kart teslimatı', quantity: 410, amount: 14350),
       (label: 'POS teslimatı', quantity: 82, amount: 4100),
@@ -1096,6 +1102,7 @@ final List<DemoInvoice> kSubeDemoInvoices = [
     vat: 3424,
     status: 'PAID',
     due: DateTime(2026, 10, 15),
+    pdfUrl: null,
     lines: const [
       (label: 'Kart teslimatı', quantity: 388, amount: 13580),
       (label: 'POS teslimatı', quantity: 71, amount: 3540),
@@ -1138,3 +1145,53 @@ final List<CustodyDispute> kSubeDemoCustodyDisputes = [
     resolvedAt: DateTime.now().subtract(const Duration(hours: 20)),
   ),
 ];
+
+// ── Önerilen uçların demo verisi (docs/15) ───────────────────────────────
+
+EndOfDayStatus kSubeDemoEndOfDay({bool closed = false}) => EndOfDayStatus(
+  date: isoDay(DateTime.now()),
+  closed: closed,
+  canClose: !closed,
+  closedAt: closed ? DateTime.now() : null,
+  closedByName: closed ? 'Demo Şube Yetkilisi' : null,
+  blockers: const [],
+);
+
+final kSubeDemoStockSummary = StockSummary(
+  inWarehouse: 128,
+  atCourier: 46,
+  inTransit: 12,
+  returnPending: 7,
+  generatedAt: DateTime.now(),
+);
+
+final List<DistributionPlan> kSubeDemoDistributionPlans = [
+  DistributionPlan(
+    id: 'demo-dp1',
+    date: isoDay(DateTime.now().add(const Duration(days: 3))),
+    district: 'Keçiören',
+    expectedVolume: 120,
+    status: 'APPROVED',
+    note: 'Kampanya haftası',
+    createdAt: DateTime.now().subtract(const Duration(days: 1)),
+  ),
+];
+
+CourierProfile kSubeDemoCourierProfile(String courierId) => CourierProfile(
+  courierId: courierId,
+  plate: '06 DJG 0${courierId.hashCode.abs() % 90 + 10}',
+  vehicleType: 'MOTORCYCLE',
+  vehicleModel: 'Honda PCX 125',
+  device: CourierDevice(
+    model: 'Samsung Galaxy A54',
+    os: 'Android 15',
+    appVersion: '1.0.1+7',
+    lastSeenAt: DateTime.now().subtract(const Duration(minutes: 4)),
+    permissions: const {
+      'location': true,
+      'backgroundLocation': false,
+      'camera': true,
+      'notifications': true,
+    },
+  ),
+);

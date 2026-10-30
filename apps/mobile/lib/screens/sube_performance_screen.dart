@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../api/branch_models.dart';
+import '../branch_features.dart';
 import '../l10n.dart';
 import '../motion.dart';
 import '../session.dart';
@@ -15,7 +16,7 @@ import 'sube_widgets.dart';
 /// Performans & Gün Sonu (mockup 7): bugün / 7 gün / 30 gün, kurye
 /// süzgeci, teslim halkası ve oranlar, günlük çubuk grafik, kurye
 /// sıralaması; altta gün sonu özeti ve rapora geçiş. Serbest tarih aralığı
-/// uç gelene kadar kapalı.
+/// önerilen `range=custom` ucuna bağlı (docs/15 §4).
 class SubePerformanceScreen extends ConsumerStatefulWidget {
   const SubePerformanceScreen({super.key});
 
@@ -29,14 +30,19 @@ class _SubePerformanceScreenState extends ConsumerState<SubePerformanceScreen> {
   int _range = 1;
   String? _courierId;
 
+  /// Serbest aralık; seçiliyken çipe yeniden dokunmak aralığı kaldırır.
+  DateTimeRange? _custom;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }
 
-  Future<void> _load() =>
-      ref.read(sessionProvider).branch.loadPerformance(_ranges[_range]);
+  Future<void> _load() => ref
+      .read(sessionProvider)
+      .branch
+      .loadPerformance(_ranges[_range], from: _custom?.start, to: _custom?.end);
 
   static const _monthsTr = [
     'Oca',
@@ -80,24 +86,50 @@ class _SubePerformanceScreenState extends ConsumerState<SubePerformanceScreen> {
     return '${d.day} ${(l.isEn ? _monthsEn : _monthsTr)[d.month - 1]}';
   }
 
-  Future<void> _customRange() => showModalBottomSheet<void>(
-    context: context,
-    backgroundColor: Dg.surface,
-    showDragHandle: true,
-    builder: (ctx) => SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        child: DgPendingBackend(what: context.l10n.customRangeWhat),
-      ),
-    ),
-  );
+  Future<void> _customRange() async {
+    final branch = ref.read(sessionProvider).branch;
+    if (!branch.proposed(BranchFeatures.customDateRange)) {
+      await showModalBottomSheet<void>(
+        context: context,
+        backgroundColor: Dg.surface,
+        showDragHandle: true,
+        builder: (ctx) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: DgPendingBackend(what: context.l10n.customRangeWhat),
+          ),
+        ),
+      );
+      return;
+    }
+    if (_custom != null) {
+      setState(() => _custom = null);
+      await _load();
+      return;
+    }
+    final now = DateTime.now();
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: now.subtract(const Duration(days: 365)),
+      lastDate: now,
+      initialDateRange: _custom,
+    );
+    if (picked == null || !mounted) return;
+    setState(() => _custom = picked);
+    await _load();
+  }
+
+  String _rangeLabel(L10n l, DateTimeRange r) =>
+      '${_day(l, r.start.toIso8601String())} – '
+      '${_day(l, r.end.toIso8601String())}';
 
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
     final branch = ref.watch(sessionProvider).branch;
     final loaded = branch.performance;
-    final p = loaded?.range == _ranges[_range] ? loaded : null;
+    final want = _custom == null ? _ranges[_range] : 'custom';
+    final p = loaded?.range == want ? loaded : null;
     final couriers = p?.couriers ?? const <CourierPerformance>[];
     final focus = couriers.where((c) => c.courierId == _courierId).firstOrNull;
     final pending = branch.pending;
@@ -108,13 +140,20 @@ class _SubePerformanceScreenState extends ConsumerState<SubePerformanceScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
           children: [
-            DgPillTabs(
-              labels: [l.rangeToday, l.range7d, l.range30d],
-              index: _range,
-              onChanged: (i) {
-                setState(() => _range = i);
-                _load();
-              },
+            // Serbest aralık seçiliyken hazır aralıklar soluk görünür.
+            Opacity(
+              opacity: _custom == null ? 1 : 0.5,
+              child: DgPillTabs(
+                labels: [l.rangeToday, l.range7d, l.range30d],
+                index: _range,
+                onChanged: (i) {
+                  setState(() {
+                    _range = i;
+                    _custom = null;
+                  });
+                  _load();
+                },
+              ),
             ),
             const SizedBox(height: 10),
             Wrap(
@@ -141,7 +180,9 @@ class _SubePerformanceScreenState extends ConsumerState<SubePerformanceScreen> {
                   },
                 ),
                 DgFilterChip(
+                  key: const Key('perf-custom-range'),
                   label: l.customRangeWhat,
+                  value: _custom == null ? null : _rangeLabel(l, _custom!),
                   icon: LucideIcons.calendarRange,
                   onTap: _customRange,
                 ),
