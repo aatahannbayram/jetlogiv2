@@ -1410,7 +1410,9 @@ class PanelApi {
   /// Zimmet uyuşmazlığı bildirir; operasyona yüksek öncelikli talep açılır,
   /// zimmeti veren şube kendi listesinde görür. Kurallar: MISSING / DAMAGED
   /// → [transferItemId]; EXCESS → [scanCode]; WRONG_ITEM → ikisi; OTHER →
-  /// [note]. Aynı [idempotencyKey] ile tekrar aynı kaydı döner.
+  /// [note]. Aynı [idempotencyKey] ile tekrar aynı kaydı döner. [photo]
+  /// verilirse `multipart/form-data` ile gider (≤10 MB); yalnız gönderiye
+  /// bağlanabilen bildirimde kabul edilir (`DISPUTE_PHOTO_SHIPMENT_REQUIRED`).
   Future<CustodyDispute> createCustodyDispute({
     required String typeCode,
     required String idempotencyKey,
@@ -1420,8 +1422,9 @@ class PanelApi {
     double? latitude,
     double? longitude,
     double? accuracy,
+    List<int>? photo,
   }) async {
-    final res = await _post('/courier-custody/disputes', {
+    final fields = <String, Object?>{
       'typeCode': typeCode,
       'transferItemId': ?transferItemId,
       'scanCode': ?scanCode,
@@ -1429,7 +1432,32 @@ class PanelApi {
       'latitude': ?latitude,
       'longitude': ?longitude,
       'accuracy': ?accuracy,
-    }, idempotencyKey: idempotencyKey);
+    };
+    final Response<Map<String, dynamic>> res;
+    if (photo == null) {
+      res = await _post(
+        '/courier-custody/disputes',
+        fields,
+        idempotencyKey: idempotencyKey,
+      );
+    } else {
+      try {
+        res = await dio.post<Map<String, dynamic>>(
+          '/courier-custody/disputes',
+          data: FormData.fromMap({
+            for (final e in fields.entries) e.key: '${e.value}',
+            'file': MultipartFile.fromBytes(
+              photo,
+              filename: 'dispute.jpg',
+              contentType: DioMediaType.parse('image/jpeg'),
+            ),
+          }),
+          options: Options(headers: {'Idempotency-Key': idempotencyKey}),
+        );
+      } on DioException catch (e) {
+        throw _panelException(e);
+      }
+    }
     final data = res.data?['data'];
     final dispute = data is Map ? data['dispute'] : null;
     return CustodyDispute.fromJson(

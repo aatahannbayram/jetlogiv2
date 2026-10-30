@@ -3397,6 +3397,7 @@ class SessionController extends ChangeNotifier {
     String? transferItemId,
     String? scanCode,
     String? note,
+    List<int>? photo,
   }) async {
     final client = panel;
     final text = note?.trim();
@@ -3408,6 +3409,7 @@ class SessionController extends ChangeNotifier {
         body: [
           ?text,
           if (scanCode != null) 'Kod: $scanCode',
+          if (photo != null) 'Fotoğraf eklendi (demo, gönderilmedi)',
           'Okutulan (${codes.length}): ${codes.join(', ')}',
           'Beklenen kalem: ${custodyItems.length}',
         ].where((line) => line.isNotEmpty).join('\n'),
@@ -3424,6 +3426,7 @@ class SessionController extends ChangeNotifier {
         latitude: selfLocated ? selfLat : null,
         longitude: selfLocated ? selfLng : null,
         accuracy: selfLocated ? selfAccuracy : null,
+        photo: photo,
       );
       custodyDisputes = [
         dispute,

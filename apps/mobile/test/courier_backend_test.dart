@@ -31,6 +31,7 @@ typedef _Call = ({
           key: options.headers['Idempotency-Key'] as String?,
           query: options.queryParameters,
         ));
+        if (options.data is FormData) state['form'] = options.data;
         if (state['offline'] == true) {
           return handler.reject(
             DioException(
@@ -330,6 +331,30 @@ void main() {
     expect(t.calls.where((c) => c.path == '/courier-support/cases'), isEmpty);
   });
 
+  test('fotoğraflı uyuşmazlık multipart gider, anahtar başlıkta', () async {
+    final t = _server();
+    final s = _session(t.api);
+    final out = await s.reportCustodyDispute(
+      typeCode: 'DAMAGED',
+      idempotencyKey: 'dispute-key-2',
+      transferItemId: 'ti-9',
+      note: 'Koli ezik',
+      photo: const [1, 2, 3],
+    );
+    expect(out.error, isNull);
+    final sent = t.calls.singleWhere(
+      (c) => c.method == 'POST' && c.path == '/courier-custody/disputes',
+    );
+    expect(sent.key, 'dispute-key-2');
+    final form = t.state['form']! as FormData;
+    final fields = {for (final f in form.fields) f.key: f.value};
+    expect(fields['typeCode'], 'DAMAGED');
+    expect(fields['transferItemId'], 'ti-9');
+    expect(fields['note'], 'Koli ezik');
+    expect(form.files.single.key, 'file');
+    expect(form.files.single.value.length, 3);
+  });
+
   test(
     'SMS kodu çok erken istenirse sunucunun bekleme süresi tutulur',
     () async {
@@ -476,9 +501,7 @@ void main() {
 
   group('beni hatırla', () {
     test('saklı oturum açılışta girişi atlar', () async {
-      FlutterSecureStorage.setMockInitialValues({
-        kPanelBearerKey: 'tok',
-      });
+      FlutterSecureStorage.setMockInitialValues({kPanelBearerKey: 'tok'});
       final vault = Vault();
       final t = _server(vault: vault);
       final s = SessionController(

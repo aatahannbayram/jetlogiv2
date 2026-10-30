@@ -2032,6 +2032,9 @@ class L10n {
   String get disputeNoteOptional =>
       _t('Açıklama (isteğe bağlı)', 'Description (optional)');
   String get disputeSend => _t('Bildir', 'Report');
+  String get disputePhotoAdd => _t('Fotoğraf ekle', 'Add photo');
+  String get disputePhotoAdded => _t('Fotoğraf eklendi', 'Photo added');
+  String get disputePhotoRemove => _t('Kaldır', 'Remove');
   String disputeSent(String? ticket) => ticket == null || ticket.isEmpty
       ? _t('Uyuşmazlık bildirildi', 'Discrepancy reported')
       : _t('Bildirildi · $ticket', 'Reported · $ticket');
@@ -2058,6 +2061,14 @@ class L10n {
       'Enter the scanned code.',
     ),
     'DISPUTE_NOTE_REQUIRED' => _t('Açıklama yazın.', 'Write a description.'),
+    'DISPUTE_PHOTO_SHIPMENT_REQUIRED' => _t(
+      'Fotoğraf yalnız bir gönderiye bağlı bildirime eklenebilir. Fotoğrafı kaldırıp gönderin.',
+      'A photo can only be added when the report is linked to a parcel. Remove it and send.',
+    ),
+    'FILE_TOO_LARGE' => _t(
+      'Fotoğraf çok büyük (en fazla 10 MB).',
+      'The photo is too large (max 10 MB).',
+    ),
     _ => _t(
       'Bildirim gönderilemedi. Tekrar deneyin.',
       'Could not send. Try again.',

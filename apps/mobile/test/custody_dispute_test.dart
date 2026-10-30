@@ -84,4 +84,19 @@ void main() {
     await tester.pumpAndSettle();
     expect(sendAction(tester), isNotNull);
   });
+
+  testWidgets('fotoğraf eklenir, kaldırılır; "Diğer"de düğme yok', (
+    tester,
+  ) async {
+    await openZimmet(tester);
+    await tapKey(tester, 'zimmet-dispute');
+    await tapKey(tester, 'dispute-type-DAMAGED');
+    await tapKey(tester, 'dispute-photo');
+    expect(find.text('Fotoğraf eklendi'), findsOneWidget);
+    await tester.tap(find.text('Kaldır'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('dispute-photo')), findsOneWidget);
+    await tapKey(tester, 'dispute-type-OTHER');
+    expect(find.byKey(const Key('dispute-photo')), findsNothing);
+  });
 }

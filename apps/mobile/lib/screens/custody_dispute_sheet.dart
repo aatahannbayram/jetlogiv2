@@ -2,12 +2,14 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart' show XFile;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../api/branch_models.dart';
 import '../data/vault.dart';
 import '../l10n.dart';
 import '../motion.dart';
+import '../scan.dart' show capturePhoto;
 import '../session.dart';
 import '../theme.dart';
 import '../ui/ui.dart';
@@ -41,6 +43,10 @@ class _DisputeSheetState extends ConsumerState<_DisputeSheet> {
   String _key = Vault.newUuid();
   String _type = 'MISSING';
   String? _itemId;
+
+  /// Kanıt fotoğrafı (isteğe bağlı); "Diğer" türünde gösterilmez, çünkü
+  /// sunucu fotoğrafı yalnız gönderiye bağlanabilen bildirimde kabul eder.
+  List<int>? _photo;
   bool _busy = false;
   String? _error;
 
@@ -77,6 +83,16 @@ class _DisputeSheetState extends ConsumerState<_DisputeSheet> {
       (!CustodyDispute.needsScan(_type) || _code.text.trim().isNotEmpty) &&
       (_type != 'OTHER' || _note.text.trim().isNotEmpty);
 
+  Future<void> _addPhoto() async {
+    final path = await capturePhoto();
+    if (path == null || path == 'test://no-camera' || !mounted) return;
+    final bytes = path.startsWith('test://')
+        ? const <int>[1]
+        : await XFile(path).readAsBytes();
+    if (!mounted) return;
+    _change(() => _photo = bytes);
+  }
+
   Future<void> _send() async {
     final l = context.l10n;
     final s = ref.read(sessionProvider);
@@ -94,6 +110,7 @@ class _DisputeSheetState extends ConsumerState<_DisputeSheet> {
       transferItemId: CustodyDispute.needsItem(_type) ? itemId : null,
       scanCode: CustodyDispute.needsScan(_type) ? _code.text.trim() : null,
       note: _note.text,
+      photo: _type == 'OTHER' ? null : _photo,
     );
     if (!mounted) return;
     if (out.error != null) {
@@ -254,6 +271,36 @@ class _DisputeSheetState extends ConsumerState<_DisputeSheet> {
                     : l.disputeNoteOptional,
               ),
             ),
+            if (_type != 'OTHER') ...[
+              Align(
+                alignment: Alignment.centerLeft,
+                child: _photo == null
+                    ? TextButton.icon(
+                        key: const Key('dispute-photo'),
+                        onPressed: _busy ? null : _addPhoto,
+                        icon: const Icon(LucideIcons.camera, size: 18),
+                        label: Text(l.disputePhotoAdd),
+                      )
+                    : Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 6,
+                        children: [
+                          Icon(LucideIcons.circleCheck, size: 18, color: Dg.ok),
+                          Text(
+                            l.disputePhotoAdded,
+                            style: Dg.ui(size: 14, weight: FontWeight.w600),
+                          ),
+                          TextButton(
+                            onPressed: _busy
+                                ? null
+                                : () => _change(() => _photo = null),
+                            child: Text(l.disputePhotoRemove),
+                          ),
+                        ],
+                      ),
+              ),
+              const SizedBox(height: 6),
+            ],
             if (_error != null) ...[
               Text(_error!, style: Dg.ui(size: 14, color: Dg.bad)),
               const SizedBox(height: 8),
