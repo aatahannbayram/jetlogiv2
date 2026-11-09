@@ -848,7 +848,7 @@ void main() {
     });
   });
 
-  group('şube: etiket, vardiya düzeltme, kart', () {
+  group('iş ortağı: etiket, vardiya düzeltme, kart', () {
     test(
       'gönderi etiketi: Türkçe için UTF-8, denetim karakterleri temizlenir',
       () {

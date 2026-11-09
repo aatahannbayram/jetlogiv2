@@ -72,12 +72,14 @@ class _SubeShellScreenState extends ConsumerState<SubeShellScreen> {
       hint: scans[index].$2,
     );
     return Scaffold(
-      body: SafeArea(
-        bottom: false,
-        child: NavShrinkOnScroll(
-          compact: _navCompact,
-          onCompact: (v) => setState(() => _navCompact = v),
-          child: DgTabStack(index: index, children: pages),
+      body: _ShellGlow(
+        child: SafeArea(
+          bottom: false,
+          child: NavShrinkOnScroll(
+            compact: _navCompact,
+            onCompact: (v) => setState(() => _navCompact = v),
+            child: DgTabStack(index: index, children: pages),
+          ),
         ),
       ),
       // Büyük yazı ayarında yüzen düğme içeriği kapatır; alt çubuğun üstüne
@@ -136,6 +138,29 @@ class _SubeShellScreenState extends ConsumerState<SubeShellScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Koyu temada üstte hafif marka ışığı (giriş ekranındaki dekorun devamı).
+/// Durağan bir gradyan; boyama maliyeti yok denecek kadar az.
+class _ShellGlow extends StatelessWidget {
+  const _ShellGlow({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!Dg.dark) return child;
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        gradient: RadialGradient(
+          center: Alignment(0.2, -1.15),
+          radius: 1.1,
+          colors: [Color(0x2A2B4BFF), Color(0x00020823)],
+        ),
+      ),
+      child: child,
     );
   }
 }

@@ -177,24 +177,51 @@ class DgIconBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final solid = dgToneBadge(tone);
+    if (soft) {
+      return Container(
+        width: size,
+        height: size,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: dgToneColor(tone).withValues(alpha: Dg.dark ? 0.16 : 0.10),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, size: size * 0.46, color: dgToneColor(tone)),
+      );
+    }
+    // Teslim v1.1 dili: yöntem kutularındaki gibi renkli ikon, tonlu cam
+    // zemin ve ince renkli kenar (dolu renk daire yerine).
+    final c = _glassTone(tone);
     return Container(
       width: size,
       height: size,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: soft
-            ? dgToneColor(tone).withValues(alpha: Dg.dark ? 0.16 : 0.10)
-            : solid,
-        shape: BoxShape.circle,
+        borderRadius: BorderRadius.circular(size * 0.32),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            c.withValues(alpha: Dg.dark ? 0.26 : 0.16),
+            c.withValues(alpha: Dg.dark ? 0.08 : 0.06),
+          ],
+        ),
+        border: Border.all(color: c.withValues(alpha: Dg.dark ? 0.45 : 0.30)),
       ),
-      child: Icon(
-        icon,
-        size: size * 0.46,
-        color: soft ? dgToneColor(tone) : Colors.white,
-      ),
+      child: Icon(icon, size: size * 0.48, color: c),
     );
   }
+
+  static Color _glassTone(DgTone tone) => Dg.dark
+      ? switch (tone) {
+          DgTone.info => Dg.dgTurkuaz,
+          DgTone.ok => const Color(0xFF4ADE80),
+          DgTone.warn => const Color(0xFFFBBF24),
+          DgTone.bad => const Color(0xFFFF7A8A),
+          DgTone.accent => const Color(0xFFB98BFF),
+          DgTone.neutral => const Color(0xFFB9C0D9),
+        }
+      : dgToneBadge(tone);
 }
 
 /// Gönderi olayı / şube audit kodu → okunur başlık ve ton. Bilinmeyen kod

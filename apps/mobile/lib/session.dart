@@ -768,7 +768,7 @@ class SessionController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<bool> returnTaskToBranch(String taskId, {String branchName = 'Şube'}) async {
+  Future<bool> returnTaskToBranch(String taskId, {String branchName = 'İş Ortağı'}) async {
     if (custodyItems.isEmpty && !custodyLoading) await loadCustody();
     final item = custodyItemForTask(taskId);
     if (_usesPanelTasks) {
@@ -846,7 +846,7 @@ class SessionController extends ChangeNotifier {
     try {
       final result = await api!.handoverToBranch(
         itemIds: itemIds,
-        branchName: 'Şube',
+        branchName: 'İş Ortağı',
       );
       custodyItems = result.remaining;
       liveApi = api!.lastWasLive;
@@ -854,7 +854,7 @@ class SessionController extends ChangeNotifier {
       _prependNotification(
         kind: NotifKind.custody,
         title: 'Zimmet onaylandı',
-        body: 'Şube zimmetinden ${itemIds.length} gönderi üstüne alındı.',
+        body: 'İş ortağı zimmetinden ${itemIds.length} gönderi üstüne alındı.',
         icon: LucideIcons.package,
         tint: Dg.violetBg,
         ink: Dg.violet,
@@ -914,7 +914,7 @@ class SessionController extends ChangeNotifier {
       _prependNotification(
         kind: NotifKind.custody,
         title: 'Zimmet onaylandı',
-        body: 'Şube zimmetinden ${items.length} gönderi üstüne alındı.',
+        body: 'İş ortağı zimmetinden ${items.length} gönderi üstüne alındı.',
         icon: LucideIcons.package,
         tint: Dg.violetBg,
         ink: Dg.violet,
@@ -986,7 +986,7 @@ class SessionController extends ChangeNotifier {
     try {
       final result = await api!.takeoverFromBranch(
         itemIds: itemIds,
-        branchName: 'Şube',
+        branchName: 'İş Ortağı',
       );
       custodyItems = result.remaining;
       liveApi = api!.lastWasLive;
@@ -994,7 +994,7 @@ class SessionController extends ChangeNotifier {
       _prependNotification(
         kind: NotifKind.custody,
         title: 'Zimmet alındı',
-        body: 'Şubeden ${itemIds.length} gönderi üzerine alındı.',
+        body: 'İş ortağından ${itemIds.length} gönderi üzerine alındı.',
         icon: LucideIcons.package,
         tint: Dg.violetBg,
         ink: Dg.violet,
@@ -4617,7 +4617,7 @@ List<AppNotification> _buildDemoNotifications() {
       id: 'demo-custody',
       kind: NotifKind.custody,
       title: 'Zimmet onaylandı',
-      body: 'Şube zimmetinden 6 gönderi üstüne alındı.',
+      body: 'İş ortağı zimmetinden 6 gönderi üstüne alındı.',
       createdAt: now.subtract(const Duration(hours: 2, minutes: 1)),
       icon: LucideIcons.package,
       tint: Dg.violetBg,

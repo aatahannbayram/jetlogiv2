@@ -42,7 +42,7 @@ void main() {
     expect(route.totalDurationSeconds, 219 + 196 + 281 + 213);
   });
 
-  test('demo zimmet listesi Şube devri için barkodlu 3 parsel döner', () {
+  test('demo zimmet listesi İş ortağı devri için barkodlu 3 parsel döner', () {
     final payload = mockPayload('/v1/custody', RequestOptions(path: '/v1/custody'));
     final items = (payload['items'] as List).cast<Map<String, dynamic>>();
     expect(items, hasLength(3));

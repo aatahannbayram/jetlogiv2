@@ -1650,13 +1650,13 @@ class BranchWorkspace {
         );
         return _countOutcome(result, code);
       case SyncOperation.branchReturnScan:
-        if (demo) return ScanOutcome.ok('Şubeye teslim alındı', code);
+        if (demo) return ScanOutcome.ok('İş ortağına teslim alındı', code);
         final result = await api!.scanCourierReturn(
           code: code,
           idempotencyKey: scanId,
         );
         return ScanOutcome.ok(
-          'Şubeye teslim alındı',
+          'İş ortağına teslim alındı',
           result.redeliveryApplied
               ? '${result.shipmentNumber} · yeniden dağıtıma alındı'
               : result.shipmentNumber,
@@ -1724,7 +1724,7 @@ class BranchWorkspace {
     return ScanOutcome.bad(switch (r.resultCode) {
       'UNKNOWN_BARCODE' => 'Barkod tanınmadı',
       'OUT_OF_SCOPE' => 'Sayım kapsamında değil',
-      'NOT_IN_STOCK' => 'Şube stoğunda görünmüyor',
+      'NOT_IN_STOCK' => 'İş ortağı stoğunda görünmüyor',
       'WRONG_WAREHOUSE' => 'Başka depoya ait',
       'CONTAINER_MISMATCH' => 'Koli içeriği uyuşmuyor',
       _ => 'Sayılmadı (${r.resultCode})',
@@ -1745,7 +1745,7 @@ class BranchWorkspace {
       return ScanOutcome.bad('Bugünkü listede yok', code);
     }
     final where = switch (row.stage) {
-      BranchStage.incoming => 'Şubeye geliyor',
+      BranchStage.incoming => 'İş ortağına geliyor',
       BranchStage.awaitingCourier => 'Zimmet bekliyor',
       BranchStage.inQueue => 'Kurye kabulü bekleniyor · ${row.courierName}',
       BranchStage.inDistribution => 'Dağıtımda · ${row.courierName}',
@@ -1771,7 +1771,7 @@ class BranchWorkspace {
   }
 
   Future<ScanOutcome> _scanStockIn(String code) async {
-    if (demo) return ScanOutcome.ok('Şubeye kabul edildi', code);
+    if (demo) return ScanOutcome.ok('İş ortağına kabul edildi', code);
     final result = await api!.scanIncoming(code: code, clientEventId: _newId());
     final label = result.shipmentNumber.isEmpty ? code : result.shipmentNumber;
     if (result.alreadyIn) return ScanOutcome.warn('Zaten içeri alınmış', label);

@@ -72,7 +72,7 @@ Stream<LiveFix> liveFixStream() async* {
       foregroundNotificationConfig: const ForegroundNotificationConfig(
         notificationTitle: 'Dijigoo vardiyası açık',
         notificationText:
-            'Vardiya ve görev boyunca konumunuz şubeyle paylaşılıyor.',
+            'Vardiya ve görev boyunca konumunuz iş ortağıyla paylaşılıyor.',
         enableWakeLock: true,
       ),
     ),

@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
+
 import 'dart:math' as math;
 import 'dart:ui' show FrameTiming;
 
@@ -244,10 +246,14 @@ class DgSkeleton extends StatelessWidget {
         borderRadius: BorderRadius.circular(radius),
       ),
     );
-    if (_stillMotion(context)) return box;
-    return box
-        .animate(onPlay: (c) => c.repeat(reverse: true))
-        .fadeIn(begin: 0.4, duration: 700.ms, curve: Curves.easeInOut);
+    // Web'de sürekli dönen efekt her karede yeniden boyama ister; orada
+    // iskelet durağan kalır.
+    if (_stillMotion(context) || kIsWeb) return box;
+    return RepaintBoundary(
+      child: box
+          .animate(onPlay: (c) => c.repeat(reverse: true))
+          .fadeIn(begin: 0.4, duration: 700.ms, curve: Curves.easeInOut),
+    );
   }
 }
 
@@ -365,10 +371,12 @@ class PulseDot extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(color: color, shape: BoxShape.circle),
     );
-    if (_stillMotion(context)) return dot;
-    return dot
-        .animate(onPlay: (c) => c.repeat(reverse: true))
-        .fade(begin: 0.4, end: 1, duration: 2000.ms, curve: Curves.easeInOut);
+    if (_stillMotion(context) || kIsWeb) return dot;
+    return RepaintBoundary(
+      child: dot
+          .animate(onPlay: (c) => c.repeat(reverse: true))
+          .fade(begin: 0.4, end: 1, duration: 2000.ms, curve: Curves.easeInOut),
+    );
   }
 }
 

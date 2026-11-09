@@ -114,9 +114,9 @@ Future<Uint8List> buildLabelPdf(
   return doc.save();
 }
 
-/// Uygulamanın kendi yazı tipiyle (Inter) PDF.
+/// Uygulamanın kendi yazı tipiyle (Manrope, teslim v1.1 sabit kesim) PDF.
 Future<Uint8List> buildLabelPdfWithAppFont(List<LabelSheet> sheets) async =>
     buildLabelPdf(
       sheets,
-      font: await rootBundle.load('assets/fonts/Inter.ttf'),
+      font: await rootBundle.load('assets/fonts/Manrope-Regular.ttf'),
     );

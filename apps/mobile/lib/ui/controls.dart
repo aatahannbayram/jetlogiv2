@@ -28,51 +28,76 @@ class DgGradientButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final enabled = onPressed != null && !busy;
+    // Onaylı ortak "Giriş yap" yüzeyi (teslim v1.1, `giris-yap/yuzey.png`):
+    // 525×98 kaynak, 497×70 dokunma alanı, 28 px dokuz parça kesim. Işık payı
+    // düğme kutusunun dışına taşar.
+    final glow = 14 * height / 70;
     final body = AnimatedOpacity(
       duration: DgMotion.quick,
       opacity: onPressed == null ? 0.5 : 1,
-      child: Container(
-        height: height,
-        alignment: Alignment.center,
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        decoration: BoxDecoration(
-          gradient: Dg.brandCta,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: busy
-            ? const SizedBox.square(
-                dimension: 22,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.4,
-                  color: Colors.white,
-                ),
-              )
-            : Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (icon != null) ...[
-                    Icon(icon, size: 20, color: Colors.white),
-                    const SizedBox(width: 10),
-                  ],
-                  Flexible(
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Dg.ui(
-                        size: 16,
-                        weight: FontWeight.w700,
-                        color: Colors.white,
-                        height: 1.1,
-                      ),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            left: -glow,
+            right: -glow,
+            top: -glow,
+            bottom: -glow,
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  image: DecorationImage(
+                    image: ExactAssetImage(
+                      'assets/login/giris-yap.png',
+                      scale: 70 / height,
                     ),
+                    centerSlice: const Rect.fromLTRB(28, 28, 497, 70),
+                    fit: BoxFit.fill,
                   ),
-                  if (trailing != null) ...[
-                    const SizedBox(width: 10),
-                    Icon(trailing, size: 20, color: Colors.white),
-                  ],
-                ],
+                ),
               ),
+            ),
+          ),
+          Container(
+            height: height,
+            alignment: Alignment.center,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: busy
+                ? const SizedBox.square(
+                    dimension: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.4,
+                      color: Colors.white,
+                    ),
+                  )
+                : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (icon != null) ...[
+                        Icon(icon, size: 20, color: Colors.white),
+                        const SizedBox(width: 10),
+                      ],
+                      Flexible(
+                        child: Text(
+                          label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Dg.ui(
+                            size: 16,
+                            weight: FontWeight.w700,
+                            color: Colors.white,
+                            height: 1.1,
+                          ),
+                        ),
+                      ),
+                      if (trailing != null) ...[
+                        const SizedBox(width: 10),
+                        Icon(trailing, size: 20, color: Colors.white),
+                      ],
+                    ],
+                  ),
+          ),
+        ],
       ),
     );
     return Semantics(

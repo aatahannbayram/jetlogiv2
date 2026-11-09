@@ -299,7 +299,7 @@ void main() {
     await tester.pump(const Duration(seconds: 10));
   });
 
-  testWidgets('kartlar ve acente bilgileri', (tester) async {
+  testWidgets('kartlar ve iş ortağı bilgileri', (tester) async {
     await _open(tester, const SubeCardsScreen());
     expect(find.text('Kart okut ve doğrula'), findsOneWidget);
     await _tap(tester, find.text('Demo Kurye Keçiören'));

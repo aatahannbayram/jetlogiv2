@@ -69,7 +69,7 @@ class L10n {
   String get onboard4Title =>
       _t('Paketleri okutarak teslim al.', 'Scan parcels to take them over.');
   String get onboard4Body =>
-      _t('Şubede barkodları okut. Eksik ya da fazla paket varsa uygulamaya yaz.', 'Scan the barcodes at the branch. If a parcel is missing or extra, note it in the app.');
+      _t('İş ortağında barkodları okut. Eksik ya da fazla paket varsa uygulamaya yaz.', 'Scan the barcodes at the partner. If a parcel is missing or extra, note it in the app.');
   String get onboard5Kicker =>
       _t('Vardiya', 'Shift');
   String get onboard5Title =>
@@ -77,7 +77,7 @@ class L10n {
   String get onboard5Body =>
       _t('Günü ana sayfadaki Gün sonu düğmesiyle bitir.', 'Finish the day with End day on the home screen.');
   String get subeOnboard1Kicker =>
-      _t('Şube', 'Branch');
+      _t('İş Ortağı', 'Partner');
   String get subeOnboard1Title =>
       _t('Günün işi tek ekranda.', 'Today\'s work on one screen.');
   String get subeOnboard1Body =>
@@ -93,7 +93,7 @@ class L10n {
   String get subeOnboard3Title =>
       _t('Stok ayrı tutulur.', 'Stock is kept separate.');
   String get subeOnboard3Body =>
-      _t('Sayım ve koliler şube stoğu içindir, kuryeye giden gönderilerle karışmaz.', 'Counts and parcels are branch stock and never mix with courier shipments.');
+      _t('Sayım ve koliler iş ortağı stoğu içindir, kuryeye giden gönderilerle karışmaz.', 'Counts and parcels are partner stock and never mix with courier shipments.');
   String get tipHomeTitle => _t('Bugünün özeti', 'Today at a glance');
   String get tipHomeBody => _t('Kartlarda elindeki paketler ve teslimatların var. Barkod okutmak için alttaki düğmeyi kullan.', 'Cards show the parcels you hold and your deliveries. Use the button below to scan.');
   String get tipGotIt => _t('Anladım', 'Got it');
@@ -107,7 +107,7 @@ class L10n {
   String get kpiSla => _t('Geciken', 'Late');
   String get eodTitle => _t('Gün sonu', 'End of day');
   String get eodOpen => _t('Açık görev', 'Open tasks');
-  String get eodReturn => _t('Geri teslim', 'Return to branch');
+  String get eodReturn => _t('Geri teslim', 'Return to partner');
   String get eodSync => _t('Gönderilmeyi bekleyen', 'Waiting to send');
   String get eodClose => _t('Vardiyayı bitir', 'Finish shift');
   String get acceptCustody => _t('Zimmeti kabul et', 'Accept custody');
@@ -133,7 +133,7 @@ class L10n {
   String get startCount => _t('Sayımı başlat', 'Start count');
   String get pauseCount => _t('Duraklat', 'Pause');
   String get countDiff => _t('Fark', 'Difference');
-  String get branchEodTitle => _t('Şube gün sonu', 'Branch close-out');
+  String get branchEodTitle => _t('İş ortağı gün sonu', 'Partner close-out');
   String get scanAction => _t('Barkod Okut', 'Scan');
   String get filterWaiting => _t('Zimmet Bekleyen', 'Awaiting assign');
   String get filterOut => _t('Dağıtımda', 'In field');
@@ -152,7 +152,7 @@ class L10n {
   String get kpiReturnPend => _t('İade bekleyen', 'Return pending');
   String get kpiSlaRisk => _t('Gecikme riski', 'At risk');
   String get kpiActiveCouriers => _t('Aktif kurye', 'Active couriers');
-  String get kpiBranchStock => _t('Şube stoğu', 'Branch stock');
+  String get kpiBranchStock => _t('İş ortağı stoğu', 'Partner stock');
   String get perfInstant => _t('Anlık', 'Now');
   String get perfDay => _t('Günlük', 'Daily');
   String get perfMonth => _t('Aylık', 'Monthly');
@@ -163,7 +163,7 @@ class L10n {
   String get startShiftCta => _t('Vardiyaya başla', 'Start shift');
   String get showActivation => _t('Aktivasyonu göster', 'Show activation');
   String get courierLoginCta => _t('Kurye girişi', 'Courier sign in');
-  String get subeLoginCta => _t('Şube girişi', 'Branch sign in');
+  String get subeLoginCta => _t('İş ortağı girişi', 'Partner sign in');
   String get openDemo => _t('Demoyu aç', 'Open demo');
   String get updateApp => _t('Uygulamayı güncelle', 'Update the app');
   String get todayStopsGuney => _t('Bugünün durakları Güney’de.', 'Today’s stops are in Güney.');
@@ -197,6 +197,29 @@ class L10n {
   String get smsLogin => _t('SMS kodu ile gir', 'Sign in with SMS');
   String get passwordLogin => _t('Şifre ile gir', 'Sign in with password');
   String get loginSmsTile => _t('SMS Kodu', 'SMS code');
+  // Teslim v1.1 giriş ekranı (referans/app-*.png)
+  String get sloganLead => _t('Dijital çağın ', 'The logistics power ');
+  String get sloganAccent => _t('lojistik gücü', 'of the digital age');
+  String get roleLabel => _t('Giriş türü', 'Sign-in type');
+  String get rolePartner => _t('İş Ortağı', 'Partner');
+  String get roleCourier => _t('Kurye', 'Courier');
+  String get phoneOrEmail => _t('Telefon veya e-posta', 'Phone or email');
+  String get loginSmsMethod => _t('SMS kodu', 'SMS code');
+  String get loginBiometricMethod => _t('Biyometrik giriş', 'Biometric');
+  String get loginQrMethod => _t('QR kod', 'QR code');
+  String get loginMethodSoon => _t(
+    'Bu giriş yöntemi yakında açılacak. Şimdilik şifre ile giriş yapın.',
+    'This sign-in method is coming soon. Use your password for now.',
+  );
+  String get loginSmsPartnerOff => _t(
+    'SMS kodu ile giriş yalnız kurye hesaplarında açık.',
+    'SMS sign-in is available for courier accounts only.',
+  );
+  String get usePasswordInstead => _t('Şifre ile giriş', 'Use password');
+  String get secureLogin => _t('Güvenli giriş', 'Secure sign-in');
+  String get loginSignIn => _t('Giriş yap', 'Sign in');
+  String get rememberMeShort => _t('Beni hatırla', 'Remember me');
+  String get forgotPasswordShort => _t('Şifremi unuttum', 'Forgot password');
   String get loginPasswordTile => _t('Şifre', 'Password');
   String get signInCta => _t('Giriş Yap', 'Sign in');
   String get forgotPassword => _t('Şifremi Unuttum?', 'Forgot password?');
@@ -268,8 +291,8 @@ class L10n {
         );
       case 'NO_ACTIVE_AGENCY_ACCESS' || 'AGENCY_ACCESS_DENIED':
         return _t(
-          'Bu şubeye yetkin yok.',
-          'You have no access to this branch.',
+          'Bu iş ortağına yetkin yok.',
+          'You have no access to this partner.',
         );
       default:
         return fallback;
@@ -297,8 +320,8 @@ class L10n {
     'A door photo is required for this reason.',
   );
   String get supportHint => _t(
-    'Sorun mu var? Şube yöneticine ulaş',
-    'Need help? Contact the branch manager',
+    'Sorun mu var? İş ortağı yöneticine ulaş',
+    'Need help? Contact the partner manager',
   );
 
   String get devicePermissions => _t('Cihaz izinleri', 'Device permissions');
@@ -447,17 +470,17 @@ class L10n {
   String get deliverTogether => _t('Birlikte teslim', 'Deliver together');
 
   String get myCustody => _t('Zimmetim', 'My custody');
-  String get branchHandover => _t('Şubeye teslim', 'Branch handover');
-  String get returnToBranchTab => _t('Geri Teslim', 'Return to branch');
+  String get branchHandover => _t('İş ortağına teslim', 'Partner handover');
+  String get returnToBranchTab => _t('Geri Teslim', 'Return to partner');
   String get branchHandoverHint => _t(
-    'Bu durağın kalemini şubeye fiziksel olarak teslim ettiğinde onayla.',
-    'Confirm once you have physically handed this stop\'s item to the branch.',
+    'Bu durağın kalemini iş ortağına fiziksel olarak teslim ettiğinde onayla.',
+    'Confirm once you have physically handed this stop\'s item to the partner.',
   );
   String get branchHandoverNotFound => _t(
     'Bu durak için zimmetinde bir kalem bulunamadı.',
     'No custody item found for this stop.',
   );
-  String get branchHandoverConfirm => _t('Şubeye teslim ettim', 'Handed to branch');
+  String get branchHandoverConfirm => _t('İş ortağına teslim ettim', 'Handed to partner');
   String get depotPickup => _t('Depodan alım', 'Depot pickup');
   String get supportTicket => _t('Destek talebi', 'Support ticket');
   String get sendData => _t('Verileri gönder', 'Send data');
@@ -480,11 +503,11 @@ class L10n {
 
   String get scanHint => _t('Zimmet almak veya teslim etmek için barkod okut.', 'Scan a barcode to take or hand over custody.');
   String get courierCustody => _t('Kurye Zimmet', 'Courier custody');
-  String get courierCustodyHint => _t('Şubeden üzerine alacağın paketleri okut', 'Scan parcels you are taking from the branch');
-  String get branchCustody => _t('Şube Zimmet', 'Branch custody');
-  String get branchCustodyHint => _t('Şubeye teslim ettiğin paketleri okut', 'Scan parcels you are handing to the branch');
+  String get courierCustodyHint => _t('İş ortağından üzerine alacağın paketleri okut', 'Scan parcels you are taking from the partner');
+  String get branchCustody => _t('İş Ortağı Zimmet', 'Partner custody');
+  String get branchCustodyHint => _t('İş ortağına teslim ettiğin paketleri okut', 'Scan parcels you are handing to the partner');
   String get courier => _t('Kurye', 'Courier');
-  String get branch => _t('Şube', 'Branch');
+  String get branch => _t('İş Ortağı', 'Partner');
   String get bringBarcode => _t('Barkodu kameraya göster', 'Show the barcode to the camera');
   String get typeCode => _t('Kodu yaz', 'Type the code');
   String get typeCodeSend => _t('Kodu yaz ve gönder', 'Type the code and send');
@@ -496,10 +519,10 @@ class L10n {
   String get complete => _t('Tamamla', 'Complete');
   String get handoverFailed => _t('Devir gönderilemedi, tekrar deneyin.', 'Handover failed. Try again.');
   String get branchHandoverDoneTitle =>
-      _t('Zimmet şubeye teslim edildi', 'Custody handed over to branch');
+      _t('Zimmet iş ortağına teslim edildi', 'Custody handed over to partner');
   String branchHandoverDoneBody(int count) => _t(
-    '$count gönderi şubeye teslim edildi.',
-    '$count parcels handed over to the branch.',
+    '$count gönderi iş ortağına teslim edildi.',
+    '$count parcels handed over to the partner.',
   );
   String get returnToCourierWork =>
       _t('Kurye Görevlerime Dön', 'Back to my courier tasks');
@@ -702,12 +725,12 @@ class L10n {
   String get extraNote => _t('EK NOT', 'NOTE');
   String get emailOrPhone => _t('E-posta veya telefon', 'Email or phone');
   String get password => _t('Şifre', 'Password');
-  String get subeLoginTitle => _t('Şube Girişi', 'Branch sign in');
+  String get subeLoginTitle => _t('İş Ortağı Girişi', 'Partner sign in');
   String get subeLoginHint =>
-      _t('Acente/şube personeli e-posta ile giriş yapar', 'Branch/agency staff sign in with email');
+      _t('İş ortağı personeli telefon ya da e-posta ile giriş yapar', 'Partner staff sign in with phone or email');
   String get email => _t('E-posta', 'Email');
   String get subeSelectAgency =>
-      _t('Birden fazla acenteye bağlısınız, birini seçin', 'You belong to more than one agency — pick one');
+      _t('Birden fazla iş ortağına bağlısınız, birini seçin', 'You belong to more than one partner — pick one');
   String get subeLoginFailed =>
       _t('Giriş yapılamadı. E-posta/şifreyi kontrol edin.', 'Sign in failed. Check email/password.');
   String get subeCourierLinks => _t('Kurye', 'Couriers');
@@ -831,7 +854,7 @@ class L10n {
       _t('$done / $total teslim', '$done / $total delivered');
 
   // ---- P3: operasyon ekranları (mockup 1–6) ----
-  String get dashBranch => _t('Şube', 'Branch');
+  String get dashBranch => _t('İş Ortağı', 'Partner');
   String monthName(int month) => const [
     ['Ocak', 'January'],
     ['Şubat', 'February'],
@@ -875,7 +898,7 @@ class L10n {
   String get filterAny => _t('Hepsi', 'Any');
   String get shipmentDetailTitle => _t('Gönderi Detayı', 'Shipment detail');
   String get shipmentNotHere =>
-      _t('Gönderi bu şubede bulunamadı.', 'Shipment not found in this branch.');
+      _t('Gönderi bu iş ortağında bulunamadı.', 'Shipment not found at this partner.');
   String get secRecipient => _t('Alıcı bilgileri', 'Recipient');
   String get secProduct => _t('Ürün bilgileri', 'Product');
   String get secAppointment => _t('Randevu', 'Appointment');
@@ -896,8 +919,8 @@ class L10n {
   String get fieldPlanned => _t('Planlanan teslim', 'Planned delivery');
   String get noAppointment => _t('Randevu yok', 'No appointment');
   String get phoneHidden => _t(
-    'Alıcı telefonu şube uygulamasına açık değil.',
-    'Recipient phone is not shared with the branch app.',
+    'Alıcı telefonu iş ortağı uygulamasına açık değil.',
+    'Recipient phone is not shared with the partner app.',
   );
   String get fieldCustomer => _t('Müşteri', 'Customer');
   String get slaContract => _t('Sözleşme', 'Contract');
@@ -917,12 +940,12 @@ class L10n {
   String get evAccepted => _t('Kurye teslim aldı', 'Courier accepted');
   String get evHandoverCancelled => _t('Zimmet iptal edildi', 'Assignment cancelled');
   String get evCourierChanged => _t('Kurye değişti', 'Courier changed');
-  String get evReturned => _t('Şubeye döndü', 'Returned to branch');
+  String get evReturned => _t('İş ortağına döndü', 'Returned to partner');
   String get evArrived => _t('Kurye adrese vardı', 'Courier arrived');
   String get evCalled => _t('Alıcı arandı', 'Recipient called');
   String get evDelivered => _t('Teslim edildi', 'Delivered');
   String get evFailed => _t('Teslim edilemedi', 'Not delivered');
-  String get evReceived => _t('Şubeye ulaştı', 'Arrived at branch');
+  String get evReceived => _t('İş ortağına ulaştı', 'Arrived at partner');
   String get assignTitle => _t('Kurye Atama', 'Assign courier');
   String get changeTitle => _t('Kurye Değiştir', 'Change courier');
   String get tabList => _t('Liste', 'List');
@@ -950,7 +973,7 @@ class L10n {
   String get returnGroupMissing => _t('Okutulmadı', 'Not scanned');
   String get returnComplete => _t('Dönüşü tamamla', 'Complete return');
   String returnDone(int n) =>
-      _t('$n gönderi şubeye alındı', '$n parcels received');
+      _t('$n gönderi iş ortağına alındı', '$n parcels received');
   String returnQueued(int n) => _t(
     '$n okutma kuyrukta; bağlantı gelince gönderilecek.',
     '$n scans queued; they will be sent once online.',
@@ -982,7 +1005,7 @@ class L10n {
     'ON_LEAVE' => _t('İzinde', 'On leave'),
     _ => code,
   };
-  String get primaryBranch => _t('Birincil şube', 'Primary branch');
+  String get primaryBranch => _t('Birincil iş ortağı', 'Primary partner');
   String get courierDetailTitle => _t('Kurye Detayı', 'Courier detail');
   String get tabGeneral => _t('Genel', 'General');
   String get tabCard => _t('Kart', 'Card');
@@ -992,7 +1015,7 @@ class L10n {
   String get fieldVehicle => _t('Araç', 'Vehicle');
   String get fieldWorkModel => _t('Çalışma şekli', 'Work model');
   String get fieldRegion => _t('Bölge', 'Region');
-  String get fieldAssignedSince => _t('Şubede', 'At branch since');
+  String get fieldAssignedSince => _t('İş ortağında', 'At partner since');
   String get fieldStatus => _t('Durum', 'Status');
   String get fieldShift => _t('Vardiya', 'Shift');
   String get fieldOnHand => _t('Üzerinde', 'On hand');
@@ -1000,8 +1023,8 @@ class L10n {
   String get secPerformance => _t('Performans', 'Performance');
   String get secContact => _t('İletişim', 'Contact');
   String get cardHint => _t(
-    'Kart QR\'ı kuryenin şube bağlantısını ve evrak durumunu doğrular.',
-    'The card QR verifies the courier\'s branch link and documents.',
+    'Kart QR\'ı kuryenin iş ortağı bağlantısını ve evrak durumunu doğrular.',
+    'The card QR verifies the courier\'s partner link and documents.',
   );
   String get cardRenew => _t('Yenile', 'Renew');
   String get cardCancelAction => _t('İptal et', 'Revoke');
@@ -1039,7 +1062,7 @@ class L10n {
   String get stockReturnTab => _t('Dönüş', 'Returns');
   String get stockOpenCount => _t('Açık sayım', 'Open count');
   String get stockCountersWhat =>
-      _t('Şube stok sayaçları', 'Branch stock counters');
+      _t('İş ortağı stok sayaçları', 'Partner stock counters');
   String get stockStartReturn => _t('Kurye dönüşü başlat', 'Start courier return');
   String get reconcileTitle => _t('Sayım Mutabakatı', 'Count reconciliation');
   String get reconcileActive => _t('Aktif', 'Active');
@@ -1060,8 +1083,8 @@ class L10n {
       _t('Onayla ve merkeze gönder', 'Approve and send to HQ');
   String get reconcileEmpty => _t('Bu sekmede sayım yok', 'No counts here');
   String get reconcileManagerOnly => _t(
-    'Onay ve iptal şube yöneticisi yetkisi ister.',
-    'Approving or cancelling needs branch manager rights.',
+    'Onay ve iptal iş ortağı yöneticisi yetkisi ister.',
+    'Approving or cancelling needs partner manager rights.',
   );
   String get stepScan => _t('Okut', 'Scan');
   String get stepAccept => _t('İçeri al', 'Take in');
@@ -1083,7 +1106,7 @@ class L10n {
   // ---- P6: eğitim, fatura, iş ortaklığı, bildirim, hızlı gönder, profil ----
   String get trainingCenterTitle => _t('Eğitim Merkezi', 'Training centre');
   String trainingTab(String code) => switch (code) {
-    'BRANCH' => _t('Şube', 'Branch'),
+    'BRANCH' => _t('İş Ortağı', 'Partner'),
     'COURIER' => _t('Kurye', 'Courier'),
     'CUSTOMER_PROCESS' => _t('Müşteri', 'Customer'),
     _ => code,
@@ -1140,7 +1163,7 @@ class L10n {
   String get earningsOpen => _t('Bekleyen', 'Outstanding');
   String get partnerDocsTitle => _t('İş Ortaklığı Evrakları', 'Partner documents');
   String get secContracts => _t('Sözleşmeler', 'Contracts');
-  String get secBranchDocs => _t('Şube evrakları', 'Branch documents');
+  String get secBranchDocs => _t('İş ortağı evrakları', 'Partner documents');
   String contractType(String code) => switch (code) {
     'PARTNERSHIP' => _t('İş ortaklığı sözleşmesi', 'Partnership agreement'),
     'KVKK' => _t('KVKK taahhütnamesi', 'Data protection undertaking'),
@@ -1152,7 +1175,7 @@ class L10n {
     'TAX_PLATE' => _t('Vergi levhası', 'Tax certificate'),
     'AUTHORIZATION' => _t('Yetki belgesi', 'Authorisation'),
     'SIGNATURE_CIRCULAR' => _t('İmza sirküleri', 'Signature circular'),
-    'BRANCH_PHOTO' => _t('Şube fotoğrafı', 'Branch photo'),
+    'BRANCH_PHOTO' => _t('İş ortağı fotoğrafı', 'Partner photo'),
     _ => code,
   };
   String partnerDocStatus(String code) => switch (code) {
@@ -1216,7 +1239,7 @@ class L10n {
   String get profileSupport => _t('Yardım & destek', 'Help & support');
   String get profileCallSupport => _t('Destek ekibini ara', 'Call support');
   String get supportLineWhat =>
-      _t('Şube destek hattı numarası', 'The branch support line number');
+      _t('İş ortağı destek hattı numarası', 'The partner support line number');
   String get profilePartnerDocs => _t('İş ortaklığı evrakları', 'Partner documents');
   String get profileInvoices => _t('Fatura & hakediş', 'Invoices & earnings');
   String get profileOffline => _t('Hızlı gönder', 'Quick send');
@@ -1273,10 +1296,10 @@ class L10n {
   String get opsGroupField => _t('Saha', 'Field');
   String get opsGroupStock => _t('Stok & zimmet', 'Stock & custody');
   String get opsGroupComms => _t('İletişim & eğitim', 'Comms & training');
-  String get opsGroupBranch => _t('Şube', 'Branch');
+  String get opsGroupBranch => _t('İş Ortağı', 'Partner');
   String get courierReturnTitle => _t('Kurye dönüş', 'Courier return');
   String get profileUser => _t('Kullanıcı bilgileri', 'User details');
-  String get profileBranch => _t('Şube bilgileri', 'Branch details');
+  String get profileBranch => _t('İş ortağı bilgileri', 'Partner details');
   String get profileRole => _t('Rol / yetki', 'Role / permissions');
   String get profileCanOperate => _t('Operasyon', 'Operate');
   String get profileCanManage => _t('Yönetim', 'Manage');
@@ -1353,8 +1376,8 @@ class L10n {
   String notSentTitle(int n) =>
       _t('$n kayıt gönderilemedi', '$n records could not be sent');
   String get notSentBody => _t(
-    'Şubeni ara ya da destek talebi aç.',
-    'Call your branch or open a support request.',
+    'İş ortağını ara ya da destek talebi aç.',
+    'Call your partner or open a support request.',
   );
   String get autoSend => _t('Otomatik gönder', 'Send automatically');
   String get waitingList => _t('Bekleyen kayıtlar', 'Waiting records');
@@ -1370,7 +1393,7 @@ class L10n {
   String apptCount(int n) => _t('$n randevulu', '$n by appointment');
   String lateCount(int n) => _t('$n acil', '$n urgent');
   String toBranchCount(int n) =>
-      _t('$n şubeye dönecek', '$n to return to branch');
+      _t('$n iş ortağına dönecek', '$n to return to partner');
   String get breakStart => _t('Molaya çık', 'Start break');
   String get breakEnd => _t('Moladan dön', 'End break');
   String get mockLocationWarning => _t(
@@ -1411,8 +1434,8 @@ class L10n {
     'Courier change saved. It applies once the new courier accepts.',
   );
   String get handoverCancelled => _t(
-    'Zimmet iptal edildi; gönderi şubede.',
-    'Assignment cancelled; shipment stays at branch.',
+    'Zimmet iptal edildi; gönderi iş ortağında.',
+    'Assignment cancelled; shipment stays at partner.',
   );
   String get noCouriersToPick =>
       _t('Seçilebilecek kurye yok', 'No courier available');
@@ -1545,7 +1568,7 @@ class L10n {
     'EQUIPMENT' => _t('Ekipman', 'Equipment'),
     'PHYSICAL_DOCUMENT' => _t('Evrak', 'Documents'),
     'CARD_RETURN' => _t('Kart iadesi', 'Card return'),
-    'BRANCH_TRANSFER' => _t('Şube transferi', 'Branch transfer'),
+    'BRANCH_TRANSFER' => _t('İş ortağı transferi', 'Partner transfer'),
     'OTHER' => _t('Diğer', 'Other'),
     _ => code,
   };
@@ -1562,7 +1585,7 @@ class L10n {
   String get subeLogout => _t('Çıkış yap', 'Sign out');
   // ---- Giriş akışı (mockup 01–03) ----
   String get loginRoleCourier => _t('Kurye', 'Courier');
-  String get loginRoleBranch => _t('Şube', 'Branch');
+  String get loginRoleBranch => _t('İş Ortağı', 'Partner');
   String get loginOr => _t('veya', 'or');
   String get identifierLabel => _t('Telefon / E-posta', 'Phone / Email');
   String get phoneHint => _t('0 5XX XXX XX XX', '0 5XX XXX XX XX');
@@ -1627,7 +1650,7 @@ class L10n {
       _t('ACENTA · AYLIK KARŞILIK', 'AGENCY · MONTHLY EQUIV.');
   String get agencyPricingHint => _t(
     'Fiyatlandırma acenta tarafından yönetilir.',
-    'Pricing is managed by the agency.',
+    'Pricing is managed by the partner.',
   );
   String get fixedMonthlyHint => _t(
     'Sabit aylık ücret alıyorsun. Teslimat başına tutar gösterilmez.',
@@ -1953,8 +1976,8 @@ class L10n {
       'Your account is locked for a short time. Try again later.',
     ),
     'ACCOUNT_NOT_ACTIVE' => _t(
-      'Hesabın henüz açılmamış. Şubenle görüş.',
-      'Your account is not active yet. Contact your branch.',
+      'Hesabın henüz açılmamış. İş ortağınla görüş.',
+      'Your account is not active yet. Contact your partner.',
     ),
     'VALIDATION_ERROR' => _t(
       'Kod 6 haneli olmalı.',
@@ -2076,8 +2099,8 @@ class L10n {
   };
   String get branchDisputesTab => _t('Uyuşmazlık', 'Disputes');
   String get branchDisputesNote => _t(
-    'Kuryelerin bu şubeden aldığı zimmet için bildirdikleri. Çözüm operasyon ekibinde.',
-    'Reported by couriers for custody from this branch. Operations resolves them.',
+    'Kuryelerin bu iş ortağından aldığı zimmet için bildirdikleri. Çözüm operasyon ekibinde.',
+    'Reported by couriers for custody from this partner. Operations resolves them.',
   );
   String get branchDisputesEmpty =>
       _t('Bildirilen uyuşmazlık yok', 'No discrepancies reported');
@@ -2266,7 +2289,7 @@ class L10n {
       _t('Başvuru no: $number', 'Application no: $number');
   String get custodyOnMe => _t('Üzerimdekiler', 'With me now');
   String get custodyOverdue =>
-      _t('24 saati geçti, teslim et ya da şubeye bırak', 'Over 24 hours, deliver or return it');
+      _t('24 saati geçti, teslim et ya da iş ortağına bırak', 'Over 24 hours, deliver or return it');
   String get custodyMoves => _t('Hareketler', 'Moves');
   String get contractsEmpty =>
       _t('Kayıtlı sözleşmen yok.', 'No agreements on file.');
@@ -2337,8 +2360,8 @@ class L10n {
     'ACCESS_LINK_INVALID' ||
     'ACCESS_TOKEN_INVALID' => linkBad,
     'ACTIVATION_EXPIRED' || 'ACCESS_EXPIRED' => _t(
-      'Bağlantının süresi dolmuş. Şubenden yenisini iste.',
-      'The link expired. Ask your branch for a new one.',
+      'Bağlantının süresi dolmuş. İş ortağından yenisini iste.',
+      'The link expired. Ask your partner for a new one.',
     ),
     'ACTIVATION_ALREADY_USED' || 'ACCOUNT_ALREADY_ACTIVE' => _t(
       'Hesabın zaten açılmış. Giriş yapabilirsin.',
@@ -2349,8 +2372,8 @@ class L10n {
       'This link is no longer valid. Use the link in the latest email.',
     ),
     'ACCESS_LOCKED' => _t(
-      'Çok fazla deneme yapıldı. Şubenle görüş.',
-      'Too many attempts. Contact your branch.',
+      'Çok fazla deneme yapıldı. İş ortağınla görüş.',
+      'Too many attempts. Contact your partner.',
     ),
     _ => serverMessage ?? availabilityFailed,
   };
@@ -2494,7 +2517,7 @@ class L10n {
     _ => serverMessage ?? availabilityFailed,
   };
   String get cardsTitle => _t('Kartlar', 'Cards');
-  String get cardBranch => _t('Şube kartı', 'Branch card');
+  String get cardBranch => _t('İş ortağı kartı', 'Partner card');
   String get cardShow => _t('Kartı göster', 'Show card');
   String get cardVerify => _t('Kart okut ve doğrula', 'Scan and verify a card');
   String get cardValid => _t('Kart geçerli', 'Card is valid');
@@ -2502,16 +2525,16 @@ class L10n {
     'EXPIRED' => _t('Kartın süresi dolmuş', 'The card has expired'),
     'OWNER_INACTIVE' => _t('Kart sahibi aktif değil', 'Card holder is not active'),
     'OWNER_NOT_ASSIGNED' => _t(
-      'Bu kurye artık şubene bağlı değil',
-      'This courier is no longer with your branch',
+      'Bu kurye artık iş ortağına bağlı değil',
+      'This courier is no longer with your partner',
     ),
     _ => _t('Kart geçersiz', 'Card is not valid'),
   };
   String get cardNotFound =>
-      _t('Bu kart senin şubene ait değil.', 'This card is not from your branch.');
+      _t('Bu kart senin iş ortağına ait değil.', 'This card is not from your partner.');
   String cardValidUntil(String date) => _t('$date tarihine kadar geçerli', 'Valid until $date');
   String get cardFailed => _t('Kart üretilemedi.', 'Could not create the card.');
-  String get agencyInfoTitle => _t('Acente bilgileri', 'Agency details');
+  String get agencyInfoTitle => _t('İş ortağı bilgileri', 'Partner details');
   String get agencyCouriers => _t('Kuryeler', 'Couriers');
   String get agencyRegions => _t('Hizmet bölgeleri', 'Service areas');
   String get agencyWarehouses => _t('Depolar', 'Warehouses');
@@ -2524,8 +2547,8 @@ class L10n {
   String get inventoryOnMe => _t('Üzerimde', 'With me');
   String get inventoryEmptyTitle => _t('Üzerinde ürün yok', 'Nothing with you');
   String get inventoryEmptyBody => _t(
-    'Şubeden teslim aldıkların burada görünür.',
-    'Items you take from the branch appear here.',
+    'İş ortağından teslim aldıkların burada görünür.',
+    'Items you take from the partner appear here.',
   );
 
   // İlk giriş tanıtımı
@@ -2544,8 +2567,8 @@ class L10n {
   );
   String get introCourier3Title => _t('Barkod okut', 'Scan');
   String get introCourier3Body => _t(
-    'Alttaki ortadaki düğme barkod okutur: şubeden paket alırken ve geri bırakırken onu kullan.',
-    'The middle button at the bottom scans barcodes: use it when you take parcels from the branch and when you return them.',
+    'Alttaki ortadaki düğme barkod okutur: iş ortağından paket alırken ve geri bırakırken onu kullan.',
+    'The middle button at the bottom scans barcodes: use it when you take parcels from the partner and when you return them.',
   );
   String get introCourier4Title =>
       _t('İnternet yoksa da çalış', 'Works without signal');

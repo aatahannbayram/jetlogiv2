@@ -498,7 +498,7 @@ void main() {
         };
       });
       final result = await PanelApi(dio)
-          .returnCustodyUnit('u-1', warehouseId: 'wh-1', note: 'şube');
+          .returnCustodyUnit('u-1', warehouseId: 'wh-1', note: 'iş ortağı');
       expect(seenPath, '/courier-custody/return');
       expect(seenBody!['shipmentIds'], ['u-1']);
       expect(seenBody!['targetUnitId'], 'wh-1');

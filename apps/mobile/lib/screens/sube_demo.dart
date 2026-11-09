@@ -220,7 +220,7 @@ const kSubeDemoCancelReasons = [
 
 const _demoWarehouse = BranchWarehouse(
   id: 'demo-w1',
-  name: 'Şube Deposu',
+  name: 'İş Ortağı Deposu',
   code: 'DP-01',
 );
 
@@ -233,20 +233,20 @@ const kSubeDemoCounts = CountsData(
       id: 'demo-count-r',
       number: 'SAY-DEMO-0042',
       statusCode: 'REVIEW',
-      warehouseName: 'Şube Deposu',
+      warehouseName: 'İş Ortağı Deposu',
       varianceLineCount: 2,
     ),
     StockCount(
       id: 'demo-count-p',
       number: 'SAY-DEMO-0039',
       statusCode: 'POSTED',
-      warehouseName: 'Şube Deposu',
+      warehouseName: 'İş Ortağı Deposu',
     ),
     StockCount(
       id: 'demo-count-c',
       number: 'SAY-DEMO-0035',
       statusCode: 'CANCELLED',
-      warehouseName: 'Şube Deposu',
+      warehouseName: 'İş Ortağı Deposu',
       varianceLineCount: 1,
     ),
   ],
@@ -260,7 +260,7 @@ const kSubeDemoCountDetails = {
       id: 'demo-count-r',
       number: 'SAY-DEMO-0042',
       statusCode: 'REVIEW',
-      warehouseName: 'Şube Deposu',
+      warehouseName: 'İş Ortağı Deposu',
       varianceLineCount: 2,
     ),
     lines: [
@@ -281,7 +281,7 @@ const kSubeDemoCountDetails = {
       id: 'demo-count-p',
       number: 'SAY-DEMO-0039',
       statusCode: 'POSTED',
-      warehouseName: 'Şube Deposu',
+      warehouseName: 'İş Ortağı Deposu',
     ),
     lines: [CountLine(id: 'p1', name: 'POS cihazı', expected: 12, counted: 12)],
   ),
@@ -293,7 +293,7 @@ const kSubeDemoCount = CountDetail(
     id: 'demo-count',
     number: 'SAY-DEMO-001',
     statusCode: 'IN_PROGRESS',
-    warehouseName: 'Şube Deposu',
+    warehouseName: 'İş Ortağı Deposu',
   ),
   lines: [
     CountLine(id: 'demo-l1', name: 'POS cihazı', expected: 12, counted: 11),
@@ -746,7 +746,7 @@ Map<String, dynamic> kSubeDemoPrintRow(BranchShipmentRow row) => {
 const _demoBranchTrainings = [
   LearnerTraining(
     id: 'demo-lt1',
-    title: 'Şube açılış kontrol listesi',
+    title: 'İş ortağı açılış kontrol listesi',
     summary: 'Güne başlamadan önce yapılacak 8 kontrol.',
     primaryType: 'VIDEO',
     category: 'OPERATION',
@@ -772,7 +772,7 @@ const _demoBranchTrainings = [
   LearnerTraining(
     id: 'demo-lt3',
     title: 'KVKK ve müşteri verisi',
-    summary: 'Şubede kişisel veriyle çalışma kuralları.',
+    summary: 'İş ortağında kişisel veriyle çalışma kuralları.',
     primaryType: 'PDF',
     category: 'COMPLIANCE',
     lessonCount: 1,
@@ -911,7 +911,7 @@ List<TrainingLesson> _demoLessons(Set<String> done) {
       durationSeconds: 240,
       required: true,
       contentBody:
-          'Şube gönderiyi kuryeye atar; zimmet, kurye gönderi numarasını '
+          'İş ortağı gönderiyi kuryeye atar; zimmet, kurye gönderi numarasını '
           'okutup kabul edince kesinleşir. Demo videosu yerine bu özet '
           'gösterilir.',
     ),
@@ -941,7 +941,7 @@ List<TrainingLesson> _demoLessons(Set<String> done) {
             text: 'Zimmet ne zaman kesinleşir?',
             multiple: false,
             options: [
-              (id: 'a', text: 'Şube kuryeyi atayınca'),
+              (id: 'a', text: 'İş ortağı kuryeyi atayınca'),
               (id: 'b', text: 'Kurye gönderiyi okutup kabul edince'),
               (id: 'c', text: 'Gün sonunda'),
             ],
@@ -1153,7 +1153,7 @@ EndOfDayStatus kSubeDemoEndOfDay({bool closed = false}) => EndOfDayStatus(
   closed: closed,
   canClose: !closed,
   closedAt: closed ? DateTime.now() : null,
-  closedByName: closed ? 'Demo Şube Yetkilisi' : null,
+  closedByName: closed ? 'Demo İş Ortağı Yetkilisi' : null,
   blockers: const [],
 );
 

@@ -66,7 +66,7 @@ void main() {
   Future<void> openItem(WidgetTester tester, String label) =>
       tapFound(tester, find.text(label));
 
-  testWidgets('ana sayfa şube özetini ve beş sekmeyi gösterir', (tester) async {
+  testWidgets('ana sayfa iş ortağı özetini ve beş sekmeyi gösterir', (tester) async {
     await openBranch(tester);
     expect(find.text('Güney Acente'), findsOneWidget);
     expect(find.text('Toplam gönderi'), findsOneWidget);
@@ -148,13 +148,13 @@ void main() {
     await tester.enterText(find.byType(TextField), 'JL100238553');
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pumpAndSettle();
-    expect(find.text('Şubeye teslim alındı'), findsOneWidget);
+    expect(find.text('İş ortağına teslim alındı'), findsOneWidget);
     await tester.tap(find.byKey(const Key('return-review')));
     await tester.pumpAndSettle();
     expect(find.text('Teslim alındı (1)'), findsOneWidget);
     await tester.tap(find.byKey(const Key('return-complete')));
     await tester.pumpAndSettle();
-    expect(find.text('1 gönderi şubeye alındı'), findsOneWidget);
+    expect(find.text('1 gönderi iş ortağına alındı'), findsOneWidget);
     expect(session.branch.pendingScans, 0);
   });
 
@@ -333,7 +333,7 @@ void main() {
     await tester.tap(find.text('Ali Can'));
     await tester.pumpAndSettle();
     expect(find.text('Kurye Detayı'), findsOneWidget);
-    expect(find.text('Birincil şube'), findsOneWidget);
+    expect(find.text('Birincil iş ortağı'), findsOneWidget);
     await tapPill(tester, 'Evraklar');
     expect(find.text('4 / 4 belge onaylı'), findsOneWidget);
     expect(find.text('Ehliyet'), findsOneWidget);
@@ -377,7 +377,7 @@ void main() {
     );
     await tester.tap(find.text('Gün sonu raporu'));
     await tester.pumpAndSettle();
-    expect(find.text('Şube gün sonu'), findsOneWidget);
+    expect(find.text('İş ortağı gün sonu'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.byKey(const Key('eod-close')),
       200,
@@ -454,7 +454,7 @@ void main() {
       await openItem(tester, 'Eğitim Merkezi');
       expect(find.text('1 / 4 tamamlandı'), findsOneWidget);
       expect(find.text('2 zorunlu eğitim bekliyor'), findsOneWidget);
-      await tester.tap(find.text('Şube açılış kontrol listesi'));
+      await tester.tap(find.text('İş ortağı açılış kontrol listesi'));
       await tester.pumpAndSettle();
       final done = find.byKey(const Key('training-complete'));
       // İçerik açılmadan tamamlanamaz.
@@ -492,7 +492,7 @@ void main() {
       await openItem(tester, 'Eğitim Merkezi');
       expect(find.text('1 / 5 tamamlandı'), findsOneWidget);
       expect(find.text('2 zorunlu eğitim bekliyor'), findsOneWidget);
-      await tester.tap(find.text('Şube açılış kontrol listesi'));
+      await tester.tap(find.text('İş ortağı açılış kontrol listesi'));
       await tester.pumpAndSettle();
       // Oynatıcı: metin içerik hemen okunur, tamamlanabilir.
       expect(find.textContaining('demo eğitimidir'), findsOneWidget);

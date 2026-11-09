@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -52,7 +53,7 @@ class DijigooApp extends ConsumerWidget {
     return L10nScope(
       l10n: l10n,
       child: MaterialApp(
-        title: 'Dijigoo',
+        title: kIsWeb ? 'Dijigoo | Dijital Teslimat Platformu' : 'Dijigoo',
         debugShowCheckedModeBanner: false,
         locale: Locale(localeCode),
         supportedLocales: const [Locale('tr'), Locale('en')],

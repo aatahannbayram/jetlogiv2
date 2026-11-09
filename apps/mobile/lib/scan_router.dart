@@ -73,7 +73,7 @@ class ScanRouter {
 /// Sunucu Türkçe `error.message` göndermediğinde gösterilecek kısa metin.
 String scanErrorText(String code) => switch (code) {
   'SHIPMENT_NOT_FOUND' ||
-  'BRANCH_SHIPMENT_NOT_FOUND' => 'Gönderi bu şubede bulunamadı',
+  'BRANCH_SHIPMENT_NOT_FOUND' => 'Gönderi bu iş ortağında bulunamadı',
   'FORBIDDEN' => 'Bu işlem için yetkiniz yok',
   'COUNT_OPERATION_REJECTED' => 'Sayım bu işlemi kabul etmedi',
   'AGENCY_REQUEST_FAILED' => 'Bağlantı kurulamadı',

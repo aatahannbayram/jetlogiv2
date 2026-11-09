@@ -1057,7 +1057,7 @@ void main() {
       },
     );
 
-    test('şube sözleşme / evrak kalemleri uyum ucundan okunur', () async {
+    test('iş ortağı sözleşme / evrak kalemleri uyum ucundan okunur', () async {
       final t = _setup((c) {
         if (c.path.endsWith('/branch/compliance')) {
           return {

@@ -478,7 +478,7 @@ void main() {
     expect(s.tickets.first.reference, 'TKT-1');
   });
 
-  test('panel şube zimmeti courier-custody return çağırır', () async {
+  test('panel iş ortağı zimmeti courier-custody return çağırır', () async {
     var returns = 0;
     final dio = Dio();
     dio.interceptors.add(
@@ -1705,7 +1705,7 @@ void main() {
     },
   );
 
-  test('şube zimmet devri başarılı olunca gerçek "Zimmet onaylandı" bildirimi üretir', () async {
+  test('iş ortağı zimmet devri başarılı olunca gerçek "Zimmet onaylandı" bildirimi üretir', () async {
     final dio = Dio();
     dio.interceptors.add(
       InterceptorsWrapper(

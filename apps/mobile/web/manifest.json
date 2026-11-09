@@ -1,20 +1,38 @@
 {
-    "name": "Dijigoo Saha",
+    "name": "Dijigoo",
     "short_name": "Dijigoo",
     "id": "/",
     "start_url": "/",
     "scope": "/",
     "display": "standalone",
-    "background_color": "#0A0F2B",
-    "theme_color": "#0A0F2B",
-    "description": "Dijigoo kurye ve şube uygulaması",
+    "background_color": "#01061F",
+    "theme_color": "#01061F",
+    "description": "Dijital Teslimat Platformu",
     "lang": "tr",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
-        {"src": "icons/Icon-192.png", "sizes": "192x192", "type": "image/png"},
-        {"src": "icons/Icon-512.png", "sizes": "512x512", "type": "image/png"},
-        {"src": "icons/Icon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable"},
-        {"src": "icons/Icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+        {
+            "src": "icons/Icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-maskable-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "icons/Icon-maskable-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
     ]
 }

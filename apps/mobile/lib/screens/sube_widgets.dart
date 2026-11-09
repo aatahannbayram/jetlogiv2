@@ -220,7 +220,15 @@ class ScanOutcomeTile extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          StatusChip(label: outcome.title, tone: tone),
+          // "İş ortağına teslim alındı" gibi uzun sonuçlar dar ekranda
+          // taşmasın.
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: StatusChip(label: outcome.title, tone: tone),
+            ),
+          ),
         ],
       ),
     );

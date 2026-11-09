@@ -26,22 +26,28 @@ class Dg {
 
   /// Koşulsuz koyu — temadan bağımsız gerçek siyah/gece yüzeyler için
   /// (giriş/tören ekranı gradyanının tabanı, PhoneShell çerçevesi).
-  static const night = Color(0xFF0A0F2B);
+  static const night = Color(0xFF01061F);
   static const onNight = Color(0xFFFFFFFF);
   static const mutedOnNight = Color(0xFFC5CAD3);
   static const action = Color(0xFF2563FF);
   static const onAction = Color(0xFFFFFFFF);
 
   // ---- Dijigoo kurumsal renkleri (Kılavuz s.9) ----
-  static const navy = Color(0xFF0A0F2B);
+  static const navy = Color(0xFF01061F);
   static const brandBlue = Color(0xFF2563FF);
   static const brandPurple = Color(0xFF8B5CF6);
-  static const brandTurquoise = Color(0xFF06D6FF);
+  static const brandTurquoise = Color(0xFF00EAFE);
+
+  // ---- Teslim v1.1 (tasarim/marka.json) ----
+  static const dgMor = Color(0xFF9404FD);
+  static const dgMorMavi = Color(0xFF5140FC);
+  static const dgMavi = Color(0xFF0E97FD);
+  static const dgTurkuaz = Color(0xFF00EAFE);
 
   /// Ana renk akışı (s.10): yardımcı grafik — sekme göstergesi, ince ayraç,
   /// ilerleme. Logoya uygulanmaz.
   static const brandFlow = LinearGradient(
-    colors: [brandPurple, brandBlue, brandTurquoise],
+    colors: [dgMor, dgMorMavi, dgMavi, dgTurkuaz],
   );
 
   /// Marka ana düğmesi (mockup: mor → mavi → turkuaz). Yazı ortadaki
@@ -68,6 +74,7 @@ class Dg {
 
   /// Web dalındaki küçük vurgu rengi; Dijigoo'da turkuaz.
   static const orange = brandTurquoise;
+
   /// Dolu düğme renkleri: her temada aynı, üstünde beyaz kalın yazı.
   static const go = Color(0xFF16A34A);
   static const stop = Color(0xFFDC2F2F);
@@ -102,9 +109,13 @@ class Dg {
       ? const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFF18214A), Color(0xFF111836)],
+          colors: [Color(0xFF131C4A), Color(0xFF0A1236)],
         )
       : null;
+
+  /// Kart kenarı: koyuda giriş ekranındaki cam kartların ince açık çizgisi.
+  static Color get cardEdge =>
+      dark ? const Color(0x1AFFFFFF) : const Color(0x120A0F2B);
 
   /// Ortak kart dekorasyonu (DgPanel, DgCard, KPI ve gezinme kutuları).
   static BoxDecoration card({double radius = 20, Color? color}) =>
@@ -112,6 +123,7 @@ class Dg {
         color: color ?? surface1,
         gradient: color == null ? cardSheen : null,
         borderRadius: BorderRadius.circular(radius),
+        border: Border.all(color: cardEdge),
         boxShadow: cardShadow,
       );
 
@@ -135,7 +147,7 @@ class Dg {
   );
 
   // Temadan bağımsız lacivert dock.
-  static const dock = Color(0xFF121936);
+  static const dock = Color(0xFF0B1235);
   static const onDock = Color(0xFFFFFFFF);
   static const mutedOnDock = Color(0xFF9CA3AF);
   static const dockActive = Color(0xFF06D6FF);
@@ -148,10 +160,11 @@ class Dg {
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
     colors: dark
-        ? const [Color(0xFF131C4A), Color(0xFF0D1338), Color(0xFF0A0F2B)]
+        ? const [Color(0xFF0B1240), Color(0xFF050B2C), Color(0xFF01061F)]
         : const [Color(0xFFE9EDFF), Color(0xFFF3F5FC), Color(0xFFF4F5F8)],
   );
   static const heroAccentOrange = brandBlue;
+
   /// Eylem gradyanı: her durağı beyaz metinle ≥ 4.5:1. Marka akışı
   /// (mor/turkuaz) metin taşımaz, bkz. [brandFlow].
   static const emberGradient = LinearGradient(
@@ -210,10 +223,10 @@ class Dg {
   // ---- Tipografi ----
   // Kılavuz s.11: tek aile Inter (başlık SemiBold/Bold, gövde Regular,
   // buton Medium). Kod/barkod da Inter + sabit genişlikli rakam.
-  static const display = 'Inter';
-  static const sans = 'Inter';
-  static const statFamily = 'Inter';
-  static const mono = 'Inter';
+  static const display = 'Manrope';
+  static const sans = 'Manrope';
+  static const statFamily = 'Manrope';
+  static const mono = 'Manrope';
 
   /// Inter'in optik boyut ekseni 14–32 aralığında; büyük başlıklarda harfler
   /// daha sıkı ve keskin, küçük metinde daha açık ve okunur çizilir.
@@ -245,11 +258,11 @@ class Dg {
 
   // ---- Kurye ve şube için ortak lacivert saha paleti ----
   static Color get bg =>
-      dark ? const Color(0xFF0A0F2B) : const Color(0xFFF4F5F8);
+      dark ? const Color(0xFF020823) : const Color(0xFFF4F5F8);
   static Color get surface1 =>
-      dark ? const Color(0xFF121936) : const Color(0xFFFFFFFF);
+      dark ? const Color(0xFF0B1235) : const Color(0xFFFFFFFF);
   static Color get surface2 =>
-      dark ? const Color(0xFF1A2244) : const Color(0xFFEDF0F6);
+      dark ? const Color(0xFF141D45) : const Color(0xFFEDF0F6);
   static Color get stroke =>
       dark ? const Color(0xFF6B7591) : const Color(0xFF737C8C);
   static Color get text1 =>
@@ -258,8 +271,9 @@ class Dg {
       dark ? const Color(0xFFC5CAD3) : const Color(0xFF374151);
   static Color get text3 =>
       dark ? const Color(0xFF9CA3AF) : const Color(0xFF5B6472);
+  // Koyuda teslim v1.1 mavisine (#0E97FD) yakın, metinde okunur açık ton.
   static Color get brand =>
-      dark ? const Color(0xFF5B8CFF) : const Color(0xFF1D4FE0);
+      dark ? const Color(0xFF38AEFF) : const Color(0xFF1D4FE0);
   // Durum renkleri kılavuzda yok; her zaman ikon + metinle kullanılır.
   static Color get warn =>
       dark ? const Color(0xFFFBBF24) : const Color(0xFF9A4508);
@@ -279,12 +293,10 @@ class Dg {
   static Color get hairline =>
       dark ? const Color(0x14FFFFFF) : const Color(0x140A0F2B);
 
-  /// Legacy decorative edge: subtle and separate from control outlines.
-  static Color get cardEdge => hairline;
   static Color get warnSoft => warn.withValues(alpha: 0.12);
   static Color get brandSoft => brand.withValues(alpha: 0.12);
   static Color get muteSoft =>
-      dark ? const Color(0xFF1A2244) : const Color(0xFFEDF0F6);
+      dark ? const Color(0xFF141D45) : const Color(0xFFEDF0F6);
 
   static const rSm = 10.0;
   static const rMd = 14.0;
@@ -338,7 +350,7 @@ class Dg {
   }) {
     return TextStyle(
       fontFamily: display,
-      fontFamilyFallback: const ['Inter'],
+      fontFamilyFallback: const ['Manrope'],
       fontSize: size < 14 ? 14 : (size == 15 ? 16 : size),
       fontWeight: weight,
       fontStyle: italic ? FontStyle.italic : FontStyle.normal,
@@ -363,7 +375,7 @@ class Dg {
   }) {
     return TextStyle(
       fontFamily: sans,
-      fontFamilyFallback: const ['Inter'],
+      fontFamilyFallback: const ['Manrope'],
       fontSize: size < 14 ? 14 : (size == 15 ? 16 : size),
       fontWeight: weight,
       color: color ?? ink,
@@ -394,7 +406,7 @@ class Dg {
   }) {
     return TextStyle(
       fontFamily: statFamily,
-      fontFamilyFallback: const ['Inter'],
+      fontFamilyFallback: const ['Manrope'],
       fontSize: size < 14 ? 14 : (size == 15 ? 16 : size),
       fontWeight: weight,
       color: color ?? ink,
@@ -485,8 +497,10 @@ class Dg {
           foregroundColor: ink,
         ),
       ),
+      // Yüzen düğme: teslimdeki degradenin orta tonu (mor-mavi #5140FC),
+      // beyaz yazıyla 5.6:1.
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: action,
+        backgroundColor: dgMorMavi,
         foregroundColor: onAction,
         elevation: 0,
         shape: RoundedRectangleBorder(

@@ -90,9 +90,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 600));
     await tester.tap(find.text('Aktivasyonu göster'));
     await tester.pumpAndSettle();
-    expect(find.text('Giriş Yap'), findsOneWidget);
-    await tester.tap(find.byKey(const Key('login-method-password')));
-    await tester.pumpAndSettle();
+    expect(find.text('Giriş yap'), findsOneWidget);
     expect(find.byKey(const Key('panel-identifier')), findsOneWidget);
     expect(find.byKey(const Key('panel-password')), findsOneWidget);
     expect(find.byKey(const Key('panel-login')), findsOneWidget);
@@ -100,6 +98,9 @@ void main() {
     await tester.tap(find.byKey(const Key('login-method-sms')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('sms-login')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('login-method-password')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('panel-login')), findsOneWidget);
   });
 
   testWidgets('sıradaki durak kartına dokununca o durak açılır; üç nokta yok', (
@@ -583,7 +584,7 @@ void main() {
     expect(Dg.dark, isFalse);
   });
 
-  testWidgets('şube demo girişi acente ana sayfasını açar', (tester) async {
+  testWidgets('iş ortağı demo girişi iş ortağı ana sayfasını açar', (tester) async {
     await bindPhone(tester);
     // Gerçek açılıştaki gibi henüz kimse giriş yapmamış.
     final session = SessionController()..courier = Courier.empty;
@@ -602,7 +603,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('sube-login-link')));
     await tester.pumpAndSettle();
-    expect(find.text('Şube Girişi'), findsOneWidget);
+    expect(find.text('İş Ortağı'), findsWidgets);
     await tester.enterText(
       find.byKey(const Key('sube-email')),
       SessionController.agencyDemoEmail,
@@ -680,7 +681,7 @@ void main() {
   });
 
   testWidgets(
-    'İade/Geri Teslim: sekmeler arası geçer ve şubeye teslimi onaylar',
+    'İade/Geri Teslim: sekmeler arası geçer ve iş ortağına teslimi onaylar',
     (tester) async {
       await bindPhone(tester);
       final session = SessionController();
@@ -699,10 +700,10 @@ void main() {
       await tester.tap(find.text('Geri Teslim'));
       await tester.pumpAndSettle();
       expect(find.text('Fatma Şahin — Yeni Mah.'), findsOneWidget);
-      await tester.tap(find.text('Şubeye teslim ettim'));
+      await tester.tap(find.text('İş ortağına teslim ettim'));
       await tester.pumpAndSettle();
       expect(find.byIcon(LucideIcons.checkCircle2), findsOneWidget);
-      expect(find.text('Şubeye teslim ettim'), findsNothing);
+      expect(find.text('İş ortağına teslim ettim'), findsNothing);
     },
   );
 }

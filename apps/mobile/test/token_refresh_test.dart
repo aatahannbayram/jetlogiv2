@@ -161,7 +161,7 @@ void main() {
     });
   });
 
-  group('şube oturumu', () {
+  group('iş ortağı oturumu', () {
     test('401 → agency-auth/refresh → istek tekrarlanır', () async {
       final vault = Vault();
       await vault.writeSecret(kAgencyRefreshKey, 'rt-a');
