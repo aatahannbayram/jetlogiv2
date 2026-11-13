@@ -8,7 +8,13 @@ import 'package:dijigoo_kurye/scan_router.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-typedef _Call = ({String method, String path, Map body, String? key});
+typedef _Call = ({
+  String method,
+  String path,
+  Map body,
+  String? key,
+  Map<String, dynamic> query,
+});
 
 /// Şube Mobil API'sinin (`swagger/branch.yaml`) zarfıyla konuşan sahte sunucu.
 /// [respond] bir `data` gövdesi döner; [AgencyApiException] fırlatırsa aynı
@@ -35,6 +41,7 @@ class _Server {
             path: options.path,
             body: options.data is Map ? options.data as Map : const {},
             key: options.headers['Idempotency-Key'] as String?,
+            query: Map<String, dynamic>.from(options.queryParameters),
           );
           calls.add(call);
           if (offline) {
@@ -776,5 +783,84 @@ void main() {
     );
     await branch.loadCounts();
     expect(expired, 1);
+  });
+
+  test('geçmiş gün tarih parametresiyle istenir, bugün parametresiz', () async {
+    final t = _setup((c) {
+      if (c.path.endsWith('/branch/dispatch')) {
+        final past = c.query['date'] == '2026-11-01';
+        return {
+          'date': past ? '2026-11-01' : '2026-11-09',
+          'readOnly': past,
+          'capabilities': {'operate': !past, 'manage': false},
+          'rows': [_row('s9', 'JD9', 'AWAITING_COURIER')],
+        };
+      }
+      return _defaults(c);
+    });
+    t.branch.picked.add('s1');
+    await t.branch.loadDispatch('2026-11-01');
+    expect(t.server.to('/branch/dispatch').last.query['date'], '2026-11-01');
+    expect(t.branch.board!.readOnly, isTrue);
+    expect(t.branch.dispatchWritable, isFalse);
+    expect(t.branch.picked, isEmpty);
+
+    await t.branch.loadDispatch(istanbulYmd());
+    expect(t.branch.dispatchDate, isNull);
+    expect(
+      t.server.to('/branch/dispatch').last.query.containsKey('date'),
+      isFalse,
+    );
+    expect(t.branch.dispatchWritable, isTrue);
+  });
+
+  test('özel performans aralığı sorguya yazılır, 92 günü aşan gitmez', () async {
+    final t = _setup((c) {
+      if (c.path.endsWith('/branch/performance')) {
+        return {
+          'range': 'custom',
+          'from': c.query['from'],
+          'to': c.query['to'],
+          'totals': {'attemptedShipments': 1},
+        };
+      }
+      return _defaults(c);
+    });
+    final end = DateTime.parse(istanbulYmd()).subtract(const Duration(days: 1));
+    final tooLongStart = end.subtract(const Duration(days: 100));
+    await t.branch.loadPerformance(
+      'custom',
+      from: ymdOf(tooLongStart),
+      to: ymdOf(end),
+    );
+    expect(t.branch.error, 'Aralık en fazla 92 gün olabilir.');
+    expect(t.server.to('/branch/performance'), isEmpty);
+
+    final from = ymdOf(end.subtract(const Duration(days: 6)));
+    final to = ymdOf(end);
+    await t.branch.loadPerformance('custom', from: from, to: to);
+    final query = t.server.to('/branch/performance').single.query;
+    expect(query['range'], 'custom');
+    expect(query['from'], from);
+    expect(query['to'], to);
+    expect(t.branch.performance!.selectionKey, 'custom:$from:$to');
+  });
+
+  test('stok sayaçları stock-summary ucundan gelir', () async {
+    final t = _setup((c) {
+      if (c.path.endsWith('/branch/stock-summary')) {
+        return {
+          'inWarehouse': 3,
+          'atCourier': 2,
+          'inTransit': 1,
+          'returnPending': 4,
+        };
+      }
+      return _defaults(c);
+    });
+    await t.branch.loadStockSummary();
+    expect(t.server.to('/branch/stock-summary'), hasLength(1));
+    expect(t.branch.stockSummary!.inWarehouse, 3);
+    expect(t.branch.stockSummary!.returnPending, 4);
   });
 }

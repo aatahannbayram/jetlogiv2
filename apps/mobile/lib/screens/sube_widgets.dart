@@ -14,6 +14,12 @@ String subeClock(DateTime at) {
   return '${two(t.hour)}:${two(t.minute)}';
 }
 
+String subeDayTime(DateTime at) {
+  final t = at.toLocal();
+  String two(int n) => n.toString().padLeft(2, '0');
+  return '${two(t.day)}.${two(t.month)} ${two(t.hour)}:${two(t.minute)}';
+}
+
 void subeSnack(BuildContext context, String message) {
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()

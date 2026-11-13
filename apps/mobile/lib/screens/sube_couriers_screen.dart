@@ -6,6 +6,7 @@ import '../l10n.dart';
 import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import 'sube_courier_detail_screen.dart';
 import 'sube_widgets.dart';
 
 /// Kurye havuzu: canlı durum, üzerindeki ve geciken adet, son görülme.
@@ -31,6 +32,14 @@ class SubeCouriersScreen extends ConsumerWidget {
               Padding(
                 padding: const EdgeInsets.only(bottom: 10),
                 child: DgCard(
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => SubeCourierDetailScreen(
+                        courierId: c.id,
+                        fallbackName: c.name,
+                      ),
+                    ),
+                  ),
                   child: Row(
                     children: [
                       InitialsAvatar(

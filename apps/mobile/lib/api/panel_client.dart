@@ -993,7 +993,13 @@ class PanelApi {
     required String appVersion,
     String? pushToken,
     int pendingOperationCount = 0,
+    String? deviceModel,
+    Map<String, bool?>? permissions,
   }) async {
+    final knownPermissions = {
+      for (final entry in permissions?.entries ?? const <MapEntry<String, bool?>>[])
+        if (entry.value != null) entry.key: entry.value,
+    };
     try {
       await dio.put<Map<String, dynamic>>(
         '/courier-devices',
@@ -1006,6 +1012,9 @@ class PanelApi {
             'pushToken': pushToken,
           },
           'pendingOperationCount': pendingOperationCount,
+          if (deviceModel != null && deviceModel.isNotEmpty)
+            'deviceModel': deviceModel,
+          if (knownPermissions.isNotEmpty) 'permissions': knownPermissions,
         },
       );
     } on DioException catch (e) {

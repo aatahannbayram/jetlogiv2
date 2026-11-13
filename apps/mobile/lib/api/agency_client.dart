@@ -163,8 +163,18 @@ class AgencyPortalApi {
       BranchDashboard.fromJson(await _data(_get('/branch/dashboard')));
 
   /// `GET branch/dispatch` — birimdeki 4010 + 4020 gönderiler (en fazla 500).
-  Future<DispatchBoard> fetchDispatchBoard() async =>
-      DispatchBoard.fromJson(await _data(_get('/branch/dispatch')));
+  /// [date] boşsa bugün istenir (parametre gitmez). Geçmiş gün `readOnly`.
+  Future<DispatchBoard> fetchDispatchBoard({String? date}) async =>
+      DispatchBoard.fromJson(
+        await _data(
+          _get(
+            '/branch/dispatch',
+            queryParameters: date == null || date.isEmpty
+                ? null
+                : {'date': date},
+          ),
+        ),
+      );
 
   /// Çoklu seçimde ilk seçili gönderinin kimliği gönderilir (web de böyle).
   Future<DispatchOptions> fetchDispatchOptions(String shipmentId) async =>
@@ -223,6 +233,19 @@ class AgencyPortalApi {
         if (row is Map) ReasonOption.fromJson(Map<String, dynamic>.from(row)),
     ];
   }
+
+  /// Seçili gönderinin işlem geçmişi. [locale] `tr` veya `en`.
+  Future<CourierJobsView> fetchCourierJobs({
+    required String shipmentId,
+    required String locale,
+  }) async => CourierJobsView.fromJson(
+    await _data(
+      _get(
+        '/branch/courier-jobs',
+        queryParameters: {'shipmentId': shipmentId, 'locale': locale},
+      ),
+    ),
+  );
 
   /// Dağıtımdaki (4020) gönderi için seçilebilecek kuryeler; mevcut kurye
   /// hariç.
@@ -463,12 +486,32 @@ class AgencyPortalApi {
     }, idempotencyKey: idempotencyKey);
   }
 
-  /// [range]: today | 7d | 30d.
-  Future<PerformanceData> fetchPerformance(String range) async =>
-      PerformanceData.fromJson(
-        await _data(
-          _get('/branch/performance', queryParameters: {'range': range}),
-        ),
+  /// [range]: today | 7d | 30d | custom. `custom` için [from] ve [to] zorunlu.
+  Future<PerformanceData> fetchPerformance(
+    String range, {
+    String? from,
+    String? to,
+  }) async => PerformanceData.fromJson(
+    await _data(
+      _get(
+        '/branch/performance',
+        queryParameters: {
+          'range': range,
+          if (range == 'custom' && from != null) 'from': from,
+          if (range == 'custom' && to != null) 'to': to,
+        },
+      ),
+    ),
+  );
+
+  /// Stok & Zimmet dört sayacı (gönderi adedi).
+  Future<BranchStockSummary> fetchStockSummary() async =>
+      BranchStockSummary.fromJson(await _data(_get('/branch/stock-summary')));
+
+  /// Kurye, araç/plaka ve son cihaz. Şubede yoksa 404.
+  Future<AgencyCourierDetail> fetchCourierDetail(String courierId) async =>
+      AgencyCourierDetail.fromJson(
+        await _data(_get('/agency/couriers/$courierId')),
       );
 
   /// Okutulan kalemleri içeri alır, kalanları EKSİK olarak kapatır.

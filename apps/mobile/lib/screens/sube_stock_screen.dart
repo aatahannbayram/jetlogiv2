@@ -27,7 +27,9 @@ class _SubeStockScreenState extends ConsumerState<SubeStockScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(sessionProvider).branch.loadIncoming();
+      final branch = ref.read(sessionProvider).branch;
+      branch.loadStockSummary();
+      branch.loadIncoming();
     });
   }
 
@@ -43,12 +45,22 @@ class _SubeStockScreenState extends ConsumerState<SubeStockScreen> {
       body: RefreshIndicator(
         onRefresh: () async {
           await branch.refresh();
+          await branch.loadStockSummary();
           await branch.loadIncoming();
         },
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 96),
           children: [
             SubeStatusBanner(branch: branch),
+            if (branch.stockSummary != null) ...[
+              SubeKpiGrid([
+                (l.stockInWarehouse, '${branch.stockSummary!.inWarehouse}'),
+                (l.stockAtCourier, '${branch.stockSummary!.atCourier}'),
+                (l.stockInTransit, '${branch.stockSummary!.inTransit}'),
+                (l.stockReturnPending, '${branch.stockSummary!.returnPending}'),
+              ]),
+              const SizedBox(height: 8),
+            ],
             SubeSection(
               l.courierReturnsTitle,
               trailing: '${pending?.returns.length ?? 0}',

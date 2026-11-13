@@ -5,6 +5,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../api/client.dart' show kAppVersion;
 import '../brand.dart';
 import '../l10n.dart';
+import '../launchers.dart';
 import '../motion.dart';
 import '../session.dart';
 import '../theme.dart';
@@ -27,6 +28,7 @@ class SubeProfileScreen extends ConsumerWidget {
       for (final r in user?.roles ?? const [])
         (l.isEn ? r.nameEn : r.nameTr) ?? r.code,
     ];
+    final supportPhone = user?.agency.supportPhone;
     void open(Widget page) =>
         Navigator.of(context)
             .push(MaterialPageRoute<void>(builder: (_) => page));
@@ -107,6 +109,13 @@ class SubeProfileScreen extends ConsumerWidget {
           SubeOverline(l.profileBranch),
           SubeGroup(
             children: [
+              if (supportPhone != null && supportPhone.isNotEmpty)
+                SubeNavTile(
+                  icon: LucideIcons.phone,
+                  label: l.supportLine,
+                  subtitle: supportPhone,
+                  onTap: () => dialNumber(context, supportPhone),
+                ),
               if (!s.branch.demo)
                 SubeNavTile(
                   icon: LucideIcons.building2,

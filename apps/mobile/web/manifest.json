@@ -1,11 +1,11 @@
 {
-    "name": "dijigoo_kurye",
-    "short_name": "dijigoo_kurye",
+    "name": "Dijigoo",
+    "short_name": "Dijigoo",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#01061F",
+    "theme_color": "#01061F",
+    "description": "Dijital Teslimat Platformu",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

@@ -14,6 +14,7 @@ class AgencyDto {
     this.tenantId,
     this.code,
     this.statusCode,
+    this.supportPhone,
   });
 
   final String id;
@@ -22,12 +23,21 @@ class AgencyDto {
   final String? code;
   final String? statusCode;
 
+  /// Giriş ve oturum yanıtı. Şube numarası, yoksa merkez hattı. Tanımsızsa null.
+  final String? supportPhone;
+
   factory AgencyDto.fromJson(Map<String, dynamic> json) => AgencyDto(
     id: json['id'] as String? ?? '',
     name: json['name'] as String? ?? '',
     tenantId: json['tenantId'] as String?,
     code: json['code'] as String?,
     statusCode: json['statusCode'] as String?,
+    supportPhone: () {
+      final raw = json['supportPhone'];
+      if (raw is! String) return null;
+      final trimmed = raw.trim();
+      return trimmed.isEmpty ? null : trimmed;
+    }(),
   );
 }
 

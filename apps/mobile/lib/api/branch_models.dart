@@ -1,5 +1,5 @@
 /// DTOs for the "Şube Mobil API" (`portal/v1/branch/*`, `portal/v1/agency/*`).
-/// Field names mirror `swagger/branch.yaml` (v1.2.0) on
+/// Field names mirror `swagger/branch.yaml` (v1.4.0) on
 /// api-mobile.preprod.jetdiji.com one to one — nothing here is guessed from
 /// a response shape, so a missing key means the server didn't send it.
 library;
@@ -41,6 +41,42 @@ bool _bool(Map<String, dynamic> j, String key) => j[key] == true;
 DateTime? _date(Map<String, dynamic> j, String key) {
   final v = j[key];
   return v is String ? DateTime.tryParse(v) : null;
+}
+
+/// Türkiye takvimi (UTC+3, yaz saati yok).
+DateTime istanbulClock([DateTime? now]) =>
+    (now ?? DateTime.now()).toUtc().add(const Duration(hours: 3));
+
+String istanbulYmd([DateTime? now]) => ymdOf(istanbulClock(now));
+
+String ymdOf(DateTime d) {
+  String two(int n) => n.toString().padLeft(2, '0');
+  return '${d.year}-${two(d.month)}-${two(d.day)}';
+}
+
+/// `YYYY-MM-DD` veya ISO tarih-saatın takvim günü. Saat dilimi kaydırılmaz;
+/// sunucunun yazdığı gün öneki olduğu gibi kalır.
+String? dayPrefix(Object? value) {
+  if (value is! String || value.length < 10) return null;
+  final head = value.substring(0, 10);
+  return RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(head) ? head : null;
+}
+
+enum CustomRangeIssue { none, order, future, tooLong, invalid }
+
+/// `from`/`to` dahil, en fazla 92 gün, bugünden ileri yok.
+CustomRangeIssue checkCustomRange(String from, String to, {DateTime? now}) {
+  if (dayPrefix(from) != from || dayPrefix(to) != to) {
+    return CustomRangeIssue.invalid;
+  }
+  final today = istanbulYmd(now);
+  if (from.compareTo(today) > 0 || to.compareTo(today) > 0) {
+    return CustomRangeIssue.future;
+  }
+  if (from.compareTo(to) > 0) return CustomRangeIssue.order;
+  final days = DateTime.parse(to).difference(DateTime.parse(from)).inDays + 1;
+  if (days > 92) return CustomRangeIssue.tooLong;
+  return CustomRangeIssue.none;
 }
 
 /// `operate` = günlük operasyon, `manage` = yönetim. Düğmeler buna göre
@@ -277,16 +313,25 @@ class DispatchKpis {
 
 class DispatchBoard {
   const DispatchBoard({
+    this.date,
+    this.readOnly = false,
     this.kpis = const DispatchKpis(),
     this.rows = const [],
     this.capabilities = const BranchCapabilities(),
   });
 
+  /// Panonun günü (`YYYY-MM-DD`, İstanbul). Boşsa bugün.
+  final String? date;
+
+  /// Geçmiş gün: zimmet ve atama kapalı.
+  final bool readOnly;
   final DispatchKpis kpis;
   final List<BranchShipmentRow> rows;
   final BranchCapabilities capabilities;
 
   factory DispatchBoard.fromJson(Map<String, dynamic> j) => DispatchBoard(
+    date: _strOrNull(j, 'date'),
+    readOnly: _bool(j, 'readOnly'),
     kpis: DispatchKpis.fromJson(j['kpis']),
     rows: [for (final row in _list(j['rows'])) BranchShipmentRow.fromJson(row)],
     capabilities: BranchCapabilities.fromJson(j['capabilities']),
@@ -1000,11 +1045,13 @@ class CourierPerformance {
       );
 }
 
-/// `GET branch/performance?range=today|7d|30d`. Yüzdeler payda 0 iken null
-/// gelir; ekranda "—" gösterilir.
+/// `GET branch/performance?range=today|7d|30d|custom`. Yüzdeler payda 0 iken
+/// null gelir; ekranda "—" gösterilir. `custom` için `from`/`to` dahil.
 class PerformanceData {
   const PerformanceData({
     this.range = '7d',
+    this.fromDay,
+    this.toDay,
     this.truncated = false,
     this.attemptedShipments = 0,
     this.deliveredShipments = 0,
@@ -1019,6 +1066,10 @@ class PerformanceData {
   });
 
   final String range;
+
+  /// `custom` aralığın günleri (`YYYY-MM-DD`).
+  final String? fromDay;
+  final String? toDay;
   final bool truncated;
   final int attemptedShipments;
   final int deliveredShipments;
@@ -1031,12 +1082,35 @@ class PerformanceData {
   final List<CourierPerformance> couriers;
   final List<({String day, int delivered, int failed})> daily;
 
+  /// Ekranın istediği aralıkla eşleşmezse eski cevap çizilmez.
+  String get selectionKey =>
+      range == 'custom' ? 'custom:${fromDay ?? ''}:${toDay ?? ''}' : range;
+
+  PerformanceData withQuery({String? fromDay, String? toDay}) => PerformanceData(
+    range: range,
+    fromDay: fromDay ?? this.fromDay,
+    toDay: toDay ?? this.toDay,
+    truncated: truncated,
+    attemptedShipments: attemptedShipments,
+    deliveredShipments: deliveredShipments,
+    failedAttempts: failedAttempts,
+    activeCouriers: activeCouriers,
+    deliveryRate: deliveryRate,
+    firstAttemptRate: firstAttemptRate,
+    averageDeliveryMinutes: averageDeliveryMinutes,
+    slaCompliance: slaCompliance,
+    couriers: couriers,
+    daily: daily,
+  );
+
   factory PerformanceData.fromJson(Map<String, dynamic> j) {
     final totals = _map(j['totals']);
     final kpis = _map(j['kpis']);
     num? kpi(String key) => _numOrNull(_map(kpis[key])['value']);
     return PerformanceData(
       range: _strOrNull(j, 'range') ?? '7d',
+      fromDay: dayPrefix(j['from']),
+      toDay: dayPrefix(j['to']),
       truncated: _bool(j, 'truncated'),
       attemptedShipments: _int(totals, 'attemptedShipments'),
       deliveredShipments: _int(totals, 'deliveredShipments'),
@@ -1410,5 +1484,258 @@ class SmsBatch {
       for (final e in _map(j['statusCounts']).entries)
         if (e.value is num) e.key: (e.value as num).toInt(),
     },
+  );
+}
+
+/// `GET branch/stock-summary`. Sayılar koli değil, gönderi adedidir.
+class BranchStockSummary {
+  const BranchStockSummary({
+    this.inWarehouse = 0,
+    this.atCourier = 0,
+    this.inTransit = 0,
+    this.returnPending = 0,
+    this.generatedAt,
+  });
+
+  final int inWarehouse;
+  final int atCourier;
+  final int inTransit;
+  final int returnPending;
+  final DateTime? generatedAt;
+
+  factory BranchStockSummary.fromJson(Map<String, dynamic> j) =>
+      BranchStockSummary(
+        inWarehouse: _int(j, 'inWarehouse'),
+        atCourier: _int(j, 'atCourier'),
+        inTransit: _int(j, 'inTransit'),
+        returnPending: _int(j, 'returnPending'),
+        generatedAt: _date(j, 'generatedAt'),
+      );
+}
+
+class CourierVehicle {
+  const CourierVehicle({
+    this.plate = '',
+    this.vehicleTypeCode = '',
+    this.brand = '',
+    this.model,
+    this.modelYear,
+    this.statusCode = '',
+  });
+
+  final String plate;
+  final String vehicleTypeCode;
+  final String brand;
+  final String? model;
+  final int? modelYear;
+  final String statusCode;
+
+  static CourierVehicle? fromJson(Object? json) {
+    if (json is! Map) return null;
+    final j = _map(json);
+    if (j.isEmpty) return null;
+    return CourierVehicle(
+      plate: _str(j, 'plate'),
+      vehicleTypeCode: _str(j, 'vehicleTypeCode'),
+      brand: _str(j, 'brand'),
+      model: _strOrNull(j, 'model'),
+      modelYear: j['modelYear'] == null ? null : _int(j, 'modelYear'),
+      statusCode: _str(j, 'statusCode'),
+    );
+  }
+}
+
+class CourierDevicePermissions {
+  const CourierDevicePermissions({
+    this.location,
+    this.backgroundLocation,
+    this.camera,
+    this.notifications,
+  });
+
+  final bool? location;
+  final bool? backgroundLocation;
+  final bool? camera;
+  final bool? notifications;
+
+  static bool? _flag(Map<String, dynamic> j, String key) {
+    final v = j[key];
+    return v is bool ? v : null;
+  }
+
+  static CourierDevicePermissions? fromJson(Object? json) {
+    if (json is! Map) return null;
+    final j = _map(json);
+    return CourierDevicePermissions(
+      location: _flag(j, 'location'),
+      backgroundLocation: _flag(j, 'backgroundLocation'),
+      camera: _flag(j, 'camera'),
+      notifications: _flag(j, 'notifications'),
+    );
+  }
+}
+
+class CourierDevice {
+  const CourierDevice({
+    this.model,
+    this.platform = '',
+    this.os,
+    this.appVersion,
+    this.lastSeenAt,
+    this.permissions,
+  });
+
+  final String? model;
+  final String platform;
+  final String? os;
+  final String? appVersion;
+  final DateTime? lastSeenAt;
+  final CourierDevicePermissions? permissions;
+
+  static CourierDevice? fromJson(Object? json) {
+    if (json is! Map) return null;
+    final j = _map(json);
+    if (j.isEmpty) return null;
+    return CourierDevice(
+      model: _strOrNull(j, 'model'),
+      platform: _str(j, 'platform'),
+      os: _strOrNull(j, 'os'),
+      appVersion: _strOrNull(j, 'appVersion'),
+      lastSeenAt: _date(j, 'lastSeenAt'),
+      permissions: CourierDevicePermissions.fromJson(j['permissions']),
+    );
+  }
+}
+
+/// `GET agency/couriers/{courierId}`. Araç veya cihaz yoksa ilgili alan null.
+class AgencyCourierDetail {
+  const AgencyCourierDetail({
+    required this.courierId,
+    this.courierCode = '',
+    this.fullName = '',
+    this.phone,
+    this.email,
+    this.status = '',
+    this.workModel,
+    this.isPrimary = false,
+    this.vehicleType,
+    this.plate,
+    this.vehicleModel,
+    this.vehicle,
+    this.device,
+  });
+
+  final String courierId;
+  final String courierCode;
+  final String fullName;
+  final String? phone;
+  final String? email;
+  final String status;
+  final String? workModel;
+  final bool isPrimary;
+  final String? vehicleType;
+  final String? plate;
+  final String? vehicleModel;
+  final CourierVehicle? vehicle;
+  final CourierDevice? device;
+
+  factory AgencyCourierDetail.fromJson(Map<String, dynamic> j) =>
+      AgencyCourierDetail(
+        courierId: _str(j, 'courierId'),
+        courierCode: _str(j, 'courierCode'),
+        fullName: _str(j, 'fullName'),
+        phone: _strOrNull(j, 'phone'),
+        email: _strOrNull(j, 'email'),
+        status: _str(j, 'status'),
+        workModel: _strOrNull(j, 'workModel'),
+        isPrimary: _bool(j, 'isPrimary'),
+        vehicleType: _strOrNull(j, 'vehicleType'),
+        plate: _strOrNull(j, 'plate'),
+        vehicleModel: _strOrNull(j, 'vehicleModel'),
+        vehicle: CourierVehicle.fromJson(j['vehicle']),
+        device: CourierDevice.fromJson(j['device']),
+      );
+}
+
+/// `GET branch/courier-jobs` → `recent[]`. Ad yoksa kod gösterilir.
+/// "Workflow status changed" ham metin olarak çizilmez.
+class JobHistoryEvent {
+  const JobHistoryEvent({
+    required this.id,
+    this.code = '',
+    this.statusCode,
+    this.statusName,
+    this.altStatusCode,
+    this.altStatusName,
+    this.reasonCode,
+    this.reasonName,
+    this.source,
+    this.sourceName,
+    this.actor,
+    this.at,
+  });
+
+  final String id;
+  final String code;
+  final String? statusCode;
+  final String? statusName;
+  final String? altStatusCode;
+  final String? altStatusName;
+  final String? reasonCode;
+  final String? reasonName;
+  final String? source;
+  final String? sourceName;
+  final String? actor;
+  final DateTime? at;
+
+  static bool _rawWorkflow(String? value) =>
+      value?.trim().toLowerCase() == 'workflow status changed';
+
+  static String? _clean(String? value) {
+    final trimmed = value?.trim();
+    if (trimmed == null || trimmed.isEmpty || _rawWorkflow(trimmed)) return null;
+    return trimmed;
+  }
+
+  /// Statü adı, yoksa alt statü adı, yoksa kod.
+  String get headline =>
+      _clean(statusName) ??
+      _clean(altStatusName) ??
+      _clean(statusCode) ??
+      _clean(altStatusCode) ??
+      _clean(code) ??
+      '';
+
+  String? get altLine {
+    final alt = _clean(altStatusName) ?? _clean(altStatusCode);
+    if (alt == null || alt == headline) return null;
+    return alt;
+  }
+
+  factory JobHistoryEvent.fromJson(Map<String, dynamic> j) => JobHistoryEvent(
+    id: _str(j, 'id'),
+    code: _str(j, 'code'),
+    statusCode: _strOrNull(j, 'statusCode'),
+    statusName: _strOrNull(j, 'statusName'),
+    altStatusCode: _strOrNull(j, 'altStatusCode'),
+    altStatusName: _strOrNull(j, 'altStatusName'),
+    reasonCode: _strOrNull(j, 'reasonCode'),
+    reasonName: _strOrNull(j, 'reasonName'),
+    source: _strOrNull(j, 'source'),
+    sourceName: _strOrNull(j, 'sourceName'),
+    actor: _strOrNull(j, 'actor'),
+    at: _date(j, 'at'),
+  );
+}
+
+class CourierJobsView {
+  const CourierJobsView({this.recent = const []});
+
+  final List<JobHistoryEvent> recent;
+
+  factory CourierJobsView.fromJson(Map<String, dynamic> j) => CourierJobsView(
+    recent: [
+      for (final row in _list(j['recent'])) JobHistoryEvent.fromJson(row),
+    ],
   );
 }

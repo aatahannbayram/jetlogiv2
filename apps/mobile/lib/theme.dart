@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 
 /// Kurye ve şube ekranlarının ortak görsel sistemi — Dijigoo kurumsal
 /// kimliği (Kılavuz 5.2): lacivert zemin, marka mavisi eylem, mor → mavi →
-/// turkuaz yardımcı akış, tek yazı ailesi Inter.
+/// turkuaz yardımcı akış, tek yazı ailesi Manrope (teslim v1.1).
 /// Renkler uygulamanın kayıtlı açık/koyu tema tercihinden okunur.
 class Dg {
   Dg._();
@@ -26,22 +26,28 @@ class Dg {
 
   /// Koşulsuz koyu — temadan bağımsız gerçek siyah/gece yüzeyler için
   /// (giriş/tören ekranı gradyanının tabanı, PhoneShell çerçevesi).
-  static const night = Color(0xFF0A0F2B);
+  static const night = Color(0xFF01061F);
   static const onNight = Color(0xFFFFFFFF);
   static const mutedOnNight = Color(0xFFC5CAD3);
   static const action = Color(0xFF2563FF);
   static const onAction = Color(0xFFFFFFFF);
 
   // ---- Dijigoo kurumsal renkleri (Kılavuz s.9) ----
-  static const navy = Color(0xFF0A0F2B);
+  static const navy = Color(0xFF01061F);
   static const brandBlue = Color(0xFF2563FF);
   static const brandPurple = Color(0xFF8B5CF6);
-  static const brandTurquoise = Color(0xFF06D6FF);
+  static const brandTurquoise = Color(0xFF00EAFE);
 
-  /// Ana renk akışı (s.10): yardımcı grafik — sekme göstergesi, ince ayraç,
-  /// ilerleme. Logoya uygulanmaz.
+  // ---- Teslim v1.1 (tasarim/marka.json) ----
+  static const dgMor = Color(0xFF9404FD);
+  static const dgMorMavi = Color(0xFF5140FC);
+  static const dgMavi = Color(0xFF0E97FD);
+  static const dgTurkuaz = Color(0xFF00EAFE);
+
+  /// Ana renk akışı mor → mor-mavi → mavi → turkuaz: sekme göstergesi,
+  /// ince ayraç, ilerleme. Logoya uygulanmaz, üzerinde gövde metni taşımaz.
   static const brandFlow = LinearGradient(
-    colors: [brandPurple, brandBlue, brandTurquoise],
+    colors: [dgMor, dgMorMavi, dgMavi, dgTurkuaz],
   );
 
   /// Koyu temada vurgu metni için turkuaz (10.8:1), açıkta koyu marka mavisi.
@@ -75,7 +81,7 @@ class Dg {
   static const dock = Color(0xFF121936);
   static const onDock = Color(0xFFFFFFFF);
   static const mutedOnDock = Color(0xFF9CA3AF);
-  static const dockActive = Color(0xFF06D6FF);
+  static const dockActive = Color(0xFF00EAFE);
   static const dockSelected = Color(0xFF1E2A55);
 
   static Color get purpleActive => brand;
@@ -85,7 +91,7 @@ class Dg {
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
     colors: dark
-        ? const [Color(0xFF131C4A), Color(0xFF0D1338), Color(0xFF0A0F2B)]
+        ? const [Color(0xFF0B1240), Color(0xFF050B2C), Color(0xFF01061F)]
         : const [Color(0xFFE9EDFF), Color(0xFFF3F5FC), Color(0xFFF4F5F8)],
   );
   static const heroAccentOrange = brandBlue;
@@ -145,12 +151,12 @@ class Dg {
   static Color get redBg => bad.withValues(alpha: 0.12);
 
   // ---- Tipografi ----
-  // Kılavuz s.11: tek aile Inter (başlık SemiBold/Bold, gövde Regular,
-  // buton Medium). Kod/barkod da Inter + sabit genişlikli rakam.
-  static const display = 'Inter';
-  static const sans = 'Inter';
-  static const statFamily = 'Inter';
-  static const mono = 'Inter';
+  // Teslim v1.1: tek aile Manrope (başlık SemiBold/Bold, gövde Regular,
+  // buton SemiBold). Kod/barkod da Manrope + sabit genişlikli rakam.
+  static const display = 'Manrope';
+  static const sans = 'Manrope';
+  static const statFamily = 'Manrope';
+  static const mono = 'Manrope';
 
   // ---- Yumuşak kartlar ve kapsül düğmeler ----
   static const radiusPhone = 46.0;
@@ -178,11 +184,11 @@ class Dg {
 
   // ---- Kurye ve şube için ortak lacivert saha paleti ----
   static Color get bg =>
-      dark ? const Color(0xFF0A0F2B) : const Color(0xFFF4F5F8);
+      dark ? const Color(0xFF020823) : const Color(0xFFF4F5F8);
   static Color get surface1 =>
-      dark ? const Color(0xFF121936) : const Color(0xFFFFFFFF);
+      dark ? const Color(0xFF0B1235) : const Color(0xFFFFFFFF);
   static Color get surface2 =>
-      dark ? const Color(0xFF1A2244) : const Color(0xFFEDF0F6);
+      dark ? const Color(0xFF141D45) : const Color(0xFFEDF0F6);
   static Color get stroke =>
       dark ? const Color(0xFF6B7591) : const Color(0xFF737C8C);
   static Color get text1 =>
@@ -262,7 +268,7 @@ class Dg {
   }) {
     return TextStyle(
       fontFamily: display,
-      fontFamilyFallback: const ['Inter'],
+      fontFamilyFallback: const ['Manrope'],
       fontSize: size < 14 ? 14 : (size == 15 ? 16 : size),
       fontWeight: weight,
       fontStyle: italic ? FontStyle.italic : FontStyle.normal,
@@ -284,7 +290,7 @@ class Dg {
   }) {
     return TextStyle(
       fontFamily: sans,
-      fontFamilyFallback: const ['Inter'],
+      fontFamilyFallback: const ['Manrope'],
       fontSize: size < 14 ? 14 : (size == 15 ? 16 : size),
       fontWeight: weight,
       color: color ?? ink,
@@ -305,7 +311,7 @@ class Dg {
   }) {
     return TextStyle(
       fontFamily: statFamily,
-      fontFamilyFallback: const ['Inter'],
+      fontFamilyFallback: const ['Manrope'],
       fontSize: size < 14 ? 14 : (size == 15 ? 16 : size),
       fontWeight: weight,
       color: color ?? ink,

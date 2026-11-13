@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../api/branch_models.dart';
 import '../l10n.dart';
 import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'sube_widgets.dart';
 
-/// Şube ve kurye teslim performansı: bugün / 7 gün / 30 gün.
+/// Şube ve kurye teslim performansı: bugün / 7 gün / 30 gün / özel aralık.
 class SubePerformanceScreen extends ConsumerStatefulWidget {
   const SubePerformanceScreen({super.key});
 
@@ -17,17 +18,71 @@ class SubePerformanceScreen extends ConsumerStatefulWidget {
 }
 
 class _SubePerformanceScreenState extends ConsumerState<SubePerformanceScreen> {
-  static const _ranges = ['today', '7d', '30d'];
+  static const _ranges = ['today', '7d', '30d', 'custom'];
   int _range = 1;
+  late String _from;
+  late String _to;
+  String? _rangeError;
 
   @override
   void initState() {
     super.initState();
+    final today = istanbulYmd();
+    final start = istanbulClock().subtract(const Duration(days: 6));
+    _to = today;
+    _from = ymdOf(start);
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }
 
-  Future<void> _load() =>
-      ref.read(sessionProvider).branch.loadPerformance(_ranges[_range]);
+  String get _key => _range == 3 ? 'custom:$_from:$_to' : _ranges[_range];
+
+  Future<void> _load() async {
+    final branch = ref.read(sessionProvider).branch;
+    if (_range == 3) {
+      final issue = checkCustomRange(_from, _to);
+      if (issue != CustomRangeIssue.none) {
+        final l = context.l10n;
+        setState(() {
+          _rangeError = switch (issue) {
+            CustomRangeIssue.tooLong => l.rangeTooLong,
+            CustomRangeIssue.future => l.rangeFuture,
+            CustomRangeIssue.order ||
+            CustomRangeIssue.invalid ||
+            CustomRangeIssue.none => l.rangeInvalid,
+          };
+        });
+        return;
+      }
+    }
+    setState(() => _rangeError = null);
+    await branch.loadPerformance(
+      _ranges[_range],
+      from: _range == 3 ? _from : null,
+      to: _range == 3 ? _to : null,
+    );
+  }
+
+  Future<void> _pickBound({required bool from}) async {
+    final clock = istanbulClock();
+    final today = DateTime(clock.year, clock.month, clock.day);
+    final current = DateTime.tryParse(from ? _from : _to) ?? today;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: current.isAfter(today) ? today : current,
+      firstDate: DateTime(today.year - 2),
+      lastDate: today,
+    );
+    if (picked == null) return;
+    setState(() {
+      final ymd = ymdOf(picked);
+      if (from) {
+        _from = ymd;
+      } else {
+        _to = ymd;
+      }
+    });
+    await _load();
+  }
 
   static const _monthsTr = [
     'Oca',
@@ -76,7 +131,7 @@ class _SubePerformanceScreenState extends ConsumerState<SubePerformanceScreen> {
     final l = context.l10n;
     final branch = ref.watch(sessionProvider).branch;
     final loaded = branch.performance;
-    final p = loaded?.range == _ranges[_range] ? loaded : null;
+    final p = loaded?.selectionKey == _key ? loaded : null;
     return Scaffold(
       appBar: AppBar(title: Text(l.subePerformanceTitle)),
       body: RefreshIndicator(
@@ -85,14 +140,39 @@ class _SubePerformanceScreenState extends ConsumerState<SubePerformanceScreen> {
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
           children: [
             SegmentedTabs(
-              labels: [l.rangeToday, l.range7d, l.range30d],
+              labels: [l.rangeToday, l.range7d, l.range30d, l.rangeCustom],
               index: _range,
               onChanged: (i) {
                 setState(() => _range = i);
                 _load();
               },
             ),
+            if (_range == 3) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => _pickBound(from: true),
+                      child: Text('${l.rangeFrom} · ${_day(l, _from)}'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => _pickBound(from: false),
+                      child: Text('${l.rangeTo} · ${_day(l, _to)}'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: 12),
+            if (_rangeError != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Text(_rangeError!, style: Dg.ui(size: 13, color: Dg.hi)),
+              ),
             SubeStatusBanner(branch: branch, onRetry: _load),
             if (p == null)
               if (branch.loading)

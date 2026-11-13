@@ -8,6 +8,7 @@ import '../l10n.dart';
 import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
+import 'sube_job_screen.dart';
 import 'sube_nav.dart';
 import 'sube_widgets.dart';
 
@@ -55,7 +56,8 @@ class _SubeShipmentsScreenState extends ConsumerState<SubeShipmentsScreen> {
       ref.read(subeShipmentFilterProvider.notifier).state = null;
     });
     final branch = ref.watch(sessionProvider).branch;
-    final canOperate = branch.capabilities.operate;
+    final canOperate = branch.dispatchWritable;
+    final readOnly = branch.board?.readOnly ?? false;
     final chips = <(String, String)>[
       ('all', l.all),
       ('waiting', l.filterWaiting),
@@ -69,10 +71,22 @@ class _SubeShipmentsScreenState extends ConsumerState<SubeShipmentsScreen> {
       for (final r in branch.rows)
         if (_matches(r)) r,
     ];
+    final selected = branch.dispatchDate;
     return Scaffold(
       appBar: AppBar(title: Text(l.subeShipmentsTitle)),
       body: Column(
         children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: ActionChip(
+                avatar: const Icon(LucideIcons.calendar, size: 16),
+                label: Text(selected == null ? l.rangeToday : _dayLabel(l, selected)),
+                onPressed: _busy ? null : () => _pickDate(branch),
+              ),
+            ),
+          ),
           SizedBox(
             height: 32 + MediaQuery.textScalerOf(context).scale(16),
             child: ListView(
@@ -103,6 +117,14 @@ class _SubeShipmentsScreenState extends ConsumerState<SubeShipmentsScreen> {
                 ),
                 children: [
                   SubeStatusBanner(branch: branch),
+                  if (readOnly)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Text(
+                        l.dispatchReadOnly,
+                        style: Dg.ui(size: 13, color: Dg.mid),
+                      ),
+                    ),
                   if (rows.isEmpty && !branch.loading)
                     DgEmptyState(
                       icon: LucideIcons.package,
@@ -114,8 +136,11 @@ class _SubeShipmentsScreenState extends ConsumerState<SubeShipmentsScreen> {
                       child: _ShipmentCard(
                         row: row,
                         picked: branch.picked.contains(row.shipmentId),
-                        onTap: !canOperate || _busy
+                        onHistory: () => _openHistory(row),
+                        onTap: _busy
                             ? null
+                            : !canOperate
+                            ? () => _openHistory(row)
                             : row.stage == BranchStage.awaitingCourier
                             ? () => branch.togglePick(row.shipmentId)
                             : row.stage == BranchStage.incoming
@@ -127,7 +152,7 @@ class _SubeShipmentsScreenState extends ConsumerState<SubeShipmentsScreen> {
               ),
             ),
           ),
-          if (branch.picked.isNotEmpty)
+          if (canOperate && branch.picked.isNotEmpty)
             Padding(
               // Sabit "Barkod Okut" düğmesinin üstünde kalır.
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 84),
@@ -139,6 +164,49 @@ class _SubeShipmentsScreenState extends ConsumerState<SubeShipmentsScreen> {
               ),
             ),
         ],
+      ),
+    );
+  }
+
+  static const _monthsTr = [
+    'Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz',
+    'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara',
+  ];
+  static const _monthsEn = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+
+  static String _dayLabel(L10n l, String raw) {
+    final d = DateTime.tryParse(raw);
+    if (d == null) return raw;
+    return '${d.day} ${(l.isEn ? _monthsEn : _monthsTr)[d.month - 1]}';
+  }
+
+  Future<void> _pickDate(BranchWorkspace branch) async {
+    final clock = istanbulClock();
+    final today = DateTime(clock.year, clock.month, clock.day);
+    final current = branch.dispatchDate == null
+        ? today
+        : DateTime.tryParse(branch.dispatchDate!) ?? today;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: current.isAfter(today) ? today : current,
+      firstDate: DateTime(today.year - 2),
+      lastDate: today,
+    );
+    if (picked == null) return;
+    final ymd = ymdOf(picked);
+    await branch.loadDispatch(ymd == istanbulYmd() ? null : ymd);
+  }
+
+  void _openHistory(BranchShipmentRow row) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => SubeJobScreen(
+          shipmentId: row.shipmentId,
+          shipmentNumber: row.shipmentNumber,
+        ),
       ),
     );
   }
@@ -184,6 +252,11 @@ class _SubeShipmentsScreenState extends ConsumerState<SubeShipmentsScreen> {
               subtitle: Text(row.courierName),
             ),
             ListTile(
+              leading: const Icon(LucideIcons.history),
+              title: Text(l.jobHistory),
+              onTap: () => Navigator.pop(ctx, 'history'),
+            ),
+            ListTile(
               leading: const Icon(LucideIcons.repeat),
               title: Text(l.reassign),
               onTap: () => Navigator.pop(ctx, 'change'),
@@ -199,6 +272,10 @@ class _SubeShipmentsScreenState extends ConsumerState<SubeShipmentsScreen> {
       ),
     );
     if (action == null || !mounted) return;
+    if (action == 'history') {
+      _openHistory(row);
+      return;
+    }
     if (action == 'cancel') {
       final reason = await _pickReason(branch);
       if (reason == null) return;
@@ -359,11 +436,17 @@ class _SubeShipmentsScreenState extends ConsumerState<SubeShipmentsScreen> {
 }
 
 class _ShipmentCard extends StatelessWidget {
-  const _ShipmentCard({required this.row, required this.picked, this.onTap});
+  const _ShipmentCard({
+    required this.row,
+    required this.picked,
+    this.onTap,
+    this.onHistory,
+  });
 
   final BranchShipmentRow row;
   final bool picked;
   final VoidCallback? onTap;
+  final VoidCallback? onHistory;
 
   @override
   Widget build(BuildContext context) {
@@ -402,6 +485,12 @@ class _ShipmentCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
+          if (onHistory != null)
+            IconButton(
+              tooltip: l.jobHistory,
+              onPressed: onHistory,
+              icon: const Icon(LucideIcons.history, size: 18),
+            ),
           Flexible(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.end,

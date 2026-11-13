@@ -57,6 +57,9 @@ class BranchWorkspace {
   BranchCapabilities capabilities = const BranchCapabilities();
   BranchDashboard? dashboard;
   DispatchBoard? board;
+
+  /// Gönderi panosunun seçili günü. Null = bugün (tarih parametresi gitmez).
+  String? dispatchDate;
   PendingData? pending;
   CountsData? counts;
   CountDetail? count;
@@ -65,6 +68,7 @@ class BranchWorkspace {
   IncomingTransferDetail? incomingDetail;
   LabelWorkspace? labels;
   PerformanceData? performance;
+  BranchStockSummary? stockSummary;
   List<InboxItem>? inbox;
   int unreadNotifications = 0;
   AnnouncementsData? announcements;
@@ -108,6 +112,10 @@ class BranchWorkspace {
 
   List<BranchShipmentRow> get rows => board?.rows ?? const [];
 
+  /// Geçmiş gün veya yetki yoksa zimmet / atama kapalı.
+  bool get dispatchWritable =>
+      capabilities.operate && !(board?.readOnly ?? false);
+
   List<BranchShipmentRow> get pickedRows => [
     for (final row in rows)
       if (picked.contains(row.shipmentId)) row,
@@ -118,6 +126,7 @@ class BranchWorkspace {
     capabilities = const BranchCapabilities();
     dashboard = null;
     board = null;
+    dispatchDate = null;
     pending = null;
     counts = null;
     count = null;
@@ -126,6 +135,7 @@ class BranchWorkspace {
     incomingDetail = null;
     labels = null;
     performance = null;
+    stockSummary = null;
     inbox = null;
     unreadNotifications = 0;
     announcements = null;
@@ -224,9 +234,10 @@ class BranchWorkspace {
     await Future.wait([
       load(() async => dashboard = await client.fetchDashboard()),
       load(() async {
-        final next = await client.fetchDispatchBoard();
+        final next = await client.fetchDispatchBoard(date: dispatchDate);
         board = next;
         capabilities = next.capabilities;
+        if (next.readOnly) picked.clear();
         picked.removeWhere(
           (id) => !next.rows.any(
             (r) => r.shipmentId == id && r.stage == BranchStage.awaitingCourier,
@@ -307,14 +318,106 @@ class BranchWorkspace {
     await _run(() async => labels = await api!.fetchLabels());
   }
 
-  /// [range]: today | 7d | 30d.
-  Future<void> loadPerformance(String range) async {
+  /// [date] bugünün İstanbul günüyse parametre gitmez. Geçmiş gün seçilince
+  /// seçili zimmetler temizlenir.
+  Future<void> loadDispatch(String? date) async {
+    final today = istanbulYmd();
+    final next = date == null || date.isEmpty || date == today ? null : date;
+    if (next != dispatchDate) picked.clear();
+    dispatchDate = next;
     if (demo) {
-      performance = kSubeDemoPerformance(range);
+      board = DispatchBoard(
+        date: next ?? today,
+        readOnly: next != null,
+        kpis: kSubeDemoBoard.kpis,
+        rows: kSubeDemoBoard.rows,
+        capabilities: next == null
+            ? BranchCapabilities.all
+            : const BranchCapabilities(),
+      );
+      capabilities = board!.capabilities;
       onChanged();
       return;
     }
-    await _run(() async => performance = await api!.fetchPerformance(range));
+    await _run(() async {
+      final loaded = await api!.fetchDispatchBoard(date: dispatchDate);
+      board = loaded;
+      capabilities = loaded.capabilities;
+      if (loaded.readOnly) picked.clear();
+    });
+  }
+
+  /// [range]: today | 7d | 30d | custom. `custom` için [from] ve [to].
+  Future<void> loadPerformance(
+    String range, {
+    String? from,
+    String? to,
+  }) async {
+    if (range == 'custom' && from != null && to != null) {
+      final issue = checkCustomRange(from, to);
+      if (issue != CustomRangeIssue.none) {
+        error = switch (issue) {
+          CustomRangeIssue.tooLong => 'Aralık en fazla 92 gün olabilir.',
+          CustomRangeIssue.future => 'Bugünden ileri bir tarih seçilemez.',
+          CustomRangeIssue.order ||
+          CustomRangeIssue.invalid => 'Tarih aralığı geçersiz.',
+          CustomRangeIssue.none => null,
+        };
+        onChanged();
+        return;
+      }
+    }
+    if (demo) {
+      var data = kSubeDemoPerformance(range);
+      if (range == 'custom') data = data.withQuery(fromDay: from, toDay: to);
+      performance = data;
+      onChanged();
+      return;
+    }
+    await _run(() async {
+      var data = await api!.fetchPerformance(range, from: from, to: to);
+      if (range == 'custom') {
+        data = data.withQuery(fromDay: from, toDay: to);
+      }
+      performance = data;
+    });
+  }
+
+  Future<void> loadStockSummary() async {
+    if (demo) {
+      stockSummary ??= const BranchStockSummary(
+        inWarehouse: 12,
+        atCourier: 4,
+        inTransit: 1,
+        returnPending: 2,
+      );
+      onChanged();
+      return;
+    }
+    await _run(() async => stockSummary = await api!.fetchStockSummary());
+  }
+
+  Future<CourierJobsView> courierJobs(
+    String shipmentId, {
+    required String locale,
+  }) async {
+    if (demo) {
+      return CourierJobsView(
+        recent: [
+          JobHistoryEvent(
+            id: 'demo-h1',
+            statusName: locale == 'en' ? 'Out for delivery' : 'Dağıtımda',
+            altStatusName: locale == 'en'
+                ? 'Left the branch'
+                : 'Dağıtıma Çıktı',
+            sourceName: locale == 'en' ? 'Workflow' : 'Süreç',
+            actor: 'Ali Can',
+            at: DateTime.utc(2026, 11, 4, 8, 30),
+          ),
+        ],
+      );
+    }
+    return api!.fetchCourierJobs(shipmentId: shipmentId, locale: locale);
   }
 
   // ── Bildirim, duyuru, vardiya, SMS ─────────────────────────────────────
@@ -971,13 +1074,13 @@ class BranchWorkspace {
         );
         return _countOutcome(result, code);
       case SyncOperation.branchReturnScan:
-        if (demo) return ScanOutcome.ok('Şubeye teslim alındı', code);
+        if (demo) return ScanOutcome.ok('İş ortağına teslim alındı', code);
         final result = await api!.scanCourierReturn(
           code: code,
           idempotencyKey: scanId,
         );
         return ScanOutcome.ok(
-          'Şubeye teslim alındı',
+          'İş ortağına teslim alındı',
           result.redeliveryApplied
               ? '${result.shipmentNumber} · yeniden dağıtıma alındı'
               : result.shipmentNumber,
@@ -1045,7 +1148,7 @@ class BranchWorkspace {
     return ScanOutcome.bad(switch (r.resultCode) {
       'UNKNOWN_BARCODE' => 'Barkod tanınmadı',
       'OUT_OF_SCOPE' => 'Sayım kapsamında değil',
-      'NOT_IN_STOCK' => 'Şube stoğunda görünmüyor',
+      'NOT_IN_STOCK' => 'İş ortağı stoğunda görünmüyor',
       'WRONG_WAREHOUSE' => 'Başka depoya ait',
       'CONTAINER_MISMATCH' => 'Koli içeriği uyuşmuyor',
       _ => 'Sayılmadı (${r.resultCode})',
@@ -1066,7 +1169,7 @@ class BranchWorkspace {
       return ScanOutcome.bad('Bugünkü listede yok', code);
     }
     final where = switch (row.stage) {
-      BranchStage.incoming => 'Şubeye geliyor',
+      BranchStage.incoming => 'İş ortağına geliyor',
       BranchStage.awaitingCourier => 'Zimmet bekliyor',
       BranchStage.inQueue => 'Kurye kabulü bekleniyor · ${row.courierName}',
       BranchStage.inDistribution => 'Dağıtımda · ${row.courierName}',
@@ -1092,7 +1195,7 @@ class BranchWorkspace {
   }
 
   Future<ScanOutcome> _scanStockIn(String code) async {
-    if (demo) return ScanOutcome.ok('Şubeye kabul edildi', code);
+    if (demo) return ScanOutcome.ok('İş ortağına kabul edildi', code);
     final result = await api!.scanIncoming(code: code, clientEventId: _newId());
     final label = result.shipmentNumber.isEmpty ? code : result.shipmentNumber;
     if (result.alreadyIn) return ScanOutcome.warn('Zaten içeri alınmış', label);
@@ -1188,6 +1291,8 @@ class BranchWorkspace {
   void _demoMove(List<String> ids, BranchStage stage, CourierOption? courier) {
     final current = board ?? kSubeDemoBoard;
     board = DispatchBoard(
+      date: current.date,
+      readOnly: current.readOnly,
       kpis: current.kpis,
       capabilities: current.capabilities,
       rows: [

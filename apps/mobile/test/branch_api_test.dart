@@ -114,6 +114,150 @@ void main() {
       expect(unknown.difference, isNull);
     });
 
+    test('geçmiş gün panosu salt okunur gelir', () {
+      final board = DispatchBoard.fromJson({
+        'date': '2026-11-01',
+        'readOnly': true,
+        'capabilities': {'operate': false},
+        'rows': <Object>[],
+      });
+      expect(board.date, '2026-11-01');
+      expect(board.readOnly, isTrue);
+      expect(board.capabilities.operate, isFalse);
+    });
+
+    test('eski pano cevabında salt okunur kapalı kalır', () {
+      final board = DispatchBoard.fromJson({'rows': <Object>[]});
+      expect(board.readOnly, isFalse);
+      expect(board.date, isNull);
+    });
+
+    test('stok sayaçları gönderi adedi olarak okunur', () {
+      final stock = BranchStockSummary.fromJson({
+        'inWarehouse': 128,
+        'atCourier': 46,
+        'inTransit': 12,
+        'returnPending': 7,
+      });
+      expect(stock.inWarehouse, 128);
+      expect(stock.atCourier, 46);
+      expect(stock.inTransit, 12);
+      expect(stock.returnPending, 7);
+    });
+
+    test('kurye detayında araç ve cihaz yoksa null kalır', () {
+      final detail = AgencyCourierDetail.fromJson({
+        'courierId': 'c1',
+        'fullName': 'Ali Can',
+        'plate': null,
+        'vehicle': null,
+        'device': null,
+      });
+      expect(detail.fullName, 'Ali Can');
+      expect(detail.plate, isNull);
+      expect(detail.vehicle, isNull);
+      expect(detail.device, isNull);
+    });
+
+    test('kurye detayı plaka ve cihaz iznini okur', () {
+      final detail = AgencyCourierDetail.fromJson({
+        'courierId': 'c1',
+        'fullName': 'Ali Can',
+        'plate': '06 ABC 123',
+        'vehicle': {
+          'plate': '06 ABC 123',
+          'vehicleTypeCode': 'MOTORCYCLE',
+          'brand': 'Honda',
+          'model': 'PCX',
+        },
+        'device': {
+          'model': 'Samsung SM-A546E',
+          'platform': 'ANDROID',
+          'os': 'Android 15',
+          'appVersion': '1.0.1+7',
+          'permissions': {
+            'location': true,
+            'backgroundLocation': false,
+            'camera': null,
+          },
+        },
+      });
+      expect(detail.vehicle?.brand, 'Honda');
+      expect(detail.device?.model, 'Samsung SM-A546E');
+      expect(detail.device?.permissions?.location, isTrue);
+      expect(detail.device?.permissions?.camera, isNull);
+    });
+
+    test('işlem geçmişi ad kullanır, ham workflow metnini atar', () {
+      final named = JobHistoryEvent.fromJson({
+        'id': 'event:1',
+        'code': 'Workflow status changed',
+        'statusName': 'Dağıtımda',
+        'altStatusName': 'Dağıtıma Çıktı',
+        'reasonName': 'Lokasyonda Red',
+        'sourceName': 'Süreç',
+      });
+      expect(named.headline, 'Dağıtımda');
+      expect(named.altLine, 'Dağıtıma Çıktı');
+      final raw = JobHistoryEvent.fromJson({
+        'id': 'event:2',
+        'statusName': 'Workflow status changed',
+        'altStatusName': 'Teslimat Şubesinde',
+      });
+      expect(raw.headline, 'Teslimat Şubesinde');
+    });
+
+    test('özel aralık 92 günü aşamaz ve ileri tarih reddedilir', () {
+      expect(
+        checkCustomRange('2026-01-01', '2026-04-02', now: DateTime.utc(2026, 11, 9)),
+        CustomRangeIssue.none,
+      );
+      expect(
+        checkCustomRange('2026-01-01', '2026-04-03', now: DateTime.utc(2026, 11, 9)),
+        CustomRangeIssue.tooLong,
+      );
+      expect(
+        checkCustomRange('2026-11-01', '2026-11-10', now: DateTime.utc(2026, 11, 9, 12)),
+        CustomRangeIssue.future,
+      );
+    });
+
+    test('destek hattı giriş yanıtından okunur, boşsa null', () {
+      expect(
+        AgencyDto.fromJson({
+          'id': 'a1',
+          'name': 'Kadıköy',
+          'supportPhone': '+908504808166',
+        }).supportPhone,
+        '+908504808166',
+      );
+      expect(
+        AgencyDto.fromJson({'id': 'a1', 'name': 'Kadıköy'}).supportPhone,
+        isNull,
+      );
+      expect(
+        AgencyDto.fromJson({
+          'id': 'a1',
+          'name': 'Kadıköy',
+          'supportPhone': '  ',
+        }).supportPhone,
+        isNull,
+      );
+    });
+
+    test('custom performans aralığı seçim anahtarına yazılır', () {
+      final data = PerformanceData.fromJson({
+        'range': 'custom',
+        'from': '2026-11-01T00:00:00+03:00',
+        'to': '2026-11-08',
+      }).withQuery(fromDay: '2026-11-01', toDay: '2026-11-08');
+      expect(data.selectionKey, 'custom:2026-11-01:2026-11-08');
+      expect(
+        PerformanceData.fromJson({'range': '7d'}).selectionKey,
+        '7d',
+      );
+    });
+
     test('yetki alanı gelmezse düğmeler kapalı kalır', () {
       final c = BranchCapabilities.fromJson(null);
       expect(c.operate, isFalse);

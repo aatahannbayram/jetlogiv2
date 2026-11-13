@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -22,7 +23,8 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen> {
   List<(IconData, String, String, String)> _items(L10n l) => [
     (LucideIcons.mapPin, l.permLocation, l.permLocationHint, 'loc'),
     (LucideIcons.camera, l.permCamera, l.permCameraHint, 'cam'),
-    (LucideIcons.bell, l.permPush, l.permPushHint, 'push'),
+    // Web'de bildirim izni verilemez; ekranı kilitlerdi.
+    if (!kIsWeb) (LucideIcons.bell, l.permPush, l.permPushHint, 'push'),
   ];
 
   Future<bool> _ask(String key) async {
@@ -53,13 +55,21 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen> {
       _busy = false;
       if (ok) granted.add(key);
     });
+    if (!ok && key == 'loc') _explainLocation();
+  }
+
+  void _explainLocation() {
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(SnackBar(content: Text(context.l10n.startNeedsLocation)));
   }
 
   Future<void> _grantAll() async {
     if (_busy) return;
+    final keys = [for (final item in _items(context.l10n)) item.$4];
     setState(() => _busy = true);
     PushPermit? push;
-    for (final key in ['loc', 'cam', 'push']) {
+    for (final key in keys) {
       if (granted.contains(key)) continue;
       if (key == 'push') {
         push = await requestPushPermit();
@@ -68,6 +78,7 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen> {
       }
       final ok = await _ask(key);
       if (ok) granted.add(key);
+      if (!ok && key == 'loc') _explainLocation();
     }
     if (!mounted) return;
     setState(() => _busy = false);
@@ -161,7 +172,11 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen> {
             ),
           const SizedBox(height: 8),
           DgButton(
-            label: ready ? l.goToShift : l.grantAllThree,
+            label: ready
+                ? l.goToShift
+                : items.length == 3
+                ? l.grantAllThree
+                : l.grantAll,
             icon: ready ? LucideIcons.arrowRight : LucideIcons.shield,
             onPressed: _busy
                 ? null
