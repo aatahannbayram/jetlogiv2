@@ -163,9 +163,71 @@ String panelFailureReasonCode(String reason) => switch (failureOutcomeCode(reaso
   _ => '9301',
 };
 
-bool photoRequiredForFailure(String reason) {
+/// Panel listesinden seçilen nedenin kendi kodu. Ad eşleşirse panel kodu
+/// aynen gider; yalnız yerel (panelsiz) listede ad → 93xx eşlemesi yapılır.
+String panelReasonCodeFor(
+  String reason,
+  List<({String code, String name})> panelReasons,
+) {
+  for (final row in panelReasons) {
+    if (row.name == reason && row.code.trim().isNotEmpty) return row.code;
+  }
+  return panelFailureReasonCode(reason);
+}
+
+String _fold(String raw) => raw
+    .toLowerCase()
+    .replaceAll('ı', 'i')
+    .replaceAll('İ', 'i')
+    .replaceAll('ş', 's')
+    .replaceAll('ğ', 'g')
+    .replaceAll('ü', 'u')
+    .replaceAll('ö', 'o')
+    .replaceAll('ç', 'c');
+
+/// V3 §4.1 neden grubu kanıtı.
+/// Vefat: fotoğraf/belge istenmez, açıklama zorunlu.
+/// Hasarlı/sorunlu: fotoğraf ve açıklama zorunlu.
+/// Mücbir/operasyonel ve kimlik/OTP: fotoğraf zorlanmaz.
+/// Diğer/merkez desteği: açıklama zorunlu.
+/// Adres/taşınmış/kapalı ve ulaşılamadı: fotoğraf.
+({bool photo, bool note}) failureEvidence(String reason) {
+  final r = _fold(reason);
+  bool has(List<String> keys) => keys.any(r.contains);
+  if (has(['vefat', 'deceased', 'death'])) return (photo: false, note: true);
+  if (has(['hasar', 'sorunlu', 'damage'])) return (photo: true, note: true);
+  if (has(['mucbir', 'operasyonel', 'force majeure', 'guvenlik'])) {
+    return (photo: false, note: false);
+  }
+  if (has(['kimlik', 'otp', 'identity'])) return (photo: false, note: false);
+  if (has(['diger', 'merkez', 'other'])) return (photo: false, note: true);
+  if (has(['tasinmis', 'taninmiyor', 'kapali', 'moved', 'closed'])) {
+    return (photo: true, note: false);
+  }
   final code = failureOutcomeCode(reason);
-  return code == 'RECIPIENT_ABSENT' || code == 'ADDRESS_NOT_FOUND';
+  return (
+    photo: code == 'RECIPIENT_ABSENT' || code == 'ADDRESS_NOT_FOUND',
+    note: false,
+  );
+}
+
+bool photoRequiredForFailure(String reason) => failureEvidence(reason).photo;
+
+/// V3 §4.1: ulaşılamadı / kabul etmedi / randevu nedenlerinde önce
+/// maskeli arama denemesi gerekir.
+bool callRequiredForFailure(String reason) {
+  final r = _fold(reason);
+  return [
+    'ulasilamadi',
+    'adreste yok',
+    'kabul etmedi',
+    'teslim almadi',
+    'randevu',
+    'ileri tarih',
+    'unreachable',
+    'not home',
+    'refused',
+  ].any(r.contains);
 }
 
 DeliveryTask deliveryTaskFromSummary(Map<String, dynamic> json) {
@@ -249,6 +311,7 @@ DeliveryTask deliveryTaskFromPanel(PanelCourierTaskDto row) {
     groupKey: address.isNotEmpty ? address.toLowerCase() : 'id:${row.id}',
     wireStatus: row.statusCode,
     merchantName: row.customerDisplayName,
+    isCard: row.isCardDelivery,
   );
 }
 

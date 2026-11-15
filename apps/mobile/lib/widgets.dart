@@ -961,6 +961,26 @@ class MapStrip extends StatelessWidget {
 }
 
 /// Doygunluğu %35'e indirir ve çok az aydınlatır.
+/// Seçili harita stilinin karo katmanları. Sokak haritası sakinleştirilir;
+/// koyu ve uyduda etiket katmanı üste biner. Kaydırırken boş karo kalmasın
+/// diye çevredeki karolar bellekte tutulur.
+List<Widget> _styledTiles(MapStyle style) {
+  TileLayer layer(String url) => TileLayer(
+    urlTemplate: url,
+    userAgentPackageName: 'com.dijigoo.dijigooKurye',
+    tileDimension: useMapboxTiles ? 512 : 256,
+    zoomOffset: useMapboxTiles ? -1 : 0,
+    keepBuffer: 4,
+    panBuffer: 1,
+  );
+  final base = layer(tileUrlFor(style));
+  final labels = labelUrlFor(style);
+  return [
+    style == MapStyle.street ? _maybeCalm(base) : base,
+    if (labels != null) layer(labels),
+  ];
+}
+
 Widget _maybeCalm(Widget tiles) => useMapboxTiles
     ? tiles
     : ColorFiltered(colorFilter: _calmMapFilter, child: tiles);
@@ -1072,9 +1092,14 @@ class _StableMapViewState extends State<_StableMapView>
   LatLng? _fromCenter, _toCenter;
   double _fromZoom = 0, _toZoom = 0;
 
+  void _onStyle() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void initState() {
     super.initState();
+    mapStyle.addListener(_onStyle);
     _pinFrom = _pinTo = _courierPoints;
     _glide.addListener(() {
       final a = _fromCenter, b = _toCenter;
@@ -1111,6 +1136,7 @@ class _StableMapViewState extends State<_StableMapView>
 
   @override
   void dispose() {
+    mapStyle.removeListener(_onStyle);
     _pins.dispose();
     _glide.dispose();
     _controller.dispose();
@@ -1228,14 +1254,7 @@ class _StableMapViewState extends State<_StableMapView>
         // Sokak haritasının sarı-turuncu kalabalığı kısılır: sokak adları
         // okunur kalır, rota ve iğneler öne çıkar. Filtre tüm katmana bir
         // kez uygulanır; kutucuk başına ayrı katman web'de kasıyordu.
-        _maybeCalm(
-          TileLayer(
-            urlTemplate: mapTileUrlTemplate,
-            userAgentPackageName: 'com.dijigoo.dijigooKurye',
-            tileDimension: useMapboxTiles ? 512 : 256,
-            zoomOffset: useMapboxTiles ? -1 : 0,
-          ),
-        ),
+        ..._styledTiles(mapStyle.value),
         if (widget.line.length > 1)
           PolylineLayer(
             polylines: [
@@ -3154,7 +3173,6 @@ class _VividHeroState extends State<_VividHero>
     with SingleTickerProviderStateMixin {
   late final AnimationController _pulse;
 
-  @override
   void initState() {
     super.initState();
     _pulse = AnimationController(

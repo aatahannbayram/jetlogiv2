@@ -7,9 +7,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../alerts.dart';
+import '../courier_home.dart';
 import '../api/models.dart';
 import '../geo.dart';
 import '../l10n.dart';
+import '../map_config.dart';
 import '../launchers.dart';
 import '../models.dart';
 import '../motion.dart';
@@ -286,7 +288,18 @@ class _RouteScreenState extends ConsumerState<RouteScreen> {
         children: [
           Positioned.fill(child: _RouteMap(fitEpoch: _fitEpoch)),
           const _RouteTopBar(),
+          const _MissingLocationBanner(),
           const _RouteSheet(),
+          Positioned(
+            right: 16,
+            bottom: MediaQuery.sizeOf(context).height * 0.42 + 70,
+            child: const _GeofenceChip(),
+          ),
+          Positioned(
+            right: 16,
+            top: MediaQuery.paddingOf(context).top + 132,
+            child: const _MapStyleChip(),
+          ),
           Positioned(
             right: 16,
             bottom: MediaQuery.sizeOf(context).height * 0.42 + 12,
@@ -359,74 +372,266 @@ class _RouteMap extends ConsumerWidget {
   }
 }
 
+class _MissingLocationBanner extends ConsumerWidget {
+  const _MissingLocationBanner();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final n = ref.watch(
+      sessionProvider.select((s) => s.unlocatedOpenTasks.length),
+    );
+    if (n == 0) return const SizedBox.shrink();
+    return Positioned(
+      left: 16,
+      right: 16,
+      top: MediaQuery.paddingOf(context).top + 132,
+      child: IgnorePointer(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: Dg.surface,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            '${context.l10n.stopsWithoutLocation} · $n',
+            style: Dg.ui(size: 13, weight: FontWeight.w600),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _RouteTopBar extends ConsumerWidget {
   const _RouteTopBar();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final s = ref.watch(sessionProvider);
-    final next = s.nextStop;
+    final l = context.l10n;
     final day = s.dayRoute;
-    final summary = next == null
-        ? context.l10n.routeFinished
-        : s.dayRouteLoading && (day == null || day.estimated)
-        ? context.l10n.routeComputing
-        : day != null
-        ? (day.estimated
-              ? '${context.l10n.routeKmMin((day.meters / 1000).toStringAsFixed(1), day.minutes)}  ·  ${context.l10n.approxRoute}'
-              : context.l10n.routeKmMin(
-                  (day.meters / 1000).toStringAsFixed(1),
-                  day.minutes,
-                ))
-        : _routeSummary(s.routePlan, fallback: context.l10n.approxRoute);
+    final plan = s.routePlan;
+    final count = s.orderedOpenTasks.length;
+    final minutes = day?.minutes ??
+        (plan == null ? null : (plan.totalDurationSeconds / 60).round());
+    final meters = day?.meters.toDouble() ?? plan?.totalDistanceMeters.toDouble();
+    final computing = s.dayRouteLoading && (day == null || day.estimated);
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-        child: Row(
+        child: Column(
           children: [
-            _MapChip(
-              onTap: () {
-                if (Navigator.of(context).canPop()) {
-                  Navigator.of(context).pop();
-                }
-              },
-              child: DgIcon(LucideIcons.arrowLeft, size: 18, color: Dg.ink),
-            ),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
+            Row(
+              children: [
+                _MapChip(
+                  onTap: () {
+                    if (Navigator.of(context).canPop()) {
+                      Navigator.of(context).pop();
+                    }
+                  },
+                  child: DgIcon(LucideIcons.arrowLeft, size: 18, color: Dg.ink),
                 ),
-                decoration: BoxDecoration(
-                  color: Dg.neon,
-                  borderRadius: BorderRadius.circular(999),
-                  boxShadow: _floatingPillShadow,
-                ),
-                child: Text(
-                  summary,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Dg.ui(
-                    size: 13,
-                    weight: FontWeight.w700,
-                    color: Dg.onNeon,
+                Expanded(
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Dg.surface,
+                        borderRadius: BorderRadius.circular(999),
+                        boxShadow: _floatingPillShadow,
+                      ),
+                      child: Text(
+                        l.route,
+                        style: Dg.ui(size: 17, weight: FontWeight.w700),
+                      ),
+                    ),
                   ),
                 ),
-              ),
+                _MapChip(
+                  onTap: s.toggleOnline,
+                  child: Tooltip(
+                    message: s.online ? l.homeActive : l.homePassive,
+                    child: Icon(
+                      s.online ? LucideIcons.pause : LucideIcons.play,
+                      size: 18,
+                      color: Dg.ink,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 8),
-            _MapChip(
-              onTap: s.toggleOnline,
-              child: Icon(
-                s.online ? LucideIcons.pause : LucideIcons.play,
-                size: 18,
-                color: Dg.ink,
-              ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: _RouteStat(
+                    icon: LucideIcons.package,
+                    label: l.routeTasksCount(count),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _RouteStat(
+                    icon: LucideIcons.clock,
+                    caption: 'ETA',
+                    label: computing || minutes == null
+                        ? '…'
+                        : etaLabel(minutes),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _RouteStat(
+                    icon: LucideIcons.route,
+                    caption: l.routeDistance,
+                    label: computing || meters == null
+                        ? '…'
+                        : distanceLabel(meters),
+                  ),
+                ),
+              ],
             ),
+            if (day?.estimated ?? false) ...[
+              const SizedBox(height: 6),
+              Text(
+                l.approxRoute,
+                style: Dg.ui(size: 12, color: Dg.ink2),
+              ),
+            ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// K04 katman düğmesi: Sokak → Koyu → Uydu.
+class _MapStyleChip extends StatelessWidget {
+  const _MapStyleChip();
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    return ValueListenableBuilder<MapStyle>(
+      valueListenable: mapStyle,
+      builder: (context, style, _) {
+        final label = switch (style) {
+          MapStyle.street => l.mapStreet,
+          MapStyle.dark => l.mapDark,
+          MapStyle.satellite => l.mapSatellite,
+        };
+        return Semantics(
+          button: true,
+          label: '${l.mapLayer}: $label',
+          excludeSemantics: true,
+          child: _MapChip(
+            onTap: () => mapStyle.value = MapStyle
+                .values[(style.index + 1) % MapStyle.values.length],
+            child: Tooltip(
+              message: '${l.mapLayer}: $label',
+              child: DgIcon(LucideIcons.layers, size: 18, color: Dg.ink),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _RouteStat extends StatelessWidget {
+  const _RouteStat({required this.icon, required this.label, this.caption});
+
+  final IconData icon;
+  final String label;
+  final String? caption;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minHeight: 48),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Dg.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Dg.hairline),
+        boxShadow: _floatingPillShadow,
+      ),
+      child: Row(
+        children: [
+          DgIcon(icon, size: 18, color: Dg.ink2, weight: 500),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (caption != null)
+                  Text(caption!, style: Dg.ui(size: 11, color: Dg.ink3)),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    style: Dg.ui(size: 14, weight: FontWeight.w700),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Haritanın altında: sıradaki durağa uzaklık 500 m (varsayılan) içindeyse
+/// "Geofence uygun". Konum yoksa çip görünmez; tahmin gösterilmez.
+class _GeofenceChip extends ConsumerWidget {
+  const _GeofenceChip();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(sessionProvider);
+    final next = s.nextStop;
+    if (next == null) return const SizedBox.shrink();
+    final d = geofenceDistance(
+      located: s.selfLocated,
+      selfLat: s.selfLat,
+      selfLng: s.selfLng,
+      stopLat: next.lat,
+      stopLng: next.lng,
+      stopHasCoordinates: next.hasCoordinates,
+    );
+    if (d == null) return const SizedBox.shrink();
+    final inside = d <= kDefaultGeofenceMeters;
+    final color = inside ? Dg.ok : Dg.warn;
+    final l = context.l10n;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Dg.surface,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color),
+        boxShadow: _floatingPillShadow,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          DgIcon(
+            inside ? LucideIcons.shieldCheck : LucideIcons.shieldAlert,
+            size: 16,
+            color: color,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            inside ? l.geofenceOk : l.geofenceFar(distanceLabel(d)),
+            style: Dg.ui(size: 13, weight: FontWeight.w700, color: color),
+          ),
+        ],
       ),
     );
   }
@@ -466,9 +671,10 @@ class _RouteSheet extends ConsumerWidget {
     final plan = s.routePlan;
     final day = s.dayRoute;
     final openTasks = s.orderedOpenTasks;
-    final doors = groupTasksByDoor(openTasks);
+    final missing = s.unlocatedOpenTasks;
+    final doors = groupTasksByDoor(openTasks.where((t) => t.hasCoordinates));
     final nextId = s.nextStop?.id;
-    final stopCount = doors.length;
+    final stopCount = doors.length + missing.length;
 
     return DraggableScrollableSheet(
       initialChildSize: 0.40,
@@ -504,14 +710,29 @@ class _RouteSheet extends ConsumerWidget {
                   ),
                 ),
               ),
+              if (s.nextStop != null) ...[
+                _NextStopPanel(
+                  task: s.nextStop!,
+                  index: (doors.indexWhere(
+                            (d) => d.any((t) => t.id == nextId),
+                          ) +
+                          1)
+                      .clamp(1, stopCount == 0 ? 1 : stopCount),
+                  total: stopCount,
+                  legMeters: day != null && day.stops.isNotEmpty
+                      ? day.stops.first.meters.toDouble()
+                      : null,
+                ),
+                const SizedBox(height: 18),
+              ],
               Text(
-                context.l10n.remainingStopsHint(stopCount),
-                style: Dg.ui(size: 17, weight: FontWeight.w700),
+                '${context.l10n.allStops} · ${context.l10n.remainingStopsHint(stopCount)}',
+                style: Dg.ui(size: 15, weight: FontWeight.w700),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 10),
               if (s.routeLoading && plan == null)
                 const DgSkeleton(width: double.infinity, height: 88)
-              else if (doors.isEmpty)
+              else if (doors.isEmpty && missing.isEmpty)
                 Text(
                   context.l10n.routeFinished,
                   style: Dg.ui(size: 14, color: Dg.ink2),
@@ -545,15 +766,201 @@ class _RouteSheet extends ConsumerWidget {
                         ? doors[i].skip(1).toList()
                         : const [],
                     visitIndex: i + 1,
-                    active: doors[i].any((t) => t.id == nextId),
+                    // Sıradaki durak üstteki kartta; listede satır olarak kalır.
+                    active: false,
                     last: i == doors.length - 1,
                   ),
                 ],
+              ],
+              if (missing.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Text(
+                  context.l10n.stopsWithoutLocation,
+                  style: Dg.ui(size: 15, weight: FontWeight.w700),
+                ),
+                const SizedBox(height: 8),
+                for (final t in missing)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      '${t.recipient} · ${t.ref}',
+                      style: Dg.ui(size: 14, color: Dg.ink2),
+                    ),
+                  ),
               ],
             ],
           ),
         );
       },
+    );
+  }
+}
+
+/// K04 "Sıradaki Durak": ad, adres, hizmet tipi, uzaklık; Detay + Yola Çık.
+class _NextStopPanel extends ConsumerWidget {
+  const _NextStopPanel({
+    required this.task,
+    required this.index,
+    required this.total,
+    this.legMeters,
+  });
+
+  final DeliveryTask task;
+  final int index;
+  final int total;
+  final double? legMeters;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(sessionProvider);
+    final l = context.l10n;
+    final d = geofenceDistance(
+          located: s.selfLocated,
+          selfLat: s.selfLat,
+          selfLng: s.selfLng,
+          stopLat: task.lat,
+          stopLng: task.lng,
+          stopHasCoordinates: task.hasCoordinates,
+        ) ??
+        legMeters;
+    final kind = task.isCard
+        ? l.cardDelivery
+        : (task.window.isNotEmpty && task.window != '—')
+        ? l.dashAppointment
+        : l.standardDelivery;
+    Future<void> setOff() async {
+      final messenger = ScaffoldMessenger.of(context);
+      final warn = l.startNeedsLocation;
+      if (task.status != TaskStatus.inProgress) {
+        final ok = await s.startTask(task.id);
+        if (!ok) {
+          messenger
+            ..hideCurrentSnackBar()
+            ..showSnackBar(SnackBar(content: Text(warn)));
+        }
+      }
+      if (!context.mounted) return;
+      await openDirections(context, task);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                l.nextStopTitle,
+                style: Dg.ui(size: 17, weight: FontWeight.w700),
+              ),
+            ),
+            Text(
+              '$index / $total',
+              style: Dg.ui(size: 15, weight: FontWeight.w700, color: Dg.ink2),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: Dg.surface2,
+                shape: BoxShape.circle,
+              ),
+              child: DgIcon(LucideIcons.mapPin, size: 22, color: Dg.warn),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    task.recipient,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Dg.ui(size: 17, weight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    task.address,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Dg.ui(size: 13, color: Dg.ink2, height: 1.3),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(color: Dg.stroke),
+                  ),
+                  child: Text(
+                    kind,
+                    style: Dg.ui(size: 12, weight: FontWeight.w600),
+                  ),
+                ),
+                if (d != null) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        distanceLabel(d),
+                        style: Dg.ui(
+                          size: 15,
+                          weight: FontWeight.w700,
+                          color: Dg.warn,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      DgIcon(LucideIcons.navigation, size: 14, color: Dg.warn),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        Row(
+          children: [
+            Expanded(
+              child: DgButton(
+                label: l.detailShort,
+                icon: LucideIcons.fileText,
+                tone: DgButtonTone.secondary,
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => TaskDetailScreen(taskId: task.id),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: DgButton(
+                label: l.setOff,
+                icon: LucideIcons.navigation,
+                onPressed: setOff,
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
@@ -585,14 +992,6 @@ RouteStopDto? _findStop(List<RouteStopDto> stops, String taskId) {
     if (s.taskId == taskId) return s;
   }
   return null;
-}
-
-String _routeSummary(RoutePlanDto? plan, {required String fallback}) {
-  if (plan == null || plan.stops.isEmpty) return fallback;
-  final km = plan.totalDistanceMeters / 1000;
-  final minutes = (plan.totalDurationSeconds / 60).round();
-  final kmLabel = km >= 10 ? km.toStringAsFixed(0) : km.toStringAsFixed(1);
-  return '$kmLabel km  ·  $minutes dk';
 }
 
 /// Dikey zaman çizelgesindeki bir durak düğümü — canvas'ın "1c Rota"

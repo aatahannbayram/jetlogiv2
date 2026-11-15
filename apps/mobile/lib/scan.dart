@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
+import 'barcode_voice.dart';
 import 'l10n.dart';
 import 'theme.dart';
 
@@ -70,6 +71,7 @@ class _BarcodeScanPaneState extends State<BarcodeScanPane>
   Future<void> _cameraOp = Future<void>.value();
   final _manual = TextEditingController();
   bool _manualOpen = false;
+  bool _listening = false;
   bool _cameraError = false;
   String? _lastCode;
   DateTime _lastAt = DateTime.fromMillisecondsSinceEpoch(0);
@@ -130,6 +132,24 @@ class _BarcodeScanPaneState extends State<BarcodeScanPane>
     _manual.dispose();
     _controller?.dispose();
     super.dispose();
+  }
+
+  Future<void> _dictate() async {
+    if (_listening) return;
+    setState(() {
+      _manualOpen = true;
+      _listening = true;
+    });
+    final code = await listenForBarcode();
+    if (!mounted) return;
+    setState(() => _listening = false);
+    if (code == null || code.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.dictateFailed)),
+      );
+      return;
+    }
+    _manual.text = code;
   }
 
   void _emit(String raw) {
@@ -253,6 +273,11 @@ class _BarcodeScanPaneState extends State<BarcodeScanPane>
                     _scanChip(
                       icon: LucideIcons.keyboard,
                       onTap: () => setState(() => _manualOpen = !_manualOpen),
+                    ),
+                    const SizedBox(width: 8),
+                    _scanChip(
+                      icon: LucideIcons.mic,
+                      onTap: _dictate,
                     ),
                     if (controller != null) ...[
                       const SizedBox(width: 8),

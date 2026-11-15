@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../api/courier_tasks.dart';
 import '../api/panel_models.dart';
+import '../barcode_voice.dart';
 import '../capture_check.dart';
+import '../courier_home.dart';
 import '../l10n.dart';
 import '../local_image.dart';
 import '../motion.dart';
@@ -12,6 +15,7 @@ import '../session.dart';
 import '../theme.dart';
 import '../visit_requirements.dart';
 import '../widgets.dart';
+import 'kyc_screen.dart';
 import 'result_screen.dart';
 import 'wizard_screen.dart';
 
@@ -78,6 +82,9 @@ class _VisitFlowScreenState extends ConsumerState<VisitFlowScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) ref.read(sessionProvider).resetIdentityCheck();
+    });
     if (widget.startFailed) {
       failed = true;
       WidgetsBinding.instance.addPostFrameCallback((_) => _loadReasons());
@@ -176,6 +183,14 @@ class _VisitFlowScreenState extends ConsumerState<VisitFlowScreen> {
         final code = reasonCode;
         if (code == null) return l.visitPickReason;
         final name = reasons!.firstWhere((r) => r.code == code).name;
+        if (callRequiredForFailure(name) &&
+            s.callAttempts(widget.taskId) == 0) {
+          return l.callFirst;
+        }
+        final evidence = failureEvidence(name);
+        if (evidence.note && note.text.trim().length < 3) {
+          return l.noteRequired;
+        }
         final form = req.form;
         if (form != null) values.addAll(form.prefillForReason(name));
         return null;
@@ -254,7 +269,23 @@ class _VisitFlowScreenState extends ConsumerState<VisitFlowScreen> {
       return;
     }
     final s = ref.read(sessionProvider);
-    if (!s.online) {
+    if (!failed) {
+      final currentTask = s.taskOrNull(widget.taskId);
+      if (currentTask != null && currentTask.isCard && !s.nfcRead) {
+        await Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => const KycScreen()),
+        );
+        if (!mounted) return;
+        if (!ref.read(sessionProvider).nfcRead) {
+          setState(() {
+            busy = false;
+            error = l.identityNeeded;
+          });
+          return;
+        }
+      }
+    }
+    if (!ref.read(sessionProvider).online) {
       setState(() {
         busy = false;
         error = l.visitOffline;
@@ -396,6 +427,24 @@ class _VisitFlowScreenState extends ConsumerState<VisitFlowScreen> {
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
                 children: [
                   if (current?.kind == _StepKind.reason) ..._reasonStep(l),
+                  if (task.isCard && !failed) ...[
+                    Text(
+                      l.cardNoNeighbor,
+                      style: Dg.ui(size: 14, color: Dg.ink2, height: 1.35),
+                    ),
+                    const SizedBox(height: 8),
+                    DgButton(
+                      label: l.identityCheck,
+                      icon: LucideIcons.idCard,
+                      tone: DgButtonTone.secondary,
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const KycScreen(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   if (current?.kind == _StepKind.photo)
                     ..._photoStep(l, current!.photo!),
                   if (current?.kind == _StepKind.form) ..._formStep(l),
@@ -517,6 +566,18 @@ class _VisitFlowScreenState extends ConsumerState<VisitFlowScreen> {
             }),
           ),
         const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: () {
+              final s = ref.read(sessionProvider);
+              final t = s.taskOrNull(widget.taskId);
+              if (t != null) s.callTask(context, t);
+            },
+            icon: const Icon(LucideIcons.phone, size: 18),
+            label: Text(l.callRecipient),
+          ),
+        ),
         TextField(
           controller: note,
           minLines: 2,
@@ -714,8 +775,17 @@ class _VisitFlowScreenState extends ConsumerState<VisitFlowScreen> {
           ),
         ];
       case 'CODE':
+        final card =
+            ref.read(sessionProvider).taskOrNull(widget.taskId)?.isCard ??
+            false;
+        final options = card
+            ? [
+                for (final o in f.options)
+                  if (!isNeighborDropOff(o.code, o.label)) o,
+              ]
+            : f.options;
         return [
-          for (final o in f.options)
+          for (final o in options)
             _choice(
               label: o.label,
               selected: f.isMultiValue
@@ -778,7 +848,30 @@ class _VisitFlowScreenState extends ConsumerState<VisitFlowScreen> {
                 : TextInputType.text,
             minLines: 1,
             maxLines: f.type == 'NUMBER' ? 1 : 4,
-            decoration: InputDecoration(hintText: f.description),
+            decoration: InputDecoration(
+              hintText: f.description,
+              suffixIcon: isBarcodeField(
+                    f.code,
+                    '${f.description ?? ''} ${f.type}',
+                  )
+                  ? IconButton(
+                      tooltip: l.dictateBarcode,
+                      icon: const Icon(LucideIcons.mic),
+                      onPressed: () async {
+                        final code = await listenForBarcode();
+                        if (!mounted) return;
+                        if (code == null || code.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text(l.dictateFailed)),
+                          );
+                          return;
+                        }
+                        c.text = code;
+                        _set(f.code, code);
+                      },
+                    )
+                  : null,
+            ),
           ),
         ];
     }

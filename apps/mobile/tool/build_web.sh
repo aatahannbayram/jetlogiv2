@@ -7,7 +7,7 @@
 #   node tool/web_proxy.mjs      -> http://localhost:8088 ile yerel deneme
 set -euo pipefail
 cd "$(dirname "$0")/.."
-flutter build web --release --no-tree-shake-icons \
+flutter build web --release \
   --dart-define=PANEL_API_BASE=/api/public/v1 \
   --dart-define=AGENCY_API_BASE=/api/portal/v1 \
   --dart-define=LEGACY_API=false \

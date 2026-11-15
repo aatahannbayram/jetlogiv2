@@ -7,6 +7,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../geo.dart';
+import '../courier_home.dart';
 import '../l10n.dart';
 import '../launchers.dart';
 import '../motion.dart';
@@ -257,13 +258,53 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                                         ),
                                         const SizedBox(width: 10),
                                         Expanded(
-                                          child: Display(t.recipient, size: 22),
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Display(t.recipient, size: 22),
+                                              if (maskPhone(t.phone) != null)
+                                                Row(
+                                                  children: [
+                                                    DgIcon(
+                                                      LucideIcons.phone,
+                                                      size: 14,
+                                                      color: Dg.ink2,
+                                                    ),
+                                                    const SizedBox(width: 6),
+                                                    Flexible(
+                                                      child: Text(
+                                                        maskPhone(t.phone)!,
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
+                                                        style: Dg.ui(
+                                                          size: 14,
+                                                          color: Dg.ink2,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                            ],
+                                          ),
                                         ),
                                       ],
                                     ),
                                   ),
                                 ),
                                 const SizedBox(height: 4),
+                                if (t.isCard) ...[
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    l.cardDelivery,
+                                    style: Dg.ui(
+                                      size: 13,
+                                      weight: FontWeight.w700,
+                                      color: Dg.brand,
+                                    ),
+                                  ),
+                                ],
                                 Text(
                                   t.address,
                                   maxLines: 2,
@@ -328,11 +369,17 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                                   ),
                                 ],
                                 const SizedBox(height: 14),
+                                _RequiredSteps(task: t),
+                                const SizedBox(height: 14),
                                 Row(
                                   children: [
                                     SquareAction(
                                       icon: LucideIcons.phone,
-                                      label: l.callShort,
+                                      label: session.canPlaceMaskedCall ||
+                                              (t.phone != null &&
+                                                  t.phone!.trim().isNotEmpty)
+                                          ? l.callShort
+                                          : l.numberHidden,
                                       color: Dg.ok,
                                       onTap: () => session.callTask(context, t),
                                     ),
@@ -589,6 +636,130 @@ class _SheetBack extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// K03 "Zorunlu Adımlar": bilinen durumlar gerçek veriden işaretlenir.
+/// Bilgi amaçlıdır; adım sırasını panel workflow'u yönetir.
+class _RequiredSteps extends ConsumerWidget {
+  const _RequiredSteps({required this.task});
+
+  final DeliveryTask task;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(sessionProvider);
+    final l = context.l10n;
+    final closed = !task.isOpen;
+    final d = geofenceDistance(
+      located: s.selfLocated,
+      selfLat: s.selfLat,
+      selfLng: s.selfLng,
+      stopLat: task.lat,
+      stopLng: task.lng,
+      stopHasCoordinates: task.hasCoordinates,
+    );
+    final items = <(IconData, String, bool)>[
+      (
+        LucideIcons.mapPin,
+        l.reqLocation,
+        closed || (d != null && d <= kDefaultGeofenceMeters),
+      ),
+      (LucideIcons.phone, l.callRecipient, s.callAttempts(task.id) > 0),
+      (
+        LucideIcons.play,
+        l.reqStart,
+        closed || task.status == TaskStatus.inProgress,
+      ),
+      if (task.otpRequired) (LucideIcons.shieldCheck, l.reqOtp, closed),
+      (LucideIcons.camera, l.reqProof, closed),
+      (LucideIcons.check, l.reqResult, closed),
+    ];
+    final done = items.where((i) => i.$3).length;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            DgIcon(LucideIcons.listChecks, size: 18, color: Dg.ink2),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                l.reqTitle,
+                style: Dg.ui(size: 16, weight: FontWeight.w700),
+              ),
+            ),
+            Text(
+              l.reqDone(done, items.length),
+              style: Dg.ui(size: 13, color: Dg.ink2),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        LayoutBuilder(
+          builder: (context, box) {
+            final w = ((box.maxWidth - 16) / 3).clamp(80.0, 200.0);
+            return Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final (i, (icon, label, ok)) in items.indexed)
+                  Semantics(
+                    label: '${i + 1}. $label${ok ? ', ${l.otpVerified}' : ''}',
+                    excludeSemantics: true,
+                    child: Container(
+                      width: w,
+                      constraints: const BoxConstraints(minHeight: 76),
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: ok ? Dg.ok.withValues(alpha: 0.10) : Dg.surface2,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: ok ? Dg.ok : Dg.hairline,
+                        ),
+                      ),
+                      child: Stack(
+                        children: [
+                          Text(
+                            '${i + 1}',
+                            style: Dg.ui(
+                              size: 12,
+                              weight: FontWeight.w700,
+                              color: Dg.ink2,
+                            ),
+                          ),
+                          Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                DgIcon(
+                                  ok ? LucideIcons.circleCheck : icon,
+                                  size: 20,
+                                  color: ok ? Dg.ok : Dg.ink,
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  label,
+                                  maxLines: 2,
+                                  textAlign: TextAlign.center,
+                                  style: Dg.ui(
+                                    size: 12,
+                                    weight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+      ],
     );
   }
 }

@@ -9,6 +9,7 @@ import '../models.dart';
 import '../motion.dart';
 import '../road.dart';
 import '../session.dart';
+import '../shell_nav.dart';
 import '../theme.dart';
 import '../ui/layout.dart' show DgStickyList;
 import '../widgets.dart';
@@ -42,6 +43,7 @@ class _ListScreenState extends ConsumerState<ListScreen> {
   Widget build(BuildContext context) {
     final l = context.l10n;
     final s = ref.watch(sessionProvider);
+    final filter = ref.watch(shellNavProvider).listFilter;
     final acik = s.orderedOpenTasks;
     final teslim = s.tasks
         .where((t) => t.status == TaskStatus.delivered)
@@ -52,11 +54,13 @@ class _ListScreenState extends ConsumerState<ListScreen> {
               t.status == TaskStatus.failed || t.status == TaskStatus.cancelled,
         )
         .toList();
-    final rows = switch (tab) {
-      0 => acik,
-      1 => teslim,
-      _ => iade,
-    };
+    final rows = filter != null
+        ? s.tasksForDash(filter)
+        : switch (tab) {
+            0 => acik,
+            1 => teslim,
+            _ => iade,
+          };
     final day = s.dayRoute;
     final kmLabel = day != null
         ? (day.meters / 1000).toStringAsFixed(1)
@@ -142,7 +146,31 @@ class _ListScreenState extends ConsumerState<ListScreen> {
                     ),
                   ),
               ],
-              pinned: Padding(
+              pinned: filter != null
+                  ? Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        Dg.pagePad,
+                        8,
+                        8,
+                        0,
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              _dashFilterLabel(l, filter),
+                              style: Dg.ui(size: 15, weight: FontWeight.w700),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () =>
+                                ref.read(shellNavProvider).clearListFilter(),
+                            child: Text(l.dashShowAll),
+                          ),
+                        ],
+                      ),
+                    )
+                  : Padding(
                 padding: const EdgeInsets.symmetric(horizontal: Dg.pagePad),
                 child: SegmentedTabs(
                   labels: [
@@ -340,6 +368,17 @@ class _RotaTaskCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: Dg.ui(size: 17, weight: FontWeight.w700, height: 1.2),
                 ),
+                if (task.isCard) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    context.l10n.cardDelivery,
+                    style: Dg.ui(
+                      size: 12,
+                      weight: FontWeight.w700,
+                      color: Dg.brand,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 3),
                 Text(
                   task.address,
@@ -386,3 +425,14 @@ class _RotaTaskCard extends StatelessWidget {
     );
   }
 }
+
+String _dashFilterLabel(L10n l, String filter) => switch (filter) {
+  'awaiting' => l.dashAwaiting,
+  'appointment' => l.dashAppointment,
+  'out' => l.dashOut,
+  'overdue' => l.dashOverdue,
+  'delivered' => l.dashDelivered,
+  'failed' => l.dashFailed,
+  'branch' => l.dashToBranch,
+  _ => l.distribution,
+};

@@ -5,6 +5,8 @@
 /// our own `apps/api` shapes.
 library;
 
+import '../courier_home.dart';
+
 class PanelDestinationDto {
   const PanelDestinationDto({
     this.countryCode,
@@ -51,6 +53,9 @@ class PanelCourierTaskDto {
     this.packageCount,
     this.customerDisplayName,
     this.assignmentStatusCode,
+    this.productCode,
+    this.serviceType,
+    this.customerCode,
   });
 
   final String id;
@@ -74,6 +79,11 @@ class PanelCourierTaskDto {
 
   /// The courier's current `ShipmentAssignment.statusCode`, when present.
   final String? assignmentStatusCode;
+
+  /// Varsa kart teslimatı buradan okunur. Yoksa null; sahte kart üretilmez.
+  final String? productCode;
+  final String? serviceType;
+  final String? customerCode;
 
   factory PanelCourierTaskDto.fromJson(Map<String, dynamic> json) {
     final destination = json['destination'] as Map?;
@@ -101,8 +111,31 @@ class PanelCourierTaskDto {
       assignmentStatusCode: assignment == null
           ? null
           : assignment['statusCode'] as String?,
+      productCode: _code(json['productCode']) ?? _code(json['product']),
+      serviceType:
+          _code(json['serviceType']) ??
+          _code(json['serviceCode']) ??
+          _code(json['service']),
+      customerCode: customer == null ? null : _code(customer['code']),
     );
   }
+
+  bool get isCardDelivery => isCardMarker(
+    productCode: productCode,
+    serviceType: serviceType,
+    customerCode: customerCode,
+  );
+}
+
+String? _code(Object? raw) {
+  if (raw is String) {
+    final t = raw.trim();
+    return t.isEmpty ? null : t;
+  }
+  if (raw is Map) {
+    return _code(raw['code']) ?? _code(raw['type']);
+  }
+  return null;
 }
 
 class PanelCourierTaskSummaryDto {
@@ -203,7 +236,10 @@ class PanelFinalizeResultDto {
   factory PanelFinalizeResultDto.fromJson(Map<String, dynamic> json) =>
       PanelFinalizeResultDto(
         already: json['alreadyFinalized'] == true,
-        currentStateCode: json['currentStateCode'] as String?,
+        // Swagger 1.6 FinalizeResult: `workflowState`.
+        currentStateCode:
+            json['workflowState'] as String? ??
+            json['currentStateCode'] as String?,
       );
 }
 
@@ -293,6 +329,8 @@ class PanelApiException implements Exception {
     final s = statusCode;
     if (s == null) return true;
     if (s == 408 || s == 429) return true;
+    // Sözleşme: serileştirme çakışması, tekrar denenir.
+    if (code == 'CONCURRENT_UPDATE') return true;
     return s >= 500;
   }
 

@@ -18,7 +18,7 @@ import 'token_refresh.dart';
 /// Override: `--dart-define=PANEL_API_BASE=...`
 const kPanelApiBase = String.fromEnvironment(
   'PANEL_API_BASE',
-  defaultValue: 'https://api-mobile.preprod.jetdiji.com/api/public/v1',
+  defaultValue: 'https://api-mobile.dijigoo.com/api/public/v1',
 );
 
 const kPanelBearerKey = 'dg.jetdiji.courier.token';
@@ -531,21 +531,49 @@ class PanelApi {
     });
   }
 
-  Future<({String phone, String telUri})> callRecipient(
-    String shipmentId,
-  ) async {
+  Future<({String mode, String message, String phone, String telUri})>
+  callRecipient(String shipmentId) async {
     final res = await _post('/courier-tasks/$shipmentId/call', const {});
-    final data = res.data?['data'] as Map? ?? const {};
+    final body = res.data;
+    final root = body == null
+        ? <String, dynamic>{}
+        : Map<String, dynamic>.from(body);
+    final nested = root['data'];
+    final data = nested is Map
+        ? Map<String, dynamic>.from(nested)
+        : root;
+    String text(Object? value) => value is String ? value : '';
     return (
-      phone: data['phone'] as String? ?? '',
-      telUri: data['telUri'] as String? ?? '',
+      mode: text(data['mode']),
+      message: text(data['message']),
+      phone: text(data['phone']),
+      telUri: text(data['telUri']),
     );
   }
 
-  Future<String?> requestDeliveryOtp(String shipmentId) async {
-    final res = await _post('/courier-tasks/$shipmentId/otp', const {});
-    return (res.data?['data'] as Map?)?['challengeId'] as String?;
+  /// `POST courier-tasks/{id}/otp`. [receiverType] SELF|RELATIVE|AUTHORIZED|
+  /// SECRETARY; [channel] SMS ya da IVR (santral kodu sesli okur).
+  Future<({String? challengeId, DateTime? resendAvailableAt, String? maskedPhone})>
+  requestDeliveryOtpChallenge(
+    String shipmentId, {
+    String receiverType = 'SELF',
+    String channel = 'SMS',
+  }) async {
+    final res = await _post('/courier-tasks/$shipmentId/otp', {
+      'receiverType': receiverType,
+      'channel': channel,
+    });
+    final data = res.data?['data'] as Map? ?? const {};
+    final resend = data['resendAvailableAt'];
+    return (
+      challengeId: data['challengeId'] as String?,
+      resendAvailableAt: resend is String ? DateTime.tryParse(resend) : null,
+      maskedPhone: data['maskedPhone'] as String?,
+    );
   }
+
+  Future<String?> requestDeliveryOtp(String shipmentId) async =>
+      (await requestDeliveryOtpChallenge(shipmentId)).challengeId;
 
   /// Doğrulandıysa `otpEvidenceId` olarak kullanılacak kanıt no.
   Future<String?> verifyDeliveryOtp({
@@ -897,6 +925,7 @@ class PanelApi {
     required String idempotencyKey,
     String? reasonCode,
     String? receivedBy,
+    String? receiverType,
     String? otpEvidenceId,
     String? note,
     double? latitude,
@@ -911,6 +940,7 @@ class PanelApi {
         outcome: outcome,
         reasonCode: reasonCode,
         receivedBy: receivedBy,
+        receiverType: receiverType,
         otpEvidenceId: otpEvidenceId,
         note: note,
         latitude: latitude,
@@ -931,6 +961,7 @@ class PanelApi {
     required String outcome,
     String? reasonCode,
     String? receivedBy,
+    String? receiverType,
     String? otpEvidenceId,
     String? note,
     double? latitude,
@@ -943,6 +974,7 @@ class PanelApi {
       'resultCode': delivered ? 'DELIVERED' : 'DELIVERY_FAILED',
       if (!delivered && reasonCode != null) 'reasonCode': reasonCode,
       if (delivered && receivedBy != null) 'receivedByName': receivedBy,
+      if (delivered && receiverType != null) 'receiverType': receiverType,
       if (delivered && otpEvidenceId != null) 'otpEvidenceId': otpEvidenceId,
       if (note != null && note.isNotEmpty) 'note': note,
       if (evidenceIds != null && evidenceIds.isNotEmpty)

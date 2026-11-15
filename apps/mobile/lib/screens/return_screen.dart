@@ -149,8 +149,19 @@ class _FailReasonPaneState extends ConsumerState<_FailReasonPane> {
 
   bool get _photoRequired => picked != null && photoRequiredForFailure(picked!);
 
+  bool get _noteRequired => picked != null && failureEvidence(picked!).note;
+
+  bool get _callMissing =>
+      picked != null &&
+      callRequiredForFailure(picked!) &&
+      ref.read(sessionProvider).callAttempts(widget.taskId) == 0;
+
   bool get _canSubmit =>
-      picked != null && !uploading && (!_photoRequired || photoMediaId != null);
+      picked != null &&
+      !uploading &&
+      !_callMissing &&
+      (!_photoRequired || photoMediaId != null) &&
+      (!_noteRequired || note.text.trim().length >= 3);
 
   @override
   void dispose() {
@@ -214,10 +225,11 @@ class _FailReasonPaneState extends ConsumerState<_FailReasonPane> {
               const SizedBox(height: 6),
               TextField(
                 controller: note,
+                onChanged: (_) => setState(() {}),
                 decoration: InputDecoration(
                   border: InputBorder.none,
                   isDense: true,
-                  hintText: l.optionalNote,
+                  hintText: _noteRequired ? l.noteRequired : l.optionalNote,
                 ),
                 style: const TextStyle(
                   fontSize: 16,
@@ -228,34 +240,61 @@ class _FailReasonPaneState extends ConsumerState<_FailReasonPane> {
           ),
         ),
         const SizedBox(height: 16),
-        Viewfinder(
-          captured: photo,
-          hint: _photoRequired ? l.proofPhotoRequired : l.proofNeeded,
-          onCapture: (path) async {
-            setState(() {
-              photo = true;
-              uploading = true;
-            });
-            final session = ref.read(sessionProvider);
-            final id = await uploadFileEvidence(
-              api: session.panelLoggedIn ? null : session.api,
-              panel: session.panelLoggedIn ? session.panel : null,
-              path: path,
-              kind: 'photo',
-              taskId: widget.taskId,
-              stepKey: failureOutcomeCode(picked ?? '') == 'ADDRESS_NOT_FOUND'
-                  ? 'adres_kanit_fotografi'
-                  : 'yok_kanit_fotografi',
-            );
-            if (mounted) {
+        if (picked == null || _photoRequired || !_noteRequired)
+          Viewfinder(
+            captured: photo,
+            hint: _photoRequired ? l.proofPhotoRequired : l.proofNeeded,
+            onCapture: (path) async {
               setState(() {
-                photoMediaId = id;
-                uploading = false;
+                photo = true;
+                uploading = true;
               });
-            }
-          },
-        ),
+              final session = ref.read(sessionProvider);
+              final id = await uploadFileEvidence(
+                api: session.panelLoggedIn ? null : session.api,
+                panel: session.panelLoggedIn ? session.panel : null,
+                path: path,
+                kind: 'photo',
+                taskId: widget.taskId,
+                // Panelde "teslim edilemedi" fotoğraf gereksinim kodu;
+                // kendi API'mizde workflow adımı.
+                stepKey: session.panelLoggedIn
+                    ? session
+                          .visitRequirements(widget.taskId)
+                          ?.photosFor(delivered: false)
+                          .firstOrNull
+                          ?.code
+                    : failureOutcomeCode(picked ?? '') == 'ADDRESS_NOT_FOUND'
+                    ? 'adres_kanit_fotografi'
+                    : 'yok_kanit_fotografi',
+              );
+              if (mounted) {
+                setState(() {
+                  photoMediaId = id;
+                  uploading = false;
+                });
+              }
+            },
+          ),
         const SizedBox(height: 16),
+        if (_callMissing) ...[
+          Text(
+            l.callFirst,
+            style: Dg.ui(size: 15, weight: FontWeight.w600, color: Dg.warn),
+          ),
+          const SizedBox(height: 8),
+          DgButton(
+            label: l.callRecipient,
+            icon: LucideIcons.phone,
+            tone: DgButtonTone.secondary,
+            onPressed: () {
+              final s = ref.read(sessionProvider);
+              final t = s.taskOrNull(widget.taskId);
+              if (t != null) s.callTask(context, t);
+            },
+          ),
+          const SizedBox(height: 12),
+        ],
         if (picked != null)
           DgButton(
             label: l.closeAsReturn,

@@ -34,7 +34,8 @@ Future<String?> uploadEvidence({
       filename: kind == 'signature' ? 'signature.png' : 'photo.jpg',
       evidenceType: _evidenceType(kind),
       contentType: contentType,
-      requirementCode: stepKey,
+      // Panel `requirementCode`'u yalnız PHOTO'da kabul eder (Swagger 1.6).
+      requirementCode: _evidenceType(kind) == 'PHOTO' ? stepKey : null,
       latitude: at?.lat,
       longitude: at?.lng,
       accuracy: at?.accuracy,
@@ -103,7 +104,8 @@ Future<String?> uploadFileEvidence({
   }
   try {
     final bytes = await XFile(path).readAsBytes();
-    return uploadEvidence(
+    // await: yükleme hatası da aşağıdaki catch'e düşsün.
+    return await uploadEvidence(
       api: api,
       panel: panel,
       bytes: bytes,

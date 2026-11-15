@@ -17,7 +17,9 @@ import 'eod_screen.dart';
 import 'next_stop_card.dart';
 import 'notif_screen.dart';
 import 'shell_screen.dart' show RouteScreen;
+import 'support_screen.dart';
 import 'sync_screen.dart';
+import 'training_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -40,14 +42,7 @@ class HomeScreen extends ConsumerWidget {
     final syncDone = syncTotal == 0;
 
     return Scaffold(
-      appBar: CourierHeaderBar(
-        actions: [
-          DgOnlineChip(
-            online: s.online && s.shiftOpen,
-            onTap: s.shiftOpen ? s.toggleOnline : () {},
-          ),
-        ],
-      ),
+      appBar: const CourierHeaderBar(),
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: () => s.refreshField(),
@@ -70,7 +65,59 @@ class HomeScreen extends ConsumerWidget {
                             onRetry: () => unawaited(s.loadPanelTasks()),
                           ),
                         ),
-                      if (s.shiftOpen) _DaySummary(session: s),
+                      _Greeting(session: s),
+                      const SizedBox(height: 14),
+                      if (s.pendingMandatoryTrainings > 0) ...[
+                        Pressable(
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const TrainingScreen(),
+                            ),
+                          ),
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Dg.warn.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: Dg.warn),
+                            ),
+                            child: Row(
+                              children: [
+                                DgIcon(
+                                  LucideIcons.graduationCap,
+                                  size: 22,
+                                  color: Dg.warn,
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    l.mandatoryTrainingPending(
+                                      s.pendingMandatoryTrainings,
+                                    ),
+                                    style: Dg.ui(
+                                      size: 14,
+                                      weight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                                DgIcon(
+                                  LucideIcons.chevronRight,
+                                  size: 18,
+                                  color: Dg.ink3,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                      _HomeDashboard(
+                        session: s,
+                        onOpen: (filter) =>
+                            ref.read(shellNavProvider).openList(filter),
+                      ),
+                      const SizedBox(height: 18),
+                      const _QuickActions(),
                     ],
                   ),
                 ),
@@ -431,105 +478,341 @@ class _NoStopCard extends StatelessWidget {
   }
 }
 
-/// Günün özeti, en üstte: kaç durak kaldı, ne kadarı bitti (çubuk) ve
-/// dikkat isteyenler (renkli etiketler).
-class _DaySummary extends StatelessWidget {
-  const _DaySummary({required this.session});
+/// K01 üst kart: avatar, selam ve vardiya durumu.
+class _Greeting extends StatelessWidget {
+  const _Greeting({required this.session});
+
   final SessionController session;
 
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
-    final open = session.orderedOpenTasks.length;
-    final done = session.deliveredCount + session.returnCount;
-    final total = open + done;
-    final chips = [
-      if (session.slaRiskCount > 0)
-        (l.lateCount(session.slaRiskCount), Dg.hiBg, Dg.hi),
-      if (session.appointmentCount > 0)
-        (l.apptCount(session.appointmentCount), Dg.surface2, Dg.text2),
-      if (session.returnCount > 0)
-        (l.toBranchCount(session.returnCount), Dg.surface2, Dg.text2),
-    ];
-    return Padding(
-      padding: const EdgeInsets.only(top: 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
+    final name = session.courier.fullName.trim();
+    final first = name.isEmpty ? '' : name.split(RegExp(r'\s+')).first;
+    final active = session.online && session.shiftOpen;
+    return Row(
+      children: [
+        Container(
+          width: 52,
+          height: 52,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Dg.surface2,
+            border: Border.all(color: Dg.plum, width: 1.5),
+          ),
+          child: DgIcon(LucideIcons.user, size: 24, color: Dg.warn, weight: 500),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              CountUp(open, style: Dg.stat(size: 44, color: Dg.ink)),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      l.kpiLeftHint,
-                      style: Dg.ui(size: 16, weight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 4),
-                    // Biten sayısı ve dikkat isteyenler aynı satırda;
-                    // sığmazsa alta iner.
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 4,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        Text(
-                          l.doneOf(done, total),
-                          style: Dg.ui(size: 13, color: Dg.ink3),
-                        ),
-                        for (final (text, bg, fg) in chips)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: bg,
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: Text(
-                              text,
-                              style: Dg.ui(
-                                size: 12,
-                                weight: FontWeight.w600,
-                                color: fg,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ],
-                ),
+              Text(
+                first.isEmpty ? l.homeHello : l.homeHelloName(first),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Dg.ui(size: 18, weight: FontWeight.w700),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                session.shiftOpen ? l.homeSubtitle : l.shiftSelfieNeeded,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Dg.ui(size: 13, color: Dg.ink2, height: 1.3),
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          // Günün ilerlemesi: dolan kısım biten duraklar.
-          ClipRRect(
-            borderRadius: BorderRadius.circular(3),
-            child: SizedBox(
-              height: 5,
-              child: Stack(
-                fit: StackFit.expand,
+        ),
+        const SizedBox(width: 8),
+        Semantics(
+          button: true,
+          label: active ? l.homeActive : l.homePassive,
+          child: Pressable(
+            onTap: session.shiftOpen ? session.toggleOnline : session.openShift,
+            child: Container(
+              constraints: const BoxConstraints(minHeight: 40),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: (active ? Dg.ok : Dg.ink3).withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: active ? Dg.ok : Dg.stroke),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  ColoredBox(color: Dg.surface2),
-                  FractionallySizedBox(
-                    alignment: Alignment.centerLeft,
-                    widthFactor: total == 0 ? 0 : done / total,
-                    child: const DecoratedBox(
-                      decoration: BoxDecoration(gradient: Dg.primaryGradient),
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: active ? Dg.ok : Dg.ink3,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    active ? l.homeActive : l.homePassive,
+                    style: Dg.ui(
+                      size: 14,
+                      weight: FontWeight.w700,
+                      color: active ? Dg.ok : Dg.ink2,
                     ),
                   ),
                 ],
               ),
             ),
           ),
-        ],
+        ),
+      ],
+    );
+  }
+}
+
+/// K01 sayaçları: 2 sütun, altta tam genişlikte "İş Ortağına getirilecek".
+/// Vardiya kapalıyken de görünür. Dokununca liste o süzgeçle açılır.
+class _HomeDashboard extends StatelessWidget {
+  const _HomeDashboard({required this.session, required this.onOpen});
+
+  final SessionController session;
+  final ValueChanged<String> onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = context.l10n;
+    final tiles = <(String, String, int, IconData, Color)>[
+      (
+        'awaiting',
+        l.dashAwaiting,
+        session.shownDash('awaitingDelivery', 'awaiting'),
+        LucideIcons.package,
+        Dg.warn,
       ),
+      (
+        'appointment',
+        l.dashAppointment,
+        session.shownDash('appointment', 'appointment'),
+        LucideIcons.calendar,
+        Dg.plum,
+      ),
+      (
+        'out',
+        l.dashOut,
+        session.shownDash('outForDelivery', 'out'),
+        LucideIcons.truck,
+        Dg.brand,
+      ),
+      (
+        'overdue',
+        l.dashOverdue,
+        session.shownDash('overdue', 'overdue'),
+        LucideIcons.clock,
+        Dg.bad,
+      ),
+      (
+        'delivered',
+        l.dashDelivered,
+        session.shownDash('deliveredToday', 'delivered'),
+        LucideIcons.shieldCheck,
+        Dg.ok,
+      ),
+      (
+        'failed',
+        l.dashFailed,
+        session.shownDash('failedToday', 'failed'),
+        LucideIcons.circleX,
+        Dg.bad,
+      ),
+    ];
+    final branch = (
+      'branch',
+      l.dashToBranch,
+      session.shownDash('toReturnToBranch', 'branch'),
+      LucideIcons.building2,
+      Dg.ink2,
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var i = 0; i < tiles.length; i += 2) ...[
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(child: _DashTile(tile: tiles[i], onOpen: onOpen)),
+                const SizedBox(width: 10),
+                Expanded(child: _DashTile(tile: tiles[i + 1], onOpen: onOpen)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+        ],
+        _DashTile(tile: branch, onOpen: onOpen, wide: true),
+      ],
+    );
+  }
+}
+
+class _DashTile extends StatelessWidget {
+  const _DashTile({required this.tile, required this.onOpen, this.wide = false});
+
+  final (String, String, int, IconData, Color) tile;
+  final ValueChanged<String> onOpen;
+  final bool wide;
+
+  @override
+  Widget build(BuildContext context) {
+    final (filter, label, value, icon, color) = tile;
+    final alert = (filter == 'overdue' || filter == 'failed') && value > 0;
+    final number = CountUp(
+      value,
+      style: Dg.stat(size: wide ? 24 : 26, color: alert ? Dg.bad : Dg.ink),
+    );
+    return Semantics(
+      button: true,
+      label: '$label $value',
+      excludeSemantics: true,
+      child: Pressable(
+        onTap: () => onOpen(filter),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 64),
+          padding: const EdgeInsets.fromLTRB(12, 12, 8, 12),
+          decoration: BoxDecoration(
+            color: Dg.surface1,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: alert ? Dg.bad.withValues(alpha: 0.5) : Dg.hairline,
+            ),
+          ),
+          child: Row(
+            children: [
+              DgIcon(icon, size: 26, color: color, weight: 500),
+              const SizedBox(width: 12),
+              Expanded(
+                child: wide
+                    ? Text(
+                        label,
+                        style: Dg.ui(size: 15, weight: FontWeight.w600),
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            label,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: Dg.ui(
+                              size: 13,
+                              weight: FontWeight.w600,
+                              color: Dg.ink2,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          number,
+                        ],
+                      ),
+              ),
+              if (wide) ...[number, const SizedBox(width: 6)],
+              DgIcon(LucideIcons.chevronRight, size: 18, color: Dg.ink3),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// K01 "Hızlı İşlemler": Görevlerim, Rota, Destek, Eğitim.
+class _QuickActions extends ConsumerWidget {
+  const _QuickActions();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l = context.l10n;
+    void push(Widget page) => Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => page),
+    );
+    final items = <(IconData, String, VoidCallback, Color)>[
+      (
+        LucideIcons.listTodo,
+        l.homeMyTasks,
+        () => ref.read(shellNavProvider).go(ShellNav.route),
+        Dg.warn,
+      ),
+      (LucideIcons.mapPin, l.route, () => push(const RouteScreen()), Dg.plum),
+      (
+        LucideIcons.headset,
+        l.homeSupport,
+        () => push(const SupportScreen()),
+        Dg.warn,
+      ),
+      (
+        LucideIcons.graduationCap,
+        l.homeTraining,
+        () => push(const TrainingScreen()),
+        Dg.plum,
+      ),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            DgIcon(LucideIcons.zap, size: 18, color: Dg.warn, weight: 600),
+            const SizedBox(width: 6),
+            Text(
+              l.homeQuick,
+              style: Dg.ui(size: 16, weight: FontWeight.w700),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            for (final (i, (icon, label, onTap, color)) in items.indexed) ...[
+              if (i > 0) const SizedBox(width: 8),
+              Expanded(
+                child: Semantics(
+                  button: true,
+                  label: label,
+                  excludeSemantics: true,
+                  child: Pressable(
+                    onTap: onTap,
+                    child: Container(
+                      constraints: const BoxConstraints(minHeight: 76),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Dg.surface1,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: Dg.hairline),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          DgIcon(icon, size: 24, color: color, weight: 500),
+                          const SizedBox(height: 6),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              label,
+                              maxLines: 1,
+                              textAlign: TextAlign.center,
+                              style: Dg.ui(size: 12, weight: FontWeight.w600),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ],
     );
   }
 }

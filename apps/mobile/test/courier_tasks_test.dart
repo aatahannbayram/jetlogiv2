@@ -663,6 +663,20 @@ void main() {
     );
     expect(noFix.ref, 'EXT-9');
     expect(noFix.hasCoordinates, isFalse);
+    expect(noFix.isCard, isFalse);
+    final card = deliveryTaskFromPanel(
+      PanelCourierTaskDto.fromJson({
+        'id': 's-card',
+        'shipmentNumber': 'KART-1',
+        'statusCode': 'COURIER_ASSIGNED',
+        'recipientName': 'Ayşe',
+        'productCode': 'CARD_DELIVERY',
+        'customer': {'displayName': 'Sodexo', 'code': 'SODEXO'},
+        'destination': {'address': 'Bankalar 1'},
+      }),
+    );
+    expect(card.isCard, isTrue);
+    expect(card.merchantName, 'Sodexo');
     expect(noFix.lat, 0);
     expect(noFix.lng, 0);
     final sameDoor = deliveryTaskFromPanel(

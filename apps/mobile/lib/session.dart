@@ -20,6 +20,7 @@ import 'api/agency_models.dart';
 import 'api/branch_models.dart';
 import 'branch_workspace.dart';
 import 'capture_check.dart';
+import 'courier_home.dart';
 import 'api/panel_client.dart';
 import 'api/panel_models.dart';
 import 'data/outbox.dart';
@@ -1196,6 +1197,13 @@ class SessionController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Kimlik kontrolü göreve özeldir: her kart teslimatı yeniden ister.
+  void resetIdentityCheck() {
+    if (!nfcRead) return;
+    nfcRead = false;
+    notifyListeners();
+  }
+
   bool pushingSync = false;
 
   Future<void> pushSyncQueue() async {
@@ -1493,6 +1501,36 @@ class SessionController extends ChangeNotifier {
             t.status == TaskStatus.failed || t.status == TaskStatus.cancelled,
       )
       .length;
+
+  /// Ana sayfa kutusu. Uzak sayaç yoksa aynı süzgeç yerel listeden dolar.
+  int shownDash(String apiKey, String filter) =>
+      dashCount(courierCounts, apiKey, tasksForDash(filter).length);
+
+  List<DeliveryTask> tasksForDash(String filter) {
+    return [
+      for (final t in tasks)
+        if (switch (filter) {
+          // Sunucu tanımı (Dashboard.counts): açık görevlerin hepsi.
+          'awaiting' => t.isOpen,
+          'appointment' =>
+            t.isOpen && t.window.isNotEmpty && t.window != '—',
+          'out' => t.status == TaskStatus.inProgress,
+          // Sunucu: planlanan zamanı geçmiş açık görev.
+          'overdue' => t.isOpen && (t.slaMinutesLeft ?? 0) < 0,
+          'delivered' => t.status == TaskStatus.delivered,
+          'failed' => t.status == TaskStatus.failed,
+          'branch' =>
+            t.status == TaskStatus.failed || t.status == TaskStatus.cancelled,
+          _ => false,
+        })
+          t,
+    ];
+  }
+
+  List<DeliveryTask> get unlocatedOpenTasks => [
+    for (final t in tasks)
+      if (t.isOpen && !t.hasCoordinates) t,
+  ];
 
   DeliveryTask taskById(String id) => tasks.firstWhere((t) => t.id == id);
 
@@ -1977,11 +2015,12 @@ class SessionController extends ChangeNotifier {
     loginRemainingAttempts = null;
     loginLockedUntil = null;
     final id = identifier.trim();
+    final pw = password.trim();
     // Demo hesabı yalnız geliştirme ya da ALLOW_DEMO ile derlenen demo
     // yayınında açılır; canlı yayında kapalıdır.
     if ((kAllowDebugBypass || kAllowDemo) &&
         id == panelDemoIdentifier &&
-        password == panelDemoPassword) {
+        pw == panelDemoPassword) {
       panelLoggedIn = true;
       demo = true;
       _seedDemoData();
@@ -1995,7 +2034,7 @@ class SessionController extends ChangeNotifier {
       return false;
     }
     try {
-      final profile = await client.login(identifier: id, password: password);
+      final profile = await client.login(identifier: id, password: pw);
       await _afterPanelLogin(profile);
       return true;
     } on PanelApiException catch (e) {
@@ -2040,9 +2079,10 @@ class SessionController extends ChangeNotifier {
     agencyLoginBusy = true;
     notifyListeners();
     final trimmed = email.trim();
+    final pw = password.trim();
     if ((kAllowDebugBypass || kAllowDemo) &&
         trimmed == agencyDemoEmail &&
-        password == agencyDemoPassword) {
+        pw == agencyDemoPassword) {
       agencyUser = AgencyPortalUserDto(
         id: 'demo-agency-user',
         email: agencyDemoEmail,
@@ -2069,7 +2109,7 @@ class SessionController extends ChangeNotifier {
     try {
       agencyUser = await client.login(
         email: trimmed,
-        password: password,
+        password: pw,
         agencyId: agencyId,
       );
       branch.reset();
@@ -2434,41 +2474,101 @@ class SessionController extends ChangeNotifier {
     if (moved > 40) unawaited(ensureDayRoute());
   }
 
+  bool get canPlaceMaskedCall => _usesPanelTasks || liveApi;
+
+  void _say(BuildContext context, String text) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  }
+
+  /// Panel `mode: ORIGINATED` ise çevirici açılmaz; santral kuryenin
+  /// telefonunu çaldırır. Numara dönerse çevirici o numarayla açılır.
+  /// Görev başına arama denemesi. Zorunlu arama kuralı bunu okur.
+  final Map<String, int> _callAttempts = {};
+
+  int callAttempts(String taskId) => _callAttempts[taskId] ?? 0;
+
   Future<void> callTask(BuildContext context, DeliveryTask task) async {
+    final l = context.l10n;
+    _callAttempts[task.id] = callAttempts(task.id) + 1;
+    notifyListeners();
     if (_usesPanelTasks) {
       final client = panel;
       if (client != null) {
         try {
           final dial = await client.callRecipient(task.id);
           if (!context.mounted) return;
-          final number = dial.phone.isNotEmpty ? dial.phone : dial.telUri;
-          await dialNumber(context, number);
+          await _placeCall(
+            context,
+            planPanelCall(
+              mode: dial.mode,
+              message: dial.message,
+              phone: dial.phone,
+              telUri: dial.telUri,
+              recipientPhone: task.phone,
+              requireExchange: true,
+            ),
+          );
           return;
-        } on PanelApiException catch (_) {}
-        if (!context.mounted) return;
-        await dialNumber(context, task.phone);
-        return;
+        } on PanelApiException catch (error) {
+          if (!context.mounted) return;
+          _say(context, _callFailureText(l, error.code, error.serverMessage));
+          return;
+        }
       }
     }
-    var number = task.phone;
     if (liveApi) {
       try {
         final session = await api?.startMaskedCall(task.id);
-        if (session != null && session.originated) {
-          if (!context.mounted) return;
-          final text = session.message?.trim().isNotEmpty == true
-              ? session.message!
-              : context.l10n.callConnecting;
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+        if (!context.mounted) return;
+        if (session != null) {
+          await _placeCall(
+            context,
+            planPanelCall(
+              mode: session.originated ? 'ORIGINATED' : '',
+              message: session.message,
+              phone: session.dialNumber,
+              telUri: '',
+              recipientPhone: task.phone,
+            ),
+          );
           return;
-        }
-        if (session != null && session.dialNumber.isNotEmpty) {
-          number = session.dialNumber;
         }
       } catch (_) {}
     }
     if (!context.mounted) return;
-    await dialNumber(context, number);
+    // Alıcının ham numarası hiçbir modda çeviriciye verilmez (V3 §5.2).
+    if (demo) {
+      _say(context, l.callConnecting);
+      return;
+    }
+    _say(context, l.callFailed);
+  }
+
+  Future<void> _placeCall(BuildContext context, CallPlan plan) async {
+    if (plan.blocked) {
+      _say(context, context.l10n.callNeedsExchange);
+      return;
+    }
+    if (plan.ringsViaPbx) {
+      _say(context, plan.notice ?? context.l10n.callConnecting);
+      return;
+    }
+    await dialNumber(context, plan.target);
+  }
+
+  String _callFailureText(L10n l, String code, String? serverMessage) {
+    switch (code) {
+      case 'CALL_PROVIDER_UNAVAILABLE':
+        return l.callExchangeDown;
+      case 'COURIER_PHONE_MISSING':
+        return l.callNoCourierPhone;
+      case 'RECIPIENT_PHONE_MISSING':
+        return l.noRecipientPhone;
+      default:
+        final server = serverMessage?.trim() ?? '';
+        if (server.isNotEmpty) return server;
+        return l.callFailed;
+    }
   }
 
   void _enqueueShift({required bool start}) {
@@ -2629,6 +2729,16 @@ class SessionController extends ChangeNotifier {
   /// Anketi (varsa) gönderir ve ziyareti kapatır. Sunucu reddederse
   /// [PanelApiException] fırlatır; görev açık kalır, kurye düzeltip yeniden
   /// gönderir.
+  /// Aynı görev + sonuç için yeniden denemede aynı anahtar gider (V3 UAT-14).
+  /// Başarıdan sonra silinir.
+  final Map<String, String> _visitFinalizeKeys = {};
+
+  String visitFinalizeKey(String taskId, bool delivered) =>
+      _visitFinalizeKeys.putIfAbsent(
+        '$taskId|${delivered ? 'DELIVERED' : 'FAILED'}',
+        Vault.newUuid,
+      );
+
   Future<void> finalizeVisit(
     String taskId, {
     required bool delivered,
@@ -2655,12 +2765,15 @@ class SessionController extends ChangeNotifier {
     final res = await client.finalizeTask(
       taskId,
       outcome: delivered ? 'DELIVERED' : 'FAILED',
-      idempotencyKey: Vault.newUuid(),
+      idempotencyKey: visitFinalizeKey(taskId, delivered),
       reasonCode: reasonCode,
       note: note,
       latitude: selfLocated ? selfLat : null,
       longitude: selfLocated ? selfLng : null,
       capturedAt: DateTime.now(),
+    );
+    _visitFinalizeKeys.remove(
+      '$taskId|${delivered ? 'DELIVERED' : 'FAILED'}',
     );
     final t = taskOrNull(taskId);
     if (t != null) {
@@ -2909,7 +3022,10 @@ class SessionController extends ChangeNotifier {
   /// Failures are silent by design — [ensureDayRoute] already has a local
   /// order + road line; this only overlays the server plan when it exists.
   Future<void> loadRoute() async {
-    if (_usesPanelTasks) return;
+    if (_usesPanelTasks) {
+      if (dayRoute == null) unawaited(ensureDayRoute());
+      return;
+    }
     final client = api;
     if (client == null || routeLoading) return;
     routeLoading = true;
@@ -3605,6 +3721,7 @@ class SessionController extends ChangeNotifier {
     required String outcome,
     String? reasonCode,
     String? receivedBy,
+    String? receiverType,
   }) {
     if (_hasPendingPanel(id, SyncOperation.panelFinalize)) return;
     outbox.enqueue(
@@ -3617,6 +3734,7 @@ class SessionController extends ChangeNotifier {
         'outcome': outcome,
         if (reasonCode != null) 'reasonCode': reasonCode,
         if (receivedBy != null) 'receivedBy': receivedBy,
+        'receiverType': ?receiverType,
         if (outcome != 'FAILED' && deliveryOtpToken != null)
           'otpEvidenceId': deliveryOtpToken,
         // Yüklenen kanıtlar; uygulama yeniden açılsa da finalize'a gider.
@@ -3710,7 +3828,7 @@ class SessionController extends ChangeNotifier {
           latitude: lat,
           longitude: lng,
         );
-        final t = _maybeTask(id!);
+        final t = _maybeTask(id);
         final state = started.workflowState;
         if (t != null && state != null && state.isNotEmpty) {
           t.wireStatus = state;
@@ -3733,6 +3851,9 @@ class SessionController extends ChangeNotifier {
           longitude: waited
               ? selfLng
               : _asDouble(event.payload['longitude']) ?? selfLng,
+          // Kuyruktaki ölçüm kendi zamanıyla gider (Swagger: bayat konum
+          // taze gösterilmez); bayatsa taze ölçüm şimdiki zamanla.
+          capturedAt: waited ? null : event.occurredAt,
         );
       case SyncOperation.panelFinalize:
         final outcome = (event.payload['outcome'] as String?) ?? 'DELIVERED';
@@ -3754,12 +3875,13 @@ class SessionController extends ChangeNotifier {
               event.clientEventId,
           reasonCode: event.payload['reasonCode'] as String?,
           receivedBy: event.payload['receivedBy'] as String?,
+          receiverType: event.payload['receiverType'] as String?,
           otpEvidenceId: event.payload['otpEvidenceId'] as String?,
           evidenceIds: (event.payload['evidenceIds'] as List?)
               ?.whereType<String>()
               .toList(),
         );
-        final t = _maybeTask(id!);
+        final t = _maybeTask(id);
         final state = res.currentStateCode;
         if (t != null && state != null && state.isNotEmpty) {
           t.wireStatus = state;
@@ -3887,6 +4009,7 @@ class SessionController extends ChangeNotifier {
           outcome: outcome,
           reasonCode: p['reasonCode'] as String?,
           receivedBy: p['receivedBy'] as String?,
+          receiverType: p['receiverType'] as String?,
           otpEvidenceId: p['otpEvidenceId'] as String?,
           note: outcome == 'FAILED' ? p['receivedBy'] as String? : null,
           latitude: _asDouble(p['latitude']),
@@ -4158,6 +4281,7 @@ class SessionController extends ChangeNotifier {
   Future<void> deliverTask(
     String id, {
     String? receivedBy,
+    String? receiverType,
     Map<String, Object?>? proof,
   }) async {
     final t = taskById(id);
@@ -4171,6 +4295,7 @@ class SessionController extends ChangeNotifier {
         id,
         outcome: 'DELIVERED',
         receivedBy: receivedBy,
+        receiverType: receiverType,
       );
       await _pushPanelQueue();
       return;
@@ -4227,7 +4352,7 @@ class SessionController extends ChangeNotifier {
       _enqueuePanelFinalize(
         id,
         outcome: 'FAILED',
-        reasonCode: panelFailureReasonCode(reason),
+        reasonCode: panelReasonCodeFor(reason, deliveryFailReasons),
         receivedBy: detail,
       );
       await _pushPanelQueue();
@@ -4388,15 +4513,37 @@ class SessionController extends ChangeNotifier {
     }
   }
 
-  Future<bool> sendDeliveryOtp(String taskId) async {
+  /// Son OTP isteğinin sonucu: sunucu bekleme süresi ve atlanabilirlik.
+  DateTime? deliveryOtpResendAt;
+  String? deliveryOtpError;
+
+  /// Alıcının telefonu yok (`422 RECIPIENT_PHONE_MISSING`): sözleşmeye göre
+  /// OTP adımı atlanır; kural OTP istiyorsa finalize sunucuda engellenir.
+  bool deliveryOtpSkippable = false;
+
+  Future<bool> sendDeliveryOtp(
+    String taskId, {
+    String receiverType = 'SELF',
+    String channel = 'SMS',
+  }) async {
+    deliveryOtpError = null;
+    deliveryOtpSkippable = false;
+    deliveryOtpResendAt = null;
     if (_usesPanelTasks) {
       final client = panel;
       if (client == null) return false;
       try {
-        final challengeId = await client.requestDeliveryOtp(taskId);
-        deliveryChallengeId = challengeId;
-        return challengeId != null && challengeId.isNotEmpty;
-      } on PanelApiException catch (_) {
+        final r = await client.requestDeliveryOtpChallenge(
+          taskId,
+          receiverType: receiverType,
+          channel: channel,
+        );
+        deliveryChallengeId = r.challengeId;
+        deliveryOtpResendAt = r.resendAvailableAt;
+        return r.challengeId != null && r.challengeId!.isNotEmpty;
+      } on PanelApiException catch (e) {
+        deliveryOtpError = e.code;
+        if (e.code == 'RECIPIENT_PHONE_MISSING') deliveryOtpSkippable = true;
         return false;
       }
     }

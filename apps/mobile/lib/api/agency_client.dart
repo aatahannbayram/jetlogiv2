@@ -19,7 +19,7 @@ import 'token_refresh.dart';
 /// exists.
 const kAgencyApiBase = String.fromEnvironment(
   'AGENCY_API_BASE',
-  defaultValue: 'https://api-mobile.preprod.jetdiji.com/api/portal/v1',
+  defaultValue: 'https://api-mobile.dijigoo.com/api/portal/v1',
 );
 
 const kAgencyBearerKey = 'dg.jetdiji.agency.token';

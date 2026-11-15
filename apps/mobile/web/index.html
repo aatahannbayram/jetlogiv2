@@ -23,6 +23,11 @@
 
   <title>Dijigoo</title>
   <link rel="manifest" href="manifest.json">
+  <!-- İlk açılış: ana kod erken iner, CanvasKit ve harita sunucusuna
+       bağlantı önceden kurulur. -->
+  <link rel="preload" href="main.dart.js" as="script">
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://server.arcgisonline.com" crossorigin>
   <style>
     html, body { margin: 0; height: 100%; background: #0A0F2B; overscroll-behavior: none; }
     /* Açılış logosu dokunuşları asla yutmamalı. */

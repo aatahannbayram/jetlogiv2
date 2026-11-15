@@ -42,6 +42,67 @@
 		</dict>
 		<key>NSPinnedDomains</key>
 		<dict>
+			<key>api-mobile.dijigoo.com</key>
+			<dict>
+				<key>NSIncludesSubdomains</key>
+				<false/>
+				<key>NSPinnedCAIdentities</key>
+				<array>
+					<dict>
+						<key>SPKI-SHA256-BASE64</key>
+						<string>C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M=</string>
+					</dict>
+					<dict>
+						<key>SPKI-SHA256-BASE64</key>
+						<string>diGVwiVYbubAI3RW4hB9xU8e/CH2GnkuvVFZE8zmgzI=</string>
+					</dict>
+					<dict>
+						<key>SPKI-SHA256-BASE64</key>
+						<string>sCkq5UWXjg+7mKu9lMhhYF5bGLsy7VI/UNW3tccdR7w=</string>
+					</dict>
+				</array>
+			</dict>
+			<key>uygulama.dijigoo.com</key>
+			<dict>
+				<key>NSIncludesSubdomains</key>
+				<false/>
+				<key>NSPinnedCAIdentities</key>
+				<array>
+					<dict>
+						<key>SPKI-SHA256-BASE64</key>
+						<string>C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M=</string>
+					</dict>
+					<dict>
+						<key>SPKI-SHA256-BASE64</key>
+						<string>diGVwiVYbubAI3RW4hB9xU8e/CH2GnkuvVFZE8zmgzI=</string>
+					</dict>
+					<dict>
+						<key>SPKI-SHA256-BASE64</key>
+						<string>sCkq5UWXjg+7mKu9lMhhYF5bGLsy7VI/UNW3tccdR7w=</string>
+					</dict>
+				</array>
+			</dict>
+			<key>panel.dijigoo.com</key>
+			<dict>
+				<key>NSIncludesSubdomains</key>
+				<false/>
+				<key>NSPinnedCAIdentities</key>
+				<array>
+					<dict>
+						<key>SPKI-SHA256-BASE64</key>
+						<string>C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M=</string>
+					</dict>
+					<dict>
+						<key>SPKI-SHA256-BASE64</key>
+						<string>diGVwiVYbubAI3RW4hB9xU8e/CH2GnkuvVFZE8zmgzI=</string>
+					</dict>
+					<dict>
+						<key>SPKI-SHA256-BASE64</key>
+						<string>sCkq5UWXjg+7mKu9lMhhYF5bGLsy7VI/UNW3tccdR7w=</string>
+					</dict>
+				</array>
+			</dict>
+
 			<key>dijigoo.com</key>
 			<dict>
 				<key>NSIncludesSubdomains</key>
@@ -99,6 +160,10 @@
 	<string>Etiketleri Bluetooth yazıcıya göndermek için kullanılır.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Barkod okutmak, teslim ve vardiya kanıtı çekmek için kamera gerekir.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Barkod numarasını sesle yazmak için mikrofon gerekir.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Söylediğiniz barkod rakamlarını metne çevirmek için konuşma tanıma gerekir.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Adrese varış doğrulaması (geofence) için konum gerekir.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>

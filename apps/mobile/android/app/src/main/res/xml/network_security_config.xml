@@ -18,4 +18,17 @@
             <pin digest="SHA-256">RoH/tTkvQyCBlabxTx57QdBhf05SP5K2Hb5J9zzMX6I=</pin>
         </pin-set>
     </domain-config>
+    <!-- JetLogi sunucusu (Caddy, Let's Encrypt): canlı API ve web. En özel
+         alan adı eşleşmesi geçerli olduğu için yukarıdaki GTS pin-set'inin
+         yerine bu kullanılır. Zincir: YE2 → Root YE → ISRG X2 → ISRG X1. -->
+    <domain-config>
+        <domain includeSubdomains="false">api-mobile.dijigoo.com</domain>
+        <domain includeSubdomains="false">uygulama.dijigoo.com</domain>
+        <domain includeSubdomains="false">panel.dijigoo.com</domain>
+        <pin-set expiration="2029-02-20">
+            <pin digest="SHA-256">C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M=</pin>
+            <pin digest="SHA-256">diGVwiVYbubAI3RW4hB9xU8e/CH2GnkuvVFZE8zmgzI=</pin>
+            <pin digest="SHA-256">sCkq5UWXjg+7mKu9lMhhYF5bGLsy7VI/UNW3tccdR7w=</pin>
+        </pin-set>
+    </domain-config>
 </network-security-config>

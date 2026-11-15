@@ -203,4 +203,45 @@ Af8EBTADAQH/MAoGCCqGSM49BAMCA0gAMEUCIG5OrGenFRfYhE8df+f6U3sNUmLR
     expect(kGtsCaPins, hasLength(4));
     expect(kGtsCaPins.toSet(), hasLength(4));
   });
+
+  test('JetLogi sunucusunda Let\'s Encrypt kabul, diğer dijigoo hostlarında ret', () {
+    const le = "C=US, O=Let's Encrypt, CN=YE2";
+    expect(
+      tlsHostAllowed(
+        host: 'api-mobile.dijigoo.com',
+        issuer: le,
+        spkiBase64: 'x',
+        release: true,
+      ),
+      isTrue,
+    );
+    expect(
+      tlsHostAllowed(
+        host: 'uygulama.dijigoo.com',
+        issuer: le,
+        spkiBase64: 'x',
+        release: true,
+      ),
+      isTrue,
+    );
+    // Diğer birinci taraf hostlarda Let's Encrypt hâlâ reddedilir.
+    expect(
+      tlsHostAllowed(
+        host: 'kurye.dijigoo.com',
+        issuer: le,
+        spkiBase64: 'x',
+        release: true,
+      ),
+      isFalse,
+    );
+    expect(
+      tlsHostAllowed(
+        host: 'api-mobile.dijigoo.com',
+        issuer: 'C=US, O=Evil CA',
+        spkiBase64: 'x',
+        release: true,
+      ),
+      isFalse,
+    );
+  });
 }

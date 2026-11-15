@@ -16,6 +16,9 @@ class EarningsScreen extends ConsumerWidget {
     final l = context.l10n;
     final s = ref.watch(sessionProvider);
     final canSeePricing = s.courier.canSeePricing;
+    // Prim, haftalık grafik ve aylık tutar örnek veridir; API'de hakediş ucu
+    // yok. Canlıda gösterilmez, yalnız demo.
+    final sample = s.demo;
 
     return Scaffold(
       appBar: AppBar(title: Text(l.earnings)),
@@ -45,37 +48,42 @@ class EarningsScreen extends ConsumerWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 14),
-                  const DgDivider(),
-                  const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      Text(
-                        l.todaysEarningsLabel,
-                        style: Dg.ui(size: 13, color: Dg.ink3),
-                      ),
-                      const Spacer(),
-                      Text(
-                        SessionController.todayEarn,
-                        style: Dg.ui(size: 14, weight: FontWeight.w700),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Text(l.thisWeek, style: Dg.ui(size: 13, color: Dg.ink3)),
-                      const Spacer(),
-                      Text(
-                        SessionController.weekEarn,
-                        style: Dg.ui(size: 14, weight: FontWeight.w700),
-                      ),
-                    ],
-                  ),
+                  if (sample) ...[
+                    const SizedBox(height: 14),
+                    const DgDivider(),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Text(
+                          l.todaysEarningsLabel,
+                          style: Dg.ui(size: 13, color: Dg.ink3),
+                        ),
+                        const Spacer(),
+                        Text(
+                          SessionController.todayEarn,
+                          style: Dg.ui(size: 14, weight: FontWeight.w700),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Text(
+                          l.thisWeek,
+                          style: Dg.ui(size: 13, color: Dg.ink3),
+                        ),
+                        const Spacer(),
+                        Text(
+                          SessionController.weekEarn,
+                          style: Dg.ui(size: 14, weight: FontWeight.w700),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             )
-          else ...[
+          else if (sample) ...[
             DgCard(
               hero: true,
               child: Column(
@@ -111,59 +119,70 @@ class EarningsScreen extends ConsumerWidget {
               ],
             ),
           ],
-          const SizedBox(height: 16),
-          Text(
-            l.weekly,
-            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
-          ),
-          const SizedBox(height: 14),
-          DgCard(
-            child: SizedBox(
-              height:
-                  142 + (MediaQuery.textScalerOf(context).scale(14) - 14) * 8,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  for (final (i, b) in s.weeklyBars.indexed)
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            // Dar sütunda tek satır kalsın; sığmazsa küçülür.
-                            FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Mono(
-                                '${(b.value * 100).round()}%',
-                                size: 10,
-                                color: b.value == 1 ? Dg.purple : Dg.ink3,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            AnimatedContainer(
-                              duration: const Duration(milliseconds: 400),
-                              curve: Curves.easeOutCubic,
-                              height: 20 + b.value * 64,
-                              decoration: BoxDecoration(
-                                color: b.value == 1 ? Dg.purple : Dg.ink,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              l.weekdayAt(i),
-                              style: Dg.ui(size: 11, color: Dg.ink3),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                ],
+          if (!sample) ...[
+            const SizedBox(height: 16),
+            DgCard(
+              child: Text(
+                l.earningsNotLinked,
+                style: Dg.ui(size: 14, color: Dg.ink2, height: 1.4),
               ),
             ),
-          ),
-          if (canSeePricing) ...[
+          ],
+          if (sample) const SizedBox(height: 16),
+          if (sample)
+            Text(
+              l.weekly,
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+            ),
+          if (sample) const SizedBox(height: 14),
+          if (sample)
+            DgCard(
+              child: SizedBox(
+                height:
+                    142 + (MediaQuery.textScalerOf(context).scale(14) - 14) * 8,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    for (final (i, b) in s.weeklyBars.indexed)
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              // Dar sütunda tek satır kalsın; sığmazsa küçülür.
+                              FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Mono(
+                                  '${(b.value * 100).round()}%',
+                                  size: 10,
+                                  color: b.value == 1 ? Dg.purple : Dg.ink3,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              AnimatedContainer(
+                                duration: const Duration(milliseconds: 400),
+                                curve: Curves.easeOutCubic,
+                                height: 20 + b.value * 64,
+                                decoration: BoxDecoration(
+                                  color: b.value == 1 ? Dg.purple : Dg.ink,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                l.weekdayAt(i),
+                                style: Dg.ui(size: 11, color: Dg.ink3),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          if (canSeePricing && sample) ...[
             const SizedBox(height: 20),
             Text(
               l.bonuses,
@@ -171,7 +190,7 @@ class EarningsScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 10),
           ],
-          if (canSeePricing)
+          if (canSeePricing && sample)
             for (final (i, b) in s.bonuses.indexed)
               Padding(
                 padding: const EdgeInsets.only(bottom: 10),

@@ -240,6 +240,8 @@ class VisitRequirements {
     this.form,
     this.uploaded = const {},
     this.formSubmitted = false,
+    this.otpRequired,
+    this.signatureRequired = false,
   });
 
   /// Yanıt gövdesi (`data`) ya da doğrudan `deliveryRequirements` nesnesi.
@@ -268,8 +270,16 @@ class VisitRequirements {
             if (e.value is num) '${e.key}': (e.value as num).toInt(),
       },
       formSubmitted: progress['formSubmitted'] == true,
+      otpRequired: j['otpRequired'] is bool ? j['otpRequired'] as bool : null,
+      signatureRequired: j['signatureRequired'] == true,
     );
   }
+
+  /// Kural OTP istiyor mu. Alan yoksa null (istemci varsayılanı geçerli).
+  final bool? otpRequired;
+
+  /// Teslimde imza kanıtı zorunlu.
+  final bool signatureRequired;
 
   final List<PhotoRequirement> photos;
   final List<PhotoRequirement> failurePhotos;

@@ -111,6 +111,9 @@ void main() {
     expect(find.byIcon(LucideIcons.ellipsis), findsNothing);
     expect(find.byType(TaskDetailScreen), findsNothing);
     // Kartın düğme olmayan bir yerine (adres başlığı) dokunulur.
+    // Dashboard üstte; kart görünür olana kadar kaydırılır.
+    await tester.ensureVisible(find.text('Cumhuriyet Cd. No:14').first);
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Cumhuriyet Cd. No:14').first);
     await tester.pumpAndSettle();
     expect(find.byType(TaskDetailScreen), findsOneWidget);
@@ -147,14 +150,28 @@ void main() {
     expect(find.text('Ahmet Yılmaz'), findsWidgets);
     // Üst satır: profil, logo ve durum; bölge yazısı artık profilde.
     expect(find.byType(DijigooWordmark), findsOneWidget);
-    expect(find.text('Müsait'), findsOneWidget);
+    expect(find.text('Aktif'), findsOneWidget);
 
     await tapHomeKey(tester, const Key('next-stop-arrived'));
     await tapHomeKey(tester, const Key('next-stop-cta'));
-    expect(find.text('Teslim alan'), findsWidgets);
+    expect(find.text('Teslim İşlemi'), findsOneWidget);
+    expect(find.text('Komşu'), findsNothing);
 
-    await tester.tap(find.text('Alıcının kendisi'));
+    await tester.tap(find.text('Kendisi'));
     await tester.pumpAndSettle();
+    // OTP doğrulanmadan ilerlenmez.
+    await tester.tap(find.text('Devam'));
+    await tester.pumpAndSettle();
+    expect(find.text('Önce OTP doğrulamasını tamamlayın.'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('OTP Gönder'));
+    await tester.tap(find.text('OTP Gönder'));
+    await tester.pumpAndSettle();
+    // Swagger 1.6: yeniden gönderim 60 sn sonra.
+    expect(find.text('01:00'), findsOneWidget);
+    await tester.enterText(find.byType(EditableText), '482913');
+    await tester.pumpAndSettle();
+    expect(find.text('Doğrulandı'), findsOneWidget);
     await tester.tap(find.text('Devam'));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('shutter')), findsOneWidget);
@@ -162,15 +179,7 @@ void main() {
     await tester.tap(find.byKey(const Key('shutter')));
     await tester.pump(const Duration(milliseconds: 120));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Kullan'));
-    await tester.pumpAndSettle();
-    expect(find.text('Kodu gönder'), findsOneWidget);
-
-    await tester.tap(find.text('Kodu gönder'));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byType(EditableText), '482913');
-    await tester.pump();
-    await tester.tap(find.text('Doğrula ve teslim et'));
+    await tester.tap(find.text('Teslimi Tamamla'));
     await tester.pumpAndSettle();
     expect(find.text('Teslim edildi'), findsOneWidget);
   });
@@ -182,6 +191,8 @@ void main() {
     expect(find.textContaining('Cumhuriyet Cd.'), findsWidgets);
     expect(find.text('Yol tarifi'), findsWidgets);
     expect(find.text('Teslime başla'), findsNothing);
+    await tester.ensureVisible(find.text('2 kalem').first);
+    await tester.pumpAndSettle();
     await tester.tap(find.text('2 kalem').first);
     await tester.pumpAndSettle();
     expect(find.text('Kalemler'), findsOneWidget);
@@ -207,7 +218,9 @@ void main() {
   ) async {
     await bindPhone(tester);
     await openDemo(tester);
-    await tester.tap(find.text('Rota'));
+    await tester.tap(
+      find.descendant(of: find.byType(DgPillNav), matching: find.text('Rota')),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('Ahmet Yılmaz').first);
     await tester.pumpAndSettle();
@@ -225,7 +238,9 @@ void main() {
     await bindPhone(tester);
     await openDemo(tester);
 
-    await tester.tap(find.text('Rota'));
+    await tester.tap(
+      find.descendant(of: find.byType(DgPillNav), matching: find.text('Rota')),
+    );
     await tester.pumpAndSettle();
     expect(find.text('Ahmet Yılmaz'), findsWidgets);
     expect(find.textContaining('Açık '), findsWidgets);
@@ -262,7 +277,9 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Rota'));
+    await tester.tap(
+      find.descendant(of: find.byType(DgPillNav), matching: find.text('Rota')),
+    );
     await tester.pumpAndSettle();
     expect(find.text('Bora Kaya'), findsWidgets);
     expect(find.textContaining('#0'), findsNothing);

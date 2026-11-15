@@ -29,6 +29,22 @@ const _gtsIssuerNeedles = [
   'Google Trust Services',
 ];
 
+/// JetLogi'nin barındırdığı Dijigoo alan adları (Caddy, Let's Encrypt).
+/// Canlı API `api-mobile.dijigoo.com` burada (Ruken Turhan, 15.11.2026).
+const kLetsEncryptHosts = {
+  'api-mobile.dijigoo.com',
+  'uygulama.dijigoo.com',
+  'panel.dijigoo.com',
+};
+
+/// Bu sunucunun zinciri: YE2 → ISRG Root YE → ISRG Root X2 → ISRG Root X1
+/// (16.11.2026'da sunucudan okundu). Android/iOS pin-set'i aynı değerler.
+const kIsrgCaPins = [
+  'C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M=', // ISRG Root X1
+  'diGVwiVYbubAI3RW4hB9xU8e/CH2GnkuvVFZE8zmgzI=', // ISRG Root X2
+  'sCkq5UWXjg+7mKu9lMhhYF5bGLsy7VI/UNW3tccdR7w=', // ISRG Root YE
+];
+
 bool isFirstPartyHost(String host) {
   final h = host.toLowerCase();
   return h == 'dijigoo.com' || h.endsWith('.dijigoo.com');
@@ -77,6 +93,11 @@ bool tlsHostAllowed({
     return extra.contains(spkiBase64);
   }
   if (leafPinsForHost(host).contains(spkiBase64)) return true;
+  // JetLogi sunucusu Let's Encrypt kullanır; yalnız bu alan adlarında.
+  if (kLetsEncryptHosts.contains(host.toLowerCase()) &&
+      issuer.contains("Let's Encrypt")) {
+    return true;
+  }
   return issuerLooksLikeGts(issuer);
 }
 

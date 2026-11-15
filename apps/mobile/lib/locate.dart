@@ -58,17 +58,30 @@ readDeviceLocation() async {
   }
 }
 
+bool _locationGranted(LocationPermission perm) =>
+    perm == LocationPermission.always || perm == LocationPermission.whileInUse;
+
+/// Tarayıcıda `permissions.query('geolocation')` Safari'de hata verir.
+/// Önce onu sormak, tıklamayı yutar ve konum penceresi açılmaz.
 Future<bool> requestLocationAccess() async {
   if (_skipHardware) return true;
   try {
+    if (kIsWeb) {
+      return _locationGranted(await Geolocator.requestPermission());
+    }
     var perm = await Geolocator.checkPermission();
-    if (perm == LocationPermission.denied) {
+    if (perm == LocationPermission.denied ||
+        perm == LocationPermission.unableToDetermine) {
       perm = await Geolocator.requestPermission();
     }
-    return perm == LocationPermission.always ||
-        perm == LocationPermission.whileInUse;
+    return _locationGranted(perm);
   } catch (_) {
-    return false;
+    if (!kIsWeb) return false;
+    try {
+      return _locationGranted(await Geolocator.requestPermission());
+    } catch (_) {
+      return false;
+    }
   }
 }
 

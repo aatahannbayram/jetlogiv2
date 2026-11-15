@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 /// Optional Mapbox styled tiles — always the light style, deliberately not
 /// matched to [Dg.dark]: a light map reads as a clear, legible map surface
 /// against the app's dark cards, where the dark tile style read as muddy and
@@ -23,6 +25,46 @@ bool get useMapboxTiles => kMapboxToken.isNotEmpty;
 
 const _mapboxStyleId = 'light-v11';
 const _esriService = 'World_Street_Map';
+
+/// Kuryenin seçtiği harita görünümü (K04 katman düğmesi). Tüm haritalar
+/// aynı stili kullanır.
+enum MapStyle { street, dark, satellite }
+
+final mapStyle = ValueNotifier<MapStyle>(MapStyle.street);
+
+const _esriBase = 'https://server.arcgisonline.com/ArcGIS/rest/services';
+
+/// Seçili stilin karo adresi.
+String tileUrlFor(MapStyle style) {
+  if (useMapboxTiles) {
+    final id = switch (style) {
+      MapStyle.street => _mapboxStyleId,
+      MapStyle.dark => 'dark-v11',
+      MapStyle.satellite => 'satellite-streets-v12',
+    };
+    return 'https://api.mapbox.com/styles/v1/mapbox/$id/tiles/512/{z}/{x}/{y}@2x?access_token=$kMapboxToken';
+  }
+  return switch (style) {
+    MapStyle.street => mapTileUrlTemplate,
+    MapStyle.dark =>
+      '$_esriBase/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+    MapStyle.satellite =>
+      '$_esriBase/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+  };
+}
+
+/// Koyu ve uydu karolarının üstüne sokak/yer adı katmanı (Esri). Mapbox
+/// stilleri etiketleri kendisi taşır.
+String? labelUrlFor(MapStyle style) {
+  if (useMapboxTiles) return null;
+  return switch (style) {
+    MapStyle.street => null,
+    MapStyle.dark =>
+      '$_esriBase/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
+    MapStyle.satellite =>
+      '$_esriBase/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+  };
+}
 
 String get mapTileUrlTemplate => useMapboxTiles
     ? 'https://api.mapbox.com/styles/v1/mapbox/$_mapboxStyleId/tiles/512/{z}/{x}/{y}@2x?access_token=$kMapboxToken'

@@ -142,6 +142,7 @@ class DeliveryTask {
     this.photoUrl,
     this.phone,
     this.merchantName,
+    this.isCard = false,
     String? wireStatus,
   }) : wireStatus = wireStatus ??
             switch (status) {
@@ -160,6 +161,9 @@ class DeliveryTask {
   /// Gönderiyi gönderen firma/marka — teslimat ekranında rozet olarak
   /// gösterilir (ör. "ALİ BAŞEL – ASSİST"). Kaynak sistemde yoksa null.
   final String? merchantName;
+
+  /// Panel ürün/hizmet kodu kart teslimatı dediğinde true. Sodexo bunu açmaz.
+  final bool isCard;
   final String address;
   final String window;
   final TaskKind kind;

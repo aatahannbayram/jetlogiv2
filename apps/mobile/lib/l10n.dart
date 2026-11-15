@@ -338,9 +338,162 @@ class L10n {
   String get goToShift => _t('Vardiyaya geç', 'Go to shift');
   String get noRecipientPhone =>
       _t('Alıcı telefonu yok.', 'Recipient phone is missing.');
+  String get numberHidden => _t('Numara gizli', 'Number hidden');
+  String get cardDelivery => _t('Kart teslimatı', 'Card delivery');
+  String get cardNoNeighbor => _t(
+    'Kart komşuya bırakılmaz. Kimlik kontrolü gerekir.',
+    'A card cannot be left with a neighbor. Identity check is required.',
+  );
+  String get bankBranch => _t('Banka şubesi', 'Bank branch');
+  String get identityNeeded => _t(
+    'Kart tesliminde kimlik kontrolü tamamlanmalı.',
+    'Card delivery needs the identity check.',
+  );
+  String get noStopLocation => _t(
+    'Bu durağın konumu yok.',
+    'This stop has no location.',
+  );
+  String get stopsWithoutLocation => _t(
+    'Konumu olmayan duraklar',
+    'Stops without a location',
+  );
+  String get dictateBarcode => _t('Sesle barkod', 'Speak the barcode');
+  String get dictateFailed => _t(
+    'Mikrofon kullanılamadı. Kodu yazın.',
+    'Microphone is unavailable. Type the code.',
+  );
+  String get dashAwaiting => _t('Teslim Bekleyen', 'Awaiting delivery');
+  String get dashAppointment => _t('Randevulu', 'By appointment');
+  String get dashOverdue => _t('Geciken', 'Overdue');
+  String get dashToBranch =>
+      _t('İş Ortağına Getirilecek', 'Return to partner');
+  String get dashShowAll => _t('Tüm liste', 'Full list');
+  String get homeHello => _t('Merhaba', 'Hello');
+  String get mapLayer => _t('Harita katmanı', 'Map layer');
+  String get mapStreet => _t('Sokak', 'Street');
+  String get mapDark => _t('Koyu', 'Dark');
+  String get mapSatellite => _t('Uydu', 'Satellite');
+  String get otpRateLimited => _t(
+    'Çok fazla kod istendi. Biraz bekleyip tekrar deneyin.',
+    'Too many codes requested. Wait a moment and try again.',
+  );
+  String get otpIvrDown => _t(
+    'Sesli arama şu an kullanılamıyor. SMS ile deneyin.',
+    'Voice call is unavailable. Try SMS.',
+  );
+  String get otpSendFailed =>
+      _t('Kod gönderilemedi. Tekrar deneyin.', 'Could not send the code.');
+  String get otpByVoice => _t('Sesli arama ile gönder', 'Send by voice call');
+  String get otpNotRequired =>
+      _t('Bu teslimatta OTP gerekmiyor.', 'No OTP needed for this delivery.');
+  String get otpNoPhone => _t(
+    'Alıcının telefonu kayıtlı değil; OTP adımı atlandı.',
+    'Recipient has no phone; OTP step skipped.',
+  );
+  String get signatureNeeded => _t(
+    'Bu teslimatta alıcı imzası zorunlu.',
+    'Recipient signature is required for this delivery.',
+  );
+  String get earningsNotLinked => _t(
+    'Hakediş ve prim bilgisi henüz sisteme bağlı değil. Ödeme detayları için İş Ortağınıza danışın.',
+    'Earnings and bonus data are not linked yet. Ask your partner for payment details.',
+  );
+  String get reqTitle => _t('Zorunlu Adımlar', 'Required steps');
+  String reqDone(int a, int b) => _t('$a / $b tamamlandı', '$a / $b done');
+  String get reqLocation => _t('Konum Kontrolü', 'Location check');
+  String get reqStart => _t('İşleme Başla', 'Start');
+  String get reqOtp => _t('OTP Doğrulama', 'OTP check');
+  String get reqProof => _t('Kanıt Fotoğrafı', 'Proof photo');
+  String get reqResult => _t('Sonuç Tamamla', 'Complete result');
+  String get callFirst => _t(
+    'Bu neden için önce alıcıyı santral üzerinden arayın.',
+    'For this reason, call the recipient through the exchange first.',
+  );
+  String get callRecipient => _t('Müşteriyi Ara', 'Call customer');
+  String get callNeedsExchange => _t(
+    'Arama santral üzerinden yapılmalı. Santral bağlantısı kurulamadı, Merkez Destek’i arayın.',
+    'Calls must go through the exchange. It could not connect; call central support.',
+  );
+  String get deliveryTitle => _t('Teslim İşlemi', 'Delivery');
+  String get deliverySubtitle => _t(
+    'Güvenli teslimat için alıcı doğrulaması yapın.',
+    'Verify the recipient for a secure delivery.',
+  );
+  String get stepLocation => _t('Konum', 'Location');
+  String get stepRecipient => _t('Teslim Alan', 'Recipient');
+  String get stepOtp => _t('OTP', 'OTP');
+  String get stepProof => _t('Kanıt', 'Proof');
+  String get stepResult => _t('Sonuç', 'Result');
+  String get rcvSelf => _t('Kendisi', 'Recipient');
+  String get rcvRelative => _t('Yakını', 'Relative');
+  String get rcvAuthorized => _t('Yetkili', 'Authorized');
+  String get rcvSecretary => _t('Sekreter', 'Secretary');
+  String get rcvSecurity => _t('Güvenlik', 'Security');
+  String get rcvInstitution => _t('Banka / Kurum', 'Bank / Institution');
+  String get rcvOther => _t('Diğer', 'Other');
+  String get otherName => _t('Ad soyad', 'Full name');
+  String get otherRelation => _t('İlişki / unvan', 'Relation / title');
+  String get otherNote => _t('Açıklama', 'Note');
+  String get otherFieldsNeeded => _t(
+    'Diğer seçildi: ad soyad, ilişki/unvan ve açıklama zorunlu.',
+    'Other: full name, relation/title and a note are required.',
+  );
+  String get otpTitle => _t('OTP Doğrulaması', 'OTP verification');
+  String get otpBody => _t(
+    'Alıcıya 6 haneli doğrulama kodu gönderin ve teslimat için doğrulayın.',
+    'Send a 6-digit code to the recipient and verify it.',
+  );
+  String get otpSend => _t('OTP Gönder', 'Send OTP');
+  String get otpResend => _t("OTP'yi Tekrar Gönder", 'Resend OTP');
+  String get otpVerify => _t('Doğrula', 'Verify');
+  String get otpVerified => _t('Doğrulandı', 'Verified');
+  String get otpLimit => _t(
+    'Gönderim hakkı doldu. Merkez desteği arayın.',
+    'No resends left. Call central support.',
+  );
+  String get callCenterSupport => _t('Merkez Destek', 'Central support');
+  String get otpSafety => _t(
+    'Doğrulama kodu yalnızca alıcı ile paylaşılmalıdır. Dijigoo personeli sizden kod talep etmez.',
+    'Only the recipient should share the code. Dijigoo staff never ask for it.',
+  );
+  String get otpNeeded =>
+      _t('Önce OTP doğrulamasını tamamlayın.', 'Verify the OTP first.');
+  String get completeDelivery => _t('Teslimi Tamamla', 'Complete delivery');
+  String get noteRequired =>
+      _t('Kısa açıklama zorunlu', 'A short note is required');
+  String routeTasksCount(int n) => _t('$n Görev', '$n tasks');
+  String get routeDistance => _t('Mesafe', 'Distance');
+  String get geofenceOk => _t('Geofence uygun', 'Inside geofence');
+  String geofenceFar(String d) => _t('Hedefe $d', '$d to stop');
+  String get nextStopTitle => _t('Sıradaki Durak', 'Next stop');
+  String get detailShort => _t('Detay', 'Details');
+  String get setOff => _t('Yola Çık', 'Set off');
+  String get standardDelivery => _t('Standart Teslimat', 'Standard delivery');
+  String get allStops => _t('Tüm duraklar', 'All stops');
+  String homeHelloName(String name) => _t('Merhaba, $name', 'Hello, $name');
+  String get homeSubtitle =>
+      _t('Bugün harika işler başaracaksın!', 'Great work ahead today!');
+  String get homeActive => _t('Aktif', 'Active');
+  String get homePassive => _t('Pasif', 'Inactive');
+  String get homeQuick => _t('Hızlı İşlemler', 'Quick actions');
+  String get homeMyTasks => _t('Görevlerim', 'My tasks');
+  String get homeSupport => _t('Destek', 'Support');
+  String get homeTraining => _t('Eğitim', 'Training');
   String get callOpening => _t('Aranıyor…', 'Calling…');
   String get callConnecting =>
       _t('Sizi ve alıcıyı arıyoruz', 'Calling you and the recipient');
+  String get callExchangeDown => _t(
+    'Santral aramayı başlatamadı. Biraz sonra tekrar dene.',
+    'The exchange could not start the call. Try again shortly.',
+  );
+  String get callNoCourierPhone => _t(
+    'Maskeli arama için kayıtlı cep numaran yok.',
+    'Masked calling needs your registered mobile number.',
+  );
+  String get callFailed => _t(
+    'Arama başlatılamadı.',
+    'The call could not be started.',
+  );
 
   String get startShiftTitle => _t('Vardiya başlat', 'Start shift');
   String get shiftSelfieHint => _t('Bu fotoğraf yalnız vardiyaya başladığını gösterir. Yüz aranmaz.', 'This photo only shows you started your shift. Faces are not searched.');
@@ -834,7 +987,7 @@ class L10n {
   String get filterCourier => _t('Kurye', 'Courier');
   String get bulkActions => _t('Toplu İşlemler', 'Bulk actions');
   String get dashOut => _t('Dağıtımda', 'Out for delivery');
-  String get dashDelivered => _t('Teslim edilen', 'Delivered');
+  String get dashDelivered => _t('Teslim Edilen', 'Delivered');
   String get dashAwaitCourier =>
       _t('Kurye ataması bekleyen', 'Awaiting courier');
   String get dashFaulty => _t('Hatalı / eksik işlem', 'Faulty / incomplete');
@@ -870,7 +1023,7 @@ class L10n {
     ['Aralık', 'December'],
   ][(month - 1) % 12][isEn ? 1 : 0];
   String dashBranchCode(String code) => _t('Kod: $code', 'Code: $code');
-  String get dashFailed => _t('Teslim edilemeyen', 'Not delivered');
+  String get dashFailed => _t('Teslim Edilemeyen', 'Not delivered');
   String get dashLiveTrack => _t('Canlı operasyon takip', 'Live operations');
   String get seeDetails => _t('Detaylı gör', 'See details');
   String get quickCount => _t('Sayım', 'Count');

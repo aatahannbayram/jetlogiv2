@@ -337,7 +337,11 @@ class _NextStopCardState extends ConsumerState<NextStopCard> {
                           flex: 4,
                           child: _Ghost(
                             icon: LucideIcons.phone,
-                            label: l.call,
+                            label: s.canPlaceMaskedCall ||
+                                    (task.phone != null &&
+                                        task.phone!.trim().isNotEmpty)
+                                ? l.call
+                                : l.numberHidden,
                             positive: true,
                             onTap: () => s.callTask(context, task),
                           ),

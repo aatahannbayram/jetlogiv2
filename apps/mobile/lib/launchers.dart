@@ -15,7 +15,11 @@ Future<void> dialNumber(BuildContext context, String? phone) async {
     return;
   }
   final uri = Uri(scheme: 'tel', path: raw);
-  final ok = await launchUrl(uri);
+  final ok = await launchUrl(
+    uri,
+    mode: kIsWeb ? LaunchMode.platformDefault : LaunchMode.externalApplication,
+    webOnlyWindowName: kIsWeb ? '_top' : null,
+  );
   if (!ok && context.mounted) {
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(context.l10n.callOpening)));

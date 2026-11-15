@@ -24,7 +24,8 @@ class EodScreen extends ConsumerWidget {
       ] else ...[
         (
           l.kpiOnMe,
-          '${(c['awaitingDelivery'] ?? 0) + (c['outForDelivery'] ?? 0)}',
+          // Swagger: awaitingDelivery tüm açık (40xx) görevler; 4020 dahil.
+          '${c['awaitingDelivery'] ?? 0}',
           LucideIcons.package,
           Dg.brand,
         ),
