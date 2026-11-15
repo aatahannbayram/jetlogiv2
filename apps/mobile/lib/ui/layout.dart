@@ -4,6 +4,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../l10n.dart';
 import '../motion.dart';
 import '../theme.dart';
+import '../widgets.dart' show DgIcon;
 import 'status.dart';
 
 /// Kart yüzeyi: çerçevesiz, gölge ve tonla ayrışır. İsteğe bağlı başlık.
@@ -363,7 +364,7 @@ class DgInfoRow extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 16, color: Dg.text3),
+            DgIcon(icon!, size: 16, color: Dg.text3),
             const SizedBox(width: 10),
           ],
           SizedBox(width: 104, child: Text(label, style: Dg.typeCaption())),
