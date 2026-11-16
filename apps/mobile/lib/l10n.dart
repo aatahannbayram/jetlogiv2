@@ -369,6 +369,16 @@ class L10n {
       _t('İş Ortağına Getirilecek', 'Return to partner');
   String get dashShowAll => _t('Tüm liste', 'Full list');
   String get homeHello => _t('Merhaba', 'Hello');
+  String get permSkipDemo =>
+      _t('İzinsiz devam et (demo)', 'Continue without permissions (demo)');
+  String get permLocationWebHelp => _t(
+    'Konum izni alınamadı. Adres çubuğundaki konum simgesinden izin verin; Mac\'te Sistem Ayarları > Gizlilik > Konum Servisleri\'nde tarayıcıya izin verin. Sonra tekrar deneyin.',
+    'Location was not granted. Allow it from the location icon in the address bar (on a Mac also in System Settings > Privacy > Location Services), then try again.',
+  );
+  String get permLocationHelp => _t(
+    'Konum izni alınamadı. Telefon ayarlarından Dijigoo için konumu açıp tekrar deneyin.',
+    'Location was not granted. Turn on location for Dijigoo in phone settings and try again.',
+  );
   String get mapLayer => _t('Harita katmanı', 'Map layer');
   String get mapStreet => _t('Sokak', 'Street');
   String get mapDark => _t('Koyu', 'Dark');

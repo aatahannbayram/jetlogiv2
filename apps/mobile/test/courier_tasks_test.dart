@@ -1372,6 +1372,35 @@ void main() {
     expect(s.panelLoggedIn, isTrue);
   });
 
+  test('demo hesabı panel varken de API\'ye gitmez, demo görevleri kalır', () async {
+    var requests = 0;
+    final dio = Dio();
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          requests += 1;
+          handler.reject(
+            DioException(requestOptions: options, message: 'offline'),
+          );
+        },
+      ),
+    );
+    final s = SessionController(panel: PanelApi(dio));
+    expect(
+      await s.loginWithPanel(
+        identifier: SessionController.panelDemoIdentifier,
+        password: SessionController.panelDemoPassword,
+      ),
+      isTrue,
+    );
+    final before = s.tasks.length;
+    expect(before, greaterThan(0));
+    await s.loadPanelTasks();
+    expect(s.tasks.length, before);
+    expect(s.showPanelFieldError, isFalse);
+    expect(requests, 0);
+  });
+
   test('hydratePanelSession görev çekmez, isim günceller', () async {
     var taskGets = 0;
     var sessionGets = 0;

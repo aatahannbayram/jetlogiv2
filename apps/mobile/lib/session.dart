@@ -110,7 +110,13 @@ class SessionController extends ChangeNotifier {
   final Future<PushPermit> Function() readPush;
   final Stream<LiveFix> Function() liveFixes;
 
-  bool get _usesPanelTasks => panelLoggedIn && panel != null;
+  /// Demo hesabıyla (`kurye@dijigoo.test`) giriş. Bu oturum gerçek API'ye
+  /// gitmez: görev çekmek demo verisini silerdi, başarısız istek de sunumda
+  /// hata bandı gösterirdi. Not: [demo] başlangıçta true'dur, gerçek
+  /// görevler yüklenince false olur; bu yüzden ayrı bayrak.
+  bool demoLogin = false;
+
+  bool get _usesPanelTasks => panelLoggedIn && panel != null && !demoLogin;
 
   /// Panel cookie-session opened via [loginWithPanel]. When true, görev
   /// listesi ve teslim yazmaları [PanelApi] üzerindendir (Fastify değil).
@@ -1554,6 +1560,7 @@ class SessionController extends ChangeNotifier {
 
   bool get showPanelFieldError =>
       panelLoggedIn &&
+      !demoLogin &&
       lastPanelError != null &&
       lastPanelError != panelSessionExpired;
 
@@ -1705,6 +1712,7 @@ class SessionController extends ChangeNotifier {
       await Future.wait([loadTickets(), loadCustody()]);
     } catch (_) {
       panelLoggedIn = false;
+      demoLogin = false;
       lastPanelError = 'PANEL_REQUEST_FAILED';
       notifyListeners();
     }
@@ -1712,12 +1720,14 @@ class SessionController extends ChangeNotifier {
 
   void expirePanelSession() {
     panelLoggedIn = false;
+    demoLogin = false;
     lastPanelError = panelSessionExpired;
     notifyListeners();
   }
 
   void applyPanelProfile(PanelCourierProfileDto profile) {
     panelLoggedIn = true;
+    demoLogin = false;
     lastPanelError = null;
     demo = false;
     _dropDemoInbox();
@@ -1885,6 +1895,7 @@ class SessionController extends ChangeNotifier {
     liveApi = false;
     routePlan = null;
     panelLoggedIn = false;
+    demoLogin = false;
     lastPanelError = null;
     phase = AppPhase.splash;
     custodyDisputes = const [];
@@ -2023,6 +2034,7 @@ class SessionController extends ChangeNotifier {
         pw == panelDemoPassword) {
       panelLoggedIn = true;
       demo = true;
+      demoLogin = true;
       _seedDemoData();
       notifyListeners();
       return true;
@@ -2035,6 +2047,7 @@ class SessionController extends ChangeNotifier {
     }
     try {
       final profile = await client.login(identifier: id, password: pw);
+      demoLogin = false;
       await _afterPanelLogin(profile);
       return true;
     } on PanelApiException catch (e) {
@@ -3102,7 +3115,7 @@ class SessionController extends ChangeNotifier {
   }
 
   Future<void> loadPanelTasks() async {
-    if (!storageOk) return;
+    if (!storageOk || demoLogin) return;
     final client = panel;
     if (client == null || !panelLoggedIn) return;
     try {

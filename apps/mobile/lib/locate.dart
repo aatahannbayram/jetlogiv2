@@ -63,12 +63,33 @@ bool _locationGranted(LocationPermission perm) =>
 
 /// Tarayıcıda `permissions.query('geolocation')` Safari'de hata verir.
 /// Önce onu sormak, tıklamayı yutar ve konum penceresi açılmaz.
+/// Tarayıcı izin penceresini göstermezse (sessiz izin arayüzü, macOS'ta
+/// tarayıcıya konum kapalı) istek hiç dönmez; ekran kilitlenmesin diye
+/// süre sınırı var. Süre dolarsa mevcut izin durumu okunur.
+const _webPermissionTimeout = Duration(seconds: 15);
+
+Future<bool> _webLocationAccess() async {
+  try {
+    final perm = await Geolocator.requestPermission().timeout(
+      _webPermissionTimeout,
+    );
+    return _locationGranted(perm);
+  } catch (_) {
+    try {
+      final perm = await Geolocator.checkPermission().timeout(
+        const Duration(seconds: 3),
+      );
+      return _locationGranted(perm);
+    } catch (_) {
+      return false;
+    }
+  }
+}
+
 Future<bool> requestLocationAccess() async {
   if (_skipHardware) return true;
+  if (kIsWeb) return _webLocationAccess();
   try {
-    if (kIsWeb) {
-      return _locationGranted(await Geolocator.requestPermission());
-    }
     var perm = await Geolocator.checkPermission();
     if (perm == LocationPermission.denied ||
         perm == LocationPermission.unableToDetermine) {
@@ -76,12 +97,7 @@ Future<bool> requestLocationAccess() async {
     }
     return _locationGranted(perm);
   } catch (_) {
-    if (!kIsWeb) return false;
-    try {
-      return _locationGranted(await Geolocator.requestPermission());
-    } catch (_) {
-      return false;
-    }
+    return false;
   }
 }
 

@@ -36,44 +36,79 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen> {
     };
   }
 
+  /// Konum alınamadıysa kuryeye nereden açacağını söyler.
+  void _explainLocation() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        duration: const Duration(seconds: 8),
+        content: Text(
+          kIsWeb ? context.l10n.permLocationWebHelp : context.l10n.permLocationHelp,
+        ),
+      ),
+    );
+  }
+
   Future<void> _grantOne(String key) async {
     if (_busy) return;
     setState(() => _busy = true);
-    if (key == 'push') {
-      final permit = await requestPushPermit();
-      if (!mounted) return;
-      setState(() {
-        _busy = false;
-        if (permit == PushPermit.granted) granted.add(key);
-      });
-      explainPushPermit(context, permit);
-      return;
+    PushPermit? permit;
+    var ok = false;
+    try {
+      if (key == 'push') {
+        permit = await requestPushPermit();
+        ok = permit == PushPermit.granted;
+      } else {
+        ok = await _ask(key);
+      }
+    } catch (_) {
+      ok = false;
+    } finally {
+      // Ne olursa olsun ekran kilitli kalmaz.
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          if (ok) granted.add(key);
+        });
+      }
     }
-    final ok = await _ask(key);
     if (!mounted) return;
-    setState(() {
-      _busy = false;
-      if (ok) granted.add(key);
-    });
+    if (permit != null) explainPushPermit(context, permit);
+    if (key == 'loc' && !ok) _explainLocation();
   }
 
   Future<void> _grantAll() async {
     if (_busy) return;
+    final keys = [for (final i in _items(context.l10n)) i.$4];
     setState(() => _busy = true);
     PushPermit? push;
-    for (final key in [for (final i in _items(context.l10n)) i.$4]) {
-      if (granted.contains(key)) continue;
-      if (key == 'push') {
-        push = await requestPushPermit();
-        if (push == PushPermit.granted) granted.add(key);
-        continue;
+    var locationFailed = false;
+    try {
+      for (final key in keys) {
+        if (granted.contains(key)) continue;
+        if (key == 'push') {
+          push = await requestPushPermit();
+          if (push == PushPermit.granted) granted.add(key);
+          continue;
+        }
+        bool ok;
+        try {
+          ok = await _ask(key);
+        } catch (_) {
+          ok = false;
+        }
+        if (ok) {
+          granted.add(key);
+        } else if (key == 'loc') {
+          locationFailed = true;
+        }
       }
-      final ok = await _ask(key);
-      if (ok) granted.add(key);
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
     if (!mounted) return;
-    setState(() => _busy = false);
     if (push != null) explainPushPermit(context, push);
+    if (locationFailed) _explainLocation();
   }
 
   @override
@@ -175,6 +210,14 @@ class _PermissionsScreenState extends ConsumerState<PermissionsScreen> {
                 ? () => ref.read(sessionProvider).completePermissions()
                 : _grantAll,
           ),
+          // Sunum/demo: tarayıcı konum vermese de akış gösterilebilsin.
+          if (!ready && ref.watch(sessionProvider).demo)
+            TextButton(
+              onPressed: _busy
+                  ? null
+                  : () => ref.read(sessionProvider).completePermissions(),
+              child: Text(l.permSkipDemo),
+            ),
         ],
       ),
     );
