@@ -25,9 +25,9 @@ const kLegacyApi = bool.fromEnvironment('LEGACY_API', defaultValue: true);
 /// Flutter derlemesi `pubspec.yaml` sürümünü bu tanımlarla geçirir.
 const kAppVersion = String.fromEnvironment(
   'FLUTTER_BUILD_NAME',
-  defaultValue: '1.1.3',
+  defaultValue: '1.1.4',
 );
-const kAppBuild = int.fromEnvironment('FLUTTER_BUILD_NUMBER', defaultValue: 2008);
+const kAppBuild = int.fromEnvironment('FLUTTER_BUILD_NUMBER', defaultValue: 2009);
 
 /// Sync pull: sunucu da bu tavanı uygular; istemci şişmiş diziyi yutmaz.
 const kRemovedTaskIdsCap = 200;

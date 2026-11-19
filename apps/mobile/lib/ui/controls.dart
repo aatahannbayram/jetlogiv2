@@ -166,11 +166,11 @@ class DgPillTabs extends StatelessWidget {
   Widget _segmented(BuildContext context) {
     final reduce = MediaQuery.disableAnimationsOf(context);
     return Container(
-      height: 44,
-      padding: const EdgeInsets.all(4),
+      height: 42,
+      padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
         color: Dg.surface2,
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: LayoutBuilder(
         builder: (context, c) {
@@ -187,9 +187,19 @@ class DgPillTabs extends StatelessWidget {
                 bottom: 0,
                 width: w,
                 child: DecoratedBox(
+                  // Sakin seçili hal: dolu mavi yerine bir ton açık yüzey.
                   decoration: BoxDecoration(
-                    color: Dg.action,
-                    borderRadius: BorderRadius.circular(999),
+                    color: Dg.dark ? const Color(0x24FFFFFF) : Colors.white,
+                    borderRadius: BorderRadius.circular(9),
+                    boxShadow: Dg.dark
+                        ? null
+                        : const [
+                            BoxShadow(
+                              color: Color(0x1A0A0F2B),
+                              blurRadius: 6,
+                              offset: Offset(0, 1),
+                            ),
+                          ],
                   ),
                 ),
               ),
@@ -213,7 +223,7 @@ class DgPillTabs extends StatelessWidget {
                               style: Dg.ui(
                                 size: 14,
                                 weight: FontWeight.w600,
-                                color: i == index ? Colors.white : Dg.text2,
+                                color: i == index ? Dg.text1 : Dg.text3,
                               ),
                               child: Text(
                                 _text(i),
@@ -257,17 +267,22 @@ class DgPillTabs extends StatelessWidget {
                 curve: DgMotion.enter,
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 alignment: Alignment.center,
+                // Seçili hap ters renkte (açık zemin, koyu yazı); diğerleri
+                // yalnız ince çerçeve.
                 decoration: BoxDecoration(
-                  color: selected ? Dg.action : Dg.surface2,
+                  color: selected ? Dg.text1 : Colors.transparent,
                   borderRadius: BorderRadius.circular(999),
+                  border: Border.all(
+                    color: selected ? Dg.text1 : Dg.hairline,
+                  ),
                 ),
                 child: Text(
                   _text(i),
                   style: Dg.ui(
                     size: 14,
                     weight: FontWeight.w600,
-                    color: selected ? Colors.white : Dg.text2,
-                  ),
+                    color: selected ? Dg.bg : Dg.text2,
+                  ).copyWith(fontSize: 13.5),
                 ),
               ),
             ),
@@ -375,17 +390,18 @@ class DgFilterChip extends StatelessWidget {
         onTap: onTap,
         child: AnimatedContainer(
           duration: DgMotion.quick,
-          height: 36,
+          height: 34,
           padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
-            color: on ? Dg.action.withValues(alpha: 0.22) : Dg.surface2,
-            borderRadius: BorderRadius.circular(12),
+            color: on ? Dg.text1.withValues(alpha: 0.08) : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: on ? Dg.text2 : Dg.hairline),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               if (icon != null) ...[
-                Icon(icon, size: 14, color: on ? Dg.highlight : Dg.text3),
+                Icon(icon, size: 14, color: on ? Dg.text1 : Dg.text3),
                 const SizedBox(width: 6),
               ],
               // Yatay listede de (sınırsız genişlik) çalışsın diye Flexible
@@ -399,7 +415,7 @@ class DgFilterChip extends StatelessWidget {
                   style: Dg.ui(
                     size: 14,
                     weight: FontWeight.w600,
-                    color: on ? Dg.highlight : Dg.text2,
+                    color: on ? Dg.text1 : Dg.text2,
                   ).copyWith(fontSize: 13),
                 ),
               ),
@@ -407,7 +423,7 @@ class DgFilterChip extends StatelessWidget {
               Icon(
                 LucideIcons.chevronDown,
                 size: 14,
-                color: on ? Dg.highlight : Dg.text3,
+                color: on ? Dg.text1 : Dg.text3,
               ),
             ],
           ),

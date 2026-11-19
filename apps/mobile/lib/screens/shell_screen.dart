@@ -138,7 +138,17 @@ class _ShellScreenState extends ConsumerState<ShellScreen>
           NavShrinkOnScroll(
             compact: _navCompact,
             onCompact: (v) => setState(() => _navCompact = v),
-            child: DgTabStack(index: index, children: pages),
+            // Kamera sekmesi kaydırmayla açılmaz: yanlışlıkla kamera açılmasın.
+            child: SwipeTabs(
+              index: index,
+              count: pages.length,
+              skip: const {ShellNav.scan},
+              onChanged: (i) {
+                if (_navCompact) setState(() => _navCompact = false);
+                nav.go(i);
+              },
+              child: DgTabStack(index: index, children: pages),
+            ),
           ),
           if (_banner != null)
             Positioned(

@@ -78,7 +78,15 @@ class _SubeShellScreenState extends ConsumerState<SubeShellScreen> {
           child: NavShrinkOnScroll(
             compact: _navCompact,
             onCompact: (v) => setState(() => _navCompact = v),
-            child: DgTabStack(index: index, children: pages),
+            child: SwipeTabs(
+              index: index,
+              count: pages.length,
+              onChanged: (i) {
+                setState(() => _navCompact = false);
+                nav.go(i);
+              },
+              child: DgTabStack(index: index, children: pages),
+            ),
           ),
         ),
       ),

@@ -683,16 +683,15 @@ class NotifCard extends StatelessWidget {
             width: compact ? 34 : 40,
             height: compact ? 34 : 40,
             alignment: Alignment.center,
-            // Türün rengiyle dolu daire (şube ikon rozetleri gibi);
-            // okunmuş bildirimde soluk.
+            // Sakin ikon kutusu: renk yalnız ikonda, okunmuşta soluk.
             decoration: BoxDecoration(
-              color: unread ? n.ink : n.ink.withValues(alpha: 0.18),
-              shape: BoxShape.circle,
+              color: Dg.surface2,
+              borderRadius: BorderRadius.circular(10),
             ),
             child: DgIcon(
               n.icon,
-              size: compact ? 17 : 19,
-              color: unread ? Colors.white : n.ink,
+              size: compact ? 16 : 18,
+              color: unread ? n.ink : Dg.ink3,
               weight: 500,
             ),
           ),

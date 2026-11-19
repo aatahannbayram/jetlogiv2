@@ -54,6 +54,8 @@ class SubeOpsScreen extends ConsumerWidget {
               SubeNavTile(
                 icon: LucideIcons.userPlus,
                 label: l.quickAssign,
+                // Bekleyen iş satırda görünsün: kaç gönderi kurye bekliyor.
+                count: s.branch.board?.kpis.unassigned,
                 onTap: () => ref
                     .read(subeNavProvider)
                     .go(SubeNav.shipments, filter: 'waiting'),
@@ -62,6 +64,7 @@ class SubeOpsScreen extends ConsumerWidget {
                 icon: LucideIcons.undo2,
                 tint: warn,
                 label: l.courierReturnTitle,
+                count: s.branch.pending?.returns.length,
                 onTap: () => open(const SubeReturnFlow()),
               ),
               SubeNavTile(

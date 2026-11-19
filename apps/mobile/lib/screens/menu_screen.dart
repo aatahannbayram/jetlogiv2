@@ -319,8 +319,14 @@ class _Section extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: Dg.s4),
             child: Column(
               children: [
-                for (final (i, m) in items.indexed)
+                for (final (i, m) in items.indexed) ...[
+                  if (i > 0)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 62),
+                      child: Container(height: 1, color: Dg.hairline),
+                    ),
                   _MenuTile(row: m, index: start + i),
+                ],
               ],
             ),
           ),
@@ -356,13 +362,20 @@ class _MenuTile extends StatelessWidget {
           ),
           child: Row(
             children: [
-              DgIconBadge(
-                icon: row.icon,
-                tone: accent
-                    ? _accentTones[index % _accentTones.length]
-                    : DgTone.neutral,
-                size: 40,
-                soft: true,
+              Container(
+                width: 34,
+                height: 34,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: Dg.surface2,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: DgIcon(
+                  row.icon,
+                  size: 17,
+                  color: accent ? Dg.text1 : Dg.text2,
+                  weight: 500,
+                ),
               ),
               const SizedBox(width: Dg.s12),
               Expanded(child: Text(row.label, style: Dg.typeBody())),
@@ -393,12 +406,12 @@ class _Badge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: Dg.s8, vertical: 2),
       decoration: BoxDecoration(
-        color: Dg.brandSoft,
-        borderRadius: BorderRadius.circular(12),
+        color: Dg.warn.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
         value,
-        style: Dg.typeNum(size: 12, weight: FontWeight.w600, color: Dg.brand),
+        style: Dg.typeNum(size: 12, weight: FontWeight.w700, color: Dg.warn),
       ),
     );
   }

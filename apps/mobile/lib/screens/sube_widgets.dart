@@ -466,18 +466,25 @@ class SubeNavTile extends StatelessWidget {
     this.subtitle,
     this.tint,
     this.trailing,
+    this.count,
   });
 
   final IconData icon;
   final String label;
   final String? subtitle;
+
+  /// Yalnız tehlikeli satırda (ör. çıkış) renk verir; diğerleri nötr.
   final Color? tint;
   final Widget? trailing;
   final VoidCallback onTap;
 
+  /// Bekleyen iş adedi: sıfırdan büyükse sağda turuncu sayı.
+  final int? count;
+
   @override
   Widget build(BuildContext context) {
-    final color = tint ?? Dg.highlight;
+    final danger = tint != null && tint == Dg.bad;
+    final color = danger ? Dg.bad : Dg.text2;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -490,26 +497,49 @@ class SubeNavTile extends StatelessWidget {
             child: Row(
               children: [
                 Container(
-                  width: 38,
-                  height: 38,
+                  width: 34,
+                  height: 34,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: color.withValues(alpha: Dg.dark ? 0.16 : 0.10),
-                    borderRadius: BorderRadius.circular(12),
+                    color: danger
+                        ? Dg.bad.withValues(alpha: 0.12)
+                        : Dg.surface2,
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  child: DgIcon(icon, size: 19, color: color, weight: 500),
+                  child: DgIcon(icon, size: 17, color: color, weight: 500),
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(label, style: Dg.typeBody(weight: FontWeight.w600)),
+                      Text(
+                        label,
+                        style: Dg.ui(
+                          size: 15,
+                          weight: FontWeight.w500,
+                          color: danger ? Dg.bad : Dg.text1,
+                        ),
+                      ),
                       if (subtitle != null)
-                        Text(subtitle!, style: Dg.typeCaption()),
+                        Text(
+                          subtitle!,
+                          style: Dg.ui(size: 12.5, color: Dg.text3),
+                        ),
                     ],
                   ),
                 ),
+                if ((count ?? 0) > 0) ...[
+                  Text(
+                    '$count',
+                    style: Dg.typeNum(
+                      size: 14,
+                      weight: FontWeight.w700,
+                      color: Dg.warn,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                ],
                 ?trailing,
                 const SizedBox(width: 6),
                 DgIcon(LucideIcons.chevronRight, size: 18, color: Dg.text3),
@@ -530,10 +560,22 @@ class SubeGroup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Satırlar arasında ikon hizasından başlayan ince ayraç.
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+      padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
       decoration: Dg.card(),
-      child: Column(children: children),
+      child: Column(
+        children: [
+          for (var i = 0; i < children.length; i++) ...[
+            if (i > 0)
+              Padding(
+                padding: const EdgeInsets.only(left: 58),
+                child: Container(height: 1, color: Dg.hairline),
+              ),
+            children[i],
+          ],
+        ],
+      ),
     );
   }
 }

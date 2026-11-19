@@ -274,11 +274,13 @@ class CourierRosterTile extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: Dg.ui(size: 16, weight: FontWeight.w600),
                 ),
+                const SizedBox(height: 2),
+                // Uzun kurye kodu detayda; listede araç ve bölge yeter.
                 Text(
                   [
-                    if (c.code.isNotEmpty) c.code,
                     if (c.vehicleType.isNotEmpty) l.vehicleType(c.vehicleType),
                     if (c.district.isNotEmpty) c.district,
+                    if (c.vehicleType.isEmpty && c.district.isEmpty) c.code,
                   ].join(' · '),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -286,23 +288,20 @@ class CourierRosterTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Wrap(
-                  spacing: 6,
+                  spacing: 12,
                   runSpacing: 4,
                   children: [
                     if (kind != null)
-                      DgStatusPill.of(courierStatus(l, kind), dense: true)
+                      DgDotStatus.of(courierStatus(l, kind))
                     else
-                      DgStatusPill(
+                      DgDotStatus(
                         label: l.poolStatus(c.status),
-                        tone: DgTone.neutral,
-                        dense: true,
+                        color: Dg.text3,
                       ),
                     if (missing > 0)
-                      DgStatusPill(
+                      DgDotStatus(
                         label: l.docsMissing(missing),
-                        tone: DgTone.bad,
-                        icon: LucideIcons.fileWarning,
-                        dense: true,
+                        color: Dg.bad,
                       ),
                   ],
                 ),
@@ -315,7 +314,11 @@ class CourierRosterTile extends StatelessWidget {
             children: [
               Text(
                 '$holding',
-                style: Dg.stat(size: 20, weight: FontWeight.w700),
+                style: Dg.stat(
+                  size: 22,
+                  weight: FontWeight.w700,
+                  color: holding == 0 ? Dg.text3 : Dg.text1,
+                ),
               ),
               Text(
                 l.fieldOnHand,

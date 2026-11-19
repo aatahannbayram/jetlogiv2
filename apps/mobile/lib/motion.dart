@@ -795,3 +795,50 @@ class FlowProgressRing extends StatelessWidget {
     );
   }
 }
+
+/// Sekmeler arası yatay kaydırma: hızlı bir sola/sağa çekiş yan sekmeyi
+/// açar. İç kaydırmalar (çip satırı, harita, kaydırarak silme) hareketi
+/// önce yakaladığı için onları bozmaz. [skip]: kaydırmayla atlanan sekmeler
+/// (ör. kamera).
+class SwipeTabs extends StatelessWidget {
+  const SwipeTabs({
+    super.key,
+    required this.index,
+    required this.count,
+    required this.onChanged,
+    required this.child,
+    this.skip = const {},
+  });
+
+  final int index;
+  final int count;
+  final ValueChanged<int> onChanged;
+  final Set<int> skip;
+  final Widget child;
+
+  /// Kaydırma yönüne göre gidilecek sekme; yoksa null.
+  static int? target(int index, int count, double velocity, Set<int> skip) {
+    if (velocity.abs() < 350) return null;
+    final dir = velocity < 0 ? 1 : -1;
+    var next = index + dir;
+    while (skip.contains(next)) {
+      next += dir;
+    }
+    if (next < 0 || next >= count) return null;
+    return next;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onHorizontalDragEnd: (d) {
+        final next = target(index, count, d.primaryVelocity ?? 0, skip);
+        if (next == null) return;
+        HapticFeedback.selectionClick();
+        onChanged(next);
+      },
+      child: child,
+    );
+  }
+}

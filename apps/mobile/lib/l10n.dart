@@ -1801,8 +1801,8 @@ class L10n {
 
   String get openProfile => _t('Profili aç', 'Open profile');
   String get fieldAppVersion => _t(
-    'v${const String.fromEnvironment('FLUTTER_BUILD_NAME', defaultValue: '1.1.3')} · Dijigoo',
-    'v${const String.fromEnvironment('FLUTTER_BUILD_NAME', defaultValue: '1.1.3')} · Dijigoo',
+    'v${const String.fromEnvironment('FLUTTER_BUILD_NAME', defaultValue: '1.1.4')} · Dijigoo',
+    'v${const String.fromEnvironment('FLUTTER_BUILD_NAME', defaultValue: '1.1.4')} · Dijigoo',
   );
   String get demoCodesHint =>
       _t('Giriş 123456  ·  Teslim 482913', 'Login 123456  ·  Delivery 482913');
