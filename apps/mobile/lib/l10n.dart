@@ -108,7 +108,7 @@ class L10n {
   String get eodTitle => _t('Gün sonu', 'End of day');
   String get eodOpen => _t('Açık görev', 'Open tasks');
   String get eodReturn => _t('Geri teslim', 'Return to partner');
-  String get eodSync => _t('Gönderilmeyi bekleyen', 'Waiting to send');
+  String get eodSync => _t('Bekleyen kayıt', 'Waiting to send');
   String get eodClose => _t('Vardiyayı bitir', 'Finish shift');
   String get acceptCustody => _t('Zimmeti kabul et', 'Accept custody');
   String get discrepancy => _t('Uyuşmazlık', 'Discrepancy');
@@ -246,6 +246,15 @@ class L10n {
     'İzinlere geç, sonra vardiyayı aç.',
     'Continue to permissions, then open the shift.',
   );
+  String get loginFieldsRequired => _t(
+    'Telefon veya e-posta ile şifreni gir.',
+    'Enter your phone or email and password.',
+  );
+  String get loginPhoneRequired =>
+      _t('Telefon numaranı gir.', 'Enter your phone number.');
+  /// Tanınmayan giriş hatası: sunucu mesajı ya da genel metin, koduyla.
+  String loginFailedWith(String message, String? code) =>
+      code == null || code.isEmpty ? message : '$message ($code)';
   String get loginFailed => _t(
     'Giriş olmadı. Bilgileri kontrol et.',
     'Sign-in failed. Check the details.',
@@ -359,11 +368,34 @@ class L10n {
   );
   String get dictateBarcode => _t('Sesle barkod', 'Speak the barcode');
   String get dictateFailed => _t(
-    'Mikrofon kullanılamadı. Kodu yazın.',
+    'Mikrofon kullanılamadı. Barkodu okut ya da numarayı yaz.',
     'Microphone is unavailable. Type the code.',
   );
   String get dashAwaiting => _t('Teslim Bekleyen', 'Awaiting delivery');
   String get dashAppointment => _t('Randevulu', 'By appointment');
+  String get dashFaultyShort => _t('Eksik / Hatalı', 'Missing / faulty');
+  String get dueLabel => _t('Teslim', 'Due');
+  String get tomorrow => _t('Yarın', 'Tomorrow');
+  String get logoutShiftOpenBody => _t(
+    'Vardiyan hâlâ açık. Çıkmadan önce kapatmak ister misin?',
+    'Your shift is still open. Close it before signing out?',
+  );
+  String get logoutKeepShift => _t('Açık bırak', 'Keep open');
+  String get logoutCloseShift => _t('Kapat ve çık', 'Close and sign out');
+  String get visitStepsFailed =>
+      _t('Ziyaret adımları yüklenemedi', 'Visit steps could not load');
+  String get visitStepsFailedBody => _t(
+    'İnternet bağlantını kontrol edip yeniden dene.',
+    'Check your connection and try again.',
+  );
+  String pendingCustodyTitle(int n) =>
+      _t('Okutman gereken $n gönderi var', '$n parcels waiting for your scan');
+  String get pendingCustodyBody => _t(
+    'İş ortağından alırken barkodları okut, görevlerine eklensin.',
+    'Scan them at the partner to add them to your tasks.',
+  );
+  String get checkIn => _t('Check-in yap', 'Check in');
+  String get serviceLabel => _t('Hizmet', 'Service');
   String get dashOverdue => _t('Geciken', 'Overdue');
   String get dashToBranch =>
       _t('İş Ortağına Getirilecek', 'Return to partner');
@@ -671,11 +703,14 @@ class L10n {
   String get branchCustodyHint => _t('İş ortağına teslim ettiğin paketleri okut', 'Scan parcels you are handing to the partner');
   String get courier => _t('Kurye', 'Courier');
   String get branch => _t('İş Ortağı', 'Partner');
-  String get bringBarcode => _t('Barkodu kameraya göster', 'Show the barcode to the camera');
-  String get typeCode => _t('Kodu yaz', 'Type the code');
-  String get typeCodeSend => _t('Kodu yaz ve gönder', 'Type the code and send');
-  String get cameraFailed => _t('Kamera açılamadı. Kodu yazabilirsin.', 'Camera failed. You can type the code.');
-  String get openCameraHint => _t('Barkodu kameraya göster ya da kodu yaz.', 'Show the barcode to the camera or type the code.');
+  String get bringBarcode => _t('Barkodu okut', 'Scan the barcode');
+  String get typeCode => _t('Barkod numarasını yaz', 'Type the barcode number');
+  String get typeCodeSend => _t('Barkod numarasını yaz', 'Type the barcode number');
+  String get scanTypeKeys => _t('Yaz', 'Type');
+  String get scanDictate => _t('Sesle söyle', 'Dictate');
+  String get scanListening => _t('Dinliyorum, barkod numarasını söyle…', 'Listening, say the barcode number…');
+  String get cameraFailed => _t('Kamera açılamadı. Barkod numarasını yaz ya da sesle söyle.', 'Camera failed. Type the barcode number or dictate it.');
+  String get openCameraHint => _t('Barkodu okut, numarayı yaz ya da sesle söyle.', 'Scan the barcode, type the number or dictate it.');
   String readCount(int n) => _t('$n okundu', '$n read');
   String get beep => _t('Bip', 'Beep');
   String get noScansYet => _t('Henüz taranan gönderi yok', 'No scanned shipments yet');
@@ -1765,8 +1800,10 @@ class L10n {
   String get passwordTile => _t('Şifre', 'Password');
 
   String get openProfile => _t('Profili aç', 'Open profile');
-  String get fieldAppVersion =>
-      _t('v1.0.0 · Dijigoo Saha', 'v1.0.0 · Dijigoo Field');
+  String get fieldAppVersion => _t(
+    'v${const String.fromEnvironment('FLUTTER_BUILD_NAME', defaultValue: '1.1.3')} · Dijigoo',
+    'v${const String.fromEnvironment('FLUTTER_BUILD_NAME', defaultValue: '1.1.3')} · Dijigoo',
+  );
   String get demoCodesHint =>
       _t('Giriş 123456  ·  Teslim 482913', 'Login 123456  ·  Delivery 482913');
   String get storageLockedTitle =>
@@ -1974,7 +2011,7 @@ class L10n {
   // Ziyaret akışı (kontrol listeli fotoğraf + anket)
   String get visitCouldNot => _t('Ziyareti yapamadım', "Couldn't do the visit");
   String get visitSlide =>
-      _t('Ziyareti kapatmak için kaydır', 'Slide to close the visit');
+      _t('Check-out için kaydır', 'Slide to check out');
   String get visitBackToDone => _t('Ziyareti yapabildim', 'I did the visit');
   String get visitWhyTitle => _t('Neden yapamadın?', 'Why not?');
   String get visitPickReason => _t('Bir neden seç.', 'Pick a reason.');
@@ -2020,7 +2057,7 @@ class L10n {
   String get visitYes => _t('Evet', 'Yes');
   String get visitNo => _t('Hayır', 'No');
   String get visitPickDate => _t('Tarih seç', 'Pick a date');
-  String get visitSend => _t('Ziyareti gönder', 'Send visit');
+  String get visitSend => _t('Check-out yap', 'Check out');
   String get visitOffline => _t(
     'İnternet yok. Bağlantı gelince tekrar dene.',
     'No internet. Try again when you are connected.',

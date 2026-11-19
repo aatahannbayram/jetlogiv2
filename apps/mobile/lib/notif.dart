@@ -154,3 +154,38 @@ List<AppNotification> filterNotifications({
       return [for (final n in items) if (notifIsAlert(n.kind)) n];
   }
 }
+
+/// Sunucu bildirim kategorisi → ekrandaki tür. Tür, dokununca açılacak
+/// ekranı da belirler; bilinmeyen kategori hiçbir ekrana götürmez.
+NotifKind serverNotifKind(String category, String? sourceType) {
+  final c = category.toUpperCase();
+  if (c == 'EVIDENCE_REJECTED' || c.startsWith('MISTAKE')) {
+    return NotifKind.photoRejected;
+  }
+  if (c.startsWith('HANDOVER') || c.startsWith('CUSTODY')) {
+    return NotifKind.custody;
+  }
+  if (c == 'TASK_CANCELLED') return NotifKind.stopCancelled;
+  if (c == 'TASK_PULLED' || c == 'TASK_REASSIGNED') return NotifKind.stopPulled;
+  if (c.startsWith('SLA')) return NotifKind.slaRisk;
+  if (c.startsWith('TASK') || sourceType == 'SHIPMENT') {
+    return NotifKind.stopAssigned;
+  }
+  if (c.startsWith('BONUS') || c.startsWith('EARNING')) return NotifKind.bonus;
+  return NotifKind.shift;
+}
+
+/// Metindeki ham ISO zamanı ("2026-11-17T10:40:32.396Z") yerel
+/// "17.11.2026 13:40" biçimine çevirir; başka metne dokunmaz.
+String readableIsoInText(String text) {
+  final iso = RegExp(
+    r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?',
+  );
+  return text.replaceAllMapped(iso, (m) {
+    final t = DateTime.tryParse(m[0]!);
+    if (t == null) return m[0]!;
+    final l = t.toLocal();
+    String two(int v) => v.toString().padLeft(2, '0');
+    return '${two(l.day)}.${two(l.month)}.${l.year} ${two(l.hour)}:${two(l.minute)}';
+  });
+}

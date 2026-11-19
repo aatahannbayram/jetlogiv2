@@ -176,9 +176,10 @@ class _BarcodeScanPaneState extends State<BarcodeScanPane>
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Sağ üstteki klavye/fener düğmeleri metnin üstüne binmesin.
+              // Sağ üstteki "Yaz / Sesle söyle" düğmeleri metnin üstüne binmesin:
+              // metin düğme satırının altından başlar.
               Padding(
-                padding: const EdgeInsets.only(right: 44),
+                padding: const EdgeInsets.only(top: 40),
                 child: Text(
                   message ?? l.openCameraHint,
                   style: Dg.ui(size: 14, color: Dg.mutedOnNight),
@@ -194,11 +195,19 @@ class _BarcodeScanPaneState extends State<BarcodeScanPane>
                 decoration: InputDecoration(
                   filled: true,
                   fillColor: Dg.surface2,
-                  hintText: l.typeCode,
+                  hintText: _listening ? l.scanListening : l.typeCode,
                   hintStyle: const TextStyle(color: Dg.mutedOnNight),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
                     borderSide: BorderSide.none,
+                  ),
+                  suffixIcon: IconButton(
+                    tooltip: l.scanDictate,
+                    icon: Icon(
+                      LucideIcons.mic,
+                      color: _listening ? Dg.ok : Colors.white,
+                    ),
+                    onPressed: _dictate,
                   ),
                 ),
                 textInputAction: TextInputAction.done,
@@ -272,11 +281,14 @@ class _BarcodeScanPaneState extends State<BarcodeScanPane>
                   children: [
                     _scanChip(
                       icon: LucideIcons.keyboard,
+                      label: context.l10n.scanTypeKeys,
                       onTap: () => setState(() => _manualOpen = !_manualOpen),
                     ),
                     const SizedBox(width: 8),
                     _scanChip(
                       icon: LucideIcons.mic,
+                      label: context.l10n.scanDictate,
+                      active: _listening,
                       onTap: _dictate,
                     ),
                     if (controller != null) ...[
@@ -305,7 +317,9 @@ class _BarcodeScanPaneState extends State<BarcodeScanPane>
                   decoration: InputDecoration(
                     filled: true,
                     fillColor: Dg.surface2,
-                    hintText: context.l10n.typeCodeSend,
+                    hintText: _listening
+                        ? context.l10n.scanListening
+                        : context.l10n.typeCodeSend,
                     hintStyle: const TextStyle(color: Dg.mutedOnNight),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
@@ -335,18 +349,46 @@ class _BarcodeScanPaneState extends State<BarcodeScanPane>
     );
   }
 
-  Widget _scanChip({required IconData icon, required VoidCallback onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 48,
-        height: 48,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: Dg.night.withValues(alpha: 0.72),
-          borderRadius: BorderRadius.circular(12),
+  Widget _scanChip({
+    required IconData icon,
+    required VoidCallback onTap,
+    String? label,
+    bool active = false,
+  }) {
+    return Semantics(
+      button: true,
+      label: label,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          height: 44,
+          constraints: const BoxConstraints(minWidth: 44),
+          padding: EdgeInsets.symmetric(horizontal: label == null ? 0 : 12),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: active
+                ? Dg.ok.withValues(alpha: 0.9)
+                : Dg.night.withValues(alpha: 0.72),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 18, color: Colors.white),
+              if (label != null) ...[
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: Dg.ui(
+                    size: 13,
+                    weight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
-        child: Icon(icon, size: 18, color: Colors.white),
       ),
     );
   }

@@ -143,6 +143,9 @@ class DeliveryTask {
     this.phone,
     this.merchantName,
     this.isCard = false,
+    this.serviceName,
+    this.plannedAt,
+    this.isVisit = false,
     String? wireStatus,
   }) : wireStatus = wireStatus ??
             switch (status) {
@@ -164,6 +167,15 @@ class DeliveryTask {
 
   /// Panel ürün/hizmet kodu kart teslimatı dediğinde true. Sodexo bunu açmaz.
   final bool isCard;
+
+  /// Panel hizmet adı (yoksa ürün adı), ör. "Pluxee Sticker Dağıtımı".
+  final String? serviceName;
+
+  /// Planlanan teslim anı (yerel saat). Yoksa null.
+  final DateTime? plannedAt;
+
+  /// Ziyaret işi (ör. Pluxee sticker): başlangıç check-in, bitiş check-out.
+  final bool isVisit;
   final String address;
   final String window;
   final TaskKind kind;

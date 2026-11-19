@@ -1968,13 +1968,19 @@ class _SlideToActState extends State<SlideToAct>
           child: Stack(
             alignment: Alignment.centerLeft,
             children: [
-              Center(
-                child: Text(
-                  widget.label,
-                  style: Dg.ui(
-                    size: 15,
-                    weight: FontWeight.w600,
-                    color: Dg.onAction,
+              // Yazı tutamağın altında kalmasın: tutamak kadar soldan boşluk.
+              Padding(
+                padding: EdgeInsets.only(left: thumb + 12, right: 16),
+                child: Center(
+                  child: Text(
+                    widget.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Dg.ui(
+                      size: 15,
+                      weight: FontWeight.w600,
+                      color: Dg.onAction,
+                    ),
                   ),
                 ),
               ),
@@ -2242,7 +2248,8 @@ class DgPillNav extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         decoration: BoxDecoration(
           color: Dg.dock,
-          borderRadius: BorderRadius.circular(36),
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: const Color(0x14FFFFFF)),
           boxShadow: Dg.dockShadow,
         ),
         child: LayoutBuilder(
@@ -2266,9 +2273,6 @@ class DgPillNav extends StatelessWidget {
               items.length,
             );
             if (columns == items.length || !largeText) {
-              final slot = constraints.maxWidth / items.length;
-              const bar = 22.0;
-              final reduce = MediaQuery.disableAnimationsOf(context);
               return IntrinsicHeight(
                 child: Stack(
                   children: [
@@ -2281,27 +2285,6 @@ class DgPillNav extends StatelessWidget {
                     ),
                     // İmza an: seçili sekmenin altındaki marka akışı çizgisi
                     // yaylanarak kayar. Tek AnimatedPositioned; gradyan sabit.
-                    if (primaryIndex != index)
-                      AnimatedPositioned(
-                        duration: reduce
-                            ? Duration.zero
-                            : const Duration(milliseconds: 320),
-                        curve: Curves.easeOutBack,
-                        left: slot * index + (slot - bar) / 2,
-                        bottom: 0,
-                        width: bar,
-                        height: 3,
-                        child: const IgnorePointer(
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              gradient: Dg.brandFlow,
-                              borderRadius: BorderRadius.all(
-                                Radius.circular(2),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
                   ],
                 ),
               );
@@ -2791,6 +2774,23 @@ String taskChipLabel(DeliveryTask task, [L10n? l10n]) => task.isLate
 
 String taskChipTone(DeliveryTask task) =>
     task.isLate ? 'hi' : taskStatusTone(task.status);
+
+/// Planlanan teslim anı: bugünse "14:00", yarınsa "Yarın 14:00",
+/// değilse "21 Kasım 14:00". Tarih yoksa null.
+String? plannedDateLabel(DateTime? at, L10n l, {DateTime? now}) {
+  if (at == null) return null;
+  final t = at.toLocal();
+  final n = now ?? DateTime.now();
+  final day = DateTime(t.year, t.month, t.day);
+  final today = DateTime(n.year, n.month, n.day);
+  final hh = t.hour.toString().padLeft(2, '0');
+  final mm = t.minute.toString().padLeft(2, '0');
+  final clock = '$hh:$mm';
+  final diff = day.difference(today).inDays;
+  if (diff == 0) return clock;
+  if (diff == 1) return '${l.tomorrow} $clock';
+  return '${t.day} ${l.monthName(t.month)} $clock';
+}
 
 String taskRefLine(DeliveryTask task, {int? visit}) {
   final n = visit ?? task.sequence;

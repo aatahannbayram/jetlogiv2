@@ -256,3 +256,39 @@ class DgIconBadge extends StatelessWidget {
     tone: DgTone.neutral,
   );
 }
+
+/// Sakin durum etiketi: dolgu yok, renkli nokta ve renkli yazı. Liste
+/// kartlarında dolu "hap" kalabalığı yerine kullanılır.
+class DgDotStatus extends StatelessWidget {
+  const DgDotStatus({super.key, required this.label, required this.color});
+
+  DgDotStatus.of(DgStatus status, {super.key})
+    : label = status.label,
+      color = dgToneColor(status.tone);
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 7,
+          height: 7,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 6),
+        Flexible(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Dg.ui(size: 12.5, weight: FontWeight.w600, color: color),
+          ),
+        ),
+      ],
+    );
+  }
+}

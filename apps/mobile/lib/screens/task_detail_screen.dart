@@ -16,7 +16,6 @@ import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
 import 'report_screen.dart';
-import 'return_screen.dart';
 import 'wizard_screen.dart';
 
 /// Canvas'ın "1d Görev detayı" tasarımı — tam ekran harita + kaydırmalı
@@ -338,6 +337,22 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                                   ),
                                 ],
                                 const SizedBox(height: 8),
+                                if (t.serviceName != null) ...[
+                                  const DgDivider(),
+                                  _InfoCard(
+                                    icon: LucideIcons.briefcase,
+                                    label: l.serviceLabel,
+                                    value: t.serviceName!,
+                                  ),
+                                ],
+                                if (t.plannedAt != null) ...[
+                                  const DgDivider(),
+                                  _InfoCard(
+                                    icon: LucideIcons.calendar,
+                                    label: l.dueLabel,
+                                    value: plannedDateLabel(t.plannedAt, l)!,
+                                  ),
+                                ],
                                 const DgDivider(),
                                 _InfoCard(
                                   icon: LucideIcons.layers,
@@ -468,29 +483,9 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                                       : l.slideToDeliver,
                                   onConfirm: start,
                                 ),
-                              if (canAct) ...[
-                                const SizedBox(height: 10),
-                                // Kuryenin gözünden kaçmasın: tam genişlikte kırmızı.
-                                DgButton(
-                                  label: guided
-                                      ? l.visitCouldNot
-                                      : l.couldNotDeliverShort,
-                                  icon: LucideIcons.circleX,
-                                  tone: DgButtonTone.danger,
-                                  onPressed: () async {
-                                    final failed = await Navigator.of(context)
-                                        .push<bool>(
-                                          MaterialPageRoute<bool>(
-                                            builder: (_) =>
-                                                ReturnScreen(taskId: t.id),
-                                          ),
-                                        );
-                                    if (failed == true && context.mounted) {
-                                      Navigator.of(context).pop();
-                                    }
-                                  },
-                                ),
-                              ],
+                              // "Teslim edilemedi" düğmesi kaldırıldı (toplantı
+                              // kararı). Olmayan teslim, teslim akışının içinden
+                              // bildirilir; ziyarette "Ziyareti yapamadım" orada.
                             ],
                           ),
                         ),

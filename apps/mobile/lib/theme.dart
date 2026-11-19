@@ -105,26 +105,21 @@ class Dg {
 
   /// Koyu temada kart yüzeyi: ışık yukarıdan geliyormuş gibi üstü bir ton
   /// açık. Açık temada düz beyaz.
-  static Gradient? get cardSheen => dark
-      ? const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFF131C4A), Color(0xFF0A1236)],
-        )
-      : null;
+  /// Düz yüzey: geçişli "parlak cam" görünümü bilerek kaldırıldı.
+  static Gradient? get cardSheen => null;
 
   /// Kart kenarı: koyuda giriş ekranındaki cam kartların ince açık çizgisi.
   static Color get cardEdge =>
-      dark ? const Color(0x1AFFFFFF) : const Color(0x120A0F2B);
+      dark ? const Color(0x12FFFFFF) : const Color(0x120A0F2B);
 
   /// Ortak kart dekorasyonu (DgPanel, DgCard, KPI ve gezinme kutuları).
-  static BoxDecoration card({double radius = 20, Color? color}) =>
+  static BoxDecoration card({double radius = 18, Color? color}) =>
       BoxDecoration(
         color: color ?? surface1,
-        gradient: color == null ? cardSheen : null,
         borderRadius: BorderRadius.circular(radius),
         border: Border.all(color: cardEdge),
-        boxShadow: cardShadow,
+        // Koyu temada gölge yerine ton farkı; açıkta çok hafif gölge.
+        boxShadow: dark ? null : cardShadow,
       );
 
   static List<BoxShadow> get dockShadow => [
@@ -150,8 +145,8 @@ class Dg {
   static const dock = Color(0xFF0B1235);
   static const onDock = Color(0xFFFFFFFF);
   static const mutedOnDock = Color(0xFF9CA3AF);
-  static const dockActive = Color(0xFF06D6FF);
-  static const dockSelected = Color(0xFF1E2A55);
+  static const dockActive = Color(0xFFFFFFFF);
+  static const dockSelected = Color(0x1AFFFFFF);
 
   static Color get purpleActive => brand;
 
@@ -260,7 +255,7 @@ class Dg {
   static Color get bg =>
       dark ? const Color(0xFF020823) : const Color(0xFFF4F5F8);
   static Color get surface1 =>
-      dark ? const Color(0xFF0B1235) : const Color(0xFFFFFFFF);
+      dark ? const Color(0xFF0D1539) : const Color(0xFFFFFFFF);
   static Color get surface2 =>
       dark ? const Color(0xFF141D45) : const Color(0xFFEDF0F6);
   static Color get stroke =>
@@ -500,9 +495,10 @@ class Dg {
       // Yüzen düğme: teslimdeki degradenin orta tonu (mor-mavi #5140FC),
       // beyaz yazıyla 5.6:1.
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: dgMorMavi,
+        backgroundColor: action,
         foregroundColor: onAction,
-        elevation: 0,
+        elevation: 2,
+        highlightElevation: 4,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.all(Radius.circular(radiusPill)),
         ),

@@ -7,7 +7,9 @@
 #   node tool/web_proxy.mjs      -> http://localhost:8088 ile yerel deneme
 set -euo pipefail
 cd "$(dirname "$0")/.."
-flutter build web --release \
+# İkon ayıklama kapalı: DgIcon Lucide glifini Text ile çizer, ayıklayıcı
+# bunları göremez ve şube ekranlarında ikonlar kutu olarak çıkıyordu.
+flutter build web --release --no-tree-shake-icons \
   --dart-define=PANEL_API_BASE=/api/public/v1 \
   --dart-define=AGENCY_API_BASE=/api/portal/v1 \
   --dart-define=LEGACY_API=false \

@@ -122,6 +122,14 @@ class SessionController extends ChangeNotifier {
   /// listesi ve teslim yazmaları [PanelApi] üzerindendir (Fastify değil).
   bool panelLoggedIn = false;
   String? lastPanelError;
+
+  /// Son panel hatasının sunucu metni (ör. "JD…: Bu gönderi size
+  /// zimmetlenmemiş."). Yoksa null.
+  String? lastPanelErrorMessage;
+
+  /// Son giriş hatasının sunucu mesajı ya da istemci ayrıntısı. Ekranda
+  /// koduyla birlikte gösterilir; "Giriş olmadı" tek başına teşhis vermez.
+  String? lastLoginDetail;
   String? lastActivationError;
   DateTime? otpResendAt;
 
@@ -920,8 +928,8 @@ class SessionController extends ChangeNotifier {
       zimmetScans.clear();
       _prependNotification(
         kind: NotifKind.custody,
-        title: 'Zimmet onaylandı',
-        body: 'İş ortağı zimmetinden ${items.length} gönderi üstüne alındı.',
+        title: 'İş ortağına teslim edildi',
+        body: '${items.length} gönderi iş ortağına teslim edildi.',
         icon: LucideIcons.package,
         tint: Dg.violetBg,
         ink: Dg.violet,
@@ -940,9 +948,23 @@ class SessionController extends ChangeNotifier {
     if (zimmetScans.isEmpty) return true;
     custodyHandoverPending = true;
     notifyListeners();
+    lastPanelErrorMessage = null;
     try {
+      // Her başarılı okutma hemen listeden düşer; bir kalem hata verirse
+      // tekrar denemede öncekiler yeniden gönderilmez.
       for (final scan in List.of(zimmetScans)) {
-        await client.acceptCustodyScan(scan.code);
+        final key = _custodyAcceptKeys.putIfAbsent(
+          scan.code,
+          Vault.newUuid,
+        );
+        try {
+          await client.acceptCustodyScan(scan.code, idempotencyKey: key);
+        } on PanelApiException catch (e) {
+          if (e.code != 'HANDOVER_ALREADY_ACCEPTED') rethrow;
+        }
+        zimmetScans.removeWhere((e) => e.code == scan.code);
+        _custodyAcceptKeys.remove(scan.code);
+        notifyListeners();
       }
       zimmetScans.clear();
       await Future.wait([loadPanelTasks(), loadCustody()]);
@@ -957,6 +979,9 @@ class SessionController extends ChangeNotifier {
       return true;
     } on PanelApiException catch (e) {
       lastPanelError = e.code;
+      lastPanelErrorMessage = e.serverMessage;
+      // Kabul edilenler görevlere düşsün; kalan okutmalar listede kalır.
+      unawaited(loadPanelTasks());
       notifyListeners();
       return false;
     } finally {
@@ -964,6 +989,9 @@ class SessionController extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  /// Okutma başına sabit Idempotency-Key (tekrar denemede aynı kalır).
+  final _custodyAcceptKeys = <String, String>{};
 
   Future<bool> _completeZimmetTakeover() async {
     for (final scan in List.of(zimmetScans)) {
@@ -1276,32 +1304,34 @@ class SessionController extends ChangeNotifier {
         (n) => n.id.startsWith(_serverNotifPrefix) || n.id.startsWith('demo-'),
       );
       for (final item in remote.reversed) {
-        final rejected = item.category == 'EVIDENCE_REJECTED';
-        final urgent = rejected || item.severity != 'INFO';
         final id = '$_serverNotifPrefix${item.id}';
+        final kind = serverNotifKind(item.category, item.sourceType);
+        final urgent = item.severity != 'INFO';
+        final look = notifLook(kind);
+        // Görev bildiriminde kaynak gönderi kimliği; yoksa görev açılmaz.
+        final taskId = kind == NotifKind.stopAssigned ||
+                kind == NotifKind.stopCancelled ||
+                kind == NotifKind.stopPulled ||
+                kind == NotifKind.slaRisk
+            ? item.sourceId
+            : null;
         notifications.insert(
           0,
           AppNotification(
             id: id,
-            kind: rejected
-                ? NotifKind.photoRejected
-                : urgent
-                ? NotifKind.slaRisk
-                : NotifKind.shift,
+            kind: kind,
             title: item.title.isNotEmpty
                 ? item.title
                 : _notifTitle(item.category),
-            body: item.body,
+            body: readableIsoInText(item.body),
             announcementId: item.announcementId,
             needsAck: item.needsAck,
             createdAt: item.createdAt ?? DateTime.now(),
-            icon: rejected
-                ? LucideIcons.cameraOff
-                : urgent
-                ? LucideIcons.circleAlert
-                : LucideIcons.bell,
-            tint: urgent ? Dg.hiBg : Dg.greenBg,
-            ink: urgent ? Dg.hi : Dg.green,
+            taskId: taskId,
+            icon: look.icon,
+            // Uyarı seviyesindeki bildirim türünden bağımsız kırmızı görünür.
+            tint: urgent ? Dg.hiBg : look.tint,
+            ink: urgent ? Dg.hi : look.ink,
           ),
         );
         if (item.read) _readNotificationIds.add(id);
@@ -2035,6 +2065,9 @@ class SessionController extends ChangeNotifier {
       panelLoggedIn = true;
       demo = true;
       demoLogin = true;
+      // Her demo girişi temiz başlar: önceki denemede teslim edilen
+      // görevler geri gelir, sunumda liste boş kalmaz.
+      tasks.clear();
       _seedDemoData();
       notifyListeners();
       return true;
@@ -2045,22 +2078,34 @@ class SessionController extends ChangeNotifier {
       notifyListeners();
       return false;
     }
+    lastLoginDetail = null;
+    final PanelCourierProfileDto profile;
     try {
-      final profile = await client.login(identifier: id, password: pw);
-      demoLogin = false;
-      await _afterPanelLogin(profile);
-      return true;
+      profile = await client.login(identifier: id, password: pw);
     } on PanelApiException catch (e) {
       lastPanelError = e.code;
+      lastLoginDetail = e.serverMessage ?? e.message;
       loginRemainingAttempts = e.remainingAttempts;
       loginLockedUntil = e.lockedUntil;
       notifyListeners();
       return false;
-    } catch (_) {
+    } catch (e) {
       lastPanelError = 'PANEL_REQUEST_FAILED';
+      lastLoginDetail = '${e.runtimeType}';
+      debugPrint('panel login failed: $e');
       notifyListeners();
       return false;
     }
+    demoLogin = false;
+    // Giriş oldu. Görev/zimmet yüklemesindeki bir hata girişi geri almaz;
+    // ilgili ekranlar kendi hata durumunu gösterir.
+    try {
+      await _afterPanelLogin(profile);
+    } catch (e) {
+      debugPrint('after panel login load failed: $e');
+      notifyListeners();
+    }
+    return true;
   }
 
   /// Şifreli ve SMS'li girişten sonra ortak yükleme.
@@ -2089,6 +2134,7 @@ class SessionController extends ChangeNotifier {
     loginRemainingAttempts = null;
     loginLockedUntil = null;
     agencySelectionOptions = const [];
+    lastLoginDetail = null;
     agencyLoginBusy = true;
     notifyListeners();
     final trimmed = email.trim();
@@ -2133,7 +2179,12 @@ class SessionController extends ChangeNotifier {
       } catch (_) {
         // Yetkiler gelmezse gönderi listesinin kendi `capabilities`'i kullanılır.
       }
-      await branch.refresh();
+      // Giriş oldu; panonun ilk yüklemesi hata verse de içeri alınır.
+      try {
+        await branch.refresh();
+      } catch (e) {
+        debugPrint('agency dashboard load failed: $e');
+      }
       agencyLoginBusy = false;
       phase = AppPhase.subeMain;
       notifyListeners();
@@ -2144,11 +2195,14 @@ class SessionController extends ChangeNotifier {
       loginRemainingAttempts = e.remainingAttempts;
       loginLockedUntil = e.lockedUntil;
       agencySelectionOptions = e.agencies;
+      lastLoginDetail = e.serverMessage ?? e.message;
       notifyListeners();
       return false;
-    } catch (_) {
+    } catch (e) {
       agencyLoginBusy = false;
       lastAgencyError = 'AGENCY_REQUEST_FAILED';
+      lastLoginDetail = '${e.runtimeType}';
+      debugPrint('agency login failed: $e');
       notifyListeners();
       return false;
     }
@@ -4756,6 +4810,116 @@ List<DeliveryTask> _buildDemoTasks() => [
     sequence: 4,
     lat: 38.1460,
     lng: 29.0488,
+  ),
+  DeliveryTask(
+    id: 't6',
+    ref: 'DGO-8846',
+    recipient: 'Ayşe Demir',
+    phone: '+905321110031',
+    address: 'Bahçelievler Mah. Gül Sk. No:3, Güney / Denizli',
+    window: '16:15–16:45',
+    kind: TaskKind.delivery,
+    status: TaskStatus.assigned,
+    otpRequired: true,
+    slaMinutesLeft: 150,
+    merchantName: 'ALİ BAŞEL – PLUXEE',
+    sequence: 5,
+    etaMinutes: 24,
+    lat: 38.153,
+    lng: 29.065,
+  ),
+  DeliveryTask(
+    id: 't7',
+    ref: 'DGO-8847',
+    recipient: 'Can Öztürk',
+    phone: '+905321110032',
+    address: 'Cumhuriyet Mah. Lale Cd. No:17, Güney / Denizli',
+    window: '16:30–17:00',
+    kind: TaskKind.delivery,
+    status: TaskStatus.assigned,
+    isCard: true,
+    otpRequired: true,
+    custodyCount: 1,
+    custodyRef: 'PRD-11231',
+    sequence: 6,
+    etaMinutes: 29,
+    lat: 38.1575,
+    lng: 29.0598,
+  ),
+  DeliveryTask(
+    id: 't8',
+    ref: 'DGO-8848',
+    recipient: 'Selin Kaya',
+    phone: '+905321110033',
+    address: 'Hürriyet Cd. No:41 K:2, Güney / Denizli',
+    window: '17:00–17:30',
+    kind: TaskKind.document,
+    status: TaskStatus.assigned,
+    slaMinutesLeft: -12,
+    sequence: 7,
+    etaMinutes: 35,
+    lat: 38.1498,
+    lng: 29.0701,
+  ),
+  DeliveryTask(
+    id: 't9',
+    ref: 'DGO-8849',
+    recipient: 'Murat Çelik',
+    phone: '+905321110034',
+    address: 'Sanayi Sitesi 4. Blok No:12, Güney / Denizli',
+    window: '17:15–17:45',
+    kind: TaskKind.delivery,
+    status: TaskStatus.assigned,
+    merchantName: 'ALİ BAŞEL – ASSİST',
+    sequence: 8,
+    etaMinutes: 41,
+    lat: 38.1437,
+    lng: 29.0632,
+  ),
+  DeliveryTask(
+    id: 't10',
+    ref: 'DGO-8850',
+    recipient: 'Deniz Yıldız',
+    phone: '+905321110035',
+    address: 'Pazar Yeri Sk. No:6, Güney / Denizli',
+    window: '17:30–18:00',
+    kind: TaskKind.delivery,
+    status: TaskStatus.assigned,
+    otpRequired: true,
+    isCard: true,
+    sequence: 9,
+    etaMinutes: 46,
+    lat: 38.1589,
+    lng: 29.0525,
+  ),
+  DeliveryTask(
+    id: 't11',
+    ref: 'DGO-8851',
+    recipient: 'Emre Aksoy',
+    phone: '+905321110036',
+    address: 'Okul Cd. No:28 D:1, Güney / Denizli',
+    window: '18:00–18:30',
+    kind: TaskKind.delivery,
+    status: TaskStatus.assigned,
+    slaMinutesLeft: 95,
+    sequence: 10,
+    etaMinutes: 52,
+    lat: 38.1466,
+    lng: 29.0569,
+  ),
+  DeliveryTask(
+    id: 't12',
+    ref: 'DGO-8852',
+    recipient: 'Burcu Şen',
+    phone: '+905321110037',
+    address: 'Gazi Mah. Çınar Sk. No:9, Güney / Denizli',
+    window: '18:15–18:45',
+    kind: TaskKind.document,
+    status: TaskStatus.assigned,
+    sequence: 11,
+    etaMinutes: 58,
+    lat: 38.1521,
+    lng: 29.0747,
   ),
 ];
 

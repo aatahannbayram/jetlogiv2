@@ -458,7 +458,7 @@ void main() {
     expect(find.text('İptal nedeni'), findsNothing);
 
     // Tamamlanan ziyarette her soru yanıtlanmadan anket gönderilmez.
-    await _tap(tester, find.text('Ziyareti gönder'));
+    await _tap(tester, find.text('Check-out yap'));
     expect(find.text('Zorunlu soruların hepsini yanıtla.'), findsOneWidget);
     expect(_writes.where((o) => o.path.endsWith('/form')), isEmpty);
     await _tap(tester, find.text('Evet').at(0));
@@ -466,7 +466,7 @@ void main() {
     await _tap(tester, find.text('Evet').at(2));
     await _tap(tester, find.text('Hayır').at(3));
 
-    await _tap(tester, find.text('Ziyareti gönder'));
+    await _tap(tester, find.text('Check-out yap'));
     expect(find.byType(DeliveryResultScreen), findsOneWidget);
     expect(_body('/form')['values'], {
       'PLUXEE_MEMBER': true,
@@ -509,7 +509,7 @@ void main() {
     // Neden ankette hazır seçili gelir.
     expect(find.text('İptal nedeni'), findsOneWidget);
     await _shot(tester, 'visit-fail-survey');
-    await _tap(tester, find.text('Ziyareti gönder'));
+    await _tap(tester, find.text('Check-out yap'));
     expect(find.byType(DeliveryResultScreen), findsOneWidget);
     expect(_body('/form')['values'], {
       'STICKER_APPLIED': false,

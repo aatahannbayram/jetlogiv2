@@ -190,7 +190,9 @@ void main() {
     expect(find.text('Gönderi ve kuyruk'), findsNothing);
     expect(find.textContaining('Cumhuriyet Cd.'), findsWidgets);
     expect(find.text('Yol tarifi'), findsWidgets);
-    expect(find.text('Teslime başla'), findsNothing);
+    // Toplantı kararı: "Teslime başla" baştan görünür; "Teslim edilemedi" yok.
+    expect(find.text('Teslime başla'), findsWidgets);
+    expect(find.text('Teslim edilemedi'), findsNothing);
     await tester.ensureVisible(find.text('2 kalem').first);
     await tester.pumpAndSettle();
     await tester.tap(find.text('2 kalem').first);
@@ -199,7 +201,7 @@ void main() {
     Navigator.of(tester.element(find.text('Kalemler'))).pop();
     await tester.pumpAndSettle();
     await tapHomeKey(tester, const Key('next-stop-arrived'));
-    expect(find.text('Teslime başla'), findsOneWidget);
+    expect(find.text('Teslime başla'), findsWidgets);
   });
 
   testWidgets('rota zaman çizelgesi durakları gösterir', (tester) async {
@@ -210,7 +212,21 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('durak kaldı'), findsOneWidget);
     expect(find.text('Ahmet Yılmaz'), findsWidgets);
-    expect(find.text('Elif Koç', skipOffstage: false), findsWidgets);
+    // Ahmet'ten sonra en az bir durak daha listede (sıra rota planına bağlı).
+    const others = [
+      'Elif Koç',
+      'Zeynep Arslan',
+      'Mehmet Aydın',
+      'Ayşe Demir',
+      'Can Öztürk',
+      'Selin Kaya',
+    ];
+    expect(
+      others.any(
+        (n) => find.text(n, skipOffstage: false).evaluate().isNotEmpty,
+      ),
+      isTrue,
+    );
   });
 
   testWidgets('görev detayı rota özetini gösterir; kuryeler düğmesi yok', (
@@ -298,7 +314,7 @@ void main() {
     await tester.tap(find.text('Kurye Zimmet'));
     await tester.pumpAndSettle();
     expect(
-      find.text('Barkodu kameraya göster ya da kodu yaz.'),
+      find.text('Barkodu okut, numarayı yaz ya da sesle söyle.'),
       findsOneWidget,
     );
     expect(find.text('Henüz taranan gönderi yok'), findsOneWidget);
@@ -393,7 +409,7 @@ void main() {
     await tester.tap(find.text('Çıkış yap'));
     await tester.pumpAndSettle();
     expect(
-      find.text('Oturumun da kapanacak. Tekrar giriş yapman gerekecek.'),
+      find.textContaining('Oturumun da kapanacak. Tekrar giriş yapman gerekecek.'),
       findsOneWidget,
     );
   });

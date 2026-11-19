@@ -47,7 +47,7 @@ class _SubeAssignFlowState extends ConsumerState<SubeAssignFlow> {
     _options = widget.mode == AssignMode.reassign
         ? _branch.reassignOptions(first).then((c) => (couriers: c, ready: true))
         : _branch
-              .courierOptions(first)
+              .courierOptionsFor([for (final r in widget.rows) r.shipmentId])
               .then((o) => (couriers: o.couriers, ready: o.ready));
     // Öneriler (bölge uyumu, aktif iş, varış) yalnız ek bilgidir; gelmezse
     // liste yine çalışır.

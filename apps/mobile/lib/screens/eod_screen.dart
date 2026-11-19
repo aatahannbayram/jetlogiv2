@@ -48,9 +48,9 @@ class EodScreen extends ConsumerWidget {
           Dg.bad,
         ),
         (
-          l.filterBooked,
-          '${c['appointment'] ?? 0}',
-          LucideIcons.calendarClock,
+          l.dashFaultyShort,
+          '${s.photoMistakes?.unacknowledged ?? 0}',
+          LucideIcons.fileWarning,
           Dg.brand,
         ),
         (l.kpiSlaRisk, '${c['overdue'] ?? 0}', LucideIcons.timer, Dg.warn),

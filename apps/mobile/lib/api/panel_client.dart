@@ -524,11 +524,16 @@ class PanelApi {
   }
 
   /// Depodan alım. Okutulan gönderi no, barkod veya takip no.
-  Future<void> acceptCustodyScan(String scanCode) async {
+  /// [idempotencyKey] aynı okutmanın tekrarında aynı kalmalı: sunucu
+  /// `HANDOVER_ALREADY_ACCEPTED` yerine ilk sonucu (`replayed`) döner.
+  Future<void> acceptCustodyScan(
+    String scanCode, {
+    String? idempotencyKey,
+  }) async {
     await _post('/courier-custody/accept', {
       'scanCode': scanCode,
       'scanType': 'AUTO',
-    });
+    }, idempotencyKey: idempotencyKey);
   }
 
   Future<({String mode, String message, String phone, String telUri})>
@@ -1170,6 +1175,8 @@ class PanelApi {
         DateTime? createdAt,
         String? announcementId,
         bool needsAck,
+        String? sourceType,
+        String? sourceId,
       })
     >
   >
@@ -1191,6 +1198,8 @@ class PanelApi {
             needsAck:
                 (row['announcement'] as Map?)?['requiresAck'] == true &&
                 (row['announcement'] as Map?)?['acknowledgedAt'] == null,
+            sourceType: (row['source'] as Map?)?['type'] as String?,
+            sourceId: (row['source'] as Map?)?['id'] as String?,
           ),
     ];
   }

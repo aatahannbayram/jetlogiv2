@@ -178,7 +178,6 @@ class _SubeShipmentsScreenState extends ConsumerState<SubeShipmentsScreen> {
                     DgFilterChip(
                       label: l.filterStatus,
                       value: switch (_flag) {
-                        'booked' => l.filterBooked,
                         'priority' => l.filterPriority,
                         _ => null,
                       },
@@ -188,10 +187,7 @@ class _SubeShipmentsScreenState extends ConsumerState<SubeShipmentsScreen> {
                           context,
                           title: l.filterStatus,
                           allLabel: l.all,
-                          options: [
-                            ('booked', l.filterBooked),
-                            ('priority', l.filterPriority),
-                          ],
+                          options: [('priority', l.filterPriority)],
                           selected: _flag,
                         );
                         if (r.picked && mounted) {
@@ -536,109 +532,137 @@ class ShipmentTile extends StatelessWidget {
       row.district,
       row.addressLine,
     ].where((e) => e.isNotEmpty).join(' · ');
+    final facts = <Widget>[
+      if (row.booked)
+        _Fact(
+          icon: LucideIcons.clock,
+          text: [
+            subeClock(row.windowStart!),
+            if (row.windowEnd != null) subeClock(row.windowEnd!),
+          ].join('–'),
+          color: row.late ? Dg.bad : null,
+        ),
+      if (row.courierName.isNotEmpty)
+        _Fact(icon: LucideIcons.bike, text: row.courierName),
+      if (row.late) DgDotStatus(label: l.filterLate, color: Dg.bad),
+    ];
     return AnimatedContainer(
       duration: DgMotion.quick,
+      clipBehavior: Clip.antiAlias,
       // Seçili satır çerçeve yerine mavi tonla ayrışır.
       decoration: Dg.card(
         radius: 16,
         color: picked
-            ? Color.alphaBlend(Dg.action.withValues(alpha: 0.18), Dg.surface1)
+            ? Color.alphaBlend(Dg.action.withValues(alpha: 0.16), Dg.surface1)
             : null,
       ),
       child: Pressable(
         onTap: onTap,
         onLongPress: onPick,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(4, 12, 12, 12),
+        child: IntrinsicHeight(
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (onPick != null)
-                Semantics(
-                  checked: picked,
-                  label: row.shipmentNumber,
-                  child: GestureDetector(
-                    key: Key('pick-${row.shipmentId}'),
-                    behavior: HitTestBehavior.opaque,
-                    onTap: onPick,
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(8, 2, 10, 8),
-                      child: DgSelectBox(selected: picked),
-                    ),
-                  ),
-                )
-              else
-                const SizedBox(width: 12),
+              // Geciken gönderi solda ince kırmızı şeritle hemen seçilir.
+              Container(
+                width: 3,
+                color: row.late ? Dg.bad : Colors.transparent,
+              ),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ShipmentNumberHero(
-                            row: row,
-                            style: Dg.ui(size: 15, weight: FontWeight.w700),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 12, 14, 12),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (onPick != null)
+                        Semantics(
+                          checked: picked,
+                          label: row.shipmentNumber,
+                          child: GestureDetector(
+                            key: Key('pick-${row.shipmentId}'),
+                            behavior: HitTestBehavior.opaque,
+                            onTap: onPick,
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(6, 0, 10, 8),
+                              child: DgSelectBox(selected: picked),
+                            ),
                           ),
+                        )
+                      else
+                        const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Row(
+                                    children: [
+                                      Flexible(
+                                        child: ShipmentNumberHero(
+                                          row: row,
+                                          style: Dg.ui(
+                                            size: 13,
+                                            weight: FontWeight.w600,
+                                            color: Dg.text3,
+                                          ),
+                                        ),
+                                      ),
+                                      if (row.highPriority) ...[
+                                        const SizedBox(width: 6),
+                                        Tooltip(
+                                          message: l.filterPriority,
+                                          child: Icon(
+                                            LucideIcons.flag,
+                                            size: 13,
+                                            color: Dg.warn,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                ConstrainedBox(
+                                  constraints: const BoxConstraints(
+                                    maxWidth: 150,
+                                  ),
+                                  child: DgDotStatus.of(shipmentStatus(l, row)),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              row.recipientName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Dg.ui(size: 16, weight: FontWeight.w600),
+                            ),
+                            if (place.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 2),
+                                child: Text(
+                                  place,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: caption,
+                                ),
+                              ),
+                            if (facts.isNotEmpty) ...[
+                              const SizedBox(height: 10),
+                              Wrap(
+                                spacing: 14,
+                                runSpacing: 6,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: facts,
+                              ),
+                            ],
+                          ],
                         ),
-                        const SizedBox(width: 8),
-                        DgStatusPill.of(shipmentStatus(l, row), dense: true),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      row.recipientName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Dg.ui(size: 15, weight: FontWeight.w600),
-                    ),
-                    if (place.isNotEmpty)
-                      Text(
-                        place,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: caption,
-                      ),
-                    if (row.courierName.isNotEmpty ||
-                        row.booked ||
-                        row.late ||
-                        row.highPriority) ...[
-                      const SizedBox(height: 6),
-                      Wrap(
-                        spacing: 10,
-                        runSpacing: 4,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          if (row.courierName.isNotEmpty)
-                            _Fact(
-                              icon: LucideIcons.bike,
-                              text: row.courierName,
-                            ),
-                          if (row.booked)
-                            _Fact(
-                              icon: LucideIcons.calendarClock,
-                              text: [
-                                subeClock(row.windowStart!),
-                                if (row.windowEnd != null)
-                                  subeClock(row.windowEnd!),
-                              ].join('–'),
-                            ),
-                          if (row.late)
-                            DgStatusPill(
-                              label: l.filterLate,
-                              tone: DgTone.bad,
-                              dense: true,
-                            ),
-                          if (row.highPriority)
-                            DgStatusPill(
-                              label: l.filterPriority,
-                              tone: DgTone.warn,
-                              dense: true,
-                            ),
-                        ],
                       ),
                     ],
-                  ],
+                  ),
                 ),
               ),
             ],
@@ -650,19 +674,27 @@ class ShipmentTile extends StatelessWidget {
 }
 
 class _Fact extends StatelessWidget {
-  const _Fact({required this.icon, required this.text});
+  const _Fact({required this.icon, required this.text, this.color});
 
   final IconData icon;
   final String text;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 13, color: Dg.text3),
-        const SizedBox(width: 4),
-        Text(text, style: Dg.ui(size: 13, color: Dg.text2)),
+        Icon(icon, size: 14, color: color ?? Dg.text3),
+        const SizedBox(width: 5),
+        Text(
+          text,
+          style: Dg.ui(
+            size: 13,
+            weight: FontWeight.w500,
+            color: color ?? Dg.text2,
+          ),
+        ),
       ],
     );
   }

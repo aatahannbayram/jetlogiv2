@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 /// Keychain / Keystore. Access JWT, refresh, DB passphrase, installationId.
@@ -24,7 +25,7 @@ class Vault {
   static const _refreshExp = 'dg.refresh_exp';
 
   Future<String> databaseKeyHex() async {
-    final existing = await _storage.read(key: _dbKey);
+    final existing = await _read(key: _dbKey);
     if (existing != null && existing.length == 64) return existing;
     final hex = _randomHex(32);
     await _put(_dbKey, hex);
@@ -32,7 +33,7 @@ class Vault {
   }
 
   Future<String> installationId() async {
-    final existing = await _storage.read(key: _install);
+    final existing = await _read(key: _install);
     if (existing != null && existing.length == 36) return existing;
     final id = newUuid();
     await _put(_install, id);
@@ -54,25 +55,65 @@ class Vault {
   /// iOS keychain sometimes returns -25299 (duplicate) on write.
   /// Delete-then-write recovers without blocking boot.
   Future<void> _put(String key, String value) async {
+    if (_memoryOnly) {
+      _memory[key] = value;
+      return;
+    }
     try {
-      await _storage.write(key: key, value: value);
+      await _storage.write(key: key, value: value).timeout(_ioTimeout);
     } catch (_) {
       try {
-        await _storage.delete(key: key);
-      } catch (_) {}
-      await _storage.write(key: key, value: value);
+        await _storage.delete(key: key).timeout(_ioTimeout);
+        await _storage.write(key: key, value: value).timeout(_ioTimeout);
+      } catch (_) {
+        _fallBackToMemory();
+        _memory[key] = value;
+      }
     }
   }
 
-  Future<String?> get accessToken async => _storage.read(key: _access);
+  /// Web'de güvensiz bağlamda (ör. http://192.168.x.x) WebCrypto yoktur ve
+  /// flutter_secure_storage hata verir. Uygulama kilitlenmesin diye o
+  /// oturum boyunca değerler bellekte tutulur (sayfa yenilenince silinir).
+  static const _ioTimeout = Duration(seconds: 4);
+  bool _memoryOnly = false;
+  final Map<String, String> _memory = {};
 
-  Future<String?> get refreshToken async => _storage.read(key: _refresh);
+  void _fallBackToMemory() {
+    if (_memoryOnly) return;
+    _memoryOnly = true;
+    debugPrint('Vault: secure storage unavailable, using memory');
+  }
+
+  Future<String?> _read({required String key}) async {
+    if (_memoryOnly) return _memory[key];
+    try {
+      return await _storage.read(key: key).timeout(_ioTimeout);
+    } catch (_) {
+      _fallBackToMemory();
+      return _memory[key];
+    }
+  }
+
+  Future<void> _delete({required String key}) async {
+    _memory.remove(key);
+    if (_memoryOnly) return;
+    try {
+      await _storage.delete(key: key).timeout(_ioTimeout);
+    } catch (_) {
+      _fallBackToMemory();
+    }
+  }
+
+  Future<String?> get accessToken async => _read(key: _access);
+
+  Future<String?> get refreshToken async => _read(key: _refresh);
 
   Future<void> clearTokens() async {
-    await _storage.delete(key: _access);
-    await _storage.delete(key: _refresh);
-    await _storage.delete(key: _accessExp);
-    await _storage.delete(key: _refreshExp);
+    await _delete(key: _access);
+    await _delete(key: _refresh);
+    await _delete(key: _accessExp);
+    await _delete(key: _refreshExp);
   }
 
   static const _onboard = 'dg.onboard.v2';
@@ -85,12 +126,12 @@ class Vault {
   static const _shiftOpen = 'dg.shift.open';
   static const _shiftStarted = 'dg.shift.started';
 
-  Future<String?> get locale async => _storage.read(key: _locale);
+  Future<String?> get locale async => _read(key: _locale);
 
   Future<void> saveLocale(String value) => _put(_locale, value);
 
   Future<bool?> get darkMode async {
-    final v = await _storage.read(key: _dark);
+    final v = await _read(key: _dark);
     if (v == null) return null;
     return v == '1';
   }
@@ -98,7 +139,7 @@ class Vault {
   Future<void> saveDarkMode(bool value) => _put(_dark, value ? '1' : '0');
 
   Future<bool?> get notifyEnabled async {
-    final v = await _storage.read(key: _notify);
+    final v = await _read(key: _notify);
     if (v == null) return null;
     return v == '1';
   }
@@ -106,35 +147,35 @@ class Vault {
   Future<void> saveNotifyEnabled(bool value) =>
       _put(_notify, value ? '1' : '0');
 
-  Future<String?> get taskWatermark async => _storage.read(key: _taskWatermark);
+  Future<String?> get taskWatermark async => _read(key: _taskWatermark);
 
   Future<void> saveTaskWatermark(String? value) async {
     if (value == null || value.isEmpty) {
-      await _storage.delete(key: _taskWatermark);
+      await _delete(key: _taskWatermark);
     } else {
       await _put(_taskWatermark, value);
     }
   }
 
   Future<bool> get onboardSeen async =>
-      (await _storage.read(key: _onboard)) == '1';
+      (await _read(key: _onboard)) == '1';
 
   Future<void> markOnboardSeen() => _put(_onboard, '1');
 
-  Future<bool> get tipsSeen async => (await _storage.read(key: _tips)) == '1';
+  Future<bool> get tipsSeen async => (await _read(key: _tips)) == '1';
 
   Future<void> markTipsSeen() => _put(_tips, '1');
 
   Future<bool> get subeOnboardSeen async =>
-      (await _storage.read(key: _subeOnboard)) == '1';
+      (await _read(key: _subeOnboard)) == '1';
 
   Future<void> markSubeOnboardSeen() => _put(_subeOnboard, '1');
 
   Future<bool> get shiftIsOpen async =>
-      (await _storage.read(key: _shiftOpen)) == '1';
+      (await _read(key: _shiftOpen)) == '1';
 
   Future<DateTime?> get shiftStartedAt async {
-    final raw = await _storage.read(key: _shiftStarted);
+    final raw = await _read(key: _shiftStarted);
     return raw == null ? null : DateTime.tryParse(raw);
   }
 
@@ -143,7 +184,7 @@ class Vault {
     if (open && startedAt != null) {
       await _put(_shiftStarted, startedAt.toIso8601String());
     } else {
-      await _storage.delete(key: _shiftStarted);
+      await _delete(key: _shiftStarted);
     }
   }
 
@@ -152,16 +193,16 @@ class Vault {
   static const _notifCap = 200;
 
   Future<Set<String>> get readNotificationIds async =>
-      _idSet(await _storage.read(key: _notifRead));
+      _idSet(await _read(key: _notifRead));
 
   Future<Set<String>> get dismissedNotificationIds async =>
-      _idSet(await _storage.read(key: _notifGone));
+      _idSet(await _read(key: _notifGone));
 
-  Future<String?> readSecret(String key) => _storage.read(key: key);
+  Future<String?> readSecret(String key) => _read(key: key);
 
   Future<void> writeSecret(String key, String value) => _put(key, value);
 
-  Future<void> deleteSecret(String key) => _storage.delete(key: key);
+  Future<void> deleteSecret(String key) => _delete(key: key);
 
   Future<void> saveNotificationState({
     required Set<String> readIds,

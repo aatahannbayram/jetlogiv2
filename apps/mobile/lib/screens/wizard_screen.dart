@@ -426,6 +426,34 @@ class _WizardScreenState extends ConsumerState<WizardScreen> {
       if (s.visitRequirements(widget.taskId)?.guided ?? false) {
         return VisitFlowScreen(taskId: widget.taskId);
       }
+      // Ziyaret işinin adımları gelmediyse standart teslime düşme: kapanışta
+      // sunucu PX_STICKER_* ile reddeder. Yeniden denemeyi göster.
+      if (task.isVisit && s.visitRequirements(widget.taskId) == null) {
+        return Scaffold(
+          appBar: AppBar(),
+          body: ListView(
+            children: [
+              DgEmptyState(
+                icon: LucideIcons.wifiOff,
+                title: l.visitStepsFailed,
+                body: l.visitStepsFailedBody,
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 28),
+                child: DgButton(
+                  label: l.retryNow,
+                  icon: LucideIcons.refreshCw,
+                  onPressed: () async {
+                    setState(() => _requirementsReady = false);
+                    await s.loadTaskRequirements(widget.taskId);
+                    if (mounted) setState(() => _requirementsReady = true);
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      }
     }
 
     if (done) {

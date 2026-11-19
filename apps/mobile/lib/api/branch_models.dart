@@ -593,6 +593,31 @@ class DispatchOptions {
   );
 }
 
+/// Birden çok gönderinin seçeneklerini birleştirir: hazır = hepsi hazır,
+/// kurye uygun = hepsinde uygun. İlk listede olmayan kurye düşer.
+DispatchOptions mergeDispatchOptions(List<DispatchOptions> all) {
+  if (all.isEmpty) return const DispatchOptions();
+  final first = all.first;
+  bool everywhere(String id) => all.every(
+    (o) => o.couriers.any((c) => c.id == id && c.eligible),
+  );
+  return DispatchOptions(
+    ready: all.every((o) => o.ready),
+    branchEligible: all.every((o) => o.branchEligible),
+    couriers: [
+      for (final c in first.couriers)
+        if (all.every((o) => o.couriers.any((x) => x.id == c.id)))
+          CourierOption(
+            id: c.id,
+            name: c.name,
+            code: c.code,
+            status: c.status,
+            eligible: everywhere(c.id),
+          ),
+    ],
+  );
+}
+
 class ReasonOption {
   const ReasonOption({required this.code, required this.name});
 

@@ -12,6 +12,7 @@ import '../session.dart';
 import '../shell_nav.dart';
 import '../theme.dart';
 import '../ui/layout.dart' show DgStickyList;
+import '../ui/status.dart' show DgDotStatus;
 import '../widgets.dart';
 import 'courier_header.dart';
 import 'shell_screen.dart' show RouteScreen;
@@ -148,12 +149,7 @@ class _ListScreenState extends ConsumerState<ListScreen> {
               ],
               pinned: filter != null
                   ? Padding(
-                      padding: const EdgeInsets.fromLTRB(
-                        Dg.pagePad,
-                        8,
-                        8,
-                        0,
-                      ),
+                      padding: const EdgeInsets.fromLTRB(Dg.pagePad, 8, 8, 0),
                       child: Row(
                         children: [
                           Expanded(
@@ -171,17 +167,19 @@ class _ListScreenState extends ConsumerState<ListScreen> {
                       ),
                     )
                   : Padding(
-                padding: const EdgeInsets.symmetric(horizontal: Dg.pagePad),
-                child: SegmentedTabs(
-                  labels: [
-                    l.openTab(acik.length),
-                    l.deliveredTab(teslim.length),
-                    l.returnedTab(iade.length),
-                  ],
-                  index: tab,
-                  onChanged: (i) => setState(() => tab = i),
-                ),
-              ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: Dg.pagePad,
+                      ),
+                      child: SegmentedTabs(
+                        labels: [
+                          l.openTab(acik.length),
+                          l.deliveredTab(teslim.length),
+                          l.returnedTab(iade.length),
+                        ],
+                        index: tab,
+                        onChanged: (i) => setState(() => tab = i),
+                      ),
+                    ),
               itemCount: items.length,
               itemBuilder: (context, i) {
                 final item = items[i];
@@ -337,90 +335,139 @@ class _RotaTaskCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = context.l10n;
     final open = task.isOpen;
+    final tone = taskChipTone(task);
+    final statusColor = switch (tone) {
+      'hi' => Dg.bad,
+      'mid' => Dg.warn,
+      'lo' => Dg.ok,
+      'lime' => Dg.plum,
+      'accent' => Dg.brand,
+      _ => Dg.ink3,
+    };
+    final late = open && task.isLate;
+    final meta = open
+        ? [
+            if (travel != null)
+              l.travelLabel(
+                travel!.meters,
+                travel!.minutes,
+                walking: travel!.walking,
+              ),
+            if (task.window.isNotEmpty && task.window != '—') task.window,
+            if (task.custodyCount != null) l.itemsCount(task.custodyCount!),
+            if (task.otpRequired) l.deliveryCode,
+          ]
+        : [
+            if (task.window.isNotEmpty && task.window != '—') task.window,
+            if (task.signed) l.signature,
+            if (task.otpRequired) l.codeShort,
+          ];
     return DgCard(
       onTap: onTap,
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 28,
-            height: 28,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(color: Dg.elev, shape: BoxShape.circle),
-            child: Text(
-              '${visitIndex ?? taskBadgeNumber(task)}',
-              style: Dg.ui(
-                size: 12,
-                weight: FontWeight.w700,
-                color: open ? Dg.ink : Dg.ink3,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  task.recipient,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: Dg.ui(size: 17, weight: FontWeight.w700, height: 1.2),
-                ),
-                if (task.isCard) ...[
-                  const SizedBox(height: 3),
-                  Text(
-                    context.l10n.cardDelivery,
-                    style: Dg.ui(
-                      size: 12,
-                      weight: FontWeight.w700,
-                      color: Dg.brand,
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 3),
-                Text(
-                  task.address,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Dg.ui(size: 13, color: Dg.ink3),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  open
-                      ? [
-                          if (travel != null)
-                            context.l10n.travelLabel(
-                              travel!.meters,
-                              travel!.minutes,
-                              walking: travel!.walking,
+      padding: EdgeInsets.zero,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Geciken durak solda ince kırmızı şeritle ayrışır.
+              Container(width: 3, color: late ? Dg.bad : Colors.transparent),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(11, 14, 14, 14),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 26,
+                        height: 26,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: open ? Dg.text1 : Dg.elev,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Text(
+                          '${visitIndex ?? taskBadgeNumber(task)}',
+                          style: Dg.ui(
+                            size: 12,
+                            weight: FontWeight.w700,
+                            color: open ? Dg.surface1 : Dg.ink3,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    task.recipient,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Dg.ui(
+                                      size: 16,
+                                      weight: FontWeight.w600,
+                                      height: 1.25,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 3),
+                                  child: DgDotStatus(
+                                    label: taskChipLabel(task, l),
+                                    color: statusColor,
+                                  ),
+                                ),
+                              ],
                             ),
-                          task.window,
-                          if (task.custodyCount != null)
-                            l.itemsCount(task.custodyCount!),
-                          if (task.otpRequired) l.deliveryCode,
-                        ].join('  ·  ')
-                      : [
-                          task.window,
-                          if (task.signed) l.signature,
-                          if (task.otpRequired) l.codeShort,
-                        ].join('  ·  '),
-                  style: Dg.ui(size: 13, color: Dg.ink3),
+                            if (task.serviceName != null || task.isCard) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                task.serviceName ?? l.cardDelivery,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Dg.ui(
+                                  size: 12.5,
+                                  weight: FontWeight.w600,
+                                  color: Dg.brand,
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 3),
+                            Text(
+                              task.address,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Dg.ui(size: 13, color: Dg.ink3),
+                            ),
+                            if (meta.isNotEmpty) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                meta.join('  ·  '),
+                                maxLines: 2,
+                                style: Dg.ui(
+                                  size: 13,
+                                  weight: FontWeight.w500,
+                                  color: Dg.ink2,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 10),
-                StatusChip(
-                  label: taskChipLabel(task, context.l10n),
-                  tone: taskChipTone(task),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: DgIcon(LucideIcons.chevronRight, size: 18, color: Dg.ink3),
-          ),
-        ],
+        ),
       ),
     );
   }

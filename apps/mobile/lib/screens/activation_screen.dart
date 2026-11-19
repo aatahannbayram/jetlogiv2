@@ -96,6 +96,12 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
   }
 
   Future<void> _sendSms(L10n l) async {
+    // Boş numarayla sunucuya gitme: API 400 VALIDATION_ERROR döner ve
+    // ekranda yanlış ("Kod 6 haneli olmalı") mesaj çıkar.
+    if (_phone.text.trim().isEmpty) {
+      setState(() => _error = l.loginPhoneRequired);
+      return;
+    }
     setState(() => _error = null);
     final ok = await ref
         .read(sessionProvider)
@@ -113,6 +119,10 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
   }
 
   Future<void> _loginPanel(L10n l) async {
+    if (_identifier.text.trim().isEmpty || _password.text.isEmpty) {
+      setState(() => _error = l.loginFieldsRequired);
+      return;
+    }
     setState(() {
       _panelBusy = true;
       // Giriş sonrası veriler yüklenirken "kayıtlı oturum" kartı araya
@@ -139,7 +149,10 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
                 code,
                 remainingAttempts: s.loginRemainingAttempts,
                 lockedUntil: s.loginLockedUntil,
-                fallback: l.loginFailed,
+                fallback: l.loginFailedWith(
+                  s.lastLoginDetail ?? l.loginFailed,
+                  code,
+                ),
               ),
       );
       return;
@@ -149,6 +162,11 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
 
   Future<void> _loginBranch() async {
     final s = ref.read(sessionProvider);
+    if (_identifier.text.trim().isEmpty || _password.text.isEmpty) {
+      setState(() => _error = context.l10n.loginFieldsRequired);
+      return;
+    }
+    setState(() => _error = null);
     final ok = await s.loginAsAgency(
       email: normalizeIdentifier(_identifier.text),
       password: _password.text,
@@ -272,10 +290,13 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
             session.lastAgencyError,
             remainingAttempts: session.loginRemainingAttempts,
             lockedUntil: session.loginLockedUntil,
-            fallback: l.subeLoginFailed,
+            fallback: l.loginFailedWith(
+              session.lastLoginDetail ?? l.subeLoginFailed,
+              session.lastAgencyError,
+            ),
           )
         : null;
-    final error = _branch ? agencyError : _error;
+    final error = _branch ? agencyError ?? _error : _error;
     return LayoutBuilder(
       builder: (context, c) {
         final w = c.maxWidth.clamp(0.0, 540.0);
@@ -971,9 +992,17 @@ class _ActivationScreenState extends ConsumerState<ActivationScreen> {
                 session.lastAgencyError,
                 remainingAttempts: session.loginRemainingAttempts,
                 lockedUntil: session.loginLockedUntil,
-                fallback: l.subeLoginFailed,
+                fallback: l.loginFailedWith(
+              session.lastLoginDetail ?? l.subeLoginFailed,
+              session.lastAgencyError,
+            ),
               ),
             ),
+          if (_branch &&
+              _error != null &&
+              (session.lastAgencyError == null ||
+                  session.lastAgencyError == 'AGENCY_SELECTION_REQUIRED'))
+            _ErrorText(_error!),
           if (!_branch && _error != null)
             _error == l.waitToResend
                 ? _Countdown(

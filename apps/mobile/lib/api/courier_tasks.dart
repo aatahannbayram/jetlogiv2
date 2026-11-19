@@ -298,7 +298,7 @@ DeliveryTask deliveryTaskFromPanel(PanelCourierTaskDto row) {
     window: _slotWindow(row.plannedDeliveryAt, null),
     kind: TaskKind.delivery,
     status: status,
-    note: row.statusReasonCode,
+    // Ham durum kodu ("4021") kuryeye not olarak gösterilmez.
     sequence: 0,
     etaMinutes: _etaMinutes(row.plannedDeliveryAt),
     // Eksi değer = planlanan saat geçti; listede "Gecikti" görünür.
@@ -312,6 +312,9 @@ DeliveryTask deliveryTaskFromPanel(PanelCourierTaskDto row) {
     wireStatus: row.statusCode,
     merchantName: row.customerDisplayName,
     isCard: row.isCardDelivery,
+    serviceName: row.serviceName ?? row.productName,
+    plannedAt: DateTime.tryParse(row.plannedDeliveryAt ?? '')?.toLocal(),
+    isVisit: isVisitMarker(row.productCode, row.serviceType),
   );
 }
 
@@ -335,4 +338,10 @@ int? _etaMinutes(String? iso) {
   if (t == null) return null;
   final m = t.difference(DateTime.now()).inMinutes;
   return m < 0 ? 0 : m;
+}
+
+/// Ürün/hizmet kodu ziyaret işi mi (gereksinimler yüklenmeden de bilinir).
+bool isVisitMarker(String? productCode, String? serviceType) {
+  final raw = '${productCode ?? ''} ${serviceType ?? ''}'.toUpperCase();
+  return raw.contains('STICKER') || raw.contains('VISIT');
 }

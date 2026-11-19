@@ -123,40 +123,62 @@ class DgKpiTile extends StatelessWidget {
             suffix: suffix,
             style: Dg.stat(size: 24, weight: FontWeight.w700, color: Dg.text1),
           );
+    // Renk yalnız dikkat isteyen kutuda: sıfırsa sönük, uyarı/sorun
+    // tonunda ve sıfırdan büyükse ikon ve sayı o renkte.
+    final zero = value == 0;
+    final alerting =
+        !zero && value != null && (tone == DgTone.warn || tone == DgTone.bad);
+    final accent = alerting ? dgToneColor(tone) : null;
     return Semantics(
       button: onTap != null,
       label: '$label: ${value ?? '—'}$suffix',
       excludeSemantics: true,
       child: DgPanel(
         onTap: onTap,
-        padding: const EdgeInsets.fromLTRB(12, 12, 10, 12),
-        child: Row(
+        padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            DgIconBadge(icon: icon, tone: tone, size: 40),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: number,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 1),
+                  child: Icon(icon, size: 15, color: accent ?? Dg.text3),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
                     label,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: Dg.ui(
                       size: 14,
                       weight: FontWeight.w500,
-                      color: Dg.text2,
+                      color: Dg.text3,
                       height: 1.2,
-                    ).copyWith(fontSize: 13),
+                    ).copyWith(fontSize: 12.5),
                   ),
-                ],
-              ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: value == null
+                  ? number
+                  : CountUp(
+                      value!,
+                      suffix: suffix,
+                      style: Dg.stat(
+                        size: 26,
+                        weight: FontWeight.w700,
+                        color: accent ??
+                            (zero ? Dg.text3 : Dg.text1),
+                      ),
+                    ),
             ),
           ],
         ),

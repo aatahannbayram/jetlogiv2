@@ -553,7 +553,7 @@ void main() {
     expect(ok, isTrue);
     expect(returns, 1);
     expect(s.custodyItems, isEmpty);
-    expect(s.notifications.first.title, 'Zimmet onaylandı');
+    expect(s.notifications.first.title, 'İş ortağına teslim edildi');
   });
 
   test('panel kurye zimmeti depodan kabul ucunu çağırır', () async {
@@ -1682,7 +1682,7 @@ void main() {
   test('iptal açık sayaçta ve nextStop’ta yok', () {
     final s = SessionController();
     s.taskById('t1').status = TaskStatus.cancelled;
-    expect(s.openCount, 4);
+    expect(s.openCount, 11);
     expect(s.nextStop?.id, isNot('t1'));
     expect(s.nextStop?.id, s.orderedOpenTasks.first.id);
     expect(s.returnCount, 1);

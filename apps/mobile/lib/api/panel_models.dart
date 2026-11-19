@@ -56,6 +56,8 @@ class PanelCourierTaskDto {
     this.productCode,
     this.serviceType,
     this.customerCode,
+    this.serviceName,
+    this.productName,
   });
 
   final String id;
@@ -84,6 +86,8 @@ class PanelCourierTaskDto {
   final String? productCode;
   final String? serviceType;
   final String? customerCode;
+  final String? serviceName;
+  final String? productName;
 
   factory PanelCourierTaskDto.fromJson(Map<String, dynamic> json) {
     final destination = json['destination'] as Map?;
@@ -117,6 +121,8 @@ class PanelCourierTaskDto {
           _code(json['serviceCode']) ??
           _code(json['service']),
       customerCode: customer == null ? null : _code(customer['code']),
+      serviceName: _name(json['service']),
+      productName: _name(json['product']),
     );
   }
 
@@ -125,6 +131,14 @@ class PanelCourierTaskDto {
     serviceType: serviceType,
     customerCode: customerCode,
   );
+}
+
+String? _name(Object? raw) {
+  if (raw is Map) {
+    final n = raw['name'];
+    if (n is String && n.trim().isNotEmpty) return n.trim();
+  }
+  return null;
 }
 
 String? _code(Object? raw) {

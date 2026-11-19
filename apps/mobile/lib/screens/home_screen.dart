@@ -20,6 +20,7 @@ import 'shell_screen.dart' show RouteScreen;
 import 'support_screen.dart';
 import 'sync_screen.dart';
 import 'training_screen.dart';
+import 'zimmet_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -67,6 +68,64 @@ class HomeScreen extends ConsumerWidget {
                         ),
                       _Greeting(session: s),
                       const SizedBox(height: 14),
+                      // Şube kuryeye gönderi atadıysa ilk iş okutup kabul
+                      // etmek: kabul edilmeden görev listesi boş görünür.
+                      if ((s.courierCounts['pendingCustody'] ?? 0) > 0) ...[
+                        Pressable(
+                          key: const Key('home-pending-custody'),
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const ZimmetScreen(mode: 'kurye'),
+                            ),
+                          ),
+                          child: Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: Dg.ok.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: Dg.ok),
+                            ),
+                            child: Row(
+                              children: [
+                                DgIcon(
+                                  LucideIcons.scanLine,
+                                  size: 24,
+                                  color: Dg.ok,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        l.pendingCustodyTitle(
+                                          s.courierCounts['pendingCustody']!,
+                                        ),
+                                        style: Dg.ui(
+                                          size: 15,
+                                          weight: FontWeight.w700,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        l.pendingCustodyBody,
+                                        style: Dg.ui(size: 13, color: Dg.ink2),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                DgIcon(
+                                  LucideIcons.chevronRight,
+                                  size: 18,
+                                  color: Dg.ink3,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
                       if (s.pendingMandatoryTrainings > 0) ...[
                         Pressable(
                           onTap: () => Navigator.of(context).push(
@@ -113,8 +172,17 @@ class HomeScreen extends ConsumerWidget {
                       ],
                       _HomeDashboard(
                         session: s,
-                        onOpen: (filter) =>
-                            ref.read(shellNavProvider).openList(filter),
+                        onOpen: (filter) {
+                          if (filter == 'faulty') {
+                            Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => const MistakesScreen(),
+                              ),
+                            );
+                            return;
+                          }
+                          ref.read(shellNavProvider).openList(filter);
+                        },
                       ),
                       const SizedBox(height: 18),
                       const _QuickActions(),
@@ -501,7 +569,12 @@ class _Greeting extends StatelessWidget {
             color: Dg.surface2,
             border: Border.all(color: Dg.plum, width: 1.5),
           ),
-          child: DgIcon(LucideIcons.user, size: 24, color: Dg.warn, weight: 500),
+          child: DgIcon(
+            LucideIcons.user,
+            size: 24,
+            color: Dg.warn,
+            weight: 500,
+          ),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -510,7 +583,7 @@ class _Greeting extends StatelessWidget {
             children: [
               Text(
                 first.isEmpty ? l.homeHello : l.homeHelloName(first),
-                maxLines: 1,
+                maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: Dg.ui(size: 18, weight: FontWeight.w700),
               ),
@@ -587,11 +660,13 @@ class _HomeDashboard extends StatelessWidget {
         LucideIcons.package,
         Dg.warn,
       ),
+      // Toplantı kararı: "Randevulu" yerine kontrolde eksik/hatalı
+      // bulunan işler (reddedilen fotoğraf ve evrak). Dokununca Hatalarım.
       (
-        'appointment',
-        l.dashAppointment,
-        session.shownDash('appointment', 'appointment'),
-        LucideIcons.calendar,
+        'faulty',
+        l.dashFaultyShort,
+        session.photoMistakes?.unacknowledged ?? 0,
+        LucideIcons.fileWarning,
         Dg.plum,
       ),
       (
@@ -638,9 +713,13 @@ class _HomeDashboard extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Expanded(child: _DashTile(tile: tiles[i], onOpen: onOpen)),
+                Expanded(
+                  child: _DashTile(tile: tiles[i], onOpen: onOpen),
+                ),
                 const SizedBox(width: 10),
-                Expanded(child: _DashTile(tile: tiles[i + 1], onOpen: onOpen)),
+                Expanded(
+                  child: _DashTile(tile: tiles[i + 1], onOpen: onOpen),
+                ),
               ],
             ),
           ),
@@ -653,7 +732,11 @@ class _HomeDashboard extends StatelessWidget {
 }
 
 class _DashTile extends StatelessWidget {
-  const _DashTile({required this.tile, required this.onOpen, this.wide = false});
+  const _DashTile({
+    required this.tile,
+    required this.onOpen,
+    this.wide = false,
+  });
 
   final (String, String, int, IconData, Color) tile;
   final ValueChanged<String> onOpen;
@@ -662,10 +745,37 @@ class _DashTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (filter, label, value, icon, color) = tile;
-    final alert = (filter == 'overdue' || filter == 'failed') && value > 0;
+    // Renk yalnız dikkat isteyen kutuda: gecikme, olmayan teslim, eksik.
+    final alert =
+        (filter == 'overdue' || filter == 'failed' || filter == 'faulty') &&
+        value > 0;
+    final accent = alert ? (filter == 'faulty' ? Dg.warn : Dg.bad) : null;
     final number = CountUp(
       value,
-      style: Dg.stat(size: wide ? 24 : 26, color: alert ? Dg.bad : Dg.ink),
+      style: Dg.stat(
+        size: wide ? 24 : 28,
+        weight: FontWeight.w700,
+        color: accent ?? (value == 0 ? Dg.ink3 : Dg.ink),
+      ),
+    );
+    final head = Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 1),
+          child: DgIcon(icon, size: 15, color: accent ?? Dg.ink3),
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            label,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: Dg.ui(size: 13, weight: FontWeight.w500, color: Dg.ink2),
+          ),
+        ),
+        DgIcon(LucideIcons.chevronRight, size: 16, color: Dg.ink3),
+      ],
     );
     return Semantics(
       button: true,
@@ -675,47 +785,33 @@ class _DashTile extends StatelessWidget {
         onTap: () => onOpen(filter),
         child: Container(
           constraints: const BoxConstraints(minHeight: 64),
-          padding: const EdgeInsets.fromLTRB(12, 12, 8, 12),
-          decoration: BoxDecoration(
-            color: Dg.surface1,
-            borderRadius: BorderRadius.circular(14),
+          padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+          decoration: Dg.card(radius: 16).copyWith(
             border: Border.all(
-              color: alert ? Dg.bad.withValues(alpha: 0.5) : Dg.hairline,
+              color: alert ? accent!.withValues(alpha: 0.45) : Dg.cardEdge,
             ),
           ),
-          child: Row(
-            children: [
-              DgIcon(icon, size: 26, color: color, weight: 500),
-              const SizedBox(width: 12),
-              Expanded(
-                child: wide
-                    ? Text(
+          child: wide
+              ? Row(
+                  children: [
+                    DgIcon(icon, size: 16, color: Dg.ink3),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
                         label,
-                        style: Dg.ui(size: 15, weight: FontWeight.w600),
-                      )
-                    : Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            label,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: Dg.ui(
-                              size: 13,
-                              weight: FontWeight.w600,
-                              color: Dg.ink2,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          number,
-                        ],
+                        style: Dg.ui(size: 14, weight: FontWeight.w600),
                       ),
-              ),
-              if (wide) ...[number, const SizedBox(width: 6)],
-              DgIcon(LucideIcons.chevronRight, size: 18, color: Dg.ink3),
-            ],
-          ),
+                    ),
+                    number,
+                    const SizedBox(width: 6),
+                    DgIcon(LucideIcons.chevronRight, size: 16, color: Dg.ink3),
+                  ],
+                )
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [head, const SizedBox(height: 6), number],
+                ),
         ),
       ),
     );
@@ -729,9 +825,9 @@ class _QuickActions extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l = context.l10n;
-    void push(Widget page) => Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => page),
-    );
+    void push(Widget page) =>
+        Navigator.of(context)
+            .push(MaterialPageRoute<void>(builder: (_) => page));
     final items = <(IconData, String, VoidCallback, Color)>[
       (
         LucideIcons.listTodo,
@@ -760,10 +856,7 @@ class _QuickActions extends ConsumerWidget {
           children: [
             DgIcon(LucideIcons.zap, size: 18, color: Dg.warn, weight: 600),
             const SizedBox(width: 6),
-            Text(
-              l.homeQuick,
-              style: Dg.ui(size: 16, weight: FontWeight.w700),
-            ),
+            Text(l.homeQuick, style: Dg.ui(size: 16, weight: FontWeight.w700)),
           ],
         ),
         const SizedBox(height: 10),

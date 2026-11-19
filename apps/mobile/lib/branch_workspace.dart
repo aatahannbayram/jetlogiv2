@@ -1336,6 +1336,22 @@ class BranchWorkspace {
     return api!.fetchDispatchOptions(shipmentId);
   }
 
+  /// Çoklu seçim: uygunluk her gönderi için sorulur. Kurye ancak hepsine
+  /// uygunsa "bölgesinde" görünür; biri hazır değilse seçim hazır değildir.
+  /// Yalnız ilk gönderiye bakınca atama sonradan 409 ile reddediliyordu.
+  Future<DispatchOptions> courierOptionsFor(List<String> shipmentIds) async {
+    if (shipmentIds.length <= 1 || demo) {
+      return courierOptions(shipmentIds.first);
+    }
+    final all = <DispatchOptions>[];
+    // Sunucuyu boğmamak için 6'lı gruplar.
+    for (var i = 0; i < shipmentIds.length; i += 6) {
+      final batch = shipmentIds.skip(i).take(6);
+      all.addAll(await Future.wait(batch.map(courierOptions)));
+    }
+    return mergeDispatchOptions(all);
+  }
+
   /// Dağıtımdaki gönderi için kurye listesi (mevcut kurye hariç).
   Future<List<CourierOption>> reassignOptions(String shipmentId) async {
     if (demo) return kSubeDemoOptions.couriers;

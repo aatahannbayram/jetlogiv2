@@ -72,6 +72,52 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _confirmLogout(BuildContext context, SessionController s) async {
+    // Vardiya açıkken çıkış: vardiya 12 saat sonra sunucuda kendiliğinden
+    // kapanıyor ve kuryeye uyarı bildirimi düşüyordu. Önce kapatmayı öner.
+    if (s.shiftOpen) {
+      final l = context.l10n;
+      final close = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(l.logout),
+          content: Text(
+            s.panelLoggedIn
+                ? '${l.logoutShiftOpenBody}\n\n${l.logoutPanelBody}'
+                : l.logoutShiftOpenBody,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text(l.cancel),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: Text(l.logoutKeepShift),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: Text(
+                l.logoutCloseShift,
+                style: TextStyle(color: Dg.hi),
+              ),
+            ),
+          ],
+        ),
+      );
+      if (close == null || !context.mounted) return;
+      if (close) {
+        final error = await s.closeShiftChecked();
+        if (error != null) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context)
+                .showSnackBar(SnackBar(content: Text(error)));
+          }
+          return;
+        }
+      }
+      await s.logout();
+      return;
+    }
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(

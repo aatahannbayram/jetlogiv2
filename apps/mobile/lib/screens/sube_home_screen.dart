@@ -248,25 +248,21 @@ class _BranchCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = context.l10n;
     return ClipRRect(
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(18),
       child: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF16205A), Dg.navy],
-          ),
+        // Düz lacivert yüzey; dalga ve geçiş kaldırıldı.
+        decoration: BoxDecoration(
+          color: Dg.navy,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: Dg.cardEdge),
         ),
         child: Stack(
           children: [
-            const Positioned.fill(
-              child: BrandWave(alignment: Alignment.bottomRight),
-            ),
             Padding(
               padding: const EdgeInsets.all(14),
               child: Row(
                 children: [
-                  const DijigooMark(size: 36),
+                  const DijigooMark(size: 30),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -368,7 +364,7 @@ class _KpiGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Sayı (24) + iki satır etiket (13) ≈ 62 px içerik, 24 px dolgu.
-    final height = 24 + MediaQuery.textScalerOf(context).scale(62);
+    final height = 24 + MediaQuery.textScalerOf(context).scale(66);
     return Column(
       children: [
         for (var i = 0; i < tiles.length; i += 2)

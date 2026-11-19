@@ -14,7 +14,6 @@ import '../next_stop.dart';
 import '../session.dart';
 import '../theme.dart';
 import '../widgets.dart';
-import 'return_screen.dart';
 import 'task_detail_screen.dart';
 import 'wizard_screen.dart';
 
@@ -265,7 +264,7 @@ class _NextStopCardState extends ConsumerState<NextStopCard> {
                 if (appt != null)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-                    child: _ApptPill(window: appt),
+                    child: _ApptPill(window: appt, at: task.plannedAt),
                   ),
                 const SizedBox(height: 14),
                 Padding(
@@ -274,17 +273,18 @@ class _NextStopCardState extends ConsumerState<NextStopCard> {
                     duration: const Duration(milliseconds: 200),
                     child: _SolidCta(
                       key: const Key('next-stop-cta'),
-                      label: phase == NextStopPhase.arrived
-                          ? l.startDelivery
-                          : l.directions,
-                      icon: phase == NextStopPhase.arrived
-                          ? LucideIcons.packageCheck
-                          : LucideIcons.arrowRight,
-                      ember: phase != NextStopPhase.arrived,
+                      // Toplantı kararı: önce "Teslime başla", sonra "Ara".
+                      // Ziyaret işlerinde başlangıç adımı check-in'dir.
+                      label: task.isVisit ||
+                              (s.visitRequirements(task.id)?.guided ?? false)
+                          ? l.checkIn
+                          : l.startDelivery,
+                      icon: LucideIcons.packageCheck,
+                      ember: false,
                       color: Dg.ok,
                       onTap: () {
                         HapticFeedback.mediumImpact();
-                        if (phase == NextStopPhase.arrived) {
+                        {
                           final nav = Navigator.of(context);
                           final messenger = ScaffoldMessenger.of(context);
                           final warn = context.l10n.startNeedsLocation;
@@ -301,8 +301,6 @@ class _NextStopCardState extends ConsumerState<NextStopCard> {
                               ),
                             );
                           });
-                        } else {
-                          openDirections(context, task);
                         }
                       },
                     ),
@@ -334,7 +332,7 @@ class _NextStopCardState extends ConsumerState<NextStopCard> {
                           const SizedBox(width: 8),
                         ],
                         Expanded(
-                          flex: 4,
+                          flex: 5,
                           child: _Ghost(
                             icon: LucideIcons.phone,
                             label: s.canPlaceMaskedCall ||
@@ -348,16 +346,11 @@ class _NextStopCardState extends ConsumerState<NextStopCard> {
                         ),
                         const SizedBox(width: 8),
                         Expanded(
-                          flex: 6,
+                          flex: 5,
                           child: _Ghost(
-                            icon: LucideIcons.circleX,
-                            label: l.couldNotDeliverShort,
-                            danger: true,
-                            onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) => ReturnScreen(taskId: task.id),
-                              ),
-                            ),
+                            icon: LucideIcons.navigation,
+                            label: l.directions,
+                            onTap: () => openDirections(context, task),
                           ),
                         ),
                       ],
@@ -477,8 +470,9 @@ class _MapShot extends StatelessWidget {
 }
 
 class _ApptPill extends StatefulWidget {
-  const _ApptPill({required this.window});
+  const _ApptPill({required this.window, this.at});
   final AppointmentWindow window;
+  final DateTime? at;
 
   @override
   State<_ApptPill> createState() => _ApptPillState();
@@ -512,14 +506,15 @@ class _ApptPillState extends State<_ApptPill> {
     final l = context.l10n;
     final danger = _left != null && _left! < 45;
     final ink = danger ? Dg.bad : Dg.warn;
-    final clock = widget.window.label.toUpperCase();
+    final clock = plannedDateLabel(widget.at, l) ??
+        widget.window.label.toUpperCase();
     final text = danger && _left != null
-        ? '${l.appointment.toUpperCase()} $clock · ${_left! < 0
+        ? '${l.dueLabel.toUpperCase()} $clock · ${_left! < 0
               ? l.minutesLate(-_left!)
               : _left == 0
               ? l.timeIsUp
               : l.minutesLeft(_left!)}'
-        : '${l.appointment.toUpperCase()} $clock';
+        : '${l.dueLabel.toUpperCase()} $clock';
     return Align(
       alignment: Alignment.centerLeft,
       child: Row(
@@ -551,9 +546,19 @@ class _MetaLine extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = context.l10n;
     // Wrap: büyük yazı ayarında kalem sayısı alt satıra iner, taşmaz.
+    final service = task.serviceName;
     return Wrap(
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
+        if (service != null) ...[
+          Text(
+            service,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Dg.ui(size: 14, weight: FontWeight.w600, color: Dg.ink),
+          ),
+          Text(' · ', style: Dg.ui(size: 14, color: Dg.text2)),
+        ],
         Text(
           task.ref,
           maxLines: 1,
@@ -618,7 +623,6 @@ class _Ghost extends StatelessWidget {
     required this.onTap,
     this.label,
     this.icon,
-    this.danger = false,
     this.positive = false,
   });
 
@@ -626,7 +630,6 @@ class _Ghost extends StatelessWidget {
   final bool positive;
 
   /// Olumsuz işlem (teslim edilemedi): kırmızı yazı ve ikon, kırmızımsı zemin.
-  final bool danger;
   final VoidCallback onTap;
   final String? label;
   final IconData? icon;
@@ -658,9 +661,7 @@ class _Ghost extends StatelessWidget {
                 DgIcon(
                   icon!,
                   size: 20,
-                  color: danger
-                      ? Dg.bad
-                      : positive
+                  color: positive
                       ? Dg.ok
                       : Dg.ink2,
                 ),
@@ -675,9 +676,7 @@ class _Ghost extends StatelessWidget {
                     size: 13,
                     weight: FontWeight.w600,
                     height: 1.15,
-                    color: danger
-                        ? Dg.bad
-                        : positive
+                    color: positive
                         ? Dg.ok
                         : null,
                   ),

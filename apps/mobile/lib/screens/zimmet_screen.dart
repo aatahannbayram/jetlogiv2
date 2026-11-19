@@ -86,8 +86,16 @@ class _ZimmetScreenState extends ConsumerState<ZimmetScreen> {
     final ok = await s.completeZimmet();
     if (!context.mounted) return;
     if (!ok) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(l.handoverFailed)));
+      final detail = s.lastPanelErrorMessage;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            detail == null || detail.isEmpty
+                ? l.handoverFailed
+                : '${l.handoverFailed}\n$detail',
+          ),
+        ),
+      );
       return;
     }
     if (mode == 'sube') {

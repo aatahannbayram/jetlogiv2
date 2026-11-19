@@ -823,11 +823,10 @@ class _NextStopPanel extends ConsumerWidget {
           stopHasCoordinates: task.hasCoordinates,
         ) ??
         legMeters;
-    final kind = task.isCard
-        ? l.cardDelivery
-        : (task.window.isNotEmpty && task.window != '—')
-        ? l.dashAppointment
-        : l.standardDelivery;
+    // Hizmet tipi panelden gelir (ör. "Pluxee Sticker Dağıtımı").
+    final kind =
+        task.serviceName ??
+        (task.isCard ? l.cardDelivery : l.standardDelivery);
     Future<void> setOff() async {
       final messenger = ScaffoldMessenger.of(context);
       final warn = l.startNeedsLocation;
@@ -908,8 +907,11 @@ class _NextStopPanel extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(999),
                     border: Border.all(color: Dg.stroke),
                   ),
+                  constraints: const BoxConstraints(maxWidth: 150),
                   child: Text(
                     kind,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: Dg.ui(size: 12, weight: FontWeight.w600),
                   ),
                 ),
